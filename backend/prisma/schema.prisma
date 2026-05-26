@@ -1,0 +1,16 @@
+// Generador de Prisma Client para TypeScript
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Configuración del origen de datos - SQL Server
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+// Modelo dummy para habilitar la generación del cliente Prisma
+// necesario para ejecutar Stored Procedures y Raw Queries.
+model Dummy {
+  id Int @id @default(autoincrement())
+}

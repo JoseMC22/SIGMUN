@@ -1,0 +1,97 @@
+@import "tailwindcss";
+
+@theme {
+  --font-outfit: var(--font-outfit), sans-serif;
+  --font-inter: var(--font-inter), sans-serif;
+
+  --color-sat-navy: #002855;
+  --color-sat-cyan: #00A9E0;
+  --color-clean-white: #F8FAFC;
+  --color-slate-deep: #0F172A;
+
+  --animate-arrow-up: arrow-up 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-fade-in: fade-in 0.8s ease-out forwards;
+  --animate-slide-up: slide-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-pulse-slow: pulse-slow 12s infinite alternate;
+
+  @keyframes arrow-up {
+    0% {
+      transform: translate(-15px, 15px);
+      opacity: 0;
+    }
+    100% {
+      transform: translate(0, 0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes fade-in {
+    0% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slide-up {
+    0% {
+      transform: translateY(20px);
+      opacity: 0;
+    }
+    100% {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes pulse-slow {
+    0% {
+      opacity: 0.3;
+      transform: scale(1) translate(0px, 0px);
+    }
+    50% {
+      opacity: 0.7;
+      transform: scale(1.1) translate(20px, -15px);
+    }
+    100% {
+      opacity: 0.3;
+      transform: scale(1) translate(0px, 0px);
+    }
+  }
+}
+
+:root {
+  --background: #F8FAFC;
+  --foreground: #002855;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0F172A;
+    --foreground: #F8FAFC;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-inter), sans-serif;
+  overflow-x: hidden;
+}
+
+/* Clases de Glassmorphic para la Opción 2 */
+.glass-card {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.dark .glass-card {
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
