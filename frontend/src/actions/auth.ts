@@ -1,7 +1,10 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { login as apiLogin, LoginResponse } from "@/lib/api";
+import { login as apiLogin } from "@/lib/api";
+
+const AUTH_COOKIE_NAME = 'SIGMUN_AUTH';
+const LEGACY_AUTH_COOKIE_NAME = 'access_token';
 
 /**
  * Server Action para manejar la autenticación.
@@ -27,15 +30,12 @@ export async function loginAction(formData: FormData) {
     // Si el backend nos envió una cookie, la replicamos en el navegador del cliente
     if (setCookie) {
       const cookieStore = await cookies();
-      
-      // Parseamos la cookie básica (access_token=...; HttpOnly; ...)
-      // En un caso real más complejo usaríamos una librería como 'cookie'
-      const tokenMatch = setCookie.match(/access_token=([^;]+)/);
+      const tokenMatch = setCookie.match(/(?:SIGMUN_AUTH|access_token)=([^;]+)/);
       if (tokenMatch) {
-        cookieStore.set("access_token", tokenMatch[1], {
+        cookieStore.set(AUTH_COOKIE_NAME, tokenMatch[1], {
           httpOnly: true,
           secure: process.env.NODE_ENV === "production",
-          sameSite: "strict",
+          sameSite: "lax",
           maxAge: 8 * 60 * 60, // 8 horas
           path: "/",
         });
@@ -55,10 +55,33 @@ export async function loginAction(formData: FormData) {
 }
 
 /**
+ * Action que verifica el estado de sesión en el backend.
+ * Devuelve el estado autorizado y los datos de usuario si la sesión es válida.
+ */
+export async function checkSessionAction() {
+  const apiBase = process.env.NEXT_PUBLIC_API_URL ?? '/api';
+  const response = await fetch(`${apiBase}/auth/session`, {
+    method: 'GET',
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    return { authenticated: false, user: null };
+  }
+
+  const data = await response.json();
+  return {
+    authenticated: data?.authenticated === true,
+    user: data?.user ?? null,
+  };
+}
+
+/**
  * Server Action para cerrar sesión.
  */
 export async function logoutAction() {
   const cookieStore = await cookies();
-  cookieStore.delete("access_token");
+  cookieStore.delete(AUTH_COOKIE_NAME);
+  cookieStore.delete(LEGACY_AUTH_COOKIE_NAME);
   return { success: true };
 }

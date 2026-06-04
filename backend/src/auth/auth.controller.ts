@@ -5,79 +5,128 @@ import {
   HttpCode,
   HttpStatus,
   BadRequestException,
+  UnauthorizedException,
   UseGuards,
   Request,
+  Get,
   Res,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { AuthService } from './auth.service';
-import { loginSchema, LoginDto, LoginResponse } from './dto/auth.dto';
+import {
+  LoginDto,
+  LoginSuccessResponse,
+  LogoutSuccessResponse,
+  SessionCheckResponse,
+  JwtPayload,
+  AuthErrorResponse,
+} from './dto/auth.dto';
+import { loginRequestSchema } from './schemas';
 import { ZodError } from 'zod';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+
+const COOKIE_NAME = 'SIGMUN_AUTH';
+const SESSION_COOKIE_MAX_AGE_MS = 8 * 60 * 60 * 1000;
+
+function getAuthCookieOptions() {
+  const isProduction = process.env.NODE_ENV === 'production';
+  return {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: 'lax' as const,
+    path: '/',
+    maxAge: SESSION_COOKIE_MAX_AGE_MS,
+  };
+}
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  /**
-   * POST /auth/login
-   * Autentica al usuario y establece una cookie HttpOnly con el JWT.
-   */
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(
     @Body() body: unknown,
     @Res({ passthrough: true }) response: Response,
-  ): Promise<LoginResponse> {
-    // Validación del cuerpo con Zod
+  ): Promise<LoginSuccessResponse> {
     let dto: LoginDto;
     try {
-      dto = loginSchema.parse(body);
+      dto = loginRequestSchema.parse(body);
     } catch (error: unknown) {
       if (error instanceof ZodError) {
-        const messages = error.issues.map((issue: { message: string }) => issue.message).join(', ');
-        throw new BadRequestException(messages);
+        const messages = error.issues.map((issue) => issue.message).join(', ');
+        throw new BadRequestException({
+          authenticated: false,
+          errorCode: 'AUTH_CONTRACT_MISMATCH',
+          message: messages,
+        } as AuthErrorResponse);
       }
-      throw new BadRequestException('Datos de entrada inválidos.');
+      throw new BadRequestException({
+        authenticated: false,
+        errorCode: 'AUTH_CONTRACT_MISMATCH',
+        message: 'Datos de entrada inválidos.',
+      } as AuthErrorResponse);
     }
 
-    const { accessToken, response: authResponse } = await this.authService.login(dto);
+    try {
+      const { accessToken, response: authResponse } = await this.authService.login(dto);
 
-    // Configuración de la cookie HttpOnly
-    response.cookie('access_token', accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production', // Solo HTTPS en producción
-      sameSite: 'strict', // Previene CSRF
-      maxAge: 8 * 60 * 60 * 1000, // 8 horas
-      path: '/',
-    });
+      response.cookie(COOKIE_NAME, accessToken, getAuthCookieOptions());
+      return authResponse;
+    } catch (error: unknown) {
+      if (error instanceof UnauthorizedException) {
+        throw new UnauthorizedException({
+          authenticated: false,
+          errorCode: 'AUTH_INVALID_CREDENTIALS',
+          message: 'Invalid credentials',
+        } as AuthErrorResponse);
+      }
 
-    return authResponse;
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
+      throw error;
+    }
   }
 
-  /**
-   * POST /auth/logout
-   * Limpia la cookie y la sesión en caché.
-   */
+  @UseGuards(JwtAuthGuard)
+  @Get('session')
+  async session(
+    @Request() req: { user: JwtPayload },
+  ): Promise<SessionCheckResponse> {
+    return {
+      authenticated: true,
+      user: {
+        id: req.user.sub,
+        name: req.user.name,
+        roles: req.user.roles,
+      },
+    };
+  }
+
   @UseGuards(JwtAuthGuard)
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   async logout(
     @Request() req: { user: { sub: string; username: string } },
     @Res({ passthrough: true }) response: Response,
-  ): Promise<{ message: string }> {
+  ): Promise<LogoutSuccessResponse> {
     const { sub, username } = req.user;
-    
     await this.authService.logout(sub, username);
 
-    // Limpiar la cookie
+    response.clearCookie(COOKIE_NAME, {
+      ...getAuthCookieOptions(),
+      maxAge: 0,
+    });
     response.clearCookie('access_token', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      path: '/',
+      ...getAuthCookieOptions(),
+      maxAge: 0,
     });
 
-    return { message: 'Sesión cerrada correctamente.' };
+    return {
+      success: true,
+      message: 'Sesión cerrada correctamente.',
+    };
   }
 }
