@@ -1,22 +1,17 @@
 import { z } from 'zod';
+import {
+  authErrorSchema,
+  loginRequestSchema,
+  loginSuccessSchema,
+  logoutSuccessSchema,
+  sessionCheckSuccessSchema,
+} from '../schemas';
 
-/**
- * Esquema de validación Zod para el cuerpo del request de login.
- * Aplica reglas mínimas de seguridad antes de invocar el SP.
- */
-export const loginSchema = z.object({
-  username: z
-    .string({ message: 'El usuario es obligatorio.' })
-    .min(3, 'El usuario debe tener al menos 3 caracteres.')
-    .max(100),
-  password: z
-    .string({ message: 'La contraseña es obligatoria.' })
-    .min(1, 'La contraseña no puede estar vacía.')
-    .max(200),
-});
-
-/** Tipo inferido del esquema de login */
-export type LoginDto = z.infer<typeof loginSchema>;
+export type LoginDto = z.infer<typeof loginRequestSchema>;
+export type LoginSuccessResponse = z.infer<typeof loginSuccessSchema>;
+export type LogoutSuccessResponse = z.infer<typeof logoutSuccessSchema>;
+export type AuthErrorResponse = z.infer<typeof authErrorSchema>;
+export type SessionCheckResponse = z.infer<typeof sessionCheckSuccessSchema>;
 
 /**
  * Interfaz que tipifica estrictamente las columnas devueltas
@@ -45,28 +40,12 @@ export interface SpLoginResult {
  * Solo incluye los datos necesarios (principio de mínimo privilegio).
  */
 export interface JwtPayload {
-  sub: string;       // id_usuario como subject estándar JWT
-  username: string;  // vlogin
-  profileId: string; // id_perfil
+  sub: string;        // id_usuario como subject estándar JWT
+  username: string;   // vlogin
+  name: string;       // nombre completo
+  roles: string[];    // roles derivados del perfil
+  profileId: string;  // id_perfil
   profileName: string; // nomb_perfil
-  areaName: string;  // nomb_area
-  areaId: string;    // area
-}
-
-/**
- * Interfaz de la respuesta exitosa del endpoint POST /auth/login
- * El token se envía vía HttpOnly cookie por seguridad.
- */
-export interface LoginResponse {
-  user: {
-    id: string;
-    username: string;
-    fullName: string;
-    profileId: string;
-    profileName: string;
-    areaId: string;
-    areaName: string;
-    isEncargado: string;
-    isRemoto: boolean | null;
-  };
+  areaName: string;    // nomb_area
+  areaId: string;      // area
 }

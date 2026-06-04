@@ -11,14 +11,15 @@ import { Cache } from 'cache-manager';
 import { DatabaseService } from '../database/database.service';
 import {
   LoginDto,
+  LoginSuccessResponse,
   SpLoginResult,
   JwtPayload,
-  LoginResponse,
 } from './dto/auth.dto';
+
+const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 
 @Injectable()
 export class AuthService {
-  /** Logger con el nombre del servicio para trazabilidad en consola */
   private readonly logger = new Logger(AuthService.name);
 
   constructor(
@@ -27,36 +28,27 @@ export class AuthService {
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
-  /**
-   * Autentica al usuario ejecutando el SP legacy [Acceso].[sp_LogOut].
-   * @param dto - Credenciales validadas por Zod
-   * @returns Token JWT (para cookie) y datos del usuario autenticado
-   */
-  async login(dto: LoginDto): Promise<{ accessToken: string; response: LoginResponse }> {
+  async login(
+    dto: LoginDto,
+  ): Promise<{ accessToken: string; response: LoginSuccessResponse }> {
     try {
-      // Ejecución del Stored Procedure usando mssql
-      const result = await this.db.executeProcedure<SpLoginResult>(
-        '[Acceso].[sp_LogOut]',
-        {
-          buscar: 1,
-          parametro: dto.username,
-          password: dto.password,
-        },
-      );
+      const result = await this.db.executeProcedure<SpLoginResult>('[Acceso].[sp_LogOut]', {
+        buscar: 1,
+        parametro: dto.email,
+        password: dto.password,
+      });
 
       const spResult = result.recordset;
-
-      // Validamos que el SP haya devuelto al menos un registro
       if (!spResult || spResult.length === 0) {
         throw new UnauthorizedException('Usuario o contraseña incorrectos.');
       }
 
       const userData = spResult[0];
-
-      // Construimos el payload que irá firmado dentro del JWT (sin password ni datos sensibles)
       const payload: JwtPayload = {
         sub: userData.id_usuario,
         username: userData.vlogin,
+        name: userData.nombre,
+        roles: [userData.nomb_perfil],
         profileId: userData.id_perfil,
         profileName: userData.nomb_perfil,
         areaId: userData.area,
@@ -64,30 +56,20 @@ export class AuthService {
       };
 
       const accessToken = await this.jwtService.signAsync(payload);
-
-      // Almacenamos la sesión en caché para mayor seguridad (logout global, invalidación)
-      // Key: session:<userId>, Value: payload
-      await this.cacheManager.set(`session:${userData.id_usuario}`, payload, 28800000); // 8 horas
+      await this.cacheManager.set(`session:${userData.id_usuario}`, payload, SESSION_TTL_MS);
 
       this.logger.log(
         `Inicio de sesión exitoso: usuario=${userData.vlogin} | perfil=${userData.nomb_perfil}`,
       );
 
-      // Respuesta estructurada SIN el token (se enviará por cookie)
       return {
         accessToken,
         response: {
-          user: {
-            id: userData.id_usuario,
-            username: userData.vlogin,
-            fullName: userData.nombre,
-            profileId: userData.id_perfil,
-            profileName: userData.nomb_perfil,
-            areaId: userData.area,
-            areaName: userData.nomb_area,
-            isEncargado: userData.encargado,
-            isRemoto: userData.remoto,
-          },
+          authenticated: true,
+          userId: userData.id_usuario,
+          email: userData.vlogin,
+          sessionExpiresAt: new Date(Date.now() + SESSION_TTL_MS).toISOString(),
+          message: 'Inicio de sesión exitoso.',
         },
       };
     } catch (error) {
@@ -99,17 +81,9 @@ export class AuthService {
     }
   }
 
-  /**
-   * Cierra la sesión del usuario.
-   * Invalida la caché y ejecuta el SP [Acceso].[sp_LogOut].
-   * @param userId - ID del usuario
-   * @param username - Nombre de usuario
-   */
   async logout(userId: string, username: string): Promise<void> {
     try {
-      // Invalida la sesión en caché
       await this.cacheManager.del(`session:${userId}`);
-
       await this.db.executeProcedure('[Acceso].[sp_LogOut]', {
         buscar: 1,
         parametro: username,
@@ -122,9 +96,6 @@ export class AuthService {
     }
   }
 
-  /**
-   * Verifica si una sesión es válida en la caché.
-   */
   async validateSession(userId: string): Promise<boolean> {
     const session = await this.cacheManager.get(`session:${userId}`);
     return !!session;
