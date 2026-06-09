@@ -8,13 +8,13 @@ import {
   clearAuth,
 } from "@/lib/api";
 import { loginAction, logoutAction } from "@/actions/auth";
+import { useRef } from "react";
 
 export default function LoginPage() {
   const router = useRouter();
 
   // Estados del formulario
   const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   
@@ -23,11 +23,11 @@ export default function LoginPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [loginSuccess, setLoginSuccess] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
 
   // Limpiar estados al cancelar
   const handleClear = () => {
     setUsername("");
-    setPassword("");
     setErrorMessage("");
     setLoginSuccess(false);
   };
@@ -43,7 +43,8 @@ export default function LoginPage() {
     e.preventDefault();
     setErrorMessage("");
 
-    if (!username.trim() || !password.trim()) {
+    const passwordValue = passwordRef.current?.value ?? "";
+    if (!username.trim() || !passwordValue.trim()) {
       setErrorMessage("Por favor, ingrese su usuario y contraseña.");
       return;
     }
@@ -54,15 +55,22 @@ export default function LoginPage() {
       // Usamos FormData para que Next.js maneje el envío de forma segura vía Server Action
       const formData = new FormData();
       formData.append("username", username);
-      // Obfscamos la contraseña en el cliente para que no sea legible en la pestaña Payload del navegador
-      formData.append("password", btoa(password));
+      formData.append("password", btoa(passwordValue));
 
       const result = await loginAction(formData);
+
+      // Borrar contraseña del estado inmediatamente después de usarla
+      if (passwordRef.current) {
+        passwordRef.current.value = "";
+      }
 
       if (result.success && result.user) {
         storeAuth(result.user);
         setCurrentUser(result.user);
         setLoginSuccess(true);
+
+        // Marca esta pestaña como "logueada" — sessionStorage se borra al cerrar la pestaña
+        sessionStorage.setItem("sigmun_session", "1");
 
         setTimeout(() => {
           router.push("/dashboard");
@@ -223,8 +231,7 @@ export default function LoginPage() {
                       id="password-1"
                       type={showPassword ? "text" : "password"}
                       disabled={isLoading || loginSuccess}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      ref={passwordRef}
                       placeholder="••••••••"
                       className="block w-full pl-11 pr-12 py-3 bg-slate-50 border border-slate-200 dark:bg-slate-900 dark:border-slate-700/80 rounded-xl text-sm placeholder-slate-400 dark:text-slate-100 dark:placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/35 focus:border-sat-cyan transition-all duration-200 disabled:opacity-50"
                     />
