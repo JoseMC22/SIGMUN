@@ -6,11 +6,11 @@ export interface LoginRequest {
 }
 
 export interface LoginResponse {
-  accessToken: string;
+  authenticated: true;
   user: {
     id: string;
     username: string;
-    fullName: string;
+    name: string;
     profileId: string;
     profileName: string;
     areaId: string;
@@ -18,6 +18,8 @@ export interface LoginResponse {
     isEncargado: string;
     isRemoto: boolean | null;
   };
+  sessionExpiresAt: string;
+  message?: string;
 }
 
 export interface ApiError {
@@ -78,6 +80,49 @@ export function storeAuth(user: LoginResponse['user']): void {
 
 export function clearAuth(): void {
   localStorage.removeItem('user');
+  if (typeof window !== 'undefined') {
+    sessionStorage.removeItem('sigmun_session');
+  }
+}
+
+export interface MenuModuleData {
+  id: string;
+  title: string;
+}
+
+export interface MenuSubmenuData {
+  id: string;
+  title: string;
+  path: string;
+  icon: string;
+  form: string;
+}
+
+export async function fetchModules(): Promise<MenuModuleData[]> {
+  const response = await fetch(`${API_BASE_URL}/menu/modules`, {
+    credentials: 'include',
+  });
+  if (!response.ok) throw new ApiRequestError('Error al cargar módulos', response.status);
+  const data = await response.json();
+  return data.modules as MenuModuleData[];
+}
+
+export async function fetchAllowedPaths(): Promise<string[]> {
+  const response = await fetch(`${API_BASE_URL}/menu/all`, {
+    credentials: 'include',
+  });
+  if (!response.ok) throw new ApiRequestError('Error al verificar permisos', response.status);
+  const data = await response.json();
+  return data.paths as string[];
+}
+
+export async function fetchSubmenus(moduleId: string): Promise<MenuSubmenuData[]> {
+  const response = await fetch(`${API_BASE_URL}/menu/modules/${encodeURIComponent(moduleId)}/submenus`, {
+    credentials: 'include',
+  });
+  if (!response.ok) throw new ApiRequestError('Error al cargar submenús', response.status);
+  const data = await response.json();
+  return data.submenus as MenuSubmenuData[];
 }
 
 export class ApiRequestError extends Error {

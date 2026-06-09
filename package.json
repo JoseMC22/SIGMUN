@@ -1,4 +1,14 @@
 {
+	"scripts": {
+		"dev:frontend": "cd frontend && pnpm dev",
+		"dev:backend": "cd backend && pnpm start:dev",
+		"build:frontend": "cd frontend && pnpm build",
+		"build:backend": "cd backend && pnpm build",
+		"build": "pnpm build:frontend && pnpm build:backend",
+		"lint": "pnpm --filter frontend lint && pnpm --filter backend lint",
+		"test": "pnpm --filter frontend test && pnpm --filter backend test",
+		"dev": "pnpm dev:frontend & pnpm dev:backend"
+	},
 	"devDependencies": {
 		"vitest": "^4.1.8",
 		"@testing-library/react": "^16.3.2",
