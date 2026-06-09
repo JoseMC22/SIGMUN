@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -13,6 +14,10 @@ const nextConfig: NextConfig = {
     process.env.DEV_ALLOWED_ORIGIN ?? 'http://192.168.3.244:3000',
     process.env.DEV_ALLOWED_ORIGIN_HOST ?? '192.168.3.244'
   ],
+  // Silence Turbopack workspace root warning in monorepo
+  turbopack: {
+    root: path.resolve(__dirname, '..')
+  }
 };
 
 export default nextConfig;

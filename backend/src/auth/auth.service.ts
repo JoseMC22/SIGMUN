@@ -16,7 +16,7 @@ import {
   JwtPayload,
 } from './dto/auth.dto';
 
-const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
+const INACTIVITY_TTL_MS = 20 * 60 * 1000; // 20 minutos sin actividad → sesión expira
 
 @Injectable()
 export class AuthService {
@@ -34,7 +34,7 @@ export class AuthService {
     try {
       const result = await this.db.executeProcedure<SpLoginResult>('[Acceso].[sp_LogOut]', {
         buscar: 1,
-        parametro: dto.email,
+        parametro: dto.username,
         password: dto.password,
       });
 
@@ -56,7 +56,7 @@ export class AuthService {
       };
 
       const accessToken = await this.jwtService.signAsync(payload);
-      await this.cacheManager.set(`session:${userData.id_usuario}`, payload, SESSION_TTL_MS);
+      await this.cacheManager.set(`session:${userData.id_usuario}`, payload, INACTIVITY_TTL_MS);
 
       this.logger.log(
         `Inicio de sesión exitoso: usuario=${userData.vlogin} | perfil=${userData.nomb_perfil}`,
@@ -66,9 +66,18 @@ export class AuthService {
         accessToken,
         response: {
           authenticated: true,
-          userId: userData.id_usuario,
-          email: userData.vlogin,
-          sessionExpiresAt: new Date(Date.now() + SESSION_TTL_MS).toISOString(),
+          user: {
+            id: userData.id_usuario,
+            username: userData.vlogin,
+            name: userData.nombre,
+            profileId: userData.id_perfil,
+            profileName: userData.nomb_perfil,
+            areaId: userData.area,
+            areaName: userData.nomb_area,
+            isEncargado: userData.cajero,
+            isRemoto: userData.remoto,
+          },
+          sessionExpiresAt: new Date(Date.now() + INACTIVITY_TTL_MS).toISOString(),
           message: 'Inicio de sesión exitoso.',
         },
       };
@@ -98,6 +107,10 @@ export class AuthService {
 
   async validateSession(userId: string): Promise<boolean> {
     const session = await this.cacheManager.get(`session:${userId}`);
-    return !!session;
+    if (!session) return false;
+
+    // Sliding expiration: cada request autenticado refresca el TTL a 20min
+    await this.cacheManager.set(`session:${userId}`, session, INACTIVITY_TTL_MS);
+    return true;
   }
 }

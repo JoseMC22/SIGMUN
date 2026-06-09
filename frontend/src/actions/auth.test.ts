@@ -37,7 +37,12 @@ describe("auth actions", () => {
     mockedCookies.mockResolvedValue({ set: setCookieMock });
 
     mockedApiLogin.mockResolvedValue({
-      data: { user: expectedUser, accessToken: "token" },
+      data: {
+        authenticated: true,
+        user: expectedUser,
+        sessionExpiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
+        message: 'Inicio de sesión exitoso.',
+      },
       setCookie: "access_token=abc123; HttpOnly; Path=/",
     });
 
