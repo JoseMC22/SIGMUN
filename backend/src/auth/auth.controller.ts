@@ -33,7 +33,7 @@ function getAuthCookieOptions() {
   return {
     httpOnly: true,
     secure: isProduction,
-    sameSite: 'lax' as const,
+    sameSite: isProduction ? 'strict' as const : 'lax' as const,
     path: '/',
     maxAge: SESSION_COOKIE_MAX_AGE_MS,
   };

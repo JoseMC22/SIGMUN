@@ -1,10 +1,10 @@
 import { z } from 'zod';
 
 export const loginRequestSchema = z.object({
-  email: z
-    .string({ message: 'El correo electrónico es obligatorio.' })
+  username: z
+    .string({ message: 'El usuario es obligatorio.' })
     .trim()
-    .email('El correo electrónico debe ser válido.'),
+    .min(1, 'El usuario no puede estar vacío.'),
   password: z
     .string({ message: 'La contraseña es obligatoria.' })
     .min(1, 'La contraseña no puede estar vacía.')
@@ -13,8 +13,17 @@ export const loginRequestSchema = z.object({
 
 export const loginSuccessSchema = z.object({
   authenticated: z.literal(true),
-  userId: z.string(),
-  email: z.string().email(),
+  user: z.object({
+    id: z.string(),
+    username: z.string(),
+    name: z.string(),
+    profileId: z.string(),
+    profileName: z.string(),
+    areaId: z.string(),
+    areaName: z.string(),
+    isEncargado: z.string(),
+    isRemoto: z.boolean().nullable(),
+  }),
   sessionExpiresAt: z.string(),
   message: z.string().optional(),
 });
