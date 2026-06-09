@@ -5,6 +5,19 @@ import { login as apiLogin } from "@/lib/api";
 
 const AUTH_COOKIE_NAME = 'SIGMUN_AUTH';
 const LEGACY_AUTH_COOKIE_NAME = 'access_token';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
+
+async function authFetch(path: string, options?: RequestInit) {
+  const cookieStore = await cookies();
+  const authCookie = cookieStore.get(AUTH_COOKIE_NAME);
+  const headers: Record<string, string> = {
+    ...(options?.headers as Record<string, string>),
+  };
+  if (authCookie) {
+    headers['Cookie'] = `${AUTH_COOKIE_NAME}=${authCookie.value}`;
+  }
+  return fetch(`${API_BASE}${path}`, { ...options, headers });
+}
 
 /**
  * Server Action para manejar la autenticación.
@@ -19,7 +32,6 @@ export async function loginAction(formData: FormData) {
     return { success: false, error: "Usuario y contraseña son obligatorios." };
   }
 
-  // Decodificamos la contraseña que viene ofuscada del cliente
   const password = Buffer.from(base64Password, 'base64').toString('utf-8');
 
   try {
@@ -35,8 +47,7 @@ export async function loginAction(formData: FormData) {
         cookieStore.set(AUTH_COOKIE_NAME, tokenMatch[1], {
           httpOnly: true,
           secure: process.env.NODE_ENV === "production",
-          sameSite: "lax",
-          maxAge: 8 * 60 * 60, // 8 horas
+          sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
           path: "/",
         });
       }
@@ -59,27 +70,32 @@ export async function loginAction(formData: FormData) {
  * Devuelve el estado autorizado y los datos de usuario si la sesión es válida.
  */
 export async function checkSessionAction() {
-  const apiBase = process.env.NEXT_PUBLIC_API_URL ?? '/api';
-  const response = await fetch(`${apiBase}/auth/session`, {
-    method: 'GET',
-    credentials: 'include',
-  });
+  try {
+    const response = await authFetch('/auth/session', { method: 'GET', cache: 'no-store' });
 
-  if (!response.ok) {
+    if (!response.ok) {
+      return { authenticated: false, user: null };
+    }
+
+    const data = await response.json();
+    return {
+      authenticated: data?.authenticated === true,
+      user: data?.user ?? null,
+    };
+  } catch {
     return { authenticated: false, user: null };
   }
-
-  const data = await response.json();
-  return {
-    authenticated: data?.authenticated === true,
-    user: data?.user ?? null,
-  };
 }
 
 /**
  * Server Action para cerrar sesión.
  */
 export async function logoutAction() {
+  try {
+    await authFetch('/auth/logout', { method: 'POST' });
+  } catch {
+    // Si el backend no responde, igual limpiamos la cookie local
+  }
   const cookieStore = await cookies();
   cookieStore.delete(AUTH_COOKIE_NAME);
   cookieStore.delete(LEGACY_AUTH_COOKIE_NAME);
