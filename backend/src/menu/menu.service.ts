@@ -55,14 +55,14 @@ export class MenuService {
     try {
       const result = await this.db.executeProcedure<SpMenuSubmoduleResult>(
         '[Acceso].[sp_LogOut]',
-        { buscar: 5, parametro: moduleId, password: vlogin },
+        { buscar: 8, parametro: moduleId, password: vlogin },
       );
 
       const records = result.recordset ?? [];
       const submenus = records.map((row) => ({
         id: row.id_acceso.trim(),
         title: row.nombre.trim(),
-        path: row.doform?.trim() ?? '',
+        path: row.doform2?.trim() ?? '',
         icon: row.icono?.trim() ?? '',
         form: row.formulario?.trim() ?? '',
       }));
