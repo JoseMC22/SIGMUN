@@ -7,6 +7,7 @@ export interface SpMenuSubmoduleResult {
   id_acceso: string;
   nombre: string;
   doform: string;
+  doform2: string;
   icono: string;
   formulario: string;
 }

@@ -7,6 +7,7 @@ import { AppService } from './app.service';
 import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './auth/auth.module';
 import { MenuModule } from './menu/menu.module';
+import { SeguridadModule } from './seguridad/seguridad.module';
 
 @Module({
   imports: [
@@ -42,6 +43,8 @@ import { MenuModule } from './menu/menu.module';
     AuthModule,
     // Módulo de menú dinámico
     MenuModule,
+    // Módulo de seguridad
+    SeguridadModule,
   ],
   controllers: [AppController],
   providers: [AppService],
