@@ -207,6 +207,14 @@ export class UsuariosService {
     return { success: true, message: 'Usuario eliminado correctamente' };
   }
 
+  async crearCaja(caja: string): Promise<{ success: boolean; message: string }> {
+    await this.db.executeProcedure(
+      '[Acceso].[sp_TblUsuarios]',
+      { busc: '19', caja },
+    );
+    return { success: true, message: 'Caja creada correctamente' };
+  }
+
   async cambiarClave(dto: CambiarClaveDto): Promise<{ success: boolean; message: string }> {
     await this.db.executeProcedure(
       '[Acceso].[sp_TblUsuarios]',

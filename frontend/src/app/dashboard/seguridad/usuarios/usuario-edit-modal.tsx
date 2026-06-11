@@ -103,6 +103,7 @@ function hasErrors(errors: FormErrors): boolean {
 // ── Component ────────────────────────────────────────────
 
 export default function UsuarioEditModal({ isOpen, userId, onClose, onSaved }: Props) {
+  const isEditing = !!userId;
   const [form, setForm] = useState<FormData>(EMPTY_FORM);
   const [errors, setErrors] = useState<FormErrors>({});
   const [areas, setAreas] = useState<AreaOption[]>([]);
@@ -174,12 +175,12 @@ export default function UsuarioEditModal({ isOpen, userId, onClose, onSaved }: P
   }, []);
 
   useEffect(() => {
-    if (isOpen && userId) {
+    if (isOpen) {
       setForm(EMPTY_FORM);
       setErrors({});
       setFetchError(null);
       setSaveError(null);
-      loadUserDetail(userId);
+      if (userId) loadUserDetail(userId);
     }
   }, [isOpen, userId, loadUserDetail]);
 
@@ -208,6 +209,7 @@ export default function UsuarioEditModal({ isOpen, userId, onClose, onSaved }: P
     setSaveError(null);
     try {
       const res = await updateUsuarioAction({
+        busc: isEditing ? '2' : '1',
         id_usuario: form.id_usuario,
         nombres: form.nombres,
         apellidos: form.apellidos,
@@ -310,7 +312,7 @@ export default function UsuarioEditModal({ isOpen, userId, onClose, onSaved }: P
             <div className="flex items-center gap-2">
               <div className="w-0.5 h-4 bg-sat-cyan rounded-full" />
               <h2 className="text-sm font-bold text-white font-outfit tracking-tight">
-                Editar Usuario
+                {isEditing ? "Editar Usuario" : "Nuevo Usuario"}
               </h2>
             </div>
             <button
@@ -368,7 +370,7 @@ export default function UsuarioEditModal({ isOpen, userId, onClose, onSaved }: P
                       </label>
                       <input
                         type="text"
-                        value={form.id_usuario}
+                        value={form.id_usuario || "—"}
                         readOnly
                         className="w-full rounded-md border border-slate-300 bg-slate-100 px-2 py-1.5 text-[11px] text-slate-500 cursor-not-allowed"
                       />
@@ -508,14 +510,16 @@ export default function UsuarioEditModal({ isOpen, userId, onClose, onSaved }: P
                               : "border-slate-300 focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20"
                           }`}
                         />
-                        <button
-                          type="button"
-                          onClick={openPassModal}
-                          className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-800"
-                        >
-                          <KeyRound size={12} />
-                          Generar Clave
-                        </button>
+                        {isEditing && (
+                          <button
+                            type="button"
+                            onClick={openPassModal}
+                            className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-800"
+                          >
+                            <KeyRound size={12} />
+                            Generar Clave
+                          </button>
+                        )}
                       </div>
                       {errors.vlogin && (
                         <p className="mt-0.5 text-[9px] text-red-500">{errors.vlogin}</p>

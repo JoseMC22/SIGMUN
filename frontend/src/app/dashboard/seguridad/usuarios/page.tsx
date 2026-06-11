@@ -13,6 +13,7 @@ import {
   AlertTriangle,
   RotateCcw,
   Loader2,
+  Plus,
 } from "lucide-react";
 import {
   searchUsuariosAction,
@@ -21,6 +22,7 @@ import {
   eliminarUsuarioAction,
 } from "@/actions/usuarios";
 import UsuarioEditModal from "./usuario-edit-modal";
+import CajaModal from "./caja-modal";
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -129,6 +131,7 @@ export default function UsuariosPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [showCajaModal, setShowCajaModal] = useState(false);
 
   // Load areas and perfiles on mount
   useEffect(() => {
@@ -168,6 +171,23 @@ export default function UsuariosPage() {
     },
     [filters, pageSize],
   );
+
+  const handleNewClick = useCallback(() => {
+    setEditUserId(null);
+    setShowEditModal(true);
+  }, []);
+
+  const handleCajaClick = useCallback(() => {
+    setShowCajaModal(true);
+  }, []);
+
+  const handleCajaClose = useCallback(() => {
+    setShowCajaModal(false);
+  }, []);
+
+  const handleCajaSaved = useCallback(() => {
+    executeSearch(page);
+  }, [executeSearch, page]);
 
   const handleEditClick = useCallback((id: string) => {
     setEditUserId(id);
@@ -566,10 +586,29 @@ export default function UsuariosPage() {
 
       {renderSearchForm()}
 
-      {/* Results info */}
+      {/* Results info + actions */}
       {!loading && !error && !initialLoading && data.length > 0 && (
         <div className="flex items-center justify-between">
           {renderResultsBar()}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleNewClick}
+              className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
+            >
+              <Plus size={14} />
+              Nuevo Usuario
+            </button>
+            <button
+              type="button"
+              onClick={handleCajaClick}
+              className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-sat-cyan/30 active:scale-[0.98]"
+            >
+              <Plus size={14} />
+              Nueva Caja
+            </button>
+            
+          </div>
         </div>
       )}
 
@@ -657,6 +696,13 @@ export default function UsuariosPage() {
         userId={editUserId}
         onClose={handleEditClose}
         onSaved={handleEditSaved}
+      />
+
+      {/* Nueva Caja modal */}
+      <CajaModal
+        isOpen={showCajaModal}
+        onClose={handleCajaClose}
+        onSaved={handleCajaSaved}
       />
     </div>
   );
