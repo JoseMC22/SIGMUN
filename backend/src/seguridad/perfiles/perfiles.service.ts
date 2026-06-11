@@ -28,21 +28,8 @@ export class PerfilesService {
     const { codigo, nombre, estado, page, pageSize } = dto;
     const { inicio, final } = calculatePaginationParams(page, pageSize);
 
-    // Total count (@busc='5' — params: id_perfil, nombre, nest, inicio, final)
+    // Total count (@busc='6' — returns all matching rows, use .length)
     const totalResult = await this.db.executeProcedure<any>(
-      '[Acceso].[sp_TblPerfil]',
-      {
-        busc: 5,
-        id_perfil: codigo || '',
-        nombre: nombre || '',
-        nest: estado ?? '',
-      },
-    );
-    const totalRow = totalResult.recordset[0];
-    const total = totalRow ? Object.values(totalRow)[0] as number : 0;
-
-    // Rows (@busc='6' — params: id_perfil, nombre, nestado)
-    const rowsResult = await this.db.executeProcedure<any>(
       '[Acceso].[sp_TblPerfil]',
       {
         busc: 6,
@@ -51,8 +38,20 @@ export class PerfilesService {
         nestado: estado ?? '',
       },
     );
+    const total = totalResult.recordset.length;
 
-    //this.logger.log(`Filas obtenidas: ${rowsResult.recordset.length}`);
+    // Paginated rows (@busc='5' — params: id_perfil, nombre, nest, inicio, final)
+    const rowsResult = await this.db.executeProcedure<any>(
+      '[Acceso].[sp_TblPerfil]',
+      {
+        busc: 5,
+        id_perfil: codigo || '',
+        nombre: nombre || '',
+        nest: estado ?? '',
+        inicio,
+        final,
+      },
+    );
 
     const data = rowsResult.recordset.map((row: any) => ({
       id: row.id_perfil ?? '',
