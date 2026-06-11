@@ -28,7 +28,7 @@ export class PerfilesService {
     const { codigo, nombre, estado, page, pageSize } = dto;
     const { inicio, final } = calculatePaginationParams(page, pageSize);
 
-    // Total count (@busc='6' — returns all matching rows, use .length)
+    // Total count (@busc='6' — params: id_perfil, nombre, nestado, returns single scalar)
     const totalResult = await this.db.executeProcedure<any>(
       '[Acceso].[sp_TblPerfil]',
       {
@@ -38,7 +38,8 @@ export class PerfilesService {
         nestado: estado ?? '',
       },
     );
-    const total = totalResult.recordset.length;
+    const totalRow = totalResult.recordset[0];
+    const total = totalRow ? Object.values(totalRow)[0] as number : 0;
 
     // Paginated rows (@busc='5' — params: id_perfil, nombre, nest, inicio, final)
     const rowsResult = await this.db.executeProcedure<any>(
