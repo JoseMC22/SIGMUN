@@ -101,6 +101,7 @@ export async function fetchCajerosAction() {
 }
 
 export async function updateUsuarioAction(data: {
+  busc?: string;       // "1" for create, "2" for edit (default)
   id_usuario: string;
   nombres: string;
   apellidos: string;
@@ -137,6 +138,23 @@ export async function eliminarUsuarioAction(id_usuario: string) {
     const response = await authFetch('/seguridad/usuarios/eliminar', {
       method: 'POST',
       body: JSON.stringify({ id_usuario }),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.message ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    return { success: true as const, ...result };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+export async function crearCajaAction(caja: string) {
+  try {
+    const response = await authFetch('/seguridad/usuarios/catalogos/crear-caja', {
+      method: 'POST',
+      body: JSON.stringify({ caja }),
     });
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));

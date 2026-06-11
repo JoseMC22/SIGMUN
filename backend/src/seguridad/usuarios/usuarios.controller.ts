@@ -70,6 +70,11 @@ export class UsuariosController {
     return this.usuariosService.eliminarUsuario(body.id_usuario);
   }
 
+  @Post('catalogos/crear-caja')
+  async crearCaja(@Body() body: { caja: string }) {
+    return this.usuariosService.crearCaja(body.caja);
+  }
+
   @Post('cambiar-clave')
   async cambiarClave(@Body() dto: CambiarClaveDto) {
     return this.usuariosService.cambiarClave(dto);
