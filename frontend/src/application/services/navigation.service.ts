@@ -46,7 +46,8 @@ export const MOCK_NAVIGATION: MenuModule[] = [
     title: "Seguridad",
     icon: "Lock",
     submenus: [
-      { id: "s-1", title: "Usuarios del Sistema", path: "/dashboard/usuarios" },
+      { id: "s-1", title: "Usuarios del Sistema", path: "seguridad/usuarios" },
+      { id: "s-3", title: "Perfiles", path: "seguridad/perfiles" },
       { id: "s-2", title: "Auditoría", path: "/dashboard/auditoria" },
     ],
   },
