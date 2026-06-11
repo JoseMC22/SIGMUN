@@ -28,34 +28,31 @@ export class PerfilesService {
     const { codigo, nombre, estado, page, pageSize } = dto;
     const { inicio, final } = calculatePaginationParams(page, pageSize);
 
-    // Total count (@busc='5')
+    // Total count (@busc='5' — params: id_perfil, nombre, nest, inicio, final)
     const totalResult = await this.db.executeProcedure<any>(
       '[Acceso].[sp_TblPerfil]',
       {
         busc: 5,
         id_perfil: codigo || '',
         nombre: nombre || '',
-        nestado: estado ?? '',
+        nest: estado ?? '',
       },
     );
     const totalRow = totalResult.recordset[0];
     const total = totalRow ? Object.values(totalRow)[0] as number : 0;
-    this.logger.log(`Total perfiles: ${total}`);
 
-    // Rows (@busc='6')
+    // Rows (@busc='6' — params: id_perfil, nombre, nestado)
     const rowsResult = await this.db.executeProcedure<any>(
       '[Acceso].[sp_TblPerfil]',
       {
         busc: 6,
         id_perfil: codigo || '',
         nombre: nombre || '',
-        nest: estado ?? '',
-        inicio,
-        final,
+        nestado: estado ?? '',
       },
     );
 
-    this.logger.log(`Filas obtenidas: ${rowsResult.recordset.length}`);
+    //this.logger.log(`Filas obtenidas: ${rowsResult.recordset.length}`);
 
     const data = rowsResult.recordset.map((row: any) => ({
       id: row.id_perfil ?? '',
