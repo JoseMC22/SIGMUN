@@ -27,14 +27,14 @@ export class PerfilesService {
     const { codigo, nombre, estado, page, pageSize } = dto;
     const { inicio, final } = calculatePaginationParams(page, pageSize);
 
-    // Total count (@busc='6' — params: id_perfil, nombre, nestado, returns single scalar)
+    // Total count (@busc='6' — params: id_perfil, nombre, nest, returns single scalar)
     const totalResult = await this.db.executeProcedure<any>(
       '[Acceso].[sp_TblPerfil]',
       {
         busc: 6,
         id_perfil: codigo || '',
         nombre: nombre || '',
-        nestado: estado ?? '',
+        nest: estado ?? '',
       },
     );
     const totalRow = totalResult.recordset[0];

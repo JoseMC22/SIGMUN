@@ -92,7 +92,7 @@ describe('PerfilesService', () => {
         busc: 6,
         id_perfil: '',
         nombre: '',
-        nestado: '',
+        nest: '',
       });
 
       expect(db.executeProcedure).toHaveBeenNthCalledWith(
