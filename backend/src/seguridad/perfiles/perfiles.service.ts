@@ -1,16 +1,14 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 import { SearchPerfilDto } from './dto/search-perfil.dto';
 import {
-  SpPerfilRow,
-  SpPerfilTotal,
   PerfilRow,
   PaginatedResponse,
 } from './dto/perfiles.types';
 
 // ── Pure pagination helper ──
 
-function calculatePaginationParams(page: number, pageSize: number) {
+export function calculatePaginationParams(page: number, pageSize: number) {
   const inicio = (page - 1) * pageSize + 1;
   const final = page * pageSize;
   return { inicio, final };
@@ -20,8 +18,6 @@ function calculatePaginationParams(page: number, pageSize: number) {
 
 @Injectable()
 export class PerfilesService {
-  private readonly logger = new Logger(PerfilesService.name);
-
   constructor(private readonly db: DatabaseService) {}
 
   async search(dto: SearchPerfilDto): Promise<PaginatedResponse<PerfilRow>> {
