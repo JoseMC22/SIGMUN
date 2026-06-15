@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Param, Body, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PerfilesService } from './perfiles.service';
 import {
@@ -8,6 +8,9 @@ import {
 import {
   PerfilRow,
   PaginatedResponse,
+  PerfilDetail,
+  ModuloRow,
+  AccesoRow,
 } from './dto/perfiles.types';
 
 @Controller('seguridad/perfiles')
@@ -21,5 +24,37 @@ export class PerfilesController {
   ): Promise<PaginatedResponse<PerfilRow>> {
     const parsed = SearchPerfilSchema.parse(dto);
     return this.perfilesService.search(parsed);
+  }
+
+  // ── Detail ────────────────────────────────────────────────
+
+  @Get(':id')
+  async getPerfilById(
+    @Param('id') id: string,
+  ): Promise<{ data: PerfilDetail }> {
+    const data = await this.perfilesService.getPerfilById(id);
+    return { data };
+  }
+
+  // ── Módulos ───────────────────────────────────────────────
+
+  @Get('catalogos/modulos')
+  async getModulos(): Promise<{ data: ModuloRow[] }> {
+    const data = await this.perfilesService.getModulos();
+    return { data };
+  }
+
+  // ── Accesos por módulo (con permisos del perfil) ─────────
+
+  @Get('modulos/:idModulo/accesos/:idPerfil')
+  async getAccesosByModulo(
+    @Param('idModulo') idModulo: string,
+    @Param('idPerfil') idPerfil: string,
+  ): Promise<{ data: AccesoRow[] }> {
+    const data = await this.perfilesService.getAccesosByModuloConPermisos(
+      idModulo,
+      idPerfil,
+    );
+    return { data };
   }
 }

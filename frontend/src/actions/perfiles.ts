@@ -21,7 +21,7 @@ async function authFetch(path: string, options?: RequestInit) {
 export async function searchPerfilesAction(
   filters: Record<string, string | number | undefined>,
   page: number = 1,
-  pageSize: number = 15,
+  pageSize: number = 10,
 ) {
   try {
     const body = { ...filters, page, pageSize };
@@ -37,6 +37,53 @@ export async function searchPerfilesAction(
 
     const result = await response.json();
     return { success: true as const, ...result };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ── Detail ─────────────────────────────────────────────────
+
+export async function fetchPerfilDetailAction(id: string) {
+  try {
+    const response = await authFetch(`/seguridad/perfiles/${encodeURIComponent(id)}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.error ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    return { success: true as const, data: result.data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ── Módulos ────────────────────────────────────────────────
+
+export async function fetchModulosAction() {
+  try {
+    const response = await authFetch('/seguridad/perfiles/catalogos/modulos');
+    if (!response.ok) return { success: false as const, error: `Error ${response.status}` };
+    const result = await response.json();
+    return { success: true as const, data: result.data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ── Accesos por módulo (con permisos del perfil) ──────────
+
+export async function fetchAccesosPorModuloAction(
+  idModulo: string,
+  idPerfil: string,
+) {
+  try {
+    const response = await authFetch(
+      `/seguridad/perfiles/modulos/${encodeURIComponent(idModulo)}/accesos/${encodeURIComponent(idPerfil)}`,
+    );
+    if (!response.ok) return { success: false as const, error: `Error ${response.status}` };
+    const result = await response.json();
+    return { success: true as const, data: result.data };
   } catch (error) {
     return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
   }

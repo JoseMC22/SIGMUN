@@ -16,6 +16,7 @@ import {
   Plus,
 } from "lucide-react";
 import { searchPerfilesAction } from "@/actions/perfiles";
+import PerfilEditModal from "./perfil-edit-modal";
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -100,6 +101,24 @@ export default function PerfilesPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
+
+  // Edit modal
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editPerfilId, setEditPerfilId] = useState<string | null>(null);
+
+  const openEditModal = (id: string) => {
+    setEditPerfilId(id);
+    setEditModalOpen(true);
+  };
+
+  const closeEditModal = () => {
+    setEditModalOpen(false);
+    setEditPerfilId(null);
+  };
+
+  const handleSaved = () => {
+    executeSearch(page);
+  };
 
   const executeSearch = useCallback(
     async (pageNum: number) => {
@@ -249,6 +268,7 @@ export default function PerfilesPage() {
             <div className="flex items-center justify-center gap-1">
               <button
                 type="button"
+                onClick={() => openEditModal(row.id)}
                 className="rounded p-1 text-slate-400 transition hover:bg-sat-cyan/10 hover:text-sat-cyan"
                 aria-label="Editar"
                 title="Editar perfil"
@@ -479,6 +499,14 @@ export default function PerfilesPage() {
           {renderPagination()}
         </>
       )}
+
+      {/* Edit modal */}
+      <PerfilEditModal
+        isOpen={editModalOpen}
+        perfilId={editPerfilId}
+        onClose={closeEditModal}
+        onSaved={handleSaved}
+      />
     </div>
   );
 }
