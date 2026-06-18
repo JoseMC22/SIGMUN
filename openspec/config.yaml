@@ -62,4 +62,4 @@ stack:
     testing: Vitest 1.x + @testing-library/react
 
 project_skills:
-  - .trae/skills/sigmun-standard/SKILL.md
+  - openspec/standards/SKILL.md
