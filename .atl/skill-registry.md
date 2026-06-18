@@ -37,7 +37,7 @@ Last updated: 2026-06-09
 | `skill-improver` | Trigger: improve skills, audit skills, refactor skills, skill quality. Audit and upgrade existing LLM-first skills. | user | `C:\Users\jmozo.SATICA\.config\opencode\skills\skill-improver\SKILL.md` |
 | `skill-installer` | Install Codex skills into $CODEX_HOME/skills from a curated list or a GitHub repo path. Use when a user asks to list installable skills, install a curated skill, or install a skill from another repo (including private repos). | user | `C:\Users\jmozo.SATICA\.codex\skills\.system\skill-installer\SKILL.md` |
 | `work-unit-commits` | Plan commits as reviewable work units. Trigger: implementation, commit splitting, chained PRs, or keeping tests and docs with code. | user | `C:\Users\jmozo.SATICA\.config\opencode\skills\work-unit-commits\SKILL.md` |
-| `sigmun-standard` | Aplica los estándares técnicos y de diseño de SIGMUN. Invocar al desarrollar nuevas funcionalidades, diseñar la UI/UX o revisar código del proyecto. | project | `D:\SIGMUN\.trae\skills\sigmun-standard\SKILL.md` |
+| `sigmun-standard` | Aplica los estándares técnicos y de diseño de SIGMUN. Invocar al desarrollar nuevas funcionalidades, diseñar la UI/UX o revisar código del proyecto. | project | `D:\SIGMUN\openspec\standards\SKILL.md` |
 
 ## Loading protocol
 

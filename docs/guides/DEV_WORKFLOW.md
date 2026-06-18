@@ -1,46 +1,44 @@
 # Guía para Desarrolladores — SIGMUN
 
-Flujo completo para trabajar en una funcionalidad: desde clonar el proyecto hasta crear un Pull Request.
+Flujo completo para laburar: desde clonar el proyecto hasta crear un Pull Request y arrancar la siguiente feature.
 
 ---
 
 ## Índice
 
-1. [Requisitos previos](#1-requisitos-previos)
-2. [Solicitar acceso al proyecto](#2-solicitar-acceso-al-proyecto)
-3. [Clonar el repositorio](#3-clonar-el-repositorio)
-4. [Antes de empezar: verificar la rama actual](#4-antes-de-empezar-verificar-la-rama-actual)
+1. [Estructura del repo](#1-estructura-del-repo)
+2. [Primera vez: clonar e instalar](#2-primera-vez-clonar-e-instalar)
+3. [Antes de arrancar una feature](#3-antes-de-arrancar-una-feature)
+4. **[\*OBLIGATORIO\*] Sesión SDD antes de codear](#4-obligatorio-sesión-sdd-antes-de-codear)**
 5. [Crear una rama de feature](#5-crear-una-rama-de-feature)
-6. [Implementar los cambios](#6-implementar-los-cambios)
-7. [Ejecutar tests](#7-ejecutar-tests)
-8. [Revisar los cambios](#8-revisar-los-cambios)
-9. [Hacer commit](#9-hacer-commit)
-10. [Subir la rama y crear PR](#10-subir-la-rama-y-crear-pr)
-11. [Después del merge](#11-después-del-merge)
-12. [Resumen de comandos](#12-resumen-de-comandos)
+6. [Laburar y commitear](#6-laburar-y-commitear)
+7. [Subir la rama y crear PR](#7-subir-la-rama-y-crear-pr)
+8. [Después del merge: limpiar](#8-después-del-merge-limpiar)
+9. [Arrancar otra feature nueva](#9-arrancar-otra-feature-nueva)
+10. [Resumen de comandos](#10-resumen-de-comandos)
+11. [Errores comunes](#11-errores-comunes)
 
 ---
 
-## 1. Requisitos previos
+## 1. Estructura del repo
 
-- **Git** instalado
-- **pnpm** instalado (`npm install -g pnpm`)
-- **Node.js** >= 18
-- Acceso al repositorio en GitHub: `https://github.com/JoseMC22/SIGMUN`
-- (Opcional) **GitHub CLI** (`gh`) para crear PRs desde terminal
+```
+main  (producción)   → protegida, solo el maintainer mergea acá
+  └── DEV (integración)  ← acá van todos los PRs de features
+        └── feat/modulo_usuarios  ← tu rama de feature
+        └── fix/error-login       ← tu rama de fix
+```
+
+**REGLAS DE ORO:**
+
+- ❌ **NUNCA trabajes directo sobre `main`** — está protegida, no podés pushear igual
+- ❌ **NUNCA crees una rama desde `main`** — siempre desde `DEV`
+- ✅ **Siempre creás tu rama desde `DEV`** y el PR va contra `DEV`
+- ✅ **El maintainer se encarga de mergear `DEV` a `main`** cuando todo anda bien
 
 ---
 
-## 2. Solicitar acceso al proyecto
-
-1. Crear una cuenta en [GitHub](https://github.com) si no tenés una.
-2. Enviar tu nombre de usuario de GitHub al maintainer del proyecto.
-3. El maintainer te agregará como colaborador al repositorio.
-4. Una vez agregado, aceptar la invitación desde tu email o desde https://github.com/JoseMC22/SIGMUN/invitations
-
----
-
-## 3. Clonar el repositorio
+## 2. Primera vez: clonar e instalar
 
 ```bash
 git clone https://github.com/JoseMC22/SIGMUN.git
@@ -48,44 +46,67 @@ cd SIGMUN
 pnpm install
 ```
 
-Esto descarga el proyecto y todas sus dependencias.
+Configurar identidad (solo la primera vez):
+
+```bash
+git config user.name "Tu Nombre"
+git config user.email "tu@email.com"
+```
 
 ---
 
-## 4. Antes de empezar: verificar la rama actual
+## 3. Antes de arrancar una feature
 
-**REGLAS IMPORTANTES:**
+Parate siempre en `DEV` y traé los últimos cambios:
 
-- **NUNCA trabajes directamente sobre `main`** — siempre usá una rama de feature.
-- **Siempre verificá en qué rama estás** antes de empezar a programar.
+```bash
+git checkout DEV
+git pull origin DEV
+```
+
+Verificá que estás bien parado:
 
 ```bash
 git branch --show-current
-# → debe mostrar "main"
-
-git pull origin main
-# → asegurate de tener la última versión
+# → debe mostrar "DEV"
 ```
 
-Si estás en `main` y tenés cambios sin commitear:
+Los comandos de arriba los repetís **cada vez que arrancás una feature nueva**.
 
-```bash
-# 1. Creá una rama nueva (los cambios se llevan con vos)
-git checkout -b feat/mi-funcionalidad
+---
 
-# 2. Verificá que los cambios estén en la nueva rama
-git status
+## 4. [OBLIGATORIO] Sesión SDD antes de codear
+
+**No se escribe código sin planificar primero con SDD.**
+
+Cuando tengas que hacer un cambio (feature, fix, refactor, lo que sea), lo primero es abrir SDD con el agente:
+
 ```
+/sdd-new "descripción de lo que necesito hacer"
+```
+
+El agente se encarga de:
+1. Explorar el código existente
+2. Generar una propuesta con alcance y enfoque
+3. Escribir la especificación técnica
+4. Diseñar la solución
+5. Romper el cambio en tareas concretas
+
+**Una vez que revisás y aprobás el plan**, recién ahí pasás al paso siguiente.
+
+> Si el cambio es mínimo (corregir un típo, renombrar una variable), podés saltar SDD. Pero ante la duda, SDD siempre.
 
 ---
 
 ## 5. Crear una rama de feature
 
+Desde `DEV`, creá tu rama:
+
 ```bash
 git checkout -b <tipo>/<descripcion>
 ```
 
-Ejemplos:
+Siempre con **minúsculas y guiones**, sin espacios.
 
 | Tipo | Cuándo usarlo | Ejemplo |
 |------|--------------|---------|
@@ -93,42 +114,30 @@ Ejemplos:
 | `fix` | Corrección de bug | `fix/error-login-null` |
 | `refactor` | Refactorización | `refactor/extraer-servicio-auth` |
 | `chore` | Mantenimiento / tooling | `chore/actualizar-dependencias` |
-| `docs` | Documentación | `docs/guía-despliegue` |
+| `docs` | Documentación | `docs/guia-despliegue` |
 
-**Regla:** usar minúsculas y guiones, sin espacios.
+Ejemplo completo:
 
-> **NOTA:** Anteriormente se trabajó accidentalmente en `main`. Para evitarlo, el [Maintainer](MAINTAINER_WORKFLOW.md) puede
-> [proteger la rama](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches)
-> para que nadie pueda pushear directamente.
+```bash
+git checkout DEV
+git pull origin DEV
+git checkout -b feat/modulo-usuarios
+```
+
+Ya estás en tu rama, listo para laburar.
 
 ---
 
-## 6. Implementar los cambios
+## 6. Laburar y commitear
 
-Ahora estás en tu rama de feature con `main` como base. Podés:
-
-- **Crear archivos nuevos**
-- **Modificar archivos existentes**
-- **Eliminar archivos**
-
-En cualquier momento podés ver el estado:
+Hacé tus cambios, después verificá el estado:
 
 ```bash
 git status
-# Muestra archivos modificados (rojo = sin stage, verde = stageado)
+git diff
 ```
 
-### Buenas prácticas
-
-- **Commits pequeños y atómicos** — un commit por cambio lógico.
-- **Tests primero** si el proyecto lo exige (Strict TDD).
-- **Código en inglés**, comentarios y UI en español.
-
----
-
-## 7. Ejecutar tests
-
-Antes de commitear, siempre ejecutar los tests:
+### Ejecutar tests antes de commitear
 
 ```bash
 # Frontend (Vitest)
@@ -138,89 +147,47 @@ pnpm --filter frontend test
 pnpm --filter backend test
 ```
 
-Todos los tests deben pasar. Si fallan, corregí antes de continuar.
+Si los tests fallan, corregí antes de continuar.
 
----
-
-## 8. Revisar los cambios
-
-Antes del commit, revisá qué vas a incluir:
-
-```bash
-# Archivos cambiados (resumen)
-git status
-
-# Contenido de los cambios
-git diff
-
-# Archivos nuevos (untracked)
-git status --short
-```
-
-Preguntate:
-- ¿Estoy incluyendo archivos que no debería (`.env`, `node_modules`, builds)?
-- ¿Los mensajes de commit describen claramente el cambio?
-- ¿Los tests pasan?
-
----
-
-## 9. Hacer commit
+### Hacer commit
 
 ```bash
 git add -A
-# o: git add <archivo1> <archivo2> (para stage selectivo)
-
-git commit -m "tipo(alcance): descripción breve"
-
-# Ejemplo:
-git commit -m "feat(seguridad): add Usuarios CRUD with edit modal"
+git commit -m "tipo(alcance): descripción en presente"
 ```
 
-### Formato del mensaje
+Ejemplos:
 
 ```
-tipo(alcance): descripción en presente
+feat(seguridad): add Usuarios CRUD with edit modal
+fix(login): handle null token on session restore
+refactor(perfiles): extract search logic to service
 ```
 
-| Parte | Descripción | Ejemplo |
-|-------|-------------|---------|
-| `tipo` | `feat`, `fix`, `refactor`, `chore`, `docs` | `feat` |
-| `(alcance)` | Módulo afectado (opcional) | `(seguridad)` |
-| `descripción` | Verbo en presente, máximo 72 caracteres | `add Usuarios CRUD` |
+Formato: `tipo(alcance): descripción`. Máximo 72 caracteres. No usar `Co-Authored-By` ni atribuciones de IA.
 
-No usar `Co-Authored-By` ni atribuciones de IA en los commits.
+### Buenas prácticas
+
+- Commits chicos y atómicos — un commit por cambio lógico
+- Código y mensajes en inglés
+- Testeá antes de commitear
 
 ---
 
-## 10. Subir la rama y crear PR
+## 7. Subir la rama y crear PR
 
-### Subir la rama al remoto
+### Subir a GitHub
 
 ```bash
-git push -u origin <nombre-de-la-rama>
+git push -u origin feat/modulo-usuarios
 ```
 
-Esto sube tus commits a GitHub y muestra un link para crear el PR.
-
-### Crear el Pull Request
-
-#### Opción A: Desde GitHub (recomendado)
-
-1. Abrí el link que apareció en el output del `git push`
-2. Completá el formulario:
-   - **Título:** mismo formato que el commit
-   - **Descripción:** resumí qué hace el PR y por qué
-3. Hacé clic en **"Create Pull Request"**
-
-#### Opción B: Desde terminal con GitHub CLI
+El output te muestra un link directo para crear el PR. También podés usar GitHub CLI:
 
 ```bash
-# Primera vez: autenticar
-gh auth login
-
-# Crear PR
 gh pr create \
-  --title "feat(alcance): descripción" \
+  --base DEV \
+  --title "feat(usuarios): modulo completo con CRUD" \
   --body "## Resumen
 
 Descripción de los cambios.
@@ -231,84 +198,111 @@ Descripción de los cambios.
 - [ ] Probado manualmente"
 ```
 
-#### Opción C: Desde el link directo
+**Importante:** el PR va contra `DEV`, no contra `main`.
 
-GitHub también genera un link directo después del push:
-```
-https://github.com/JoseMC22/SIGMUN/pull/new/<nombre-de-la-rama>
-```
-
-### ¿Qué debe contener el PR?
-
-1. **Título claro** con el formato `tipo(alcance): descripción`
-2. **Resumen** de los cambios
-3. **Tabla de archivos** modificados (opcional pero útil)
-4. **Test Plan** — qué verificaste antes de abrir el PR
+Después de abrir el PR, el maintainer lo revisa, si está bien lo mergea y te avisa. Esperá ese aviso antes de seguir.
 
 ---
 
-## 11. Después del merge
+## 8. Después del merge: limpiar
 
-Cuando el maintainer apruebe y mergee tu PR:
+Cuando el maintainer te confirma que el PR se mergeó, limpiá tu rama local:
 
 ```bash
-# Volver a main
-git checkout main
+git checkout DEV
+git pull origin DEV
+git branch -d feat/modulo-usuarios
+```
 
-# Traer los cambios mergeados
-git pull origin main
+Eso es todo. La rama remota la puede borrar GitHub automáticamente si tiene esa opción al mergear, o la borra el maintainer.
 
-# Eliminar la rama local (ya no sirve)
-git branch -d <nombre-de-la-rama>
+**¿Qué pasó acá?**
 
-# Eliminar la rama remota
-git push origin --delete <nombre-de-la-rama>
+1. `git checkout DEV` — te parás en DEV
+2. `git pull origin DEV` — bajás los cambios mergeados (tu feature ya está en DEV)
+3. `git branch -d feat/modulo-usuarios` — borrás tu rama local porque ya no la necesitás
+
+Si el branch no se borra porque tenés cambios sin commitear, Git te avisa. Si querés forzar el borrado (solo si ya mergeaste):
+
+```bash
+git branch -D feat/modulo-usuarios
 ```
 
 ---
 
-## 12. Resumen de comandos
+## 9. Arrancar otra feature nueva
+
+Esto es **exactamente lo mismo que el paso 3**. Ya estás en `DEV` con todo actualizado. Solo repetís:
 
 ```bash
-# Inicio
+# Ya deberías estar en DEV del paso anterior
+git pull origin DEV
+git checkout -b feat/otra-funcionalidad
+```
+
+Y arrancás de nuevo desde el paso 6.
+
+**El ciclo completo para cada feature:**
+
+```
+DEV → SDD (/sdd-new) → crear rama → laburar → commit → push → PR → merge → borrar rama → DEV (actualizado) → repetir...
+```
+
+Nunca tocás `main`. Nunca creás desde `main`. Todo desde `DEV`.
+
+---
+
+## 10. Resumen de comandos
+
+```bash
+# === PRIMERA VEZ ===
 git clone https://github.com/JoseMC22/SIGMUN.git
 cd SIGMUN
 pnpm install
 
-# Cada feature
-git checkout main
-git pull origin main
+# === CADA FEATURE NUEVA ===
+git checkout DEV
+git pull origin DEV
+
+# [OBLIGATORIO] Sesión SDD antes de codear
+/sdd-new "descripción del cambio"
+
 git checkout -b feat/mi-feature
 
-# Trabajar... (editá archivos)
+# === TRABAJAR ===
+# (editás archivos)
 git status
 git diff
 
-# Tests
+# === TESTS ===
 pnpm --filter frontend test
 pnpm --filter backend test
 
-# Commit
+# === COMMIT ===
 git add -A
 git commit -m "feat(alcance): descripción"
 
-# Push + PR
+# === PUSH + PR ===
 git push -u origin feat/mi-feature
+# Después abrí el PR en GitHub contra DEV
 
-# Después del merge
-git checkout main
-git pull origin main
+# === DESPUÉS DEL MERGE ===
+git checkout DEV
+git pull origin DEV
 git branch -d feat/mi-feature
-git push origin --delete feat/mi-feature
+
+# La próxima feature arranca desde "CADA FEATURE NUEVA" de nuevo
 ```
 
 ---
 
-## Errores comunes y cómo evitarlos
+## 11. Errores comunes
 
 | Error | Causa | Solución |
 |-------|-------|----------|
-| Trabajar en `main` | No verificar rama | `git branch --show-current` antes de empezar |
-| Tests que no pasan | Commitear sin testear | Siempre ejecutar `pnpm test` antes del commit |
-| Merge conflicts | No actualizar rama | `git pull origin main` en tu rama de feature |
-| PR sin descripción | Ir al grano | Escribir al menos 3 líneas explicando qué y por qué |
+| Trabajar sobre `DEV` directo | No crear rama de feature | Siempre creá `git checkout -b feat/...` |
+| PR apunta a `main` | No verificar el base del PR | En GitHub, cambiá la base a `DEV` |
+| No puedo pushear a `main` | `main` está protegida | OK, es normal. El PR va contra `DEV` |
+| Merge conflict | No actualizaste tu rama | `git pull origin DEV` estando en tu rama feature |
+| `git branch -d` no borra | Cambios sin commitear o sin mergear | Si ya mergeaste, usá `-D` en vez de `-d` |
+| Tests fallan | Commitear sin testear | Siempre `pnpm test` antes del commit |
