@@ -2,13 +2,16 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
-  X, Loader2, Save, AlertCircle, FolderTree, ShieldCheck,
+  X, Loader2, Save, AlertCircle, FolderTree, ShieldCheck, Grid3X3,
 } from "lucide-react";
 import {
   fetchPerfilDetailAction,
   fetchModulosAction,
   fetchAccesosPorModuloAction,
+  savePerfilAction,
+  toggleAccesoPermisoAction,
 } from "@/actions/perfiles";
+import ObjetoEditModal from "./objeto-edit-modal";
 
 // ── Types ────────────────────────────────────────────────
 
@@ -48,6 +51,8 @@ export default function PerfilEditModal({
 }: Props) {
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Form
   const [codigo, setCodigo] = useState("");
@@ -59,6 +64,10 @@ export default function PerfilEditModal({
   const [selectedModulo, setSelectedModulo] = useState<string | null>(null);
   const [accesos, setAccesos] = useState<AccesoRow[]>([]);
   const [loadingAccesos, setLoadingAccesos] = useState(false);
+
+  // Objetos modal
+  const [objetosAccesoId, setObjetosAccesoId] = useState<string | null>(null);
+  const [objetosModalOpen, setObjetosModalOpen] = useState(false);
 
   // ── Load perfil detail ──
 
@@ -123,6 +132,7 @@ export default function PerfilEditModal({
       setDescripcion("");
       setEstado(true);
       setFetchError(null);
+      setSaveError(null);
       setSelectedModulo(null);
       setAccesos([]);
       if (perfilId) {
@@ -141,11 +151,76 @@ export default function PerfilEditModal({
     }
   };
 
+  // ── Save handler ──
+
+  const handleSave = async () => {
+    // Validate nombre
+    const trimmed = descripcion.trim();
+    if (!trimmed) {
+      setSaveError("El campo Descripción es requerido");
+      return;
+    }
+
+    setSaving(true);
+    setSaveError(null);
+
+    try {
+      const res = await savePerfilAction({
+        id_perfil: perfilId || '',
+        nombre: trimmed,
+        nestado: estado ? '1' : '0',
+      });
+
+      if (res.success) {
+        // Clear form and close
+        setCodigo("");
+        setDescripcion("");
+        setEstado(true);
+        onClose();
+        onSaved();
+      } else {
+        setSaveError(res.error);
+      }
+    } catch {
+      setSaveError("Error al guardar el perfil");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ── Toggle acceso handler ──
+
+  const handleToggleAcceso = async (id_acceso: string, nuevoChecked: boolean) => {
+    if (!perfilId || !selectedModulo) return;
+
+    // Optimistic update
+    setAccesos((prev) =>
+      prev.map((a) => (a.id_acceso === id_acceso ? { ...a, checked: nuevoChecked } : a)),
+    );
+
+    const res = await toggleAccesoPermisoAction({
+      id_perfil: perfilId,
+      id_acceso,
+      bacceso: nuevoChecked ? '1' : '0',
+    });
+
+    if (res.success) {
+      // Refresh the table from server
+      loadAccesos(selectedModulo, perfilId);
+    } else {
+      // Revert on failure
+      setAccesos((prev) =>
+        prev.map((a) => (a.id_acceso === id_acceso ? { ...a, checked: !nuevoChecked } : a)),
+      );
+    }
+  };
+
   // ── Render ──
 
   if (!isOpen) return null;
 
   return (
+    <>
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
@@ -212,7 +287,7 @@ export default function PerfilEditModal({
                   Datos del Perfil
                 </legend>
                 <div className="p-2.5 space-y-2">
-                  {/* Código + Descripción */}
+                  {/* Código + Descripción + Estado */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                     <div>
                       <label className="block text-[9px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5 leading-none">
@@ -225,7 +300,7 @@ export default function PerfilEditModal({
                         className="w-full rounded-md border border-slate-300 bg-slate-100 px-2 py-1.5 text-[11px] text-slate-500 cursor-not-allowed"
                       />
                     </div>
-                    <div className="md:col-span-2">
+                    <div>
                       <label htmlFor="edit-descripcion" className="block text-[9px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5 leading-none">
                         Descripción
                       </label>
@@ -238,21 +313,19 @@ export default function PerfilEditModal({
                         className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] text-slate-700 placeholder-slate-400 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none"
                       />
                     </div>
-                  </div>
-
-                  {/* Estado */}
-                  <div>
-                    <label className="inline-flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={estado}
-                        onChange={(e) => setEstado(e.target.checked)}
-                        className="h-4 w-4 rounded border-slate-300 text-sat-cyan focus:ring-sat-cyan/30 focus:ring-2"
-                      />
-                      <span className="text-[11px] font-medium text-slate-700">
-                        {estado ? "Activado" : "Desactivado"}
-                      </span>
-                    </label>
+                    <div className="flex items-end pb-[3px]">
+                      <label className="inline-flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={estado}
+                          onChange={(e) => setEstado(e.target.checked)}
+                          className="h-4 w-4 rounded border-slate-300 text-sat-cyan focus:ring-sat-cyan/30 focus:ring-2"
+                        />
+                        <span className="text-[11px] font-medium text-slate-700">
+                          {estado ? "Activado" : "Desactivado"}
+                        </span>
+                      </label>
+                    </div>
                   </div>
                 </div>
               </fieldset>
@@ -374,17 +447,21 @@ export default function PerfilEditModal({
                                     <input
                                       type="checkbox"
                                       checked={a.checked}
-                                      readOnly
-                                      className="h-3.5 w-3.5 rounded border-slate-300 text-sat-cyan focus:ring-sat-cyan/30"
+                                      onChange={(e) => handleToggleAcceso(a.id_acceso, e.target.checked)}
+                                      className="h-3.5 w-3.5 rounded border-slate-300 text-sat-cyan focus:ring-sat-cyan/30 cursor-pointer"
                                     />
                                   </td>
                                   <td className="px-2 py-1.5 text-center">
                                     <button
                                       type="button"
-                                      className="rounded px-2 py-0.5 text-[10px] font-medium text-sat-cyan transition hover:bg-sat-cyan/10"
+                                      onClick={() => {
+                                        setObjetosAccesoId(a.id_acceso);
+                                        setObjetosModalOpen(true);
+                                      }}
+                                      className="rounded-md p-1 text-sat-cyan transition hover:bg-sat-cyan/10"
                                       title="Ver objetos del acceso"
                                     >
-                                      Objetos
+                                      <Grid3X3 size={14} />
                                     </button>
                                   </td>
                                 </tr>
@@ -405,26 +482,51 @@ export default function PerfilEditModal({
 
         {/* ── Footer ── */}
         {!loading && !fetchError && (
-          <div className="sticky bottom-0 flex items-center justify-end gap-2 border-t border-slate-200 bg-white px-4 py-3 rounded-b-xl">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-md border border-slate-300 bg-white px-4 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300/40"
-            >
-              Cerrar
-            </button>
-            <button
-              type="button"
-              disabled
-              className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan/60 px-4 py-1.5 text-xs font-medium text-white cursor-not-allowed"
-              title="Funcionalidad no implementada aún"
-            >
-              <Save size={13} />
-              Guardar
-            </button>
+          <div className="sticky bottom-0 border-t border-slate-200 bg-white px-4 py-3 rounded-b-xl">
+            {saveError && (
+              <div className="mb-2 flex items-center gap-1.5 text-red-600">
+                <AlertCircle size={13} />
+                <span className="text-[11px] font-medium">{saveError}</span>
+              </div>
+            )}
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={saving}
+                className="rounded-md border border-slate-300 bg-white px-4 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300/40 disabled:opacity-50"
+              >
+                Cerrar
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={saving}
+                className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-4 py-1.5 text-xs font-medium text-white transition hover:bg-sat-cyan/90 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {saving ? (
+                  <Loader2 size={13} className="animate-spin" />
+                ) : (
+                  <Save size={13} />
+                )}
+                {saving ? "Guardando..." : "Guardar"}
+              </button>
+            </div>
           </div>
         )}
       </div>
     </div>
+
+      {/* ── Objetos modal ── */}
+      <ObjetoEditModal
+        isOpen={objetosModalOpen}
+        idAcceso={objetosAccesoId ?? ""}
+        idPerfil={perfilId ?? ""}
+        onClose={() => {
+          setObjetosModalOpen(false);
+          setObjetosAccesoId(null);
+        }}
+      />
+    </>
   );
 }

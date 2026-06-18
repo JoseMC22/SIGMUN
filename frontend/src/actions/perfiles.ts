@@ -71,6 +71,89 @@ export async function fetchModulosAction() {
   }
 }
 
+// ── Toggle acceso permiso ───────────────────────────────────
+
+export async function toggleAccesoPermisoAction(data: {
+  id_perfil: string;
+  id_acceso: string;
+  bacceso: string;
+}) {
+  try {
+    const response = await authFetch('/seguridad/perfiles/toggle-acceso', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.message ?? `Error ${response.status}` };
+    }
+
+    return { success: true as const };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ── Objetos por acceso ──────────────────────────────────────
+
+export async function fetchObjetosPorAccesoAction(idAcceso: string, idPerfil: string) {
+  try {
+    const response = await authFetch(
+      `/seguridad/perfiles/accesos/${encodeURIComponent(idAcceso)}/objetos/${encodeURIComponent(idPerfil)}`,
+    );
+    if (!response.ok) return { success: false as const, error: `Error ${response.status}` };
+    const result = await response.json();
+    return { success: true as const, data: result.data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ── Save / Update ───────────────────────────────────────────
+
+export async function savePerfilAction(data: {
+  id_perfil?: string;
+  nombre: string;
+  nestado: string;
+}) {
+  try {
+    const response = await authFetch('/seguridad/perfiles/save', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.message ?? `Error ${response.status}` };
+    }
+
+    const result = await response.json();
+    return { success: true as const, data: result.data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ── Delete ──────────────────────────────────────────────────
+
+export async function deletePerfilAction(id: string) {
+  try {
+    const response = await authFetch(`/seguridad/perfiles/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.message ?? `Error ${response.status}` };
+    }
+
+    return { success: true as const };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
 // ── Accesos por módulo (con permisos del perfil) ──────────
 
 export async function fetchAccesosPorModuloAction(

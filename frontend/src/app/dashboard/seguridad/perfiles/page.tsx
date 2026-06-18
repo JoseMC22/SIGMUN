@@ -15,8 +15,9 @@ import {
   Loader2,
   Plus,
 } from "lucide-react";
-import { searchPerfilesAction } from "@/actions/perfiles";
+import { searchPerfilesAction, deletePerfilAction } from "@/actions/perfiles";
 import PerfilEditModal from "./perfil-edit-modal";
+import ConfirmDialog from "@/components/confirm-dialog";
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -101,6 +102,9 @@ export default function PerfilesPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deleteConfirmNombre, setDeleteConfirmNombre] = useState("");
 
   // Edit modal
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -118,6 +122,32 @@ export default function PerfilesPage() {
 
   const handleSaved = () => {
     executeSearch(page);
+  };
+
+  const promptDelete = (id: string, nombre: string) => {
+    setDeleteConfirmId(id);
+    setDeleteConfirmNombre(nombre);
+  };
+
+  const cancelDelete = () => {
+    setDeleteConfirmId(null);
+    setDeleteConfirmNombre("");
+  };
+
+  const confirmDelete = async () => {
+    const id = deleteConfirmId;
+    if (!id) return;
+
+    setDeleting(id);
+    const res = await deletePerfilAction(id);
+    setDeleting(null);
+    cancelDelete();
+
+    if (res.success) {
+      executeSearch(page);
+    } else {
+      alert(`Error al eliminar: ${res.error}`);
+    }
   };
 
   const executeSearch = useCallback(
@@ -277,11 +307,16 @@ export default function PerfilesPage() {
               </button>
               <button
                 type="button"
-                className="rounded p-1 text-slate-400 transition hover:bg-red-50 hover:text-red-500"
+                onClick={() => promptDelete(row.id, row.nombre)}
+                disabled={deleting === row.id}
+                className="rounded p-1 text-slate-400 transition hover:bg-red-50 hover:text-red-500 disabled:opacity-40 disabled:cursor-not-allowed"
                 aria-label="Eliminar"
                 title="Eliminar perfil"
               >
-                <Trash2 size={13} />
+                {deleting === row.id
+                  ? <Loader2 size={13} className="animate-spin" />
+                  : <Trash2 size={13} />
+                }
               </button>
             </div>
           </td>
@@ -506,6 +541,18 @@ export default function PerfilesPage() {
         perfilId={editPerfilId}
         onClose={closeEditModal}
         onSaved={handleSaved}
+      />
+
+      {/* Delete confirmation */}
+      <ConfirmDialog
+        isOpen={deleteConfirmId !== null}
+        title="Eliminar Perfil"
+        message={`¿Está seguro de eliminar el perfil "${deleteConfirmNombre}" (${deleteConfirmId})?`}
+        confirmLabel="Sí, eliminar"
+        cancelLabel="No"
+        loading={deleting !== null}
+        onConfirm={confirmDelete}
+        onCancel={cancelDelete}
       />
     </div>
   );

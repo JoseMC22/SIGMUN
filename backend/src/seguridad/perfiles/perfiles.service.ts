@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 import { SearchPerfilDto } from './dto/search-perfil.dto';
+import { SavePerfilDto } from './dto/save-perfil.dto';
 import {
   PerfilRow,
   PaginatedResponse,
@@ -64,12 +65,12 @@ export class PerfilesService {
     return { data, total, page, pageSize, totalPages };
   }
 
-  // ── Detail (@busc='3') ─────────────────────────────────
+  // ── Detail (@busc='4') ─────────────────────────────────
 
   async getPerfilById(id: string): Promise<PerfilDetail> {
     const result = await this.db.executeProcedure<any>(
       '[Acceso].[sp_TblPerfil]',
-      { busc: 3, id_perfil: id },
+      { busc: 4, id_perfil: id },
     );
     const row = result.recordset[0];
     if (!row) throw new Error(`Perfil ${id} no encontrado`);
@@ -158,5 +159,100 @@ export class PerfilesService {
       id_acceso: row.id_acceso ?? '',
       bacceso: String(row.bacceso) === '1',
     }));
+  }
+
+  // ── Objetos por acceso (@busc='11') ───────────────────
+
+  async getObjetosByAcceso(id_acceso: string): Promise<
+    { id_acceso: string; nombre: string; id_objeto: string }[]
+  > {
+    const result = await this.db.executeProcedure<any>(
+      '[Acceso].[sp_TblPerfil]',
+      { busc: 11, id_acceso },
+    );
+    return (result.recordset || []).map((row: any) => ({
+      id_acceso: row.id_acceso ?? '',
+      nombre: row.nombre ?? '',
+      id_objeto: row.id_objeto ?? '',
+    }));
+  }
+
+  // ── Objetos con checked state (@busc='11' + @busc='10') ─
+
+  async getObjetosByAccesoConPermisos(
+    id_acceso: string,
+    id_perfil: string,
+  ): Promise<{ id_acceso: string; nombre: string; id_objeto: string; checked: boolean }[]> {
+    const [objetosResult, permisosResult] = await Promise.all([
+      this.db.executeProcedure<any>('[Acceso].[sp_TblPerfil]', {
+        busc: 11,
+        id_acceso,
+      }),
+      this.db.executeProcedure<any>('[Acceso].[sp_TblPerfil]', {
+        busc: 10,
+        id_perfil,
+      }),
+    ]);
+
+    const objetos = (objetosResult.recordset || []).map((row: any) => ({
+      id_acceso: row.id_acceso ?? '',
+      nombre: row.nombre ?? '',
+      id_objeto: row.id_objeto ?? '',
+      checked: false,
+    }));
+
+    const checkedIds = new Set<string>(
+      (permisosResult.recordset || [])
+        .filter((r: any) => String(r.bacceso) === '1')
+        .map((r: any) => r.id_acceso),
+    );
+
+    return objetos.map((o) => ({
+      ...o,
+      checked: checkedIds.has(o.id_acceso),
+    }));
+  }
+
+  // ── Delete (@busc='3') ───────────────────────────────
+
+  async delete(id_perfil: string): Promise<void> {
+    await this.db.executeProcedure<any>(
+      '[Acceso].[sp_TblPerfil]',
+      { busc: 3, id_perfil },
+    );
+  }
+
+  // ── Toggle acceso permiso (@busc='9') ─────────────────
+
+  async toggleAccesoPermiso(
+    id_perfil: string,
+    id_acceso: string,
+    bacceso: string,
+  ): Promise<void> {
+    await this.db.executeProcedure<any>(
+      '[Acceso].[sp_TblPerfil]',
+      {
+        busc: 9,
+        id_perfil,
+        id_acceso,
+        bacceso,
+      },
+    );
+  }
+
+  // ── Save / Update (@busc='2') ─────────────────────────
+
+  async save(dto: SavePerfilDto): Promise<{ id: string }> {
+    const result = await this.db.executeProcedure<any>(
+      '[Acceso].[sp_TblPerfil]',
+      {
+        busc: 2,
+        id_perfil: dto.id_perfil,
+        nombre: dto.nombre,
+        nestado: dto.nestado,
+      },
+    );
+    const row = result.recordset?.[0];
+    return { id: row?.id_perfil ?? dto.id_perfil };
   }
 }
