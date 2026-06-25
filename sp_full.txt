@@ -1,6 +1,0 @@
-﻿--exec [Rentas].[sp_Mant_Vias] @busc='2',@cod_via='',@nom_zona='',@nom_urba='san joaquin',@nombre_via='',@nestado=''
-
-CREATE PROCEDURE [Rentas].[sp_Mant_Vias]
-   @busc int = 1, @inicio int = 0, @final int = 99, @cod_via varchar(13) = '', @id_urba varcha
-
-(1 rows affected)
