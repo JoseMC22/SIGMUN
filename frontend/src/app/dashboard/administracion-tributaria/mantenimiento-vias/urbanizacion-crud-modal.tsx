@@ -275,8 +275,9 @@ export default function UrbanizacionCrudModal({ isOpen, onClose, mode, idUrba, o
               {/* ── Grid fields ── */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
-                  <label className={labelClass}>ID Urbanización</label>
+                  <label htmlFor="urba-id" className={labelClass}>ID Urbanización</label>
                   <input
+                    id="urba-id"
                     type="text"
                     placeholder={isEdit ? "ID" : "Auto-generado por SP"}
                     maxLength={4}
@@ -288,8 +289,9 @@ export default function UrbanizacionCrudModal({ isOpen, onClose, mode, idUrba, o
                   />
                 </div>
                 <div>
-                  <label className={labelClass}>Tipo Urb.</label>
+                  <label htmlFor="urba-tipourb" className={labelClass}>Tipo Urb.</label>
                   <select
+                    id="urba-tipourb"
                     value={form.tipourb}
                     onChange={(e) => handleChange("tipourb", e.target.value)}
                     className={inputClass}
@@ -319,8 +321,9 @@ export default function UrbanizacionCrudModal({ isOpen, onClose, mode, idUrba, o
               </div>
 
               <div>
-                <label className={labelClass}>Nombre Completo</label>
+                <label htmlFor="urba-nombre" className={labelClass}>Nombre Completo</label>
                 <input
+                  id="urba-nombre"
                   type="text"
                   placeholder="Nombre completo de la urbanización"
                   maxLength={200}
@@ -332,8 +335,9 @@ export default function UrbanizacionCrudModal({ isOpen, onClose, mode, idUrba, o
               </div>
 
               <div>
-                <label className={labelClass}>Estado</label>
+                <label htmlFor="urba-estado" className={labelClass}>Estado</label>
                 <select
+                  id="urba-estado"
                   value={form.nestado}
                   onChange={(e) => handleChange("nestado", e.target.value)}
                   className={inputClass}
@@ -345,8 +349,9 @@ export default function UrbanizacionCrudModal({ isOpen, onClose, mode, idUrba, o
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
-                  <label className={labelClass}>Operador</label>
+                  <label htmlFor="urba-operador" className={labelClass}>Operador</label>
                   <input
+                    id="urba-operador"
                     type="text"
                     value={form.operador}
                     disabled
@@ -354,9 +359,10 @@ export default function UrbanizacionCrudModal({ isOpen, onClose, mode, idUrba, o
                   />
                 </div>
                 <div>
-                  <label className={labelClass}>Estación</label>
+                  <label htmlFor="urba-estacion" className={labelClass}>Estación</label>
                   <div className="flex items-center gap-1">
                     <input
+                      id="urba-estacion"
                       type="text"
                       value={form.estacion}
                       disabled
@@ -380,8 +386,9 @@ export default function UrbanizacionCrudModal({ isOpen, onClose, mode, idUrba, o
                   </div>
                 </div>
                 <div>
-                  <label className={labelClass}>Fecha Ingreso</label>
+                  <label htmlFor="urba-fecha" className={labelClass}>Fecha Ingreso</label>
                   <input
+                    id="urba-fecha"
                     type="text"
                     value={isEdit ? formatDateTime(form.fech_ing) : "Auto (SP)"}
                     disabled

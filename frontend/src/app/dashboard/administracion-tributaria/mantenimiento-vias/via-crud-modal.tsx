@@ -327,8 +327,9 @@ export default function ViaCrudModal({ isOpen, onClose, mode, codVia, onSaved }:
               {isEdit && (
                 <div className="grid grid-cols-1 md:grid-cols-1 gap-3 mb-4">
                   <div>
-                    <label className={labelClass}>Código de Vía</label>
+                    <label htmlFor="via-codigo" className={labelClass}>Código de Vía</label>
                     <input
+                      id="via-codigo"
                       type="text"
                       value={codViaDisplay}
                       disabled
@@ -354,8 +355,9 @@ export default function ViaCrudModal({ isOpen, onClose, mode, codVia, onSaved }:
               {/* ── Grid fields ── */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
-                  <label className={labelClass}>Tipo Vía</label>
+                  <label htmlFor="via-tipovia" className={labelClass}>Tipo Vía</label>
                   <select
+                    id="via-tipovia"
                     value={form.tipovia}
                     onChange={(e) => handleChange("tipovia", e.target.value)}
                     className={inputClass}
@@ -371,8 +373,9 @@ export default function ViaCrudModal({ isOpen, onClose, mode, codVia, onSaved }:
                   </select>
                 </div>
                 <div>
-                  <label className={labelClass}>Cuadra</label>
+                  <label htmlFor="via-cuadra" className={labelClass}>Cuadra</label>
                   <input
+                    id="via-cuadra"
                     type="text"
                     inputMode="numeric"
                     value={form.vcuadra}
@@ -387,8 +390,9 @@ export default function ViaCrudModal({ isOpen, onClose, mode, codVia, onSaved }:
                   />
                 </div>
                 <div>
-                  <label className={labelClass}>Lado</label>
+                  <label htmlFor="via-lado" className={labelClass}>Lado</label>
                   <select
+                    id="via-lado"
                     value={form.vlado}
                     onChange={(e) => handleChange("vlado", e.target.value)}
                     disabled={isEdit}
@@ -404,8 +408,9 @@ export default function ViaCrudModal({ isOpen, onClose, mode, codVia, onSaved }:
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
-                  <label className={labelClass}>Urbanización</label>
+                  <label htmlFor="via-urba" className={labelClass}>Urbanización</label>
                   <select
+                    id="via-urba"
                     value={form.id_urba}
                     onChange={(e) => handleChange("id_urba", e.target.value)}
                     className={inputClass}
@@ -421,8 +426,9 @@ export default function ViaCrudModal({ isOpen, onClose, mode, codVia, onSaved }:
                   </select>
                 </div>
                 <div>
-                  <label className={labelClass}>Zona</label>
+                  <label htmlFor="via-zona" className={labelClass}>Zona</label>
                   <select
+                    id="via-zona"
                     value={form.id_zona}
                     onChange={(e) => handleChange("id_zona", e.target.value)}
                     className={inputClass}
@@ -438,8 +444,9 @@ export default function ViaCrudModal({ isOpen, onClose, mode, codVia, onSaved }:
                   </select>
                 </div>
                 <div>
-                  <label className={labelClass}>Tipo Zona</label>
+                  <label htmlFor="via-tipozona" className={labelClass}>Tipo Zona</label>
                   <select
+                    id="via-tipozona"
                     value={form.id_tipozona}
                     onChange={(e) => handleChange("id_tipozona", e.target.value)}
                     className={inputClass}
@@ -452,8 +459,9 @@ export default function ViaCrudModal({ isOpen, onClose, mode, codVia, onSaved }:
                 </div>
               </div>
               <div>
-                <label className={labelClass}>Estado</label>
+                <label htmlFor="via-estado" className={labelClass}>Estado</label>
                 <select
+                  id="via-estado"
                   value={form.nestado}
                   onChange={(e) => handleChange("nestado", e.target.value)}
                   className={inputClass}
@@ -465,8 +473,9 @@ export default function ViaCrudModal({ isOpen, onClose, mode, codVia, onSaved }:
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
-                  <label className={labelClass}>Operador</label>
+                  <label htmlFor="via-operador" className={labelClass}>Operador</label>
                   <input
+                    id="via-operador"
                     type="text"
                     value={form.operador}
                     disabled
@@ -474,9 +483,10 @@ export default function ViaCrudModal({ isOpen, onClose, mode, codVia, onSaved }:
                   />
                 </div>
                 <div>
-                  <label className={labelClass}>Estación</label>
+                  <label htmlFor="via-estacion" className={labelClass}>Estación</label>
                   <div className="flex items-center gap-1">
                     <input
+                      id="via-estacion"
                       type="text"
                       value={form.estacion}
                       disabled
@@ -500,8 +510,9 @@ export default function ViaCrudModal({ isOpen, onClose, mode, codVia, onSaved }:
                   </div>
                 </div>
                 <div>
-                  <label className={labelClass}>Fecha Ingreso</label>
+                  <label htmlFor="via-fecha" className={labelClass}>Fecha Ingreso</label>
                   <input
+                    id="via-fecha"
                     type="text"
                     value={isEdit ? formatFecha(form.fech_ing) : "Auto (SP)"}
                     disabled
