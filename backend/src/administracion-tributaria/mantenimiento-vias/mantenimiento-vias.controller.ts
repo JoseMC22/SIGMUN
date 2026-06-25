@@ -211,7 +211,7 @@ export class MantenimientoViasController {
     @Param('id_tbl') id_tbl: string,
   ): Promise<{ success: true; data: SpArancelDetalle }> {
     const data = await this.mantenimientoViasService.getArancelDetalle(cod_via, id_tbl);
-    console.log('[getArancelDetalle] SP returned:', JSON.stringify(data));
+    //console.log('[getArancelDetalle] SP returned:', JSON.stringify(data));
     return { success: true, data };
   }
 
@@ -231,13 +231,13 @@ export class MantenimientoViasController {
     } catch (error) {
       if (error instanceof ZodError) {
         const messages = error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join(', ');
-        console.log('[saveArancel] ZodError:', JSON.stringify(error.issues));
+        //console.log('[saveArancel] ZodError:', JSON.stringify(error.issues));
         throw new BadRequestException({
           success: false,
           error: messages || 'Datos de entrada inválidos.',
         });
       }
-      console.log('[saveArancel] Error inesperado:', error);
+      //console.log('[saveArancel] Error inesperado:', error);
       throw new BadRequestException({
         success: false,
         error: 'Datos de entrada inválidos.',
@@ -249,7 +249,7 @@ export class MantenimientoViasController {
       const result = await this.mantenimientoViasService.saveArancel(parsed, operador, clientIp);
       return { success: true, ...result };
     } catch (error) {
-      console.log('[saveArancel] Error en service:', error);
+      //console.log('[saveArancel] Error en service:', error);
       throw error;
     }
   }
