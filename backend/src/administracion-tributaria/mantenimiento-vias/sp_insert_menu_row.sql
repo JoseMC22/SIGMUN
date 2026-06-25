@@ -1,0 +1,29 @@
+-- ============================================================
+-- Script: Insertar registro de menú para Mantenimiento de Vías
+-- Descripción: Inserta la fila del submenú "Mantenimiento de
+--              Vías" bajo el módulo "Administración Tributaria".
+-- ============================================================
+-- Pendiente: 
+--   1. Consultar el id_acceso de "Administración Tributaria":
+--      SELECT id_acceso, doform1, nombre FROM menu_root
+--      WHERE nombre LIKE '%Administración Tributaria%'
+--   2. Reemplazar {ADMINISTRACION_TRIBUTARIA_ID} con el id real.
+--   3. Ejecutar en la BD objetivo.
+-- ============================================================
+-- 
+-- DECLARE @parent_id INT = {ADMINISTRACION_TRIBUTARIA_ID};
+-- 
+-- INSERT INTO menu_root (id_acceso, doform1, doform2, nombre, estado, orden)
+-- VALUES (
+--   (SELECT ISNULL(MAX(id_acceso), 0) + 1 FROM menu_root),
+--   'administracion-tributaria',
+--   'mantenimiento-vias',
+--   'Mantenimiento de Vías',
+--   1,
+--   (SELECT ISNULL(MAX(orden), 0) + 1 FROM menu_root WHERE doform1 = 'administracion-tributaria')
+-- );
+-- 
+-- ============================================================
+-- Verificación:
+--   SELECT * FROM menu_root WHERE doform2 = 'mantenimiento-vias'
+-- ============================================================
