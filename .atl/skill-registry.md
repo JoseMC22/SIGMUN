@@ -13,6 +13,9 @@ Last updated: 2026-06-09
 - C:\Users\jmozo.SATICA\.codex\skills
 - D:\SIGMUN\.trae\skills (project)
 
+
+
+
 ## Contract
 
 **Delegator use only.** This registry is an index, not a summary. Any agent that launches subagents reads it to select relevant skills, then passes exact `SKILL.md` paths for the subagent to read before work.

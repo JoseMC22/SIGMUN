@@ -1,6 +1,6 @@
 # SDD Init Context — SIGMUN
 
-Generated: 2026-06-09
+Generated: 2026-06-24
 Persistence mode: hybrid (OpenSpec + Engram)
 
 ## Project
@@ -28,24 +28,34 @@ Monorepo with backend/ and frontend/ packages via pnpm workspaces.
 - **Architecture:** Clean Architecture (domain/, application/, infrastructure/, presentation/)
 
 ## Conventions
-- **Project skill:** `.trae/skills/sigmun-standard/SKILL.md` — enforcement priorities: Security > API Contract > Typing/Lint > Validation > Testing > Observability > UX
+- **Project skill:** `openspec/standards/SKILL.md` — enforcement priorities: SDD mandatory > Security > API Contract > Typing/Lint > Validation > Testing > UI/UX > Observability
 - **Code:** English; **Docs/Comments:** Spanish; **UI strings:** Spanish
-- **i18n:** Dot-notation keys (e.g. `login.button.submit`), locale files in `/src/i18n`
-- **Secrets:** External vault (Azure Key Vault / HashiCorp Vault); never commit .env
+- **i18n:** Dot-notation keys (e.g. `login.button.submit`)
+- **Secrets:** External vault; never commit .env
 - **DB:** Parametrized queries only, no string concatenation
 
 ## Quality Tooling
 - **Linter:** ESLint 9 (flat config) — backend: typescript-eslint recommendedTypeChecked; frontend: eslint-config-next
-- **Type checker:** TypeScript (tsconfig in each package)
-- **Formatter:** Prettier (backend only, configured in backend/.prettierrc)
+- **Type checker:** TypeScript (tsconfig per package)
+- **Formatter:** Prettier (backend only)
 
 ## Strict TDD
 - **Status:** enabled (test runner detected; no marker override)
-- **Backend:** 3 unit spec files + 1 E2E spec
-- **Frontend:** 1 vitest test file
+- **Backend:** 9 unit spec files + 1 E2E spec
+- **Frontend:** 6 vitest test files
 - **Coverage target (per sigmun-standard):** >=80% on critical modules (auth/, repositories/)
 
 ## Existing SDD State
-- `openspec/` exists with `changes/auth-boundary-stabilization/` (completed + archived)
-- `openspec/config.yaml` created by this init (was missing)
-- `openspec/specs/` created by this init (was missing)
+- `openspec/` exists with config.yaml, standards (6), specs (2), changes (archive + active), reports
+- `openspec/config.yaml` — up to date (hybrid mode, strict_tdd: true, accurate stack/testing info)
+- `openspec/standards/` — 6 files: API, ARCHITECTURE, CODING, SKILL, TESTING, UI-UX
+- `openspec/specs/` — 2 active: mantenimiento-vias/, seguridad-usuario/
+- `openspec/changes/` — 1 active: auth-boundary-stabilization (all phases), 1 archived: mantenimiento-vias
+- `openspec/reports/` — 1 report: seguridad-usuario
+- `.atl/` — existing with skill-registry, testing-capabilities, sdd-init-context
+- Previous init from different user (jmozo.SATICA) — rebuilt for current user (Mvaez)
+
+## Known Issues
+- Root devDependencies have newer versions of vitest/react-testing-library vs frontend package — potential drift
+- Frontend has no coverage command configured
+- Frontend has no Prettier configuration
