@@ -8,6 +8,7 @@ import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './auth/auth.module';
 import { MenuModule } from './menu/menu.module';
 import { SeguridadModule } from './seguridad/seguridad.module';
+import { MantenimientoViasModule } from './administracion-tributaria/mantenimiento-vias/mantenimiento-vias.module';
 import { ReportesModule } from './reportes-gerenciales/reportes-gerenciales.module';
 
 @Module({
@@ -46,8 +47,6 @@ import { ReportesModule } from './reportes-gerenciales/reportes-gerenciales.modu
     MenuModule,
     // Módulo de seguridad
     SeguridadModule,
-    // Módulo de reportes gerenciales
-    ReportesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

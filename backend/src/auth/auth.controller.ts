@@ -12,6 +12,10 @@ import {
   Res,
 } from '@nestjs/common';
 import { Response } from 'express';
+import * as dns from 'dns';
+import * as os from 'os';
+import { promisify } from 'util';
+
 import { AuthService } from './auth.service';
 import {
   LoginDto,
@@ -25,6 +29,7 @@ import { loginRequestSchema } from './schemas';
 import { ZodError } from 'zod';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
+const reverseDns = promisify(dns.reverse);
 const COOKIE_NAME = 'SIGMUN_AUTH';
 const SESSION_COOKIE_MAX_AGE_MS = 8 * 60 * 60 * 1000;
 
@@ -88,6 +93,39 @@ export class AuthController {
 
       throw error;
     }
+  }
+
+  @Get('client-info')
+  async clientInfo(
+    @Request() req: Request & { socket: { remoteAddress?: string } },
+  ): Promise<{ hostname: string; ip: string }> {
+    const rawIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
+      || req.socket?.remoteAddress
+      || 'unknown';
+    const ip = rawIp.replace(/^::ffff:/, '');
+
+    let hostname = ip;
+    try {
+      const names = await reverseDns(ip);
+      if (names.length > 0) {
+        const resolved = names[0].split('.')[0].toUpperCase();
+        // Only use resolved name if it looks like a real hostname (not an IP)
+        if (resolved !== ip && !/^\d+\.\d+\.\d+\.\d+$/.test(resolved)) {
+          hostname = resolved;
+        }
+      }
+    } catch {
+      // DNS reverse lookup failed
+    }
+
+    // Fallback: if reverse DNS didn't resolve a real name, use server hostname
+    // This covers the case where the client accesses via IP on the same LAN
+    // and the server runs on the same machine as the client
+    if (hostname === ip) {
+      hostname = os.hostname().toUpperCase();
+    }
+
+    return { hostname, ip };
   }
 
   @UseGuards(JwtAuthGuard)

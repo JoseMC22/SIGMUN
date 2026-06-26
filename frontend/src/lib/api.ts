@@ -85,6 +85,73 @@ export function clearAuth(): void {
   }
 }
 
+const PC_NAME_KEY = 'sigmun_pc_name';
+
+/**
+ * Obtiene el nombre de la PC.
+ * Siempre consulta al backend (que usa DNS reverse lookup + os.hostname() como fallback).
+ * El valor manual del usuario (localStorage) solo se usa si fue configurado explícitamente.
+ */
+export async function fetchPcName(): Promise<string> {
+  // 1. If user manually configured PC name in localStorage, use it first
+  if (typeof window !== 'undefined') {
+    const stored = localStorage.getItem(PC_NAME_KEY);
+    if (stored && stored.trim()) return stored;
+  }
+  // 2. Try backend (DNS reverse lookup + server hostname fallback)
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/client-info`, {
+      credentials: 'include',
+    });
+    if (response.ok) {
+      const data = await response.json();
+      if (data.hostname && data.hostname !== 'unknown') {
+        // Save to localStorage for sync access
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(PC_NAME_KEY, data.hostname);
+        }
+        return data.hostname;
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  // 2. Fallback to localStorage if backend fails
+  if (typeof window !== 'undefined') {
+    const stored = localStorage.getItem(PC_NAME_KEY);
+    if (stored) return stored;
+  }
+
+  return '';
+}
+
+/**
+ * Configura el nombre de la PC manualmente y lo persiste en localStorage.
+ */
+export function setPcName(name: string): void {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(PC_NAME_KEY, name);
+  }
+}
+
+/**
+ * Versión síncrona — retorna el valor de localStorage.
+ */
+export function getPcName(): string {
+  if (typeof window === 'undefined') return '';
+  return localStorage.getItem(PC_NAME_KEY) || '';
+}
+
+/**
+ * Limpia el cache de PC name (útil al cerrar sesión).
+ */
+export function clearPcNameCache(): void {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem(PC_NAME_KEY);
+  }
+}
+
 export interface MenuModuleData {
   id: string;
   title: string;
