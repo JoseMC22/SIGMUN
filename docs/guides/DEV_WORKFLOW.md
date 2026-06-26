@@ -120,7 +120,7 @@ Ejemplo completo:
 
 ```bash
 git checkout DEV
-git pull origin DEV
+git che
 git checkout -b feat/modulo-usuarios
 ```
 
