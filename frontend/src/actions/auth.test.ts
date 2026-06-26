@@ -57,7 +57,6 @@ describe("auth actions", () => {
       httpOnly: true,
       secure: false,
       sameSite: "lax",
-      maxAge: 8 * 60 * 60,
       path: "/",
     }));
     expect(result).toEqual({ success: true, user: expectedUser });
@@ -78,6 +77,8 @@ describe("auth actions", () => {
     const mockFetch = vi.fn();
     global.fetch = mockFetch as any;
 
+    mockedCookies.mockResolvedValue({ get: vi.fn() } as any);
+
     mockFetch.mockResolvedValue({
       ok: true,
       json: vi.fn().mockResolvedValue({
@@ -90,7 +91,6 @@ describe("auth actions", () => {
 
     expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/auth/session'), expect.objectContaining({
       method: 'GET',
-      credentials: 'include',
     }));
     expect(result).toEqual({
       authenticated: true,

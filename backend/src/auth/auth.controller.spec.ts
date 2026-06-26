@@ -36,7 +36,7 @@ describe('AuthController', () => {
     });
 
     const result = await authController.login(
-      { email: 'test@example.com', password: 'secret' },
+      { username: 'testuser', password: 'secret' },
       response,
     );
 
@@ -60,7 +60,7 @@ describe('AuthController', () => {
     } as unknown as Response;
 
     await expect(
-      authController.login({ email: 'not-an-email', password: '' }, response),
+      authController.login({ username: '', password: '' }, response),
     ).rejects.toThrow(BadRequestException);
   });
 
@@ -74,14 +74,14 @@ describe('AuthController', () => {
     );
 
     await expect(
-      authController.login({ email: 'test@example.com', password: 'wrong' }, response),
+      authController.login({ username: 'testuser', password: 'wrong' }, response),
     ).rejects.toMatchObject({
       getStatus: expect.any(Function),
       getResponse: expect.any(Function),
     });
 
     try {
-      await authController.login({ email: 'test@example.com', password: 'wrong' }, response);
+      await authController.login({ username: 'testuser', password: 'wrong' }, response);
     } catch (error: any) {
       expect(error.getStatus()).toBe(HttpStatus.UNAUTHORIZED);
       expect(error.getResponse()).toEqual({
@@ -115,7 +115,7 @@ describe('AuthController', () => {
     });
 
     const result = await authController.login(
-      { email: 'test@example.com', password: 'secret' },
+      { username: 'testuser', password: 'secret' },
       response,
     );
 
@@ -126,7 +126,7 @@ describe('AuthController', () => {
       expect.objectContaining({
         httpOnly: true,
         secure: true,
-        sameSite: 'lax',
+        sameSite: 'strict',
         path: '/',
         maxAge: 8 * 60 * 60 * 1000,
       }),
