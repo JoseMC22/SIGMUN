@@ -5,7 +5,7 @@ const AUTH_COOKIE = 'SIGMUN_AUTH';
 const LOGIN_PATH = '/';
 const DASHBOARD_PATH = '/dashboard';
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const authCookie = request.cookies.get(AUTH_COOKIE);
 
