@@ -145,6 +145,7 @@ describe('MantenimientoViasController — Urbanizaciones CRUD', () => {
       tipourb: 'RB',
       nombre: 'URBANIZACION ACTUALIZADA',
       nestado: '1',
+      operador: '',
       estacion: '',
     };
 
