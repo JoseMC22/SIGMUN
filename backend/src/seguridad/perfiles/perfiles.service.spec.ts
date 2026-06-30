@@ -1,9 +1,6 @@
 import { PerfilesService, calculatePaginationParams } from './perfiles.service';
 import { DatabaseService } from '../../database/database.service';
-import {
-  SpPerfilRow,
-  SpPerfilTotal,
-} from './dto/perfiles.types';
+import { SpPerfilRow, SpPerfilTotal } from './dto/perfiles.types';
 
 // Helper: bypass mssql IRecordSet type strictness in mocks
 function mockSpResult<T>(rows: T[]): any {
@@ -64,7 +61,8 @@ describe('PerfilesService', () => {
           nombre: 'ADMIN',
         }),
       );
-      const firstCallParams = (db.executeProcedure as jest.Mock).mock.calls[0][1];
+      const firstCallParams = (db.executeProcedure as jest.Mock).mock
+        .calls[0][1];
       expect(firstCallParams).not.toHaveProperty('inicio');
       expect(firstCallParams).not.toHaveProperty('final');
 
@@ -86,7 +84,13 @@ describe('PerfilesService', () => {
         .mockResolvedValueOnce(mockSpResult<SpPerfilTotal>([{ total: 0 }]))
         .mockResolvedValueOnce(mockSpResult<SpPerfilRow>([]));
 
-      await service.search({ codigo: '', nombre: '', estado: '', page: 1, pageSize: 10 });
+      await service.search({
+        codigo: '',
+        nombre: '',
+        estado: '',
+        page: 1,
+        pageSize: 10,
+      });
 
       const expectedWithEmpty = expect.objectContaining({
         busc: 6,

@@ -71,7 +71,8 @@ describe('UsuariosService', () => {
           nombres: 'SISTEMAS',
         }),
       );
-      const firstCallParams = (db.executeProcedure as jest.Mock).mock.calls[0][1];
+      const firstCallParams = (db.executeProcedure as jest.Mock).mock
+        .calls[0][1];
       expect(firstCallParams).not.toHaveProperty('inicio');
       expect(firstCallParams).not.toHaveProperty('final');
 
@@ -93,7 +94,16 @@ describe('UsuariosService', () => {
         .mockResolvedValueOnce(mockSpResult<SpUsuariosTotal>([{ total: 0 }]))
         .mockResolvedValueOnce(mockSpResult<SpUsuariosRow>([]));
 
-      await service.search({ codigo: '', nombre: '', usuario: '', area: '', perfil: '', estado: '', page: 1, pageSize: 20 });
+      await service.search({
+        codigo: '',
+        nombre: '',
+        usuario: '',
+        area: '',
+        perfil: '',
+        estado: '',
+        page: 1,
+        pageSize: 20,
+      });
 
       const expectedWithEmpty = expect.objectContaining({
         busc: 6,
@@ -232,7 +242,9 @@ describe('UsuariosService', () => {
         { id_perfil: '4', nombre: 'INACTIVO', nestado: 0 },
       ];
 
-      db.executeProcedure.mockResolvedValue(mockSpResult<SpPerfilRow>(mockRows));
+      db.executeProcedure.mockResolvedValue(
+        mockSpResult<SpPerfilRow>(mockRows),
+      );
 
       const result = await service.getPerfiles();
 
@@ -249,7 +261,9 @@ describe('UsuariosService', () => {
         { id_perfil: '4', nombre: 'INACTIVO', nestado: 0 },
       ];
 
-      db.executeProcedure.mockResolvedValue(mockSpResult<SpPerfilRow>(mockRows));
+      db.executeProcedure.mockResolvedValue(
+        mockSpResult<SpPerfilRow>(mockRows),
+      );
 
       const result = await service.getPerfiles();
 

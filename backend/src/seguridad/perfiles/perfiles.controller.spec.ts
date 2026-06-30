@@ -2,10 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PerfilesController } from './perfiles.controller';
 import { PerfilesService } from './perfiles.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import {
-  PerfilRow,
-  PaginatedResponse,
-} from './dto/perfiles.types';
+import { PerfilRow, PaginatedResponse } from './dto/perfiles.types';
 import { SearchPerfilDto } from './dto/search-perfil.dto';
 
 describe('PerfilesController', () => {
@@ -21,9 +18,7 @@ describe('PerfilesController', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [PerfilesController],
-      providers: [
-        { provide: PerfilesService, useValue: mockService },
-      ],
+      providers: [{ provide: PerfilesService, useValue: mockService }],
     })
       .overrideGuard(JwtAuthGuard)
       .useValue({ canActivate: () => true })
@@ -50,7 +45,11 @@ describe('PerfilesController', () => {
       };
       mockService.search.mockResolvedValue(expected);
 
-      const result = await controller.search({ nombre: 'ADMIN', page: 1, pageSize: 10 });
+      const result = await controller.search({
+        nombre: 'ADMIN',
+        page: 1,
+        pageSize: 10,
+      });
 
       expect(result).toEqual(expected);
       expect(mockService.search).toHaveBeenCalledWith(

@@ -15,11 +15,21 @@ describe('JwtAuthGuard', () => {
 
   it('should throw standardized error for missing auth token', () => {
     expect(() =>
-      guard.handleRequest(null, null, { name: 'NoAuthToken', message: 'No auth token' }, {} as any),
+      guard.handleRequest(
+        null,
+        null,
+        { name: 'NoAuthToken', message: 'No auth token' },
+        {} as any,
+      ),
     ).toThrow(UnauthorizedException);
 
     try {
-      guard.handleRequest(null, null, { name: 'NoAuthToken', message: 'No auth token' }, {} as any);
+      guard.handleRequest(
+        null,
+        null,
+        { name: 'NoAuthToken', message: 'No auth token' },
+        {} as any,
+      );
     } catch (error) {
       expect(error.getResponse()).toEqual({
         authenticated: false,
@@ -31,11 +41,21 @@ describe('JwtAuthGuard', () => {
 
   it('should throw invalid session error for expired token', () => {
     expect(() =>
-      guard.handleRequest(null, null, { name: 'TokenExpiredError', message: 'jwt expired' }, {} as any),
+      guard.handleRequest(
+        null,
+        null,
+        { name: 'TokenExpiredError', message: 'jwt expired' },
+        {} as any,
+      ),
     ).toThrow(UnauthorizedException);
 
     try {
-      guard.handleRequest(null, null, { name: 'TokenExpiredError', message: 'jwt expired' }, {} as any);
+      guard.handleRequest(
+        null,
+        null,
+        { name: 'TokenExpiredError', message: 'jwt expired' },
+        {} as any,
+      );
     } catch (error) {
       expect(error.getResponse()).toEqual({
         authenticated: false,

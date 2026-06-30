@@ -1,11 +1,7 @@
 import { AccesosService, calculatePaginationParams } from './accesos.service';
 import { DatabaseService } from '../../database/database.service';
-import {
-  SpAccesoRow,
-  SpAccesoTotal,
-} from './dto/accesos.types';
+import { SpAccesoRow, SpAccesoTotal } from './dto/accesos.types';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mockSpResult<T>(rows: T[]): any {
   return { recordset: rows };
 }
@@ -64,7 +60,8 @@ describe('AccesosService', () => {
           nombre: 'ADMIN',
         }),
       );
-      const firstCallParams = (db.executeProcedure as jest.Mock).mock.calls[0][1];
+      const firstCallParams = (db.executeProcedure as jest.Mock).mock
+        .calls[0][1];
       expect(firstCallParams).not.toHaveProperty('inicio');
       expect(firstCallParams).not.toHaveProperty('final');
 

@@ -78,6 +78,9 @@ describe("auth actions", () => {
     const mockFetch = vi.fn();
     global.fetch = mockFetch as any;
 
+    // authFetch · cookies() needs .get()
+    mockedCookies.mockResolvedValue({ get: vi.fn().mockReturnValue(undefined) } as any);
+
     mockFetch.mockResolvedValue({
       ok: true,
       json: vi.fn().mockResolvedValue({
@@ -90,7 +93,6 @@ describe("auth actions", () => {
 
     expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/auth/session'), expect.objectContaining({
       method: 'GET',
-      credentials: 'include',
     }));
     expect(result).toEqual({
       authenticated: true,

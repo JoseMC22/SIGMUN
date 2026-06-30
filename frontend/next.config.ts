@@ -11,8 +11,8 @@ const nextConfig: NextConfig = {
   // requests from other hosts on the LAN.
   // @ts-ignore - Next exposes this option at runtime
   allowedDevOrigins: [
-    process.env.DEV_ALLOWED_ORIGIN ?? 'http://192.168.3.244:3000',
-    process.env.DEV_ALLOWED_ORIGIN_HOST ?? '192.168.3.244'
+    process.env.DEV_ALLOWED_ORIGIN ?? 'http://192.168.3.28:3003',
+    process.env.DEV_ALLOWED_ORIGIN_HOST ?? '192.168.3.28'
   ],
   // Silence Turbopack workspace root warning in monorepo
   turbopack: {
