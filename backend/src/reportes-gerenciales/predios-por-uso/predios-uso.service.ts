@@ -58,6 +58,11 @@ export class PrediosUsoService {
       '[Rentas].[sp_predio]',
       { msquery: 3, tipo_predi: 1 },
     );
-    return result.recordset ?? [];
+    const rows = result.recordset ?? [];
+    return rows.map((row: any) => ({
+      id_uso: row.id_uso ?? row.ID_USO ?? row.id_uso?.toString?.() ?? '',
+      descripcion:
+        row.descripcion ?? row.Descripcion ?? row.DESCRIPCION ?? row.uso ?? row.Uso ?? '',
+    }));
   }
 }

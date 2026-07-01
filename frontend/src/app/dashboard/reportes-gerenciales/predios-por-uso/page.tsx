@@ -241,7 +241,7 @@ export default function PrediosUsoPage() {
               <option value="">Todos</option>
               {tiposUso.map((opt) => (
                 <option key={opt.id_uso} value={opt.id_uso}>
-                  {opt.descripcion}
+                  {opt.descripcion || `Uso ${opt.id_uso || 'sin etiqueta'}`}
                 </option>
               ))}
             </select>
