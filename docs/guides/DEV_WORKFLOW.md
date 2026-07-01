@@ -43,7 +43,7 @@ main  (producción)   → protegida, solo el maintainer mergea acá
 ```bash
 git clone https://github.com/JoseMC22/SIGMUN.git
 cd SIGMUN
-pnpm install
+pnpm install (en caso error ejecutar npx pnpm install)
 ```
 
 Configurar identidad (solo la primera vez):
@@ -57,7 +57,7 @@ git config user.email "tu@email.com"
 
 ## 3. Antes de arrancar una feature
 
-Parate siempre en `DEV` y traé los últimos cambios:
+Prate siempre en `DEV` y traé los últimos cambios:
 
 ```bash
 git checkout DEV
@@ -120,7 +120,7 @@ Ejemplo completo:
 
 ```bash
 git checkout DEV
-git pull origin DEV
+git che
 git checkout -b feat/modulo-usuarios
 ```
 
@@ -130,7 +130,7 @@ Ya estás en tu rama, listo para laburar.
 
 ## 6. Laburar y commitear
 
-Hacé tus cambios, después verificá el estado:
+Hacé tus cambios, después verifico el estado:
 
 ```bash
 git status
