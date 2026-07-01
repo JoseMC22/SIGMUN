@@ -19,6 +19,7 @@ import {
   searchValoresAction,
   eliminarValorAction,
 } from "@/actions/valores";
+import ValorEditModal from "./valor-edit-modal";
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -602,6 +603,14 @@ export default function ValoresPage() {
           {renderPagination()}
         </>
       )}
+
+      {/* Edit Modal */}
+      <ValorEditModal
+        isOpen={showEditModal}
+        valorId={editValorId}
+        onClose={handleEditClose}
+        onSaved={handleEditSaved}
+      />
 
       {/* Delete confirmation dialog */}
       {deleteTarget !== null && (

@@ -14,12 +14,14 @@ vi.mock("@/actions/valores", () => ({
   eliminarValorAction: vi.fn(),
 }));
 
-import { searchValoresAction, fetchCategoriasAction, fetchMarcasAction } from "@/actions/valores";
+import { searchValoresAction, fetchCategoriasAction, fetchMarcasAction, fetchAniosAction, fetchAniosEjercicioAction } from "@/actions/valores";
 import ValoresPage from "./page";
 
 const mockedSearch = vi.mocked(searchValoresAction);
 const mockedCategorias = vi.mocked(fetchCategoriasAction);
 const mockedMarcas = vi.mocked(fetchMarcasAction);
+const mockedAnios = vi.mocked(fetchAniosAction);
+const mockedAniosEjercicio = vi.mocked(fetchAniosEjercicioAction);
 
 const mockValores = [
   { id: "1", ejercicio: "2025", categoria: "SEDAN", marca: "TOYOTA", modelo: "COROLLA", anio: "2023", monto: 50000, estado: "ACTIVO" },
@@ -38,8 +40,10 @@ const defaultSearchResponse = {
 describe("Valores page component", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockedCategorias.mockResolvedValue({ success: true, data: [] });
-    mockedMarcas.mockResolvedValue({ success: true, data: [] });
+    mockedCategorias.mockResolvedValue({ success: true as const, data: [] });
+    mockedMarcas.mockResolvedValue({ success: true as const, data: [] });
+    mockedAnios.mockResolvedValue({ success: true as const, data: [] });
+    mockedAniosEjercicio.mockResolvedValue({ success: true as const, data: [] });
   });
 
   describe("Search form renders with text input, search type radios, and action buttons", () => {
