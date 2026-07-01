@@ -4,6 +4,7 @@ import { SearchPredioUsoDto } from './dto/search-predio-uso.dto';
 import {
   PredioUsoRow,
   PaginatedResponse,
+  SpTipoUsoRow,
 } from './dto/predios-uso.types';
 
 // ── Pure pagination helper (in-memory slice indices) ──
@@ -37,10 +38,10 @@ export class PrediosUsoService {
 
     const allRows: PredioUsoRow[] = (result.recordset || []).map((row: any) => ({
       tipo: row.tipo ?? '',
-      uso: row.uso ?? '',
-      predios: row.predios ?? 0,
-      condicion: row.condicion ?? '',
-      count: row.count ?? 0,
+      uso: row.Uso ?? row.uso ?? '',
+      predios: row['# PREDIOS'] ?? row.predios ?? 0,
+      condicion: row.Condicion ?? row.condicion ?? '',
+      count: row.Count ?? row.count ?? 0,
       anno: row.anno ?? 0,
       id_uso: row.id_uso ?? '',
     }));
@@ -50,5 +51,13 @@ export class PrediosUsoService {
     const totalPages = total > 0 ? Math.ceil(total / pageSize) : 0;
 
     return { data, total, page, pageSize, totalPages };
+  }
+
+  async getTiposUso(): Promise<SpTipoUsoRow[]> {
+    const result = await this.db.executeProcedure<SpTipoUsoRow>(
+      '[Rentas].[sp_predio]',
+      { msquery: 3, tipo_predi: 1 },
+    );
+    return result.recordset ?? [];
   }
 }
