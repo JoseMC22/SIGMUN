@@ -9,6 +9,8 @@ import { AuthModule } from './auth/auth.module';
 import { MenuModule } from './menu/menu.module';
 import { SeguridadModule } from './seguridad/seguridad.module';
 import { ImpuestoVehicularModule } from './impuesto-vehicular/impuesto-vehicular.module';
+import { MantenimientoViasModule } from './administracion-tributaria/mantenimiento-vias/mantenimiento-vias.module';
+import { ReportesModule } from './reportes-gerenciales/reportes-gerenciales.module';
 
 @Module({
   imports: [
@@ -46,6 +48,8 @@ import { ImpuestoVehicularModule } from './impuesto-vehicular/impuesto-vehicular
     MenuModule,
     // Módulo de seguridad
     SeguridadModule,
+    MantenimientoViasModule,
+    ReportesModule,
     // Módulo de impuesto vehicular
     ImpuestoVehicularModule,
   ],

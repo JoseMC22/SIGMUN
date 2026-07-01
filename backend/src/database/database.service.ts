@@ -83,13 +83,21 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   /**
    * Ejecuta una consulta raw (query) si fuera necesaria.
    * @param queryStr Consulta SQL
+   * @param params Parámetros para la consulta (opcional)
    * @param timeout Timeout específico para esta ejecución (opcional)
    */
   async query<T>(
     queryStr: string,
+    params?: Record<string, any>,
     timeout?: number,
   ): Promise<mssql.IResult<T>> {
     const request = this.pool.request();
+
+    if (params) {
+      for (const [key, value] of Object.entries(params)) {
+        request.input(key, value);
+      }
+    }
 
     if (timeout !== undefined && timeout !== null && timeout > 0) {
       return this.executeWithTimeout(request.query<T>(queryStr), timeout);

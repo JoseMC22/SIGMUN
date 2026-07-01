@@ -32,13 +32,9 @@ async function bootstrap() {
   const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
   //console.log(`Using FRONTEND_URL=${frontendUrl}`);
 
-  // In development allow local LAN host commonly used for testing HMR from other machines
-  const devAllowedHost =
-    process.env.DEV_ALLOWED_ORIGIN ?? 'http://192.168.3.244:3000';
-  const corsOrigin =
-    process.env.NODE_ENV === 'production'
-      ? frontendUrl
-      : [frontendUrl, devAllowedHost];
+  // In development allow LAN hosts commonly used for testing HMR from other machines
+  const devAllowedHosts = (process.env.DEV_ALLOWED_ORIGINS ?? 'http://192.168.3.244:3000,http://26.243.170.131:3000').split(',');
+  const corsOrigin = process.env.NODE_ENV === 'production' ? frontendUrl : [frontendUrl, ...devAllowedHosts];
 
   app.enableCors({
     origin: corsOrigin,

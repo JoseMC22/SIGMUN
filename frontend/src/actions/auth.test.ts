@@ -5,7 +5,11 @@ vi.mock("@/lib/api", () => ({
 }));
 
 vi.mock("next/headers", () => ({
-  cookies: vi.fn(),
+  cookies: vi.fn(() => Promise.resolve({
+    get: vi.fn(() => null),
+    set: vi.fn(),
+    delete: vi.fn(),
+  })),
 }));
 
 import { loginAction, logoutAction, checkSessionAction } from "./auth";
@@ -81,22 +85,29 @@ describe("auth actions", () => {
     // authFetch · cookies() needs .get()
     mockedCookies.mockResolvedValue({ get: vi.fn().mockReturnValue(undefined) } as any);
 
-    mockFetch.mockResolvedValue({
+    const mockResponse = {
       ok: true,
       json: vi.fn().mockResolvedValue({
         authenticated: true,
         user: { id: 'user-1', name: 'Alice', roles: ['admin'] },
       }),
-    });
+    };
+
+    mockFetch.mockResolvedValue(mockResponse);
 
     const result = await checkSessionAction();
 
-    expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/auth/session'), expect.objectContaining({
-      method: 'GET',
-    }));
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/auth/session'),
+      expect.objectContaining({
+        method: 'GET',
+      }),
+    );
     expect(result).toEqual({
       authenticated: true,
       user: { id: 'user-1', name: 'Alice', roles: ['admin'] },
     });
+
+    vi.unstubAllGlobals();
   });
 });
