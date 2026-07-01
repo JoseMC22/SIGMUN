@@ -4,13 +4,13 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 // Mock the server actions module before any imports
 vi.mock("@/actions/mantenimiento-vias", () => ({
   searchViasAction: vi.fn(),
-  getTiposUrbanizacionAction: vi.fn().mockResolvedValue({ success: true, data: [] }),
+  getTiposUrbanizacionAction: vi.fn(),
   createUrbanizacionAction: vi.fn(),
   getUrbanizacionAction: vi.fn(),
   updateUrbanizacionAction: vi.fn(),
-  getTiposViaAction: vi.fn().mockResolvedValue({ success: true, data: [] }),
-  getUrbanizacionesAction: vi.fn().mockResolvedValue({ success: true, data: [] }),
-  getZonasAction: vi.fn().mockResolvedValue({ success: true, data: [] }),
+  getTiposViaAction: vi.fn(),
+  getUrbanizacionesAction: vi.fn(),
+  getZonasAction: vi.fn(),
   getViaAction: vi.fn(),
   createViaAction: vi.fn(),
   updateViaAction: vi.fn(),

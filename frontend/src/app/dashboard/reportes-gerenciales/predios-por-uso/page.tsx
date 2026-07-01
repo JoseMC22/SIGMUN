@@ -355,32 +355,27 @@ export default function PrediosUsoPage() {
 
   const renderTableHeader = () => (
     <colgroup>
-      <col className="w-[11%]" />
-      <col className="w-[24%]" />
-      <col className="w-[8%]" />
+      <col className="w-[10%]" />
+      <col className="w-[18%]" />
       <col className="w-[12%]" />
-      <col className="w-[33%]" />
-      <col className="w-[12%]" />
+      <col className="w-[18%]" />
+      <col className="w-[10%]" />
+      <col className="w-[10%]" />
+      <col className="w-[10%]" />
     </colgroup>
   );
-
-  const tipoLabel = (val: string) => {
-    if (val === 'U' || val === 'u') return 'Único';
-    if (val === 'C' || val === 'c') return 'Copropietario';
-    return val;
-  };
 
   const renderTableBody = () => (
     <tbody className="divide-y divide-slate-100">
       {data.map((row, idx) => (
         <tr
-          key={`${row.tipo}-${row.uso}-${row.anno}`}
+          key={`${row.id_uso}-${row.anno}`}
           className={`transition hover:bg-slate-50 ${
             idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"
           }`}
         >
           <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate">
-            {tipoLabel(row.tipo)}
+            {row.tipo}
           </td>
           <td className="px-2 py-1.5 text-[11px] font-medium text-slate-800 truncate">
             {row.uso}
@@ -422,10 +417,11 @@ export default function PrediosUsoPage() {
           <tr>
             <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Tipo</th>
             <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Uso</th>
-            <th className="text-center text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Año</th>
             <th className="text-right text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Predios</th>
             <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Condición</th>
-            <th className="text-center text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Acción</th>
+            <th className="text-right text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Count</th>
+            <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Año</th>
+            <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Id Uso</th>
           </tr>
         </thead>
         {renderTableBody()}
@@ -784,7 +780,9 @@ export default function PrediosUsoPage() {
 
       {/* Results info */}
       {!loading && !error && !initialLoading && data.length > 0 && (
-        renderResultsBar()
+        <div className="flex items-center justify-between">
+          {renderResultsBar()}
+        </div>
       )}
 
       {/* Loading state */}

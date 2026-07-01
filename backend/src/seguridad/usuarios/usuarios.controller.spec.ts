@@ -25,9 +25,7 @@ describe('UsuariosController', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [UsuariosController],
-      providers: [
-        { provide: UsuariosService, useValue: mockService },
-      ],
+      providers: [{ provide: UsuariosService, useValue: mockService }],
     })
       .overrideGuard(JwtAuthGuard)
       .useValue({ canActivate: () => true })
@@ -42,8 +40,22 @@ describe('UsuariosController', () => {
   describe('POST /seguridad/usuarios/search', () => {
     it('should delegate to service.search with parsed DTO and return PaginatedResponse', async () => {
       const mockData: UsuarioRow[] = [
-        { id: 'USR001', nombre: 'JUAN PEREZ', area: '1102', perfil: 'ADMIN', usuario: 'jperez', estado: 'ACTIVADO' },
-        { id: 'USR002', nombre: 'MARIA GARCIA', area: '1201', perfil: 'USER', usuario: 'mgarcia', estado: 'DESACTIVADO' },
+        {
+          id: 'USR001',
+          nombre: 'JUAN PEREZ',
+          area: '1102',
+          perfil: 'ADMIN',
+          usuario: 'jperez',
+          estado: 'ACTIVADO',
+        },
+        {
+          id: 'USR002',
+          nombre: 'MARIA GARCIA',
+          area: '1201',
+          perfil: 'USER',
+          usuario: 'mgarcia',
+          estado: 'DESACTIVADO',
+        },
       ];
       const expected: PaginatedResponse<UsuarioRow> = {
         data: mockData,
@@ -54,7 +66,11 @@ describe('UsuariosController', () => {
       };
       mockService.search.mockResolvedValue(expected);
 
-      const result = await controller.search({ nombre: 'SISTEMAS', page: 1, pageSize: 20 });
+      const result = await controller.search({
+        nombre: 'SISTEMAS',
+        page: 1,
+        pageSize: 20,
+      });
 
       expect(result).toEqual(expected);
       expect(mockService.search).toHaveBeenCalledWith(

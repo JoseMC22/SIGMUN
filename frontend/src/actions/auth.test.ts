@@ -77,9 +77,13 @@ describe("auth actions", () => {
     expect(result).toEqual({ success: true });
   });
 
-  it("checkSessionAction returns unauthenticated when no cookie is present", async () => {
-    // When no cookie is set, authFetch sends request without cookie header
-    // The backend should return { authenticated: false }
+  it("checkSessionAction calls the backend session endpoint and returns authenticated state", async () => {
+    const mockFetch = vi.fn();
+    global.fetch = mockFetch as any;
+
+    // authFetch · cookies() needs .get()
+    mockedCookies.mockResolvedValue({ get: vi.fn().mockReturnValue(undefined) } as any);
+
     const mockResponse = {
       ok: true,
       json: vi.fn().mockResolvedValue({
@@ -88,17 +92,21 @@ describe("auth actions", () => {
       }),
     };
 
-    const originalFetch = global.fetch;
-    global.fetch = vi.fn().mockResolvedValue(mockResponse) as any;
+    mockFetch.mockResolvedValue(mockResponse);
 
     const result = await checkSessionAction();
 
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/auth/session'),
+      expect.objectContaining({
+        method: 'GET',
+      }),
+    );
     expect(result).toEqual({
       authenticated: false,
       user: null,
     });
 
-    // Restore original fetch
-    global.fetch = originalFetch;
+    vi.unstubAllGlobals();
   });
 });

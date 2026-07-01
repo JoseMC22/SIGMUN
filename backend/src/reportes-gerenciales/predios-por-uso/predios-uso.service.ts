@@ -46,13 +46,13 @@ export class PrediosUsoService {
     );
 
     const allRows: PredioUsoRow[] = (result.recordset || []).map((row: any) => ({
-      tipo: col(row, 'tipo') ?? '',
-      uso: col(row, 'uso') ?? '',
-      predios: col(row, 'predios') ?? col(row, '# PREDIOS') ?? 0,
-      condicion: col(row, 'condicion') ?? col(row, 'Condicion') ?? col(row, 'condición') ?? '',
-      count: col(row, 'count') ?? col(row, 'Count') ?? 0,
-      anno: col(row, 'anno') ?? 0,
-      id_uso: col(row, 'id_uso') ?? '',
+      tipo: row.tipo ?? '',
+      uso: row.uso ?? '',
+      predios: row.predios ?? 0,
+      condicion: row.condicion ?? '',
+      count: row.count ?? 0,
+      anno: row.anno ?? 0,
+      id_uso: row.id_uso ?? '',
     }));
 
     const total = allRows.length;

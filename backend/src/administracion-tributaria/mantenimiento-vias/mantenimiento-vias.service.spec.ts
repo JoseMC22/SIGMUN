@@ -9,10 +9,10 @@ function mockSpResult<T>(rows: T[]): any {
 
 describe('MantenimientoViasService — Urbanizaciones CRUD', () => {
   let service: MantenimientoViasService;
-  let db: jest.Mocked<Pick<DatabaseService, 'executeProcedure' | 'query'>>;
+  let db: jest.Mocked<Pick<DatabaseService, 'executeProcedure'>>;
 
   beforeEach(() => {
-    db = { executeProcedure: jest.fn(), query: jest.fn() };
+    db = { executeProcedure: jest.fn() };
     service = new MantenimientoViasService(db as unknown as DatabaseService);
   });
 
@@ -39,7 +39,7 @@ describe('MantenimientoViasService — Urbanizaciones CRUD', () => {
         '[Rentas].[sp_Mant_Vias]',
         expect.objectContaining({
           busc: 16,
-          tipovia: 'RB',
+          tipourb: 'RB',
           nombre_via: 'URBANIZACION TEST',
           operador: 'jperez',
         }),
@@ -52,7 +52,6 @@ describe('MantenimientoViasService — Urbanizaciones CRUD', () => {
 
       await service.createUrbanizacion(
         {
-          id_urba: '',
           tipourb: 'RB',
           nombre: 'Urbanización 2',
           nestado: '1',
@@ -123,7 +122,6 @@ describe('MantenimientoViasService — Urbanizaciones CRUD', () => {
       const result = await service.updateUrbanizacion(
         'U001',
         {
-          id_urba: 'U001',
           tipourb: 'RB',
           nombre: 'URBANIZACION ACTUALIZADA',
           nestado: '1',
@@ -139,7 +137,7 @@ describe('MantenimientoViasService — Urbanizaciones CRUD', () => {
         expect.objectContaining({
           busc: 22,
           id_urba: 'U001',
-          tipovia: 'RB',
+          tipourb: 'RB',
           nombre_via: 'URBANIZACION ACTUALIZADA',
           nestado: '1',
           operador: 'jperez',
@@ -154,7 +152,6 @@ describe('MantenimientoViasService — Urbanizaciones CRUD', () => {
 
       await expect(
         service.updateUrbanizacion('U001', {
-          id_urba: 'U001',
           tipourb: 'RB',
           nombre: 'Test',
           nestado: '1',

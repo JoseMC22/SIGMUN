@@ -2,10 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 
 // Mock the server actions module before any imports
-vi.mock("@/actions/reportes-gerenciales/predios-uso", async () => ({
-  searchPrediosUsoAction: vi.fn().mockResolvedValue({ success: true, data: [], total: 0, page: 1, pageSize: 15, totalPages: 0 }),
-  getDetallePredioUsoAction: vi.fn(),
-  getUsoOptionsAction: vi.fn().mockResolvedValue({ success: true, options: [] }),
+vi.mock("@/actions/reportes-gerenciales/predios-uso", () => ({
+  searchPrediosUsoAction: vi.fn(),
 }));
 
 import { searchPrediosUsoAction } from "@/actions/reportes-gerenciales/predios-uso";
@@ -44,12 +42,17 @@ describe("PrediosUso page component", () => {
         expect(screen.queryByTestId("loading-spinner")).not.toBeInTheDocument();
       });
 
-      // text input: Código
-      expect(screen.getByPlaceholderText(/código del predio/i)).toBeInTheDocument();
+      // 2 text inputs: Código, Uso
+      const textInputs = screen.getAllByRole("textbox");
+      expect(textInputs).toHaveLength(2);
 
-      // 2 selects: Año, Uso
+      // Verify placeholder texts to confirm each field
+      expect(screen.getByPlaceholderText(/código del predio/i)).toBeInTheDocument();
+      expect(screen.getByPlaceholderText(/tipo de uso/i)).toBeInTheDocument();
+
+      // 1 select: Año
       const selects = screen.getAllByRole("combobox");
-      expect(selects).toHaveLength(2);
+      expect(selects).toHaveLength(1);
     });
   });
 
@@ -145,15 +148,16 @@ describe("PrediosUso page component", () => {
         expect(screen.getByTestId("predios-grid")).toBeInTheDocument();
       });
 
-      // Check 6 column headers (Tipo, Uso, Año, Predios, Condición, Acción)
+      // Check 7 column headers
       const headers = screen.getAllByRole("columnheader");
-      expect(headers).toHaveLength(6);
+      expect(headers).toHaveLength(7);
       expect(headers[0]).toHaveTextContent(/tipo/i);
       expect(headers[1]).toHaveTextContent(/uso/i);
-      expect(headers[2]).toHaveTextContent(/año/i);
-      expect(headers[3]).toHaveTextContent(/predios/i);
-      expect(headers[4]).toHaveTextContent(/condición/i);
-      expect(headers[5]).toHaveTextContent(/acción/i);
+      expect(headers[2]).toHaveTextContent(/predios/i);
+      expect(headers[3]).toHaveTextContent(/condición/i);
+      expect(headers[4]).toHaveTextContent(/count/i);
+      expect(headers[5]).toHaveTextContent(/año/i);
+      expect(headers[6]).toHaveTextContent(/id uso/i);
 
       // Check data rows display content
       expect(screen.getByText("COMERCIO")).toBeInTheDocument();
