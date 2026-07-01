@@ -10,16 +10,18 @@ import {
   RotateCcw,
   FolderSearch,
   LayoutGrid,
+  ExternalLink,
+  X,
 } from "lucide-react";
-import { searchPrediosUsoAction } from "@/actions/reportes-gerenciales/predios-uso";
-import type { PredioUsoRow } from "@/actions/reportes-gerenciales/predios-uso";
+import { searchPrediosUsoAction, getDetallePredioUsoAction, getUsoOptionsAction } from "@/actions/reportes-gerenciales/predios-uso";
+import type { PredioUsoRow, UsoOption } from "@/actions/reportes-gerenciales/predios-uso";
 
 // ── Year range ────────────────────────────────────────────
 
 const YEAR_START = 2016;
 const YEAR_END = new Date().getFullYear(); // 2026
 const YEARS: number[] = [];
-for (let y = YEAR_START; y <= YEAR_END; y++) {
+for (let y = YEAR_END; y >= YEAR_START; y--) {
   YEARS.push(y);
 }
 
@@ -66,7 +68,7 @@ export default function PrediosUsoPage() {
 
   const [filters, setFilters] = useState({
     codigo: "",
-    anno: "",
+    anno: String(new Date().getFullYear()),
     uso: "",
   });
 
@@ -80,6 +82,126 @@ export default function PrediosUsoPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
+
+  // ── Uso options (combo) ───────────────────────────────────
+
+  const [usoOptions, setUsoOptions] = useState<UsoOption[]>([]);
+  const [usoOptionsLoading, setUsoOptionsLoading] = useState(true);
+
+  // ── Detail modal ─────────────────────────────────────────
+
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailTitle, setDetailTitle] = useState("");
+  const [detailData, setDetailData] = useState<Record<string, any>[]>([]);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const [detailPage, setDetailPage] = useState(1);
+  const DETAIL_PAGE_SIZE = 15;
+
+  const handleDetalle = useCallback(async (row: PredioUsoRow) => {
+    setDetailTitle(`Detalle — ${row.tipo}: ${row.uso}`);
+    setDetailOpen(true);
+    setDetailLoading(true);
+    setDetailError(null);
+    setDetailData([]);
+    try {
+      const result = await getDetallePredioUsoAction({
+        codigo: "",
+        anno: row.anno,
+        id_uso: row.id_uso,
+        flag: "U",
+      });
+      if (result.success) {
+        setDetailData(result.data);
+        setDetailPage(1);
+      } else {
+        setDetailError(result.error);
+      }
+    } catch {
+      setDetailError("Error de conexión");
+    } finally {
+      setDetailLoading(false);
+    }
+  }, []);
+
+  const closeDetail = useCallback(() => {
+    setDetailOpen(false);
+    setDetailData([]);
+    setDetailError(null);
+  }, []);
+
+  // ── Export helpers ───────────────────────────────────────
+
+  const exportDetailExcel = useCallback(async () => {
+    const XLSX = await import('xlsx');
+    const ws = XLSX.utils.json_to_sheet(detailData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Detalle');
+    XLSX.writeFile(wb, `predios-detalle-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  }, [detailData]);
+
+  const exportDetailPdf = useCallback(async () => {
+    const { default: jsPDF } = await import('jspdf');
+    const { default: autoTable } = await import('jspdf-autotable');
+
+    const doc = new jsPDF({ orientation: 'landscape' });
+    const keys = detailData.length > 0 ? Object.keys(detailData[0]) : [];
+
+    doc.setFontSize(10);
+    doc.text('Detalle - Predios por Uso', 14, 12);
+
+    autoTable(doc, {
+      head: [keys],
+      body: detailData.map((row) => keys.map((k) => row[k] ?? '')),
+      styles: { fontSize: 7 },
+      startY: 18,
+      margin: { top: 18 },
+    });
+
+    doc.save(`predios-detalle-${new Date().toISOString().slice(0, 10)}.pdf`);
+  }, [detailData]);
+
+  // ── Main export helpers ───────────────────────────────────
+
+  const mainExportData = useCallback(() => {
+    return data.map((row) => ({
+      Tipo: tipoLabel(row.tipo),
+      Uso: row.uso,
+      Año: row.anno,
+      Predios: row.predios,
+      Condición: row.condicion,
+    }));
+  }, [data]);
+
+  const exportMainExcel = useCallback(async () => {
+    const XLSX = await import('xlsx');
+    const ws = XLSX.utils.json_to_sheet(mainExportData());
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Predios por Uso');
+    XLSX.writeFile(wb, `predios-por-uso-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  }, [mainExportData]);
+
+  const exportMainPdf = useCallback(async () => {
+    const { default: jsPDF } = await import('jspdf');
+    const { default: autoTable } = await import('jspdf-autotable');
+
+    const doc = new jsPDF({ orientation: 'landscape' });
+    const rows = mainExportData();
+    const keys = rows.length > 0 ? Object.keys(rows[0]) : [];
+
+    doc.setFontSize(10);
+    doc.text('Predios por Uso', 14, 12);
+
+    autoTable(doc, {
+      head: [keys],
+      body: rows.map((r) => keys.map((k) => r[k as keyof typeof r] ?? '')),
+      styles: { fontSize: 7 },
+      startY: 18,
+      margin: { top: 18 },
+    });
+
+    doc.save(`predios-por-uso-${new Date().toISOString().slice(0, 10)}.pdf`);
+  }, [mainExportData]);
 
   // ── executeSearch ────────────────────────────────────────
 
@@ -122,6 +244,18 @@ export default function PrediosUsoPage() {
   useEffect(() => {
     executeSearch(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Load uso options ──────────────────────────────────────
+
+  useEffect(() => {
+    (async () => {
+      const result = await getUsoOptionsAction();
+      if (result.success) {
+        setUsoOptions(result.options);
+      }
+      setUsoOptionsLoading(false);
+    })();
   }, []);
 
   // ── Filter handlers ──────────────────────────────────────
@@ -187,12 +321,17 @@ export default function PrediosUsoPage() {
           {/* Uso */}
           <div className="md:col-span-3">
             <label htmlFor="uso" className="block text-[9px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5 leading-none">Uso</label>
-            <input id="uso" type="text" placeholder="Tipo de uso"
-              value={filters.uso}
+            <select id="uso" aria-label="Uso" value={filters.uso}
               onChange={(e) => handleFilterChange("uso", e.target.value)}
-              onKeyDown={handleKeyDown}
-              className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] text-slate-700 placeholder-slate-400 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none"
-            />
+              className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] text-slate-700 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none"
+            >
+              <option value="">{usoOptionsLoading ? "Cargando..." : "Todos"}</option>
+              {usoOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Buscar button */}
@@ -241,20 +380,25 @@ export default function PrediosUsoPage() {
           <td className="px-2 py-1.5 text-[11px] font-medium text-slate-800 truncate">
             {row.uso}
           </td>
+          <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate text-center">
+            {row.anno}
+          </td>
           <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate text-right">
             {row.predios.toLocaleString()}
           </td>
           <td className="px-2 py-1.5 text-[11px] text-slate-600 truncate">
             {row.condicion}
           </td>
-          <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate text-right">
-            {row.count.toLocaleString()}
-          </td>
-          <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate">
-            {row.anno}
-          </td>
-          <td className="px-2 py-1.5 text-[11px] font-mono text-slate-500 truncate">
-            {row.id_uso}
+          <td className="px-2 py-1.5 text-center">
+            <button
+              type="button"
+              onClick={() => handleDetalle(row)}
+              className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-medium text-slate-600 transition hover:border-sat-cyan hover:text-sat-cyan focus:outline-none focus:ring-2 focus:ring-sat-cyan/20 active:scale-[0.97]"
+              title="Ver detalle"
+            >
+              <ExternalLink size={11} />
+              Detalle
+            </button>
           </td>
         </tr>
       ))}
@@ -285,16 +429,50 @@ export default function PrediosUsoPage() {
     </div>
   );
 
-  const renderResultsBar = () => (
-    <div className="flex items-center gap-2 text-xs text-slate-500">
-      <FolderSearch size={13} className="text-slate-400" />
-      <span>
-        Se encontraron{" "}
-        <span className="font-semibold text-slate-700">{total}</span>{" "}
-        {total === 1 ? "resultado" : "resultados"}
-      </span>
-    </div>
-  );
+  const renderResultsBar = () => {
+    const totalPredios = data.reduce((sum, row) => sum + row.predios, 0);
+
+    return (
+      <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-2 shadow-sm">
+        <div className="flex items-center gap-4 text-xs text-slate-500">
+          <div className="flex items-center gap-2">
+            <FolderSearch size={13} className="text-slate-400" />
+            <span>
+              <span className="font-semibold text-slate-700">{total}</span>{" "}
+              {total === 1 ? "resultado" : "resultados"}
+            </span>
+          </div>
+          <div className="h-4 w-px bg-slate-200" />
+          <div className="flex items-center gap-1.5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 4 4-6"/></svg>
+            <span>
+              <span className="font-semibold text-slate-700">{totalPredios.toLocaleString()}</span>{" "}
+              predios
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={exportMainExcel}
+            className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-medium text-emerald-600 transition hover:bg-emerald-50 hover:border-emerald-200 focus:outline-none focus:ring-2 focus:ring-emerald-200/40 active:scale-[0.97]"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h2"/><path d="M8 17h2"/><path d="M12 13h2"/><path d="M12 17h2"/></svg>
+            Excel
+          </button>
+          <button
+            type="button"
+            onClick={exportMainPdf}
+            className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-medium text-red-600 transition hover:bg-red-50 hover:border-red-200 focus:outline-none focus:ring-2 focus:ring-red-200/40 active:scale-[0.97]"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M12 12v4"/><path d="M10 14h4"/></svg>
+            PDF
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   // ── Pagination ──────────────────────────────────────────
 
@@ -398,6 +576,181 @@ export default function PrediosUsoPage() {
     </div>
   );
 
+  // ── Detail Modal ────────────────────────────────────────
+
+  const renderDetailModal = () => {
+    if (!detailOpen) return null;
+
+    const keys = detailData.length > 0 ? Object.keys(detailData[0]) : [];
+    const detailTotalPages = Math.ceil(detailData.length / DETAIL_PAGE_SIZE);
+    const detailStart = (detailPage - 1) * DETAIL_PAGE_SIZE;
+    const paginatedDetail = detailData.slice(detailStart, detailStart + DETAIL_PAGE_SIZE);
+    const detailFrom = detailStart + 1;
+    const detailTo = Math.min(detailStart + DETAIL_PAGE_SIZE, detailData.length);
+    const detailPages: number[] = [];
+    const detailStartPage = Math.max(1, detailPage - 2);
+    const detailEndPage = Math.min(detailTotalPages, detailPage + 2);
+    for (let i = detailStartPage; i <= detailEndPage; i++) detailPages.push(i);
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in" onClick={closeDetail}>
+        <div className="relative max-h-[80vh] w-full max-w-7xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl animate-scale-in" onClick={(e) => e.stopPropagation()}>
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-5 py-3">
+            <div className="flex items-center gap-2">
+              <div className="w-0.5 h-4 bg-sat-cyan rounded-full" />
+              <h2 className="text-sm font-semibold text-slate-700 font-outfit">
+                {detailTitle}
+              </h2>
+            </div>
+            <div className="flex items-center gap-2">
+              {!detailLoading && detailData.length > 0 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={exportDetailExcel}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-medium text-emerald-600 transition hover:bg-emerald-50 hover:border-emerald-200 focus:outline-none focus:ring-2 focus:ring-emerald-200/40 active:scale-[0.97]"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h2"/><path d="M8 17h2"/><path d="M12 13h2"/><path d="M12 17h2"/></svg>
+                    Excel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={exportDetailPdf}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-medium text-red-600 transition hover:bg-red-50 hover:border-red-200 focus:outline-none focus:ring-2 focus:ring-red-200/40 active:scale-[0.97]"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M12 12v4"/><path d="M10 14h4"/></svg>
+                    PDF
+                  </button>
+                </>
+              )}
+              <button
+                type="button"
+                onClick={closeDetail}
+                className="rounded-md border border-slate-200 bg-white p-1.5 text-slate-400 transition hover:border-slate-300 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/20"
+                aria-label="Cerrar"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          </div>
+
+          {/* Body */}
+          <div className="overflow-auto p-5" style={{ maxHeight: "calc(80vh - 60px)" }}>
+            {detailLoading && (
+              <div className="flex items-center justify-center py-16">
+                <div className="flex items-center gap-2">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-sat-cyan border-t-transparent" />
+                  <span className="text-xs font-medium text-slate-500">Cargando detalle...</span>
+                </div>
+              </div>
+            )}
+
+            {detailError && !detailLoading && (
+              <div className="flex flex-col items-center justify-center py-16">
+                <div className="mb-3 rounded-full bg-red-100 p-3">
+                  <AlertCircle size={24} className="text-red-400" />
+                </div>
+                <p className="text-sm font-medium text-red-600">{detailError}</p>
+              </div>
+            )}
+
+            {!detailLoading && !detailError && detailData.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-16">
+                <div className="mb-3 rounded-full bg-slate-100 p-3">
+                  <SearchX size={24} className="text-slate-300" />
+                </div>
+                <p className="text-sm font-medium text-slate-500">Sin datos de detalle</p>
+              </div>
+            )}
+
+            {!detailLoading && !detailError && detailData.length > 0 && (
+              <div className="space-y-3">
+                <div className="overflow-x-auto rounded-lg border border-slate-200">
+                  <table className="w-full border-collapse text-[11px]">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200">
+                        {keys.map((key) => (
+                          <th
+                            key={key}
+                            className="px-3 py-2 text-left font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap"
+                          >
+                            {key}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {paginatedDetail.map((row, i) => (
+                        <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-slate-50/40"}>
+                          {keys.map((key) => (
+                            <td key={key} className="px-3 py-1.5 text-slate-700 whitespace-nowrap">
+                              {row[key] ?? <span className="text-slate-300">—</span>}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {detailTotalPages > 1 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-slate-400">
+                      Mostrando <span className="font-semibold text-slate-500">{detailFrom}</span>
+                      {" – "}
+                      <span className="font-semibold text-slate-500">{detailTo}</span> de{" "}
+                      <span className="font-semibold text-slate-500">{detailData.length}</span> registros
+                    </span>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        disabled={detailPage <= 1}
+                        onClick={() => setDetailPage(detailPage - 1)}
+                        className="inline-flex items-center gap-1 rounded border border-slate-200 px-2 py-1 text-[10px] font-medium text-slate-500 transition hover:bg-slate-50 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                        aria-label="Anterior"
+                      >
+                        <ChevronLeft size={11} />
+                        Anterior
+                      </button>
+
+                      {detailPages.map((p) => (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => setDetailPage(p)}
+                          className={`min-w-[24px] rounded px-1.5 py-1 text-[10px] font-medium transition ${
+                            p === detailPage
+                              ? "bg-sat-cyan text-white shadow-sm"
+                              : "border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      ))}
+
+                      <button
+                        type="button"
+                        disabled={detailPage >= detailTotalPages}
+                        onClick={() => setDetailPage(detailPage + 1)}
+                        className="inline-flex items-center gap-1 rounded border border-slate-200 px-2 py-1 text-[10px] font-medium text-slate-500 transition hover:bg-slate-50 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                        aria-label="Siguiente"
+                      >
+                        Siguiente
+                        <ChevronRight size={11} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // ── Main render ─────────────────────────────────────────
 
   return (
@@ -466,6 +819,8 @@ export default function PrediosUsoPage() {
           {renderPagination()}
         </>
       )}
+
+      {renderDetailModal()}
     </div>
   );
 }

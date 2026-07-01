@@ -64,7 +64,7 @@ describe('AuthController', () => {
     } as unknown as Response;
 
     await expect(
-      authController.login({ email: 'not-an-email', password: '' }, response),
+      authController.login({ username: '', password: '' }, response),
     ).rejects.toThrow(BadRequestException);
   });
 

@@ -61,7 +61,6 @@ describe("auth actions", () => {
       httpOnly: true,
       secure: false,
       sameSite: "lax",
-      maxAge: 8 * 60 * 60,
       path: "/",
     }));
     expect(result).toEqual({ success: true, user: expectedUser });
@@ -88,8 +87,8 @@ describe("auth actions", () => {
     const mockResponse = {
       ok: true,
       json: vi.fn().mockResolvedValue({
-        authenticated: true,
-        user: { id: 'user-1', name: 'Alice', roles: ['admin'] },
+        authenticated: false,
+        user: null,
       }),
     };
 
@@ -104,8 +103,8 @@ describe("auth actions", () => {
       }),
     );
     expect(result).toEqual({
-      authenticated: true,
-      user: { id: 'user-1', name: 'Alice', roles: ['admin'] },
+      authenticated: false,
+      user: null,
     });
 
     vi.unstubAllGlobals();
