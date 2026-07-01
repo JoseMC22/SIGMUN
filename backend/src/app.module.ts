@@ -8,6 +8,7 @@ import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './auth/auth.module';
 import { MenuModule } from './menu/menu.module';
 import { SeguridadModule } from './seguridad/seguridad.module';
+import { ImpuestoVehicularModule } from './impuesto-vehicular/impuesto-vehicular.module';
 
 @Module({
   imports: [
@@ -45,6 +46,8 @@ import { SeguridadModule } from './seguridad/seguridad.module';
     MenuModule,
     // Módulo de seguridad
     SeguridadModule,
+    // Módulo de impuesto vehicular
+    ImpuestoVehicularModule,
   ],
   controllers: [AppController],
   providers: [AppService],

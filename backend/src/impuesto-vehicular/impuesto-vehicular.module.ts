@@ -1,0 +1,11 @@
+import { Module } from '@nestjs/common';
+import { AuthModule } from '../auth/auth.module';
+import { ValoresController } from './valores/valores.controller';
+import { ValoresService } from './valores/valores.service';
+
+@Module({
+  imports: [AuthModule],
+  controllers: [ValoresController],
+  providers: [ValoresService],
+})
+export class ImpuestoVehicularModule {}
