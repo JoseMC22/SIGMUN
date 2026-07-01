@@ -10,16 +10,18 @@ import {
   RotateCcw,
   FolderSearch,
   LayoutGrid,
+  FileDown,
+  FileSpreadsheet,
 } from "lucide-react";
-import { searchPrediosUsoAction } from "@/actions/reportes-gerenciales/predios-uso";
-import type { PredioUsoRow } from "@/actions/reportes-gerenciales/predios-uso";
+import { searchPrediosUsoAction, getTiposUsoAction } from "@/actions/reportes-gerenciales/predios-uso";
+import type { PredioUsoRow, TipoUsoOption } from "@/actions/reportes-gerenciales/predios-uso";
 
 // ── Year range ────────────────────────────────────────────
 
 const YEAR_START = 2016;
 const YEAR_END = new Date().getFullYear(); // 2026
 const YEARS: number[] = [];
-for (let y = YEAR_START; y <= YEAR_END; y++) {
+for (let y = YEAR_END; y >= YEAR_START; y--) {
   YEARS.push(y);
 }
 
@@ -30,8 +32,8 @@ function TableSkeleton() {
     <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden" data-testid="loading-spinner">
       <div className="animate-pulse">
         <div className="bg-slate-100 border-b border-slate-200 px-3 py-2.5">
-          <div className="grid grid-cols-7 gap-4">
-            {[...Array(7)].map((_, i) => (
+          <div className="grid grid-cols-6 gap-4">
+            {[...Array(6)].map((_, i) => (
               <div key={i} className="h-3 bg-slate-200 rounded w-3/4" />
             ))}
           </div>
@@ -43,8 +45,8 @@ function TableSkeleton() {
               i === 4 ? "border-b-0" : ""
             }`}
           >
-            <div className="grid grid-cols-7 gap-4">
-              {[...Array(7)].map((_, j) => (
+            <div className="grid grid-cols-6 gap-4">
+              {[...Array(6)].map((_, j) => (
                 <div
                   key={j}
                   className="h-3.5 bg-slate-100 rounded"
@@ -80,6 +82,7 @@ export default function PrediosUsoPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [tiposUso, setTiposUso] = useState<TipoUsoOption[]>([]);
 
   // ── executeSearch ────────────────────────────────────────
 
@@ -121,6 +124,9 @@ export default function PrediosUsoPage() {
 
   useEffect(() => {
     executeSearch(1);
+    getTiposUsoAction().then((res) => {
+      if (res.success) setTiposUso(res.data);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -143,6 +149,47 @@ export default function PrediosUsoPage() {
     if (newPage < 1 || newPage > totalPages) return;
     executeSearch(newPage);
   };
+
+  // ── Export helpers ───────────────────────────────────────
+
+  const exportToExcel = useCallback(async () => {
+    const XLSX = await import("xlsx");
+    const ws = XLSX.utils.json_to_sheet(
+      data.map((r) => ({
+        Tipo: r.tipo,
+        Uso: r.uso,
+        Predios: r.predios,
+        Condición: r.condicion,
+        Total: r.count,
+        Año: r.anno,
+      })),
+    );
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Predios por Uso");
+    XLSX.writeFile(wb, `predios-por-uso.xlsx`);
+  }, [data]);
+
+  const exportToPdf = useCallback(async () => {
+    const { default: jsPDF } = await import("jspdf");
+    const { default: autoTable } = await import("jspdf-autotable");
+    const doc = new jsPDF({ orientation: "landscape" });
+    doc.text("Predios por Uso", 14, 10);
+    autoTable(doc, {
+      startY: 16,
+      head: [["Tipo", "Uso", "Predios", "Condición", "Total", "Año"]],
+      body: data.map((r) => [
+        r.tipo,
+        r.uso,
+        String(r.predios),
+        r.condicion,
+        String(r.count),
+        String(r.anno),
+      ]),
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [30, 48, 80] },
+    });
+    doc.save("predios-por-uso.pdf");
+  }, [data]);
 
   // ── Search Form ──────────────────────────────────────────
 
@@ -187,12 +234,17 @@ export default function PrediosUsoPage() {
           {/* Uso */}
           <div className="md:col-span-3">
             <label htmlFor="uso" className="block text-[9px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5 leading-none">Uso</label>
-            <input id="uso" type="text" placeholder="Tipo de uso"
-              value={filters.uso}
+            <select id="uso" aria-label="Uso" value={filters.uso}
               onChange={(e) => handleFilterChange("uso", e.target.value)}
-              onKeyDown={handleKeyDown}
-              className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] text-slate-700 placeholder-slate-400 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none"
-            />
+              className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] text-slate-700 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none"
+            >
+              <option value="">Todos</option>
+              {tiposUso.map((opt) => (
+                <option key={opt.id_uso} value={opt.id_uso}>
+                  {opt.descripcion}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Buscar button */}
@@ -217,11 +269,10 @@ export default function PrediosUsoPage() {
   const renderTableHeader = () => (
     <colgroup>
       <col className="w-[10%]" />
-      <col className="w-[18%]" />
+      <col className="w-[22%]" />
+      <col className="w-[14%]" />
+      <col className="w-[22%]" />
       <col className="w-[12%]" />
-      <col className="w-[18%]" />
-      <col className="w-[10%]" />
-      <col className="w-[10%]" />
       <col className="w-[10%]" />
     </colgroup>
   );
@@ -253,9 +304,6 @@ export default function PrediosUsoPage() {
           <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate">
             {row.anno}
           </td>
-          <td className="px-2 py-1.5 text-[11px] font-mono text-slate-500 truncate">
-            {row.id_uso}
-          </td>
         </tr>
       ))}
     </tbody>
@@ -277,7 +325,6 @@ export default function PrediosUsoPage() {
             <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Condición</th>
             <th className="text-right text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Count</th>
             <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Año</th>
-            <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Id Uso</th>
           </tr>
         </thead>
         {renderTableBody()}
@@ -429,6 +476,20 @@ export default function PrediosUsoPage() {
       {!loading && !error && !initialLoading && data.length > 0 && (
         <div className="flex items-center justify-between">
           {renderResultsBar()}
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={exportToExcel}
+              className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 hover:text-sat-navy focus:outline-none focus:ring-2 focus:ring-sat-cyan/40"
+            >
+              <FileSpreadsheet size={13} />
+              Excel
+            </button>
+            <button type="button" onClick={exportToPdf}
+              className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40"
+            >
+              <FileDown size={13} />
+              PDF
+            </button>
+          </div>
         </div>
       )}
 
