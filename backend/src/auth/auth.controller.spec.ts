@@ -36,7 +36,7 @@ describe('AuthController', () => {
     });
 
     const result = await authController.login(
-      { email: 'test@example.com', password: 'secret' },
+      { username: 'testuser', password: 'secret' },
       response,
     );
 
@@ -60,7 +60,7 @@ describe('AuthController', () => {
     } as unknown as Response;
 
     await expect(
-      authController.login({ email: 'not-an-email', password: '' }, response),
+      authController.login({ password: '' }, response),
     ).rejects.toThrow(BadRequestException);
   });
 
@@ -74,14 +74,14 @@ describe('AuthController', () => {
     );
 
     await expect(
-      authController.login({ email: 'test@example.com', password: 'wrong' }, response),
+      authController.login({ username: 'testuser', password: 'wrong' }, response),
     ).rejects.toMatchObject({
       getStatus: expect.any(Function),
       getResponse: expect.any(Function),
     });
 
     try {
-      await authController.login({ email: 'test@example.com', password: 'wrong' }, response);
+      await authController.login({ username: 'testuser', password: 'wrong' }, response);
     } catch (error: any) {
       expect(error.getStatus()).toBe(HttpStatus.UNAUTHORIZED);
       expect(error.getResponse()).toEqual({
@@ -96,43 +96,45 @@ describe('AuthController', () => {
     const originalNodeEnv = process.env.NODE_ENV;
     process.env.NODE_ENV = 'production';
 
-    const response = {
-      cookie: jest.fn(),
-      clearCookie: jest.fn(),
-    } as unknown as Response;
+    try {
+      const response = {
+        cookie: jest.fn(),
+        clearCookie: jest.fn(),
+      } as unknown as Response;
 
-    const authResponse = {
-      authenticated: true,
-      userId: 'user-1',
-      email: 'test@example.com',
-      sessionExpiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
-      message: 'Inicio de sesión exitoso.',
-    };
+      const authResponse = {
+        authenticated: true,
+        userId: 'user-1',
+        email: 'test@example.com',
+        sessionExpiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
+        message: 'Inicio de sesión exitoso.',
+      };
 
-    (authService.login as jest.Mock).mockResolvedValue({
-      accessToken: 'token-123',
-      response: authResponse,
-    });
+      (authService.login as jest.Mock).mockResolvedValue({
+        accessToken: 'token-123',
+        response: authResponse,
+      });
 
-    const result = await authController.login(
-      { email: 'test@example.com', password: 'secret' },
-      response,
-    );
+      const result = await authController.login(
+        { username: 'testuser', password: 'secret' },
+        response,
+      );
 
-    expect(result).toEqual(authResponse);
-    expect(response.cookie).toHaveBeenCalledWith(
-      'SIGMUN_AUTH',
-      'token-123',
-      expect.objectContaining({
-        httpOnly: true,
-        secure: true,
-        sameSite: 'lax',
-        path: '/',
-        maxAge: 8 * 60 * 60 * 1000,
-      }),
-    );
-
-    process.env.NODE_ENV = originalNodeEnv;
+      expect(result).toEqual(authResponse);
+      expect(response.cookie).toHaveBeenCalledWith(
+        'SIGMUN_AUTH',
+        'token-123',
+        expect.objectContaining({
+          httpOnly: true,
+          secure: true,
+          sameSite: 'strict',
+          path: '/',
+          maxAge: 8 * 60 * 60 * 1000,
+        }),
+      );
+    } finally {
+      process.env.NODE_ENV = originalNodeEnv;
+    }
   });
 
   it('should return session payload when authenticated', async () => {

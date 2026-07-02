@@ -7,6 +7,8 @@ import { fetchAllowedPathsAction } from "@/actions/menu";
 import { clearAuth } from "@/lib/api";
 import { Loader2 } from "lucide-react";
 
+const VERIFY_TIMEOUT_MS = 10_000; // 10 seconds max wait
+
 export function SessionGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -25,31 +27,46 @@ export function SessionGuard({ children }: { children: React.ReactNode }) {
       }
 
       try {
-        const session = await checkSessionAction();
+        // Race between session check and timeout
+        const session = await Promise.race([
+          checkSessionAction(),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error("Session check timeout")), VERIFY_TIMEOUT_MS),
+          ),
+        ]);
+
         if (!session.authenticated) {
           clearAuth();
-          router.replace("/");
+          if (!cancelled) router.replace("/");
           return;
         }
 
+        // Always allow /dashboard base path
         if (pathname === "/dashboard") {
           if (!cancelled) setAuthorized(true);
           return;
         }
 
-        const allowedPaths = await fetchAllowedPathsAction();
+        // For sub-routes, verify access with timeout
+        const allowedPaths = await Promise.race([
+          fetchAllowedPathsAction(),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error("Access check timeout")), VERIFY_TIMEOUT_MS),
+          ),
+        ]);
+
         const currentPath = pathname.replace(/^\/dashboard\//, "");
         const hasAccess = allowedPaths.includes(currentPath);
 
         if (!hasAccess) {
-          router.replace("/dashboard");
+          if (!cancelled) router.replace("/dashboard");
           return;
         }
 
         if (!cancelled) setAuthorized(true);
       } catch {
         clearAuth();
-        router.replace("/");
+        if (!cancelled) router.replace("/");
       }
     }
 

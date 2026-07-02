@@ -57,9 +57,11 @@ describe("auth actions", () => {
       httpOnly: true,
       secure: false,
       sameSite: "lax",
-      maxAge: 8 * 60 * 60,
       path: "/",
     }));
+    const cookieOptions = setCookieMock.mock.calls[0][2];
+    expect(cookieOptions.maxAge).toBeGreaterThanOrEqual(28790);
+    expect(cookieOptions.maxAge).toBeLessThanOrEqual(28800);
     expect(result).toEqual({ success: true, user: expectedUser });
   });
 
@@ -78,6 +80,12 @@ describe("auth actions", () => {
     const mockFetch = vi.fn();
     global.fetch = mockFetch as any;
 
+    mockedCookies.mockResolvedValue({
+      get: vi.fn().mockReturnValue({ value: 'test-session' }),
+      set: vi.fn(),
+      delete: vi.fn(),
+    });
+
     mockFetch.mockResolvedValue({
       ok: true,
       json: vi.fn().mockResolvedValue({
@@ -90,7 +98,9 @@ describe("auth actions", () => {
 
     expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/auth/session'), expect.objectContaining({
       method: 'GET',
-      credentials: 'include',
+      headers: expect.objectContaining({
+        'Cookie': 'SIGMUN_AUTH=test-session',
+      }),
     }));
     expect(result).toEqual({
       authenticated: true,
