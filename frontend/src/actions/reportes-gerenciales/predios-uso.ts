@@ -36,25 +36,16 @@ export interface PrediosUsoSearchFilters {
   uso?: string;
 }
 
-// ── Tipos de uso (combo desde SP) ──────────────────────────
-
-export interface TipoUsoOption {
-  id_uso: string;
-  descripcion: string;
+export interface UsoOption {
+  value: string;
+  label: string;
 }
 
-export async function getTiposUsoAction(): Promise<{ success: true; data: TipoUsoOption[] } | { success: false; error: string }> {
-  try {
-    const response = await authFetch('/reportes-gerenciales/predios-uso/combos/tipos-uso');
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      return { success: false as const, error: errorData.message ?? `Error ${response.status}` };
-    }
-    const result = await response.json();
-    return { success: true as const, data: result.data };
-  } catch (error) {
-    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
-  }
+export interface DetallePredioUsoParams {
+  codigo?: string;
+  anno: number;
+  id_uso: string;
+  flag: string;
 }
 
 // ── Búsqueda de predios por uso ────────────────────────────
@@ -78,6 +69,45 @@ export async function searchPrediosUsoAction(
 
     const result = await response.json();
     return { success: true as const, ...result };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ── Detalle de predio por uso (@BUSC=9) ─────────────────────
+
+export async function getDetallePredioUsoAction(params: DetallePredioUsoParams) {
+  try {
+    const response = await authFetch('/reportes-gerenciales/predios-uso/detail', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.message ?? `Error ${response.status}` };
+    }
+
+    const result = await response.json();
+    return { success: true as const, data: result.data as Record<string, any>[] };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ── Opciones de Uso (combo) ─────────────────────────────────
+
+export async function getUsoOptionsAction() {
+  try {
+    const response = await authFetch('/reportes-gerenciales/predios-uso/uso-options');
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.message ?? `Error ${response.status}` };
+    }
+
+    const result = await response.json();
+    return { success: true as const, options: result.options as UsoOption[] };
   } catch (error) {
     return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
   }

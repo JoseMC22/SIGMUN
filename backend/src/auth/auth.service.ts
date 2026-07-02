@@ -32,11 +32,14 @@ export class AuthService {
     dto: LoginDto,
   ): Promise<{ accessToken: string; response: LoginSuccessResponse }> {
     try {
-      const result = await this.db.executeProcedure<SpLoginResult>('[Acceso].[sp_LogOut]', {
-        buscar: 1,
-        parametro: dto.username,
-        password: dto.password,
-      });
+      const result = await this.db.executeProcedure<SpLoginResult>(
+        '[Acceso].[sp_LogOut]',
+        {
+          buscar: 1,
+          parametro: dto.username,
+          password: dto.password,
+        },
+      );
 
       const spResult = result.recordset;
       if (!spResult || spResult.length === 0) {
@@ -56,7 +59,11 @@ export class AuthService {
       };
 
       const accessToken = await this.jwtService.signAsync(payload);
-      await this.cacheManager.set(`session:${userData.id_usuario}`, payload, INACTIVITY_TTL_MS);
+      await this.cacheManager.set(
+        `session:${userData.id_usuario}`,
+        payload,
+        INACTIVITY_TTL_MS,
+      );
 
       this.logger.log(
         `Inicio de sesión exitoso: usuario=${userData.vlogin} | perfil=${userData.nomb_perfil}`,
@@ -77,7 +84,9 @@ export class AuthService {
             isEncargado: userData.cajero,
             isRemoto: userData.remoto,
           },
-          sessionExpiresAt: new Date(Date.now() + INACTIVITY_TTL_MS).toISOString(),
+          sessionExpiresAt: new Date(
+            Date.now() + INACTIVITY_TTL_MS,
+          ).toISOString(),
           message: 'Inicio de sesión exitoso.',
         },
       };
@@ -101,7 +110,9 @@ export class AuthService {
       this.logger.log(`Sesión cerrada para el usuario: ${username}`);
     } catch (error) {
       this.logger.error(`Error al cerrar sesión para ${username}`, error);
-      throw new InternalServerErrorException('Error al procesar el cierre de sesión.');
+      throw new InternalServerErrorException(
+        'Error al procesar el cierre de sesión.',
+      );
     }
   }
 
@@ -110,7 +121,11 @@ export class AuthService {
     if (!session) return false;
 
     // Sliding expiration: cada request autenticado refresca el TTL a 20min
-    await this.cacheManager.set(`session:${userId}`, session, INACTIVITY_TTL_MS);
+    await this.cacheManager.set(
+      `session:${userId}`,
+      session,
+      INACTIVITY_TTL_MS,
+    );
     return true;
   }
 }

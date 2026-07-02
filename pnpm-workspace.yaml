@@ -1,0 +1,9 @@
+packages:
+  - frontend
+  - backend
+allowBuilds:
+  '@nestjs/core': true
+  core-js: true
+  esbuild: true
+  sharp: true
+  unrs-resolver: true

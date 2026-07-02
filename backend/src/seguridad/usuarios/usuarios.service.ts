@@ -49,7 +49,8 @@ export class UsuariosService {
   constructor(private readonly db: DatabaseService) {}
 
   async search(dto: SearchUsuarioDto): Promise<PaginatedResponse<UsuarioRow>> {
-    const { codigo, nombre, usuario, area, perfil, estado, page, pageSize } = dto;
+    const { codigo, nombre, usuario, area, perfil, estado, page, pageSize } =
+      dto;
 
     const { inicio, final } = calculatePaginationParams(page, pageSize);
 
@@ -67,7 +68,7 @@ export class UsuariosService {
       },
     );
     const totalRow = totalResult.recordset[0];
-    const total = totalRow ? Object.values(totalRow)[0] as number : 0;
+    const total = totalRow ? (Object.values(totalRow)[0] as number) : 0;
     this.logger.log(`Total usuarios: ${total}`);
 
     // Rows
@@ -103,9 +104,12 @@ export class UsuariosService {
   }
 
   async getAreas(): Promise<AreaOption[]> {
-    const result = await this.db.executeProcedure<SpAreaRow>('dbo.sp_tccostos', {
-      busc: '1',
-    });
+    const result = await this.db.executeProcedure<SpAreaRow>(
+      'dbo.sp_tccostos',
+      {
+        busc: '1',
+      },
+    );
     return result.recordset.map((row) => ({
       area: row.area,
       nombre: row.nombre,
@@ -175,56 +179,58 @@ export class UsuariosService {
     }));
   }
 
-  async updateUsuario(dto: UpdateUsuarioDto): Promise<{ success: boolean; message: string }> {
-    await this.db.executeProcedure(
-      '[Acceso].[sp_TblUsuarios]',
-      {
-        busc: dto.busc ?? '2',
-        id_usuario: dto.id_usuario,
-        area: dto.area,
-        nombres: dto.nombres,
-        apellidos: dto.apellidos,
-        id_doc: dto.id_doc,
-        num_doc: dto.num_doc,
-        vlogin: dto.vlogin,
-        password: dto.password ?? '',
-        confir: dto.confir ?? '',
-        cargo: dto.cargo,
-        cajero: dto.cajero,
-        caja: dto.caja,
-        id_perfil: dto.id_perfil,
-        nestado: dto.nestado,
-      },
-    );
+  async updateUsuario(
+    dto: UpdateUsuarioDto,
+  ): Promise<{ success: boolean; message: string }> {
+    await this.db.executeProcedure('[Acceso].[sp_TblUsuarios]', {
+      busc: dto.busc ?? '2',
+      id_usuario: dto.id_usuario,
+      area: dto.area,
+      nombres: dto.nombres,
+      apellidos: dto.apellidos,
+      id_doc: dto.id_doc,
+      num_doc: dto.num_doc,
+      vlogin: dto.vlogin,
+      password: dto.password ?? '',
+      confir: dto.confir ?? '',
+      cargo: dto.cargo,
+      cajero: dto.cajero,
+      caja: dto.caja,
+      id_perfil: dto.id_perfil,
+      nestado: dto.nestado,
+    });
     return { success: true, message: 'Usuario actualizado correctamente' };
   }
 
-  async eliminarUsuario(id_usuario: string): Promise<{ success: boolean; message: string }> {
-    await this.db.executeProcedure(
-      '[Acceso].[sp_TblUsuarios]',
-      { busc: '3', id_usuario },
-    );
+  async eliminarUsuario(
+    id_usuario: string,
+  ): Promise<{ success: boolean; message: string }> {
+    await this.db.executeProcedure('[Acceso].[sp_TblUsuarios]', {
+      busc: '3',
+      id_usuario,
+    });
     return { success: true, message: 'Usuario eliminado correctamente' };
   }
 
-  async crearCaja(caja: string): Promise<{ success: boolean; message: string }> {
-    await this.db.executeProcedure(
-      '[Acceso].[sp_TblUsuarios]',
-      { busc: '19', caja },
-    );
+  async crearCaja(
+    caja: string,
+  ): Promise<{ success: boolean; message: string }> {
+    await this.db.executeProcedure('[Acceso].[sp_TblUsuarios]', {
+      busc: '19',
+      caja,
+    });
     return { success: true, message: 'Caja creada correctamente' };
   }
 
-  async cambiarClave(dto: CambiarClaveDto): Promise<{ success: boolean; message: string }> {
-    await this.db.executeProcedure(
-      '[Acceso].[sp_TblUsuarios]',
-      {
-        busc: '15',
-        id_usuario: dto.id_usuario,
-        password: dto.password,
-        confir: dto.confir,
-      },
-    );
+  async cambiarClave(
+    dto: CambiarClaveDto,
+  ): Promise<{ success: boolean; message: string }> {
+    await this.db.executeProcedure('[Acceso].[sp_TblUsuarios]', {
+      busc: '15',
+      id_usuario: dto.id_usuario,
+      password: dto.password,
+      confir: dto.confir,
+    });
     return { success: true, message: 'Contraseña actualizada correctamente' };
   }
 }
