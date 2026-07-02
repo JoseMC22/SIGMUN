@@ -6,6 +6,8 @@ vi.mock("@/actions/accesos", () => ({
   searchAccesosAction: vi.fn(),
   fetchMenusAction: vi.fn(),
   fetchModulosAction: vi.fn(),
+  fetchAccesoAction: vi.fn(),
+  saveAccesoAction: vi.fn(),
 }));
 
 import { searchAccesosAction, fetchMenusAction } from "@/actions/accesos";

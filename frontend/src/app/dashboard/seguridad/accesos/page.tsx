@@ -5,6 +5,7 @@ import {
   Search,
   Pencil,
   Trash2,
+  Plus,
   ChevronLeft,
   ChevronRight,
   Key,
@@ -155,6 +156,11 @@ export default function AccesosPage() {
 
   const openEditModal = (id: string) => {
     setEditAccesoId(id);
+    setEditModalOpen(true);
+  };
+
+  const openNewModal = () => {
+    setEditAccesoId(null);
     setEditModalOpen(true);
   };
 
@@ -588,6 +594,18 @@ export default function AccesosPage() {
 
       {renderSearchForm()}
 
+      {/* Toolbar */}
+      <div className="flex items-center justify-end">
+        <button
+          type="button"
+          onClick={openNewModal}
+          className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-3.5 py-1.5 text-[11px] font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
+        >
+          <Plus size={12} />
+          Nuevo
+        </button>
+      </div>
+
       {/* Results info */}
       {!loading && !error && !initialLoading && data.length > 0 && (
         <div className="flex items-center justify-between">
@@ -630,11 +648,12 @@ export default function AccesosPage() {
         </>
       )}
 
-      {/* Edit modal */}
+      {/* Edit / New modal */}
       <AccesoEditModal
         isOpen={editModalOpen}
         onClose={closeEditModal}
         onSaved={handleSaved}
+        accesoId={editAccesoId}
       />
     </div>
   );
