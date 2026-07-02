@@ -32,11 +32,15 @@ pnpm-debug.log*
 
 # Cache
 .cache/
+
+# Agent workspace
+.atl/
+
+# Test coverage
+coverage/
+
 # TypeScript
 *.tsbuildinfo
 
-# Test files (all current and future)
+# Test files
 *.spec.ts
-*.spec.tsx
-*.test.ts
-*.test.tsx
