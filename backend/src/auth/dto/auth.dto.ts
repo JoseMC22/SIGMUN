@@ -40,12 +40,12 @@ export interface SpLoginResult {
  * Solo incluye los datos necesarios (principio de mínimo privilegio).
  */
 export interface JwtPayload {
-  sub: string;        // id_usuario como subject estándar JWT
-  username: string;   // vlogin
-  name: string;       // nombre completo
-  roles: string[];    // roles derivados del perfil
-  profileId: string;  // id_perfil
+  sub: string; // id_usuario como subject estándar JWT
+  username: string; // vlogin
+  name: string; // nombre completo
+  roles: string[]; // roles derivados del perfil
+  profileId: string; // id_perfil
   profileName: string; // nomb_perfil
-  areaName: string;    // nomb_area
-  areaId: string;      // area
+  areaName: string; // nomb_area
+  areaId: string; // area
 }

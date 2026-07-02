@@ -39,7 +39,7 @@ export class PerfilesService {
       },
     );
     const totalRow = totalResult.recordset[0];
-    const total = totalRow ? Object.values(totalRow)[0] as number : 0;
+    const total = totalRow ? (Object.values(totalRow)[0] as number) : 0;
 
     // Paginated rows (@busc='5' — params: id_perfil, nombre, nest, inicio, final)
     const rowsResult = await this.db.executeProcedure<any>(
@@ -148,9 +148,9 @@ export class PerfilesService {
 
   // ── Perfil-access mappings (@busc='10') ────────────────
 
-  async getPerfilAccesos(id_perfil: string): Promise<
-    { id_acceso: string; bacceso: boolean }[]
-  > {
+  async getPerfilAccesos(
+    id_perfil: string,
+  ): Promise<{ id_acceso: string; bacceso: boolean }[]> {
     const result = await this.db.executeProcedure<any>(
       '[Acceso].[sp_TblPerfil]',
       { busc: 10, id_perfil },
@@ -163,9 +163,9 @@ export class PerfilesService {
 
   // ── Objetos por acceso (@busc='11') ───────────────────
 
-  async getObjetosByAcceso(id_acceso: string): Promise<
-    { id_acceso: string; nombre: string; id_objeto: string }[]
-  > {
+  async getObjetosByAcceso(
+    id_acceso: string,
+  ): Promise<{ id_acceso: string; nombre: string; id_objeto: string }[]> {
     const result = await this.db.executeProcedure<any>(
       '[Acceso].[sp_TblPerfil]',
       { busc: 11, id_acceso },
@@ -182,7 +182,9 @@ export class PerfilesService {
   async getObjetosByAccesoConPermisos(
     id_acceso: string,
     id_perfil: string,
-  ): Promise<{ id_acceso: string; nombre: string; id_objeto: string; checked: boolean }[]> {
+  ): Promise<
+    { id_acceso: string; nombre: string; id_objeto: string; checked: boolean }[]
+  > {
     const [objetosResult, permisosResult] = await Promise.all([
       this.db.executeProcedure<any>('[Acceso].[sp_TblPerfil]', {
         busc: 11,
@@ -216,10 +218,10 @@ export class PerfilesService {
   // ── Delete (@busc='3') ───────────────────────────────
 
   async delete(id_perfil: string): Promise<void> {
-    await this.db.executeProcedure<any>(
-      '[Acceso].[sp_TblPerfil]',
-      { busc: 3, id_perfil },
-    );
+    await this.db.executeProcedure<any>('[Acceso].[sp_TblPerfil]', {
+      busc: 3,
+      id_perfil,
+    });
   }
 
   // ── Toggle acceso permiso (@busc='9') ─────────────────
@@ -229,15 +231,12 @@ export class PerfilesService {
     id_acceso: string,
     bacceso: string,
   ): Promise<void> {
-    await this.db.executeProcedure<any>(
-      '[Acceso].[sp_TblPerfil]',
-      {
-        busc: 9,
-        id_perfil,
-        id_acceso,
-        bacceso,
-      },
-    );
+    await this.db.executeProcedure<any>('[Acceso].[sp_TblPerfil]', {
+      busc: 9,
+      id_perfil,
+      id_acceso,
+      bacceso,
+    });
   }
 
   // ── Save / Update (@busc='2') ─────────────────────────
