@@ -54,7 +54,9 @@ export class UsuariosController {
   }
 
   @Get(':id')
-  async getDetail(@Param('id') id: string): Promise<{ data: UsuarioDetalle } | { success: false; error: string }> {
+  async getDetail(
+    @Param('id') id: string,
+  ): Promise<{ data: UsuarioDetalle } | { success: false; error: string }> {
     const data = await this.usuariosService.getUserDetail(id);
     if (!data) return { success: false, error: 'Usuario no encontrado' };
     return { data };

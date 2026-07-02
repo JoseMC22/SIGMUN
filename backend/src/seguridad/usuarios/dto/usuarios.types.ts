@@ -42,13 +42,13 @@ export interface SpUsuarioDetalleRow {
 
 /** Row from sp_TblUsuarios @busc='8' (document types) */
 export interface SpTipoDocumentoRow {
-  id_doc: string;   // "01/8" — value/maxLength combined
+  id_doc: string; // "01/8" — value/maxLength combined
   documento: string; // "DNI"
 }
 
 /** Row from sp_TblUsuarios @busc='10' (cajeros) */
 export interface SpCajeroRow {
-  caja: string;     // single column, used as both value and display
+  caja: string; // single column, used as both value and display
 }
 
 // ── Domain types ──
@@ -87,8 +87,8 @@ export interface PerfilOption {
 }
 
 export interface TipoDocumentoOption {
-  codigo: string;    // "01"
-  nombre: string;    // "DNI"
+  codigo: string; // "01"
+  nombre: string; // "DNI"
   maxLength: number; // 8
 }
 
