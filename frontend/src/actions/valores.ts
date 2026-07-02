@@ -25,7 +25,7 @@ export async function searchValoresAction(
 ) {
   try {
     const body = { ...filters, page, pageSize };
-    const response = await authFetch('/impuesto-vehicular/valores/search', {
+    const response = await authFetch('/impuesto-vehicular/valores-vehicular/search', {
       method: 'POST',
       body: JSON.stringify(body),
     });
@@ -44,7 +44,7 @@ export async function searchValoresAction(
 
 export async function fetchValorDetailAction(id: string) {
   try {
-    const response = await authFetch(`/impuesto-vehicular/valores/${encodeURIComponent(id)}`);
+    const response = await authFetch(`/impuesto-vehicular/valores-vehicular/${encodeURIComponent(id)}`);
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       return { success: false as const, error: errorData.error ?? `Error ${response.status}` };
@@ -58,7 +58,7 @@ export async function fetchValorDetailAction(id: string) {
 
 export async function fetchCategoriasAction() {
   try {
-    const response = await authFetch('/impuesto-vehicular/valores/catalogos/categorias');
+    const response = await authFetch('/impuesto-vehicular/valores-vehicular/catalogos/categorias');
     if (!response.ok) return { success: false as const, error: `Error ${response.status}` };
     const result = await response.json();
     return { success: true as const, data: result.data };
@@ -69,7 +69,7 @@ export async function fetchCategoriasAction() {
 
 export async function fetchMarcasAction() {
   try {
-    const response = await authFetch('/impuesto-vehicular/valores/catalogos/marcas');
+    const response = await authFetch('/impuesto-vehicular/valores-vehicular/catalogos/marcas');
     if (!response.ok) return { success: false as const, error: `Error ${response.status}` };
     const result = await response.json();
     return { success: true as const, data: result.data };
@@ -80,7 +80,7 @@ export async function fetchMarcasAction() {
 
 export async function fetchModelosFiltradosAction(id_categoria: string, id_marca: string) {
   try {
-    const response = await authFetch('/impuesto-vehicular/valores/catalogos/modelos', {
+    const response = await authFetch('/impuesto-vehicular/valores-vehicular/catalogos/modelos', {
       method: 'POST',
       body: JSON.stringify({ id_categoria, id_marca }),
     });
@@ -94,7 +94,7 @@ export async function fetchModelosFiltradosAction(id_categoria: string, id_marca
 
 export async function fetchAniosEjercicioAction() {
   try {
-    const response = await authFetch('/impuesto-vehicular/valores/catalogos/anios-ejercicio');
+    const response = await authFetch('/impuesto-vehicular/valores-vehicular/catalogos/anios-ejercicio');
     if (!response.ok) return { success: false as const, error: `Error ${response.status}` };
     const result = await response.json();
     return { success: true as const, data: result.data };
@@ -105,7 +105,7 @@ export async function fetchAniosEjercicioAction() {
 
 export async function fetchAniosAction() {
   try {
-    const response = await authFetch('/impuesto-vehicular/valores/catalogos/anios');
+    const response = await authFetch('/impuesto-vehicular/valores-vehicular/catalogos/anios');
     if (!response.ok) return { success: false as const, error: `Error ${response.status}` };
     const result = await response.json();
     return { success: true as const, data: result.data };
@@ -126,7 +126,7 @@ export async function saveValorAction(data: {
   xidmod: string;
 }) {
   try {
-    const response = await authFetch('/impuesto-vehicular/valores/save', {
+    const response = await authFetch('/impuesto-vehicular/valores-vehicular/save', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -143,7 +143,7 @@ export async function saveValorAction(data: {
 
 export async function eliminarValorAction(id: string) {
   try {
-    const response = await authFetch('/impuesto-vehicular/valores/eliminar', {
+    const response = await authFetch('/impuesto-vehicular/valores-vehicular/eliminar', {
       method: 'POST',
       body: JSON.stringify({ id }),
     });

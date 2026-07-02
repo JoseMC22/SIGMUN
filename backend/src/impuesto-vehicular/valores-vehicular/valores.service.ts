@@ -168,13 +168,23 @@ export class ValoresService {
   ): Promise<{ success: boolean; message: string }> {
     const mquery = dto.id ? '2' : '1';
 
+    let finalIdModelo = dto.id_modelo;
+    if (dto.xidmod) {
+      const modelRes = await this.db.query<{ id_modelo: string }>(
+        `SELECT id_modelo FROM contenedor.tblvehiculomodelo WHERE id = '${dto.xidmod}'`,
+      );
+      if (modelRes.recordset[0]?.id_modelo) {
+        finalIdModelo = modelRes.recordset[0].id_modelo;
+      }
+    }
+
     await this.db.executeProcedure('sp_vehiculo_valores_grabar', {
       mquery,
       xid_valor: dto.id ?? 0,
       xanioeje: dto.id_anio,
       xid_categoria: dto.id_categoria,
       xid_marca: dto.id_marca,
-      xid_modelo: dto.id_modelo ?? '',
+      xid_modelo: finalIdModelo ?? '',
       xanio: dto.anio,
       xmonto: dto.monto,
       xestado: dto.estado,

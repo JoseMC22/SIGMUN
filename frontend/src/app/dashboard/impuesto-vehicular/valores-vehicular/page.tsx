@@ -64,8 +64,8 @@ function TableSkeleton() {
       <div className="animate-pulse">
         {/* Header */}
         <div className="bg-slate-100 border-b border-slate-200 px-3 py-2.5">
-          <div className="grid grid-cols-9 gap-4">
-            {[...Array(9)].map((_, i) => (
+          <div className="grid grid-cols-10 gap-4">
+            {[...Array(10)].map((_, i) => (
               <div key={i} className="h-3 bg-slate-200 rounded w-3/4" />
             ))}
           </div>
@@ -78,8 +78,8 @@ function TableSkeleton() {
               i === 4 ? "border-b-0" : ""
             }`}
           >
-            <div className="grid grid-cols-9 gap-4">
-              {[...Array(9)].map((_, j) => (
+            <div className="grid grid-cols-10 gap-4">
+              {[...Array(10)].map((_, j) => (
                 <div
                   key={j}
                   className="h-3.5 bg-slate-100 rounded"
@@ -98,8 +98,10 @@ function TableSkeleton() {
 
 export default function ValoresPage() {
   const [filters, setFilters] = useState({
-    criterio: "",
-    tipoBusqueda: "",
+    categoria: "",
+    marca: "",
+    modelo: "",
+    anio: "",
   });
 
   const [data, setData] = useState<ValorRow[]>([]);
@@ -122,23 +124,12 @@ export default function ValoresPage() {
       try {
         const currentFilters = filtersOverride ?? filters;
 
-        // Map (tipoBusqueda, criterio) to API criteria fields
+        // Map each field directly to API criteria
         const apiFilters: Record<string, string | number | undefined> = {};
-        if (currentFilters.tipoBusqueda === "C1") {
-          apiFilters.criterio1 = currentFilters.criterio || "";
-        } else if (currentFilters.tipoBusqueda === "C2") {
-          apiFilters.criterio2 = currentFilters.criterio || "";
-        } else if (currentFilters.tipoBusqueda === "C3") {
-          apiFilters.criterio3 = currentFilters.criterio || "";
-        } else if (currentFilters.tipoBusqueda === "C4") {
-          apiFilters.criterio4 = currentFilters.criterio || "";
-        } else if (currentFilters.tipoBusqueda === "" && currentFilters.criterio) {
-          // Todos — broadcast to all criteria
-          apiFilters.criterio1 = currentFilters.criterio;
-          apiFilters.criterio2 = currentFilters.criterio;
-          apiFilters.criterio3 = currentFilters.criterio;
-          apiFilters.criterio4 = currentFilters.criterio;
-        }
+        if (currentFilters.categoria) apiFilters.criterio1 = currentFilters.categoria;
+        if (currentFilters.marca)     apiFilters.criterio2 = currentFilters.marca;
+        if (currentFilters.modelo)    apiFilters.criterio3 = currentFilters.modelo;
+        if (currentFilters.anio)      apiFilters.criterio4 = currentFilters.anio;
 
         const result = await searchValoresAction(apiFilters, pageNum, pageSize);
         if (result.success) {
@@ -213,7 +204,7 @@ export default function ValoresPage() {
   };
 
   const handleClear = () => {
-    const cleared = { criterio: "", tipoBusqueda: "" };
+    const cleared = { categoria: "", marca: "", modelo: "", anio: "" };
     setFilters(cleared);
     setPage(1);
     executeSearch(1, cleared);
@@ -245,60 +236,67 @@ export default function ValoresPage() {
         </span>
       </div>
 
-      <div className="p-2.5">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-          {/* Tipo de búsqueda — radios */}
-          <div className="md:col-span-5">
-            <label className="block text-[9px] font-semibold text-slate-400 uppercase tracking-wider mb-1 leading-none">Buscar por</label>
-            <div className="flex items-center gap-4 mt-0.5 flex-wrap">
-              {[
-                { value: "", label: "Todos" },
-                { value: "C1", label: "Categoría" },
-                { value: "C2", label: "Marca" },
-                { value: "C3", label: "Modelo" },
-                { value: "C4", label: "Año" },
-              ].map((opt) => (
-                <label key={opt.value} className="flex items-center gap-1.5 cursor-pointer group">
-                  <input
-                    type="radio"
-                    name="tipoBusqueda"
-                    value={opt.value}
-                    checked={filters.tipoBusqueda === opt.value}
-                    onChange={() => handleFilterChange("tipoBusqueda", opt.value)}
-                    className="accent-sat-cyan w-3 h-3"
-                  />
-                  <span className="text-[11px] text-slate-600 group-hover:text-slate-800 transition-colors">{opt.label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* Criterio */}
-          <div className="md:col-span-3">
-            <label htmlFor="criterio" className="block text-[9px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5 leading-none">Criterio</label>
-            <input id="criterio" type="text" placeholder="Valor a buscar"
-              value={filters.criterio}
-              onChange={(e) => handleFilterChange("criterio", e.target.value)}
+      <div className="p-3 bg-slate-50/50">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+          {/* Año */}
+          <div className="flex items-center gap-1.5">
+            <label htmlFor="filtro-anio" className="font-semibold text-slate-500 whitespace-nowrap">Año:</label>
+            <input id="filtro-anio" type="text" placeholder="Año"
+              value={filters.anio || ""}
+              onChange={(e) => handleFilterChange("anio", e.target.value)}
               onKeyDown={handleKeyDown}
-              className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] text-slate-700 placeholder-slate-400 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none"
+              className="w-20 rounded border border-slate-300 bg-white px-2.5 py-1 text-xs text-slate-700 placeholder-slate-400 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none"
             />
           </div>
 
-          {/* Buscar button */}
-          <div className="md:col-span-4 flex items-center gap-2">
+          {/* Categoría */}
+          <div className="flex items-center gap-1.5">
+            <label htmlFor="filtro-categoria" className="font-semibold text-slate-500 whitespace-nowrap">Categoría:</label>
+            <input id="filtro-categoria" type="text" placeholder="Categoría"
+              value={filters.categoria || ""}
+              onChange={(e) => handleFilterChange("categoria", e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="w-40 rounded border border-slate-300 bg-white px-2.5 py-1 text-xs text-slate-700 placeholder-slate-400 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none"
+            />
+          </div>
+
+          {/* Marca */}
+          <div className="flex items-center gap-1.5">
+            <label htmlFor="filtro-marca" className="font-semibold text-slate-500 whitespace-nowrap">Marca:</label>
+            <input id="filtro-marca" type="text" placeholder="Marca"
+              value={filters.marca || ""}
+              onChange={(e) => handleFilterChange("marca", e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="w-40 rounded border border-slate-300 bg-white px-2.5 py-1 text-xs text-slate-700 placeholder-slate-400 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none"
+            />
+          </div>
+
+          {/* Modelo */}
+          <div className="flex items-center gap-1.5">
+            <label htmlFor="filtro-modelo" className="font-semibold text-slate-500 whitespace-nowrap">Modelo:</label>
+            <input id="filtro-modelo" type="text" placeholder="Modelo"
+              value={filters.modelo || ""}
+              onChange={(e) => handleFilterChange("modelo", e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="w-48 rounded border border-slate-300 bg-white px-2.5 py-1 text-xs text-slate-700 placeholder-slate-400 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none"
+            />
+          </div>
+
+          {/* Acciones (Buscar + Limpiar) */}
+          <div className="flex items-center gap-2">
             <button type="button" onClick={handleSearch}
-              className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-3.5 py-1.5 text-[11px] font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
+              className="inline-flex items-center gap-1 rounded bg-sat-cyan px-4 py-1.5 text-xs font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
             >
               <Search size={12} />
               Buscar
             </button>
             <button type="button" onClick={handleClear}
-              className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-300/40 active:scale-[0.98]"
+              className="inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-300/40 active:scale-[0.98]"
             >
               Limpiar
             </button>
-            <span className="text-[9px] text-slate-400 leading-none">
-              <kbd className="rounded border border-slate-200 bg-slate-50 px-1 py-0.5 font-mono text-[8px] text-slate-500">↵</kbd>
+            <span className="text-[10px] text-slate-400 leading-none">
+              <kbd className="rounded border border-slate-200 bg-slate-50 px-1 py-0.5 font-mono text-[9px] text-slate-500">↵</kbd>
             </span>
           </div>
         </div>
@@ -312,13 +310,14 @@ export default function ValoresPage() {
     <colgroup>
       <col className="w-[4%]" />
       <col className="w-[12%]" />
-      <col className="w-[13%]" />
-      <col className="w-[13%]" />
-      <col className="w-[15%]" />
-      <col className="w-[8%]" />
-      <col className="w-[12%]" />
       <col className="w-[11%]" />
-      <col className="w-[12%]" />
+      <col className="w-[11%]" />
+      <col className="w-[11%]" />
+      <col className="w-[13%]" />
+      <col className="w-[8%]" />
+      <col className="w-[11%]" />
+      <col className="w-[10%]" />
+      <col className="w-[11%]" />
     </colgroup>
   );
 
@@ -333,6 +332,9 @@ export default function ValoresPage() {
         >
           <td className="px-2 py-1.5 text-[11px] text-slate-400 text-center font-mono w-8">
             {(page - 1) * pageSize + idx + 1}
+          </td>
+          <td className="px-2 py-1.5 text-[11px] font-mono text-slate-500 truncate">
+            {row.id}
           </td>
           <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate">
             {row.ejercicio}
@@ -393,6 +395,7 @@ export default function ValoresPage() {
         <thead className="bg-gradient-to-r from-sat-navy to-[#1e3050]">
           <tr>
             <th className="text-center text-[11px] font-semibold text-white/70 uppercase px-2 py-2.5 border-b border-white/5 w-8">#</th>
+            <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">ID</th>
             <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Año Ejercicio</th>
             <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Categoría</th>
             <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Marca</th>

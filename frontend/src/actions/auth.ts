@@ -49,6 +49,9 @@ export async function loginAction(formData: FormData) {
           secure: process.env.NODE_ENV === "production",
           sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
           path: "/",
+          ...(data?.sessionExpiresAt
+            ? { maxAge: Math.floor((new Date(data.sessionExpiresAt).getTime() - Date.now()) / 1000) }
+            : {}),
         });
       }
     }

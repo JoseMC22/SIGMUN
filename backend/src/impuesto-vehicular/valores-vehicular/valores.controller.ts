@@ -13,7 +13,7 @@ import {
   PaginatedResponse,
 } from './dto/valores.types';
 
-@Controller('impuesto-vehicular/valores')
+@Controller('impuesto-vehicular/valores-vehicular')
 @UseGuards(JwtAuthGuard)
 export class ValoresController {
   constructor(private readonly valoresService: ValoresService) {}

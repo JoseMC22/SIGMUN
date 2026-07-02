@@ -10,10 +10,10 @@ function mockSpResult<T>(rows: T[]): any {
 
 describe('ValoresService', () => {
   let service: ValoresService;
-  let db: jest.Mocked<Pick<DatabaseService, 'executeProcedure'>>;
+  let db: jest.Mocked<Pick<DatabaseService, 'executeProcedure' | 'query'>>;
 
   beforeEach(() => {
-    db = { executeProcedure: jest.fn() };
+    db = { executeProcedure: jest.fn(), query: jest.fn() };
     service = new ValoresService(db as unknown as DatabaseService);
   });
 
@@ -369,6 +369,10 @@ describe('ValoresService', () => {
   // ── save() (create/update) ────────────────────────────
 
   describe('save', () => {
+    beforeEach(() => {
+      db.query.mockResolvedValue(mockSpResult([]));
+    });
+
     it('should call grabar SP with mquery=1 when id is empty (create)', async () => {
       db.executeProcedure.mockResolvedValue(mockSpResult([]));
 

@@ -158,7 +158,7 @@ export default function ValorEditModal({ isOpen, valorId, onClose, onSaved }: Pr
           modelo_display: d.xidmod ?? "",
           anio: d.anio ?? "",
           monto: d.monto != null ? String(d.monto) : "",
-          estado: d.estado === "ACTIVO" ? "1" : "0",
+          estado: (d.estado === "ACTIVO" || d.estado === "1") ? "1" : "0",
         });
       } else {
         setFetchError(res.error);

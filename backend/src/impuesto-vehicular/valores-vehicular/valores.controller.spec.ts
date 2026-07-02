@@ -40,9 +40,9 @@ describe('ValoresController', () => {
     service = module.get(ValoresService);
   });
 
-  // ── POST /impuesto-vehicular/valores/search ────────────────────
+  // ── POST /impuesto-vehicular/valores-vehicular/search ────────────────────
 
-  describe('POST /impuesto-vehicular/valores/search', () => {
+  describe('POST /impuesto-vehicular/valores-vehicular/search', () => {
     it('should delegate to service.search with parsed DTO and return PaginatedResponse', async () => {
       const mockData: ValorRow[] = [
         {
@@ -116,9 +116,9 @@ describe('ValoresController', () => {
     });
   });
 
-  // ── GET /impuesto-vehicular/valores/:id ────────────────────────
+  // ── GET /impuesto-vehicular/valores-vehicular/:id ────────────────────────
 
-  describe('GET /impuesto-vehicular/valores/:id', () => {
+  describe('GET /impuesto-vehicular/valores-vehicular/:id', () => {
     it('should return valor detail when found', async () => {
       const mockDetail: ValorDetalle = {
         id: 'V001',
@@ -156,9 +156,9 @@ describe('ValoresController', () => {
     });
   });
 
-  // ── GET /impuesto-vehicular/valores/catalogos/categorias ───────
+  // ── GET /impuesto-vehicular/valores-vehicular/catalogos/categorias ───────
 
-  describe('GET /impuesto-vehicular/valores/catalogos/categorias', () => {
+  describe('GET /impuesto-vehicular/valores-vehicular/catalogos/categorias', () => {
     it('should return { data: CatalogoOption[] }', async () => {
       const mockCategorias: CatalogoOption[] = [
         { id: '3', nombre: 'SEDAN' },
@@ -173,9 +173,9 @@ describe('ValoresController', () => {
     });
   });
 
-  // ── GET /impuesto-vehicular/valores/catalogos/marcas ───────────
+  // ── GET /impuesto-vehicular/valores-vehicular/catalogos/marcas ───────────
 
-  describe('GET /impuesto-vehicular/valores/catalogos/marcas', () => {
+  describe('GET /impuesto-vehicular/valores-vehicular/catalogos/marcas', () => {
     it('should return { data: CatalogoOption[] }', async () => {
       const mockMarcas: CatalogoOption[] = [
         { id: '1', nombre: 'TOYOTA' },
@@ -190,9 +190,9 @@ describe('ValoresController', () => {
     });
   });
 
-  // ── POST /impuesto-vehicular/valores/catalogos/modelos ─────────
+  // ── POST /impuesto-vehicular/valores-vehicular/catalogos/modelos ─────────
 
-  describe('POST /impuesto-vehicular/valores/catalogos/modelos', () => {
+  describe('POST /impuesto-vehicular/valores-vehicular/catalogos/modelos', () => {
     it('should call service.getModelosFiltrados with id_categoria and id_marca', async () => {
       const mockModelos: CatalogoOption[] = [
         { id: '5', nombre: 'COROLLA' },
@@ -210,9 +210,9 @@ describe('ValoresController', () => {
     });
   });
 
-  // ── GET /impuesto-vehicular/valores/catalogos/anios-ejercicio ──
+  // ── GET /impuesto-vehicular/valores-vehicular/catalogos/anios-ejercicio ──
 
-  describe('GET /impuesto-vehicular/valores/catalogos/anios-ejercicio', () => {
+  describe('GET /impuesto-vehicular/valores-vehicular/catalogos/anios-ejercicio', () => {
     it('should return { data: CatalogoOption[] }', async () => {
       const mockAniosEj: CatalogoOption[] = [
         { id: '1', nombre: '2024' },
@@ -227,9 +227,9 @@ describe('ValoresController', () => {
     });
   });
 
-  // ── GET /impuesto-vehicular/valores/catalogos/anios ────────────
+  // ── GET /impuesto-vehicular/valores-vehicular/catalogos/anios ────────────
 
-  describe('GET /impuesto-vehicular/valores/catalogos/anios', () => {
+  describe('GET /impuesto-vehicular/valores-vehicular/catalogos/anios', () => {
     it('should return { data: CatalogoOption[] }', async () => {
       const mockAnios: CatalogoOption[] = [
         { id: '2020', nombre: '2020' },
@@ -244,9 +244,9 @@ describe('ValoresController', () => {
     });
   });
 
-  // ── POST /impuesto-vehicular/valores/save ──────────────────────
+  // ── POST /impuesto-vehicular/valores-vehicular/save ──────────────────────
 
-  describe('POST /impuesto-vehicular/valores/save', () => {
+  describe('POST /impuesto-vehicular/valores-vehicular/save', () => {
     it('should delegate to service.save with DTO', async () => {
       const saveDto = {
         id_anio: '1',
@@ -272,9 +272,9 @@ describe('ValoresController', () => {
     });
   });
 
-  // ── POST /impuesto-vehicular/valores/eliminar ──────────────────
+  // ── POST /impuesto-vehicular/valores-vehicular/eliminar ──────────────────
 
-  describe('POST /impuesto-vehicular/valores/eliminar', () => {
+  describe('POST /impuesto-vehicular/valores-vehicular/eliminar', () => {
     it('should delegate to service.eliminar with id', async () => {
       mockService.eliminar.mockResolvedValue({
         success: true,

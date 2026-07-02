@@ -46,8 +46,8 @@ describe("Valores page component", () => {
     mockedAniosEjercicio.mockResolvedValue({ success: true as const, data: [] });
   });
 
-  describe("Search form renders with text input, search type radios, and action buttons", () => {
-    it("renders criterio text input, search type radios, Buscar and Limpiar buttons", async () => {
+  describe("Search form renders with 4 text inputs and action buttons", () => {
+    it("renders Categoría, Marca, Modelo, Año text inputs, Buscar and Limpiar buttons", async () => {
       mockedSearch.mockResolvedValue(defaultSearchResponse);
 
       render(<ValoresPage />);
@@ -56,15 +56,11 @@ describe("Valores page component", () => {
         expect(screen.queryByTestId("loading-spinner")).not.toBeInTheDocument();
       });
 
-      // Text input for criterio
-      expect(screen.getByPlaceholderText(/valor a buscar/i)).toBeInTheDocument();
-
-      // Radio buttons (Todos, Categoría, Marca, Modelo, Año)
-      expect(screen.getByLabelText(/todos/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/categoría/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/marca/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/modelo/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/año$/i)).toBeInTheDocument();
+      // 4 text inputs
+      expect(screen.getByPlaceholderText(/categoría/i)).toBeInTheDocument();
+      expect(screen.getByPlaceholderText(/^marca$/i)).toBeInTheDocument();
+      expect(screen.getByPlaceholderText(/^modelo$/i)).toBeInTheDocument();
+      expect(screen.getByPlaceholderText(/^año$/i)).toBeInTheDocument();
 
       // Buscar button + Limpiar button
       expect(screen.getByRole("button", { name: /buscar/i })).toBeInTheDocument();
@@ -84,8 +80,8 @@ describe("Valores page component", () => {
 
       mockedSearch.mockClear();
 
-      const criterioInput = screen.getByPlaceholderText(/valor a buscar/i);
-      fireEvent.change(criterioInput, { target: { value: "COROLLA" } });
+      const modeloInput = screen.getByPlaceholderText(/^modelo$/i);
+      fireEvent.change(modeloInput, { target: { value: "COROLLA" } });
 
       const buscarButton = screen.getByRole("button", { name: /buscar/i });
       fireEvent.click(buscarButton);
@@ -100,7 +96,7 @@ describe("Valores page component", () => {
       );
     });
 
-    it("presses Enter in criterio field and calls searchValoresAction", async () => {
+    it("presses Enter in Modelo field and calls searchValoresAction", async () => {
       mockedSearch.mockResolvedValue(defaultSearchResponse);
 
       render(<ValoresPage />);
@@ -111,9 +107,9 @@ describe("Valores page component", () => {
 
       mockedSearch.mockClear();
 
-      const criterioInput = screen.getByPlaceholderText(/valor a buscar/i);
-      fireEvent.change(criterioInput, { target: { value: "X-TRAIL" } });
-      fireEvent.keyDown(criterioInput, { key: "Enter", code: "Enter" });
+      const modeloInput = screen.getByPlaceholderText(/^modelo$/i);
+      fireEvent.change(modeloInput, { target: { value: "X-TRAIL" } });
+      fireEvent.keyDown(modeloInput, { key: "Enter", code: "Enter" });
 
       await waitFor(() => {
         expect(mockedSearch).toHaveBeenCalledTimes(1);
@@ -126,8 +122,8 @@ describe("Valores page component", () => {
     });
   });
 
-  describe("Grid renders 9 columns with data", () => {
-    it("displays 9 column headers and populated data rows", async () => {
+  describe("Grid renders 10 columns with data", () => {
+    it("displays 10 column headers and populated data rows", async () => {
       mockedSearch.mockResolvedValue(defaultSearchResponse);
 
       render(<ValoresPage />);
@@ -136,18 +132,19 @@ describe("Valores page component", () => {
         expect(screen.getByTestId("valores-grid")).toBeInTheDocument();
       });
 
-      // 9 column headers (# · Año Ejercicio · Categoría · Marca · Modelo · Año · Monto · Estado · Acciones)
+      // 10 column headers (# · ID · Año Ejercicio · Categoría · Marca · Modelo · Año · Monto · Estado · Acciones)
       const headers = screen.getAllByRole("columnheader");
-      expect(headers).toHaveLength(9);
+      expect(headers).toHaveLength(10);
       expect(headers[0]).toHaveTextContent(/#/i);
-      expect(headers[1]).toHaveTextContent(/año ejercicio/i);
-      expect(headers[2]).toHaveTextContent(/categoría/i);
-      expect(headers[3]).toHaveTextContent(/marca/i);
-      expect(headers[4]).toHaveTextContent(/modelo/i);
-      expect(headers[5]).toHaveTextContent(/^año$/i);
-      expect(headers[6]).toHaveTextContent(/monto/i);
-      expect(headers[7]).toHaveTextContent(/estado/i);
-      expect(headers[8]).toHaveTextContent(/acciones/i);
+      expect(headers[1]).toHaveTextContent(/^id$/i);
+      expect(headers[2]).toHaveTextContent(/año ejercicio/i);
+      expect(headers[3]).toHaveTextContent(/categoría/i);
+      expect(headers[4]).toHaveTextContent(/marca/i);
+      expect(headers[5]).toHaveTextContent(/modelo/i);
+      expect(headers[6]).toHaveTextContent(/^año$/i);
+      expect(headers[7]).toHaveTextContent(/monto/i);
+      expect(headers[8]).toHaveTextContent(/estado/i);
+      expect(headers[9]).toHaveTextContent(/acciones/i);
 
       // Data rows
       expect(screen.getByText("COROLLA")).toBeInTheDocument();
