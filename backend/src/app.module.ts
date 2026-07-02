@@ -48,6 +48,10 @@ import { ReportesModule } from './reportes-gerenciales/reportes-gerenciales.modu
     MenuModule,
     // Módulo de seguridad
     SeguridadModule,
+    // Módulo de administración tributaria - mantenimiento de vías
+    MantenimientoViasModule,
+    // Módulo de reportes gerenciales
+    ReportesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

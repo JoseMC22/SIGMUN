@@ -2,10 +2,10 @@
 
 export interface SpPredioUsoRow {
   tipo: string;
-  uso: string;
-  predios: number;
-  condicion: string;
-  count: number;
+  Uso: string;
+  '# PREDIOS': number;
+  Condicion: string;
+  Count: number;
   anno: number;
   id_uso: string;
   ROW: number;
@@ -21,6 +21,14 @@ export interface PredioUsoRow {
   count: number;
   anno: number;
   id_uso: string;
+}
+
+// ── [Rentas].[sp_predio] @msquery=3, @tipo_predi=1 ──
+
+export interface SpTipoUsoRow {
+  id_uso: string;
+  descripcion: string;
+  [key: string]: unknown;
 }
 
 // ── Response envelope ──

@@ -12,6 +12,7 @@ import {
 import {
   PredioUsoRow,
   PaginatedResponse,
+  SpTipoUsoRow,
 } from './dto/predios-uso.types';
 
 @Controller('reportes-gerenciales/predios-uso')
@@ -25,20 +26,5 @@ export class PrediosUsoController {
   ): Promise<PaginatedResponse<PredioUsoRow>> {
     const parsed = SearchPredioUsoSchema.parse(dto);
     return this.prediosUsoService.search(parsed);
-  }
-
-  @Post('detail')
-  async detail(
-    @Body() dto: DetallePredioUsoDto,
-  ): Promise<{ data: Record<string, any>[] }> {
-    const parsed = DetallePredioUsoSchema.parse(dto);
-    const data = await this.prediosUsoService.getDetail(parsed);
-    return { data };
-  }
-
-  @Get('uso-options')
-  async usoOptions(): Promise<{ options: { value: string; label: string }[] }> {
-    const options = await this.prediosUsoService.getUsoOptions();
-    return { options };
   }
 }

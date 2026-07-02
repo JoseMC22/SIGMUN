@@ -5,6 +5,7 @@ import { DetallePredioUsoDto } from './dto/detalle-predio-uso.dto';
 import {
   PredioUsoRow,
   PaginatedResponse,
+  SpTipoUsoRow,
 } from './dto/predios-uso.types';
 
 // ── Case-insensitive column accessor (mssql v12+ preserves SP casing) ──
@@ -47,10 +48,10 @@ export class PrediosUsoService {
 
     const allRows: PredioUsoRow[] = (result.recordset || []).map((row: any) => ({
       tipo: row.tipo ?? '',
-      uso: row.uso ?? '',
-      predios: row.predios ?? 0,
-      condicion: row.condicion ?? '',
-      count: row.count ?? 0,
+      uso: row.Uso ?? row.uso ?? '',
+      predios: row['# PREDIOS'] ?? row.predios ?? 0,
+      condicion: row.Condicion ?? row.condicion ?? '',
+      count: row.Count ?? row.count ?? 0,
       anno: row.anno ?? 0,
       id_uso: row.id_uso ?? '',
     }));
