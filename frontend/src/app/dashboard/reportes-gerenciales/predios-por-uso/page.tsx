@@ -12,6 +12,7 @@ import {
   LayoutGrid,
   FileDown,
   FileSpreadsheet,
+  Loader2,
 } from "lucide-react";
 import { searchPrediosUsoAction, getTiposUsoAction } from "@/actions/reportes-gerenciales/predios-uso";
 import type { PredioUsoRow, TipoUsoOption } from "@/actions/reportes-gerenciales/predios-uso";
@@ -83,6 +84,7 @@ export default function PrediosUsoPage() {
   const [error, setError] = useState<string | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
   const [tiposUso, setTiposUso] = useState<TipoUsoOption[]>([]);
+  const [exporting, setExporting] = useState(false);
 
   // ── executeSearch ────────────────────────────────────────
 
@@ -152,44 +154,74 @@ export default function PrediosUsoPage() {
 
   // ── Export helpers ───────────────────────────────────────
 
-  const exportToExcel = useCallback(async () => {
-    const XLSX = await import("xlsx");
-    const ws = XLSX.utils.json_to_sheet(
-      data.map((r) => ({
-        Tipo: r.tipo,
-        Uso: r.uso,
-        Predios: r.predios,
-        Condición: r.condicion,
-        Total: r.count,
-        Año: r.anno,
-      })),
+  const fetchAllRecords = useCallback(async (): Promise<PredioUsoRow[]> => {
+    const result = await searchPrediosUsoAction(
+      {
+        codigo: filters.codigo || undefined,
+        anno: filters.anno ? Number(filters.anno) : undefined,
+        uso: filters.uso || undefined,
+      },
+      1,
+      99999,
     );
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Predios por Uso");
-    XLSX.writeFile(wb, `predios-por-uso.xlsx`);
-  }, [data]);
+    if (result.success) return result.data;
+    throw new Error(result.error);
+  }, [filters]);
+
+  const exportToExcel = useCallback(async () => {
+    setExporting(true);
+    try {
+      const allData = await fetchAllRecords();
+      const XLSX = await import("xlsx");
+      const ws = XLSX.utils.json_to_sheet(
+        allData.map((r) => ({
+          Tipo: r.tipo,
+          Uso: r.uso,
+          Predios: r.predios,
+          Condición: r.condicion,
+          Total: r.count,
+          Año: r.anno,
+        })),
+      );
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Predios por Uso");
+      XLSX.writeFile(wb, `predios-por-uso.xlsx`);
+    } catch {
+      setError("Error al exportar Excel");
+    } finally {
+      setExporting(false);
+    }
+  }, [fetchAllRecords]);
 
   const exportToPdf = useCallback(async () => {
-    const { default: jsPDF } = await import("jspdf");
-    const { default: autoTable } = await import("jspdf-autotable");
-    const doc = new jsPDF({ orientation: "landscape" });
-    doc.text("Predios por Uso", 14, 10);
-    autoTable(doc, {
-      startY: 16,
-      head: [["Tipo", "Uso", "Predios", "Condición", "Total", "Año"]],
-      body: data.map((r) => [
-        r.tipo,
-        r.uso,
-        String(r.predios),
-        r.condicion,
-        String(r.count),
-        String(r.anno),
-      ]),
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: [30, 48, 80] },
-    });
-    doc.save("predios-por-uso.pdf");
-  }, [data]);
+    setExporting(true);
+    try {
+      const allData = await fetchAllRecords();
+      const { default: jsPDF } = await import("jspdf");
+      const { default: autoTable } = await import("jspdf-autotable");
+      const doc = new jsPDF({ orientation: "landscape" });
+      doc.text("Predios por Uso", 14, 10);
+      autoTable(doc, {
+        startY: 16,
+        head: [["Tipo", "Uso", "Predios", "Condición", "Total", "Año"]],
+        body: allData.map((r) => [
+          r.tipo,
+          r.uso,
+          String(r.predios),
+          r.condicion,
+          String(r.count),
+          String(r.anno),
+        ]),
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [30, 48, 80] },
+      });
+      doc.save("predios-por-uso.pdf");
+    } catch {
+      setError("Error al exportar PDF");
+    } finally {
+      setExporting(false);
+    }
+  }, [fetchAllRecords]);
 
   // ── Search Form ──────────────────────────────────────────
 
@@ -474,17 +506,17 @@ export default function PrediosUsoPage() {
         <div className="flex items-center justify-between">
           {renderResultsBar()}
           <div className="flex items-center gap-2">
-            <button type="button" onClick={exportToExcel}
-              className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 hover:text-sat-navy focus:outline-none focus:ring-2 focus:ring-sat-cyan/40"
+            <button type="button" onClick={exportToExcel} disabled={exporting}
+              className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 hover:text-sat-navy focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <FileSpreadsheet size={13} />
-              Excel
+              {exporting ? <Loader2 size={13} className="animate-spin" /> : <FileSpreadsheet size={13} />}
+              {exporting ? "Exportando..." : "Excel"}
             </button>
-            <button type="button" onClick={exportToPdf}
-              className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40"
+            <button type="button" onClick={exportToPdf} disabled={exporting}
+              className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <FileDown size={13} />
-              PDF
+              {exporting ? <Loader2 size={13} className="animate-spin" /> : <FileDown size={13} />}
+              {exporting ? "Exportando..." : "PDF"}
             </button>
           </div>
         </div>
