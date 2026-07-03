@@ -27,4 +27,10 @@ export class PrediosUsoController {
     const parsed = SearchPredioUsoSchema.parse(dto);
     return this.prediosUsoService.search(parsed);
   }
+
+  @Get('combos/tipos-uso')
+  async getTiposUso(): Promise<{ success: true; data: SpTipoUsoRow[] }> {
+    const data = await this.prediosUsoService.getTiposUso();
+    return { success: true, data };
+  }
 }

@@ -62,34 +62,4 @@ export class PrediosUsoService {
 
     return { data, total, page, pageSize, totalPages };
   }
-
-  async getDetail(dto: DetallePredioUsoDto): Promise<Record<string, any>[]> {
-    const result = await this.db.executeProcedure<any>(
-      '[Rentas].[Rpt_Rentas_General]',
-      {
-        BUSC: 9,
-        CODIGO: dto.codigo,
-        ANNO: dto.anno,
-        ID_USO: dto.id_uso,
-        FLAG: dto.flag,
-      },
-    );
-    return result.recordset ?? [];
-  }
-
-  async getUsoOptions(): Promise<{ value: string; label: string }[]> {
-    const result = await this.db.executeProcedure<any>(
-      '[Rentas].[sp_predio]',
-      {
-        msquery: 3,
-        tipo_predi: 1,
-      },
-    );
-    return (result.recordset || []).map((row: any) => {
-      const keys = Object.keys(row);
-      const value = String(keys.length > 0 ? row[keys[0]] : '');
-      const label = String(keys.length > 1 ? row[keys[1]] : value);
-      return { value, label };
-    });
-  }
 }
