@@ -1,10 +1,14 @@
-import { Controller, Get, Post, Body, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Body, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PrediosUsoService } from './predios-uso.service';
 import {
   SearchPredioUsoSchema,
   SearchPredioUsoDto,
 } from './dto/search-predio-uso.dto';
+import {
+  DetallePredioUsoSchema,
+  DetallePredioUsoDto,
+} from './dto/detalle-predio-uso.dto';
 import {
   PredioUsoRow,
   PaginatedResponse,

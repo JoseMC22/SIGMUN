@@ -1,11 +1,21 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 import { SearchPredioUsoDto } from './dto/search-predio-uso.dto';
+import { DetallePredioUsoDto } from './dto/detalle-predio-uso.dto';
 import {
   PredioUsoRow,
   PaginatedResponse,
   SpTipoUsoRow,
 } from './dto/predios-uso.types';
+
+// ── Case-insensitive column accessor (mssql v12+ preserves SP casing) ──
+
+function col(row: Record<string, any>, name: string): any {
+  const key = Object.keys(row).find(
+    (k) => k.toLowerCase() === name.toLowerCase(),
+  );
+  return key !== undefined ? row[key] : undefined;
+}
 
 // ── Pure pagination helper (in-memory slice indices) ──
 
@@ -51,18 +61,5 @@ export class PrediosUsoService {
     const totalPages = total > 0 ? Math.ceil(total / pageSize) : 0;
 
     return { data, total, page, pageSize, totalPages };
-  }
-
-  async getTiposUso(): Promise<SpTipoUsoRow[]> {
-    const result = await this.db.executeProcedure<SpTipoUsoRow>(
-      '[Rentas].[sp_predio]',
-      { msquery: 3, tipo_predi: 1 },
-    );
-    const rows = result.recordset ?? [];
-    return rows.map((row: any) => ({
-      id_uso: row.id_uso ?? row.ID_USO ?? row.id_uso?.toString?.() ?? '',
-      descripcion:
-        row.descripcion ?? row.Descripcion ?? row.DESCRIPCION ?? row.uso ?? row.Uso ?? '',
-    }));
   }
 }

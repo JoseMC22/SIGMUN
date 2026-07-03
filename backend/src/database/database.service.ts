@@ -1,4 +1,9 @@
-import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  OnModuleInit,
+  OnModuleDestroy,
+  Logger,
+} from '@nestjs/common';
 import * as mssql from 'mssql';
 
 @Injectable()
@@ -22,13 +27,18 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       idleTimeoutMillis: 30000,
     },
     requestTimeout: 30000,
-    connectionTimeout: parseInt(process.env.DB_CONNECTION_TIMEOUT || '15000', 10),
+    connectionTimeout: parseInt(
+      process.env.DB_CONNECTION_TIMEOUT || '15000',
+      10,
+    ),
   };
 
   async onModuleInit() {
     try {
       this.pool = await new mssql.ConnectionPool(this.config).connect();
-      this.logger.log('Conexión a SQL Server establecida exitosamente (mssql pool).');
+      this.logger.log(
+        'Conexión a SQL Server establecida exitosamente (mssql pool).',
+      );
     } catch (err) {
       this.logger.error('Error al conectar con SQL Server:', err);
       throw err;
@@ -61,7 +71,10 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     }
 
     if (timeout !== undefined && timeout !== null && timeout > 0) {
-      return this.executeWithTimeout(request.execute<T>(procedureName), timeout);
+      return this.executeWithTimeout(
+        request.execute<T>(procedureName),
+        timeout,
+      );
     }
 
     return request.execute<T>(procedureName);

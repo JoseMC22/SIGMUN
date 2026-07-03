@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException, ExecutionContext } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ExecutionContext,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 
 @Injectable()
@@ -18,7 +22,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
         message = (info as { message: string }).message;
       }
       if (info && typeof info === 'object' && 'name' in info) {
-        const name = (info as { name: string }).name as string;
+        const name = (info as { name: string }).name;
         if (name === 'TokenExpiredError') {
           errorCode = 'AUTH_SESSION_INVALID';
         }

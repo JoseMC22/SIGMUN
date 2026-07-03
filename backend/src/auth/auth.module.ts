@@ -23,7 +23,8 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       useFactory: async (config: ConfigService) => ({
         secret: config.get<string>('JWT_SECRET') as string,
         signOptions: {
-          expiresIn: (config.get<string>('JWT_EXPIRES_IN') ?? '8h') as StringValue,
+          expiresIn: (config.get<string>('JWT_EXPIRES_IN') ??
+            '8h') as StringValue,
         },
       }),
     }),
