@@ -31,6 +31,17 @@ export function calculatePaginationParams(page: number, pageSize: number) {
 export class PrediosUsoService {
   constructor(private readonly db: DatabaseService) {}
 
+  async getTiposUso(): Promise<SpTipoUsoRow[]> {
+    const result = await this.db.executeProcedure<any>(
+      '[Rentas].[sp_predio]',
+      { msquery: 3, tipo_predi: 1 },
+    );
+    return (result.recordset || []).map((row: any) => ({
+      id_uso: col(row, 'id_uso') ?? '',
+      descripcion: col(row, 'descripcion') ?? '',
+    }));
+  }
+
   async search(dto: SearchPredioUsoDto): Promise<PaginatedResponse<PredioUsoRow>> {
     const { codigo, anno, uso, page, pageSize } = dto;
     const { start, end } = calculatePaginationParams(page, pageSize);
