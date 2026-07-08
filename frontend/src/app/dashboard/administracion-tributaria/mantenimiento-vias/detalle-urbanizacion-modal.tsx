@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { X, Search, Plus, Pencil, Loader2, Home, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
-import { buscarUrbanizacionesAction, getTiposViaAction, type UrbanizacionRow, type TipoViaOption } from "@/actions/mantenimiento-vias";
+import { buscarUrbanizacionesAction, getTiposViaAction, type UrbanizacionRow, type TipoViaOption } from "@/actions/administracion-tributaria/mantenimiento-vias";
 import UrbanizacionCrudModal from "./urbanizacion-crud-modal";
 
 interface Props {

@@ -15,7 +15,7 @@ import {
   Loader2,
   Plus,
 } from "lucide-react";
-import { searchPerfilesAction, deletePerfilAction } from "@/actions/perfiles";
+import { searchPerfilesAction, deletePerfilAction } from "@/actions/seguridad/perfiles";
 import PerfilEditModal from "./perfil-edit-modal";
 import ConfirmDialog from "@/components/confirm-dialog";
 

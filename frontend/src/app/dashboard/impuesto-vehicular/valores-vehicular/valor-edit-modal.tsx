@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   X, Loader2, Save, AlertCircle,
 } from "lucide-react";
@@ -12,7 +12,7 @@ import {
   fetchAniosEjercicioAction,
   fetchAniosAction,
   saveValorAction,
-} from "@/actions/valores";
+} from "@/actions/impuesto-vehicular/valores";
 
 // ── Types ────────────────────────────────────────────────
 
@@ -121,23 +121,29 @@ export default function ValorEditModal({ isOpen, valorId, onClose, onSaved }: Pr
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // ── Load catalogs once on mount ──
+  // ── Load catalogs only when modal opens, with cache ──
+
+  const catalogsLoadedRef = useRef(false);
 
   useEffect(() => {
+    if (!isOpen || catalogsLoadedRef.current) return;
+    catalogsLoadedRef.current = true;
+
     const loadCatalogs = async () => {
       const [categoriasRes, marcasRes, aniosRes, aniosEjercicioRes] = await Promise.all([
-        fetchCategoriasAction(),
-        fetchMarcasAction(),
-        fetchAniosAction(),
-        fetchAniosEjercicioAction(),
+        fetchCategoriasAction().catch(() => ({ success: false as const, data: [] as CatalogoOption[] })),
+        fetchMarcasAction().catch(() => ({ success: false as const, data: [] as CatalogoOption[] })),
+        fetchAniosAction().catch(() => ({ success: false as const, data: [] as CatalogoOption[] })),
+        fetchAniosEjercicioAction().catch(() => ({ success: false as const, data: [] as CatalogoOption[] })),
       ]);
-      if (categoriasRes.success) setCategorias(categoriasRes.data);
-      if (marcasRes.success) setMarcas(marcasRes.data);
-      if (aniosRes.success) setAnios(aniosRes.data);
-      if (aniosEjercicioRes.success) setAniosEjercicio(aniosEjercicioRes.data);
+
+      if (categoriasRes.success) setCategorias(categoriasRes.data as CatalogoOption[]);
+      if (marcasRes.success) setMarcas(marcasRes.data as CatalogoOption[]);
+      if (aniosRes.success) setAnios(aniosRes.data as CatalogoOption[]);
+      if (aniosEjercicioRes.success) setAniosEjercicio(aniosEjercicioRes.data as CatalogoOption[]);
     };
     loadCatalogs();
-  }, []);
+  }, [isOpen]);
 
   // ── Load valor detail when editing ──
 

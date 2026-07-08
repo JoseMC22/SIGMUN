@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 
 // Mock the server actions module before any imports
-vi.mock("@/actions/valores", () => ({
+vi.mock("@/actions/impuesto-vehicular/valores", () => ({
   searchValoresAction: vi.fn(),
   fetchValorDetailAction: vi.fn(),
   fetchCategoriasAction: vi.fn(),
@@ -14,7 +14,7 @@ vi.mock("@/actions/valores", () => ({
   eliminarValorAction: vi.fn(),
 }));
 
-import { searchValoresAction, fetchCategoriasAction, fetchMarcasAction, fetchAniosAction, fetchAniosEjercicioAction } from "@/actions/valores";
+import { searchValoresAction, fetchCategoriasAction, fetchMarcasAction, fetchAniosAction, fetchAniosEjercicioAction } from "@/actions/impuesto-vehicular/valores";
 import ValoresPage from "./page";
 
 const mockedSearch = vi.mocked(searchValoresAction);

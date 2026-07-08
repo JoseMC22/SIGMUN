@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { X, Loader2, Save } from "lucide-react";
-import { getArancelDetalleAction, saveArancelAction } from "@/actions/mantenimiento-vias";
-import type { ArancelDetalleRow } from "@/actions/mantenimiento-vias";
+import { getArancelDetalleAction, saveArancelAction } from "@/actions/administracion-tributaria/mantenimiento-vias";
+import type { ArancelDetalleRow } from "@/actions/administracion-tributaria/mantenimiento-vias";
 
 interface Props {
   isOpen: boolean;

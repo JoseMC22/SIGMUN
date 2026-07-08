@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 
 // Mock the server actions module before any imports
-vi.mock("@/actions/valores", () => ({
+vi.mock("@/actions/impuesto-vehicular/valores", () => ({
   fetchValorDetailAction: vi.fn(),
   fetchCategoriasAction: vi.fn(),
   fetchMarcasAction: vi.fn(),
@@ -21,7 +21,7 @@ import {
   fetchAniosEjercicioAction,
   fetchAniosAction,
   saveValorAction,
-} from "@/actions/valores";
+} from "@/actions/impuesto-vehicular/valores";
 
 const mockedDetail = vi.mocked(fetchValorDetailAction);
 const mockedCategorias = vi.mocked(fetchCategoriasAction);

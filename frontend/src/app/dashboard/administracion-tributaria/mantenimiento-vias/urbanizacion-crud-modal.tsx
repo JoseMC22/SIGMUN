@@ -8,7 +8,7 @@ import {
   getUrbanizacionAction,
   updateUrbanizacionAction,
   type TipoUrbanizacionOption,
-} from "@/actions/mantenimiento-vias";
+} from "@/actions/administracion-tributaria/mantenimiento-vias";
 import { getStoredUser, getPcName, fetchPcName, setPcName } from "@/lib/api";
 
 // ─── Types ─────────────────────────────────────────────────

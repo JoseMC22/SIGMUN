@@ -20,7 +20,7 @@ import {
   fetchAreasAction,
   fetchPerfilesAction,
   eliminarUsuarioAction,
-} from "@/actions/usuarios";
+} from "@/actions/seguridad/usuarios";
 import UsuarioEditModal from "./usuario-edit-modal";
 import CajaModal from "./caja-modal";
 

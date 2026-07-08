@@ -9,7 +9,7 @@ import {
   fetchMarcasAction,
   fetchCategoriasAction,
   saveModeloAction,
-} from "@/actions/modelos";
+} from "@/actions/impuesto-vehicular/modelos";
 
 // ── Types ────────────────────────────────────────────────
 

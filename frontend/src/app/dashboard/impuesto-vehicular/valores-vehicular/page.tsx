@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Search,
   Pencil,
@@ -18,7 +18,8 @@ import {
 import {
   searchValoresAction,
   eliminarValorAction,
-} from "@/actions/valores";
+} from "@/actions/impuesto-vehicular/valores";
+import { usePageCache } from "@/presentation/hooks/use-page-cache";
 import ValorEditModal from "./valor-edit-modal";
 
 // ─── Types ────────────────────────────────────────────────
@@ -104,52 +105,58 @@ export default function ValoresPage() {
     anio: "",
   });
 
-  const [data, setData] = useState<ValorRow[]>([]);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(15);
-  const [totalPages, setTotalPages] = useState(0);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
   const [editValorId, setEditValorId] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const filtersRef = useRef(filters);
+
+  // Keep filtersRef in sync
+  filtersRef.current = filters;
+
+  const cachedFetch = useCallback(
+    async (pageNum: number) => {
+      const currentFilters = filtersRef.current;
+      const apiFilters: Record<string, string | number | undefined> = {};
+      if (currentFilters.categoria) apiFilters.criterio1 = currentFilters.categoria;
+      if (currentFilters.marca)     apiFilters.criterio2 = currentFilters.marca;
+      if (currentFilters.modelo)    apiFilters.criterio3 = currentFilters.modelo;
+      if (currentFilters.anio)      apiFilters.criterio4 = currentFilters.anio;
+
+      const result = await searchValoresAction(apiFilters, pageNum, pageSize);
+      if (!result.success) throw new Error(result.error ?? "Error de conexión");
+      return result;
+    },
+    [pageSize],
+  );
+
+  const pageCache = usePageCache<ValorRow>({
+    fetchFn: cachedFetch,
+    prefetchDelta: 1,
+  });
+
+  const data = pageCache.current?.data ?? [];
+  const total = pageCache.total;
+  const totalPages = pageCache.totalPages;
+  const loading = pageCache.loading;
 
   const executeSearch = useCallback(
-    async (pageNum: number, filtersOverride?: typeof filters) => {
-      setLoading(true);
+    async (pageNum: number) => {
       setError(null);
+      setPage(pageNum);
       try {
-        const currentFilters = filtersOverride ?? filters;
-
-        // Map each field directly to API criteria
-        const apiFilters: Record<string, string | number | undefined> = {};
-        if (currentFilters.categoria) apiFilters.criterio1 = currentFilters.categoria;
-        if (currentFilters.marca)     apiFilters.criterio2 = currentFilters.marca;
-        if (currentFilters.modelo)    apiFilters.criterio3 = currentFilters.modelo;
-        if (currentFilters.anio)      apiFilters.criterio4 = currentFilters.anio;
-
-        const result = await searchValoresAction(apiFilters, pageNum, pageSize);
-        if (result.success) {
-          setData(result.data);
-          setTotal(result.total);
-          setPage(result.page);
-          setTotalPages(result.totalPages);
-        } else {
-          setError(result.error);
-          setData([]);
-        }
-      } catch {
-        setError("Error de conexión");
-        setData([]);
+        await pageCache.loadPage(pageNum);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Error de conexión");
       } finally {
-        setLoading(false);
         setInitialLoading(false);
       }
     },
-    [filters, pageSize],
+    [pageCache],
   );
 
   const handleNewClick = useCallback(() => {
@@ -168,8 +175,9 @@ export default function ValoresPage() {
   }, []);
 
   const handleEditSaved = useCallback(() => {
+    pageCache.clearCache(); // invalidate after data mutation
     executeSearch(page);
-  }, [executeSearch, page]);
+  }, [executeSearch, page, pageCache]);
 
   const handleDeleteClick = useCallback((id: string) => {
     setDeleteTarget(id);
@@ -182,6 +190,7 @@ export default function ValoresPage() {
       const res = await eliminarValorAction(deleteTarget);
       if (res.success) {
         setDeleteTarget(null);
+        pageCache.clearCache(); // invalidate after data mutation
         executeSearch(page);
       }
     } finally {
@@ -200,18 +209,25 @@ export default function ValoresPage() {
   }, []);
 
   const handleFilterChange = (field: string, value: string) => {
-    setFilters((prev) => ({ ...prev, [field]: value }));
+    setFilters((prev) => {
+      const next = { ...prev, [field]: value };
+      filtersRef.current = next; // update ref immediately for cachedFetch
+      return next;
+    });
   };
 
   const handleClear = () => {
     const cleared = { categoria: "", marca: "", modelo: "", anio: "" };
+    filtersRef.current = cleared; // update ref immediately (before next render)
     setFilters(cleared);
     setPage(1);
-    executeSearch(1, cleared);
+    pageCache.clearCache();
+    executeSearch(1);
   };
 
   const handleSearch = () => {
     setPage(1);
+    pageCache.clearCache(); // filters changed, invalidate cache
     executeSearch(1);
   };
 
@@ -221,6 +237,7 @@ export default function ValoresPage() {
 
   const handlePageChange = (newPage: number) => {
     if (newPage < 1 || newPage > totalPages) return;
+    setPage(newPage);
     executeSearch(newPage);
   };
 

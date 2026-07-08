@@ -10,7 +10,7 @@ import {
   fetchAccesosPorModuloAction,
   savePerfilAction,
   toggleAccesoPermisoAction,
-} from "@/actions/perfiles";
+} from "@/actions/seguridad/perfiles";
 import ObjetoEditModal from "./objeto-edit-modal";
 
 // ── Types ────────────────────────────────────────────────

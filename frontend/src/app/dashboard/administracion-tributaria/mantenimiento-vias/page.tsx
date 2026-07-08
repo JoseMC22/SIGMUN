@@ -19,7 +19,7 @@ import {
   Pencil,
   DollarSign,
 } from "lucide-react";
-import { searchViasAction } from "@/actions/mantenimiento-vias";
+import { searchViasAction } from "@/actions/administracion-tributaria/mantenimiento-vias";
 import DetalleUrbanizacionModal from "./detalle-urbanizacion-modal";
 import DetalleViaModal from "./detalle-via-modal";
 import ViaCrudModal from "./via-crud-modal";

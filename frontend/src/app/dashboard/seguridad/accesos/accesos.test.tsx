@@ -10,7 +10,7 @@ vi.mock("@/actions/accesos", () => ({
   saveAccesoAction: vi.fn(),
 }));
 
-import { searchAccesosAction, fetchMenusAction } from "@/actions/accesos";
+import { searchAccesosAction, fetchMenusAction } from "@/actions/seguridad/accesos";
 import AccesosPage from "./page";
 
 const mockedSearch = vi.mocked(searchAccesosAction);

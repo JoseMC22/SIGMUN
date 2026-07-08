@@ -19,8 +19,8 @@ import {
   searchAccesosAction,
   fetchMenusAction,
   fetchModulosAction,
-} from "@/actions/accesos";
-import type { MenuOption, ModuloOption } from "@/actions/accesos";
+} from "@/actions/seguridad/accesos";
+import type { MenuOption, ModuloOption } from "@/actions/seguridad/accesos";
 import AccesoEditModal from "./acceso-edit-modal";
 
 // ── Types ────────────────────────────────────────────────

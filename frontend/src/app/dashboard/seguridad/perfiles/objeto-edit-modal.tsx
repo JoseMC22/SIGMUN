@@ -5,7 +5,7 @@ import { X, Loader2 } from "lucide-react";
 import {
   fetchObjetosPorAccesoAction,
   toggleAccesoPermisoAction,
-} from "@/actions/perfiles";
+} from "@/actions/seguridad/perfiles";
 
 // ── Types ────────────────────────────────────────────────
 

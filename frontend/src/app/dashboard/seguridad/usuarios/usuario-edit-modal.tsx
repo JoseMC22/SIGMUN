@@ -12,7 +12,7 @@ import {
   fetchPerfilesAction,
   updateUsuarioAction,
   cambiarClaveAction,
-} from "@/actions/usuarios";
+} from "@/actions/seguridad/usuarios";
 
 // ── Types ────────────────────────────────────────────────
 
