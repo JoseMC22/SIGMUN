@@ -122,12 +122,14 @@ export class AccesosService {
   // ── Guardar (@busc='1') ──────────────────────────────
 
   async save(dto: SaveAccesoDto): Promise<{ id_acceso: string }> {
+    // busc=1 → nuevo, busc=2 → edición (id_acceso_old con valor)
+    const busc = dto.id_acceso_old ? 2 : 1;
     const result = await this.db.executeProcedure<any>(
       '[Acceso].[SP_MAcceso]',
       {
-        busc: 1,
+        busc,
         id_acceso: dto.id_acceso,
-        id_acceso_old: dto.id_acceso_old || dto.id_acceso,
+        acceso_antiguo: dto.id_acceso_old || dto.id_acceso,
         orden: dto.orden,
         menu: dto.menu,
         pantalla: dto.pantalla,
@@ -140,5 +142,16 @@ export class AccesosService {
     );
     const row = result.recordset?.[0];
     return { id_acceso: row?.id_acceso ?? dto.id_acceso };
+  }
+
+  // ── Eliminar (@busc='4') ─────────────────────────────
+
+  async delete(id: string): Promise<{ id_acceso: string }> {
+    const result = await this.db.executeProcedure<any>(
+      '[Acceso].[SP_MAcceso]',
+      { busc: 4, id_acceso: id },
+    );
+    const row = result.recordset?.[0];
+    return { id_acceso: row?.id_acceso ?? id };
   }
 }

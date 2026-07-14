@@ -9,7 +9,9 @@ import { AuthModule } from './auth/auth.module';
 import { MenuModule } from './menu/menu.module';
 import { SeguridadModule } from './seguridad/seguridad.module';
 import { ImpuestoVehicularModule } from './impuesto-vehicular/impuesto-vehicular.module';
+import { FiscalizacionTributariaModule } from './fiscalizacion-tributaria/fiscalizacion-tributaria.module';
 import { MantenimientoViasModule } from './administracion-tributaria/mantenimiento-vias/mantenimiento-vias.module';
+import { DeclaracionJuradaModule } from './administracion-tributaria/declaracion-jurada/declaracion-jurada.module';
 import { ReportesModule } from './reportes-gerenciales/reportes-gerenciales.module';
 
 @Module({
@@ -50,10 +52,14 @@ import { ReportesModule } from './reportes-gerenciales/reportes-gerenciales.modu
     SeguridadModule,
     // Módulo de administración tributaria - mantenimiento de vías
     MantenimientoViasModule,
+    // Módulo de administración tributaria - declaración jurada
+    DeclaracionJuradaModule,
     // Módulo de reportes gerenciales
     ReportesModule,
     // Módulo de impuestos vehicular
     ImpuestoVehicularModule,
+    // Módulo de fiscalización tributaria
+    FiscalizacionTributariaModule,
   ],
   controllers: [AppController],
   providers: [AppService],

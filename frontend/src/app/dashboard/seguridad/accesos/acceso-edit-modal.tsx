@@ -105,18 +105,35 @@ export default function AccesoEditModal({
     setError(null);
     fetchAccesoAction(accesoId).then((res) => {
       if (res.success) {
+        const id = res.data.id_acceso;
+        // Derivación tipo PHP: menu = substr(id,0,2)+'.00.00', pantalla = substr(id,0,5)+'.00'
+        const menu = id.slice(0, 2) + ".00.00";
+        const pantalla = id.slice(0, 5) + ".00";
         setForm({
-          id_acceso: res.data.id_acceso,
-          id_acceso_old: res.data.id_acceso,
+          id_acceso: id,
+          id_acceso_old: id,
           orden: res.data.orden,
-          menu: "",
-          pantalla: "",
+          menu,
+          pantalla,
           nombre: res.data.nombre,
           icono: res.data.icono,
           doform: res.data.doform,
           id_objeto: res.data.id_objeto,
           nestado: res.data.nestado === "1",
         });
+
+        // Cargar módulos para poblar el select de pantalla (SP @busc=9)
+        if (menu) {
+          if (menuAbortRef.current) menuAbortRef.current.abort();
+          const controller = new AbortController();
+          menuAbortRef.current = controller;
+          setModulosLoading(true);
+          fetchModulosAction(menu).then((modRes) => {
+            if (controller.signal.aborted) return;
+            if (modRes.success) setModulos(modRes.data);
+            setModulosLoading(false);
+          });
+        }
       } else {
         setError(res.error);
       }
@@ -194,7 +211,7 @@ export default function AccesoEditModal({
 
   if (!isOpen) return null;
 
-  const isTipoO = form.orden === "O";
+  const isTipoM = form.orden === "M";
 
   return (
     <div
@@ -262,7 +279,7 @@ export default function AccesoEditModal({
                 >
                   <option value="">Todos</option>
                   <option value="M">Menu</option>
-                  <option value="O">Tipo</option>
+                  <option value="O">Objeto</option>
                 </select>
               </div>
 
@@ -278,7 +295,7 @@ export default function AccesoEditModal({
                   id="cmbMenux"
                   value={form.menu}
                   onChange={(e) => handleMenuChange(e.target.value)}
-                  disabled={isTipoO}
+                  disabled={isTipoM}
                   className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] text-slate-700 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-slate-50"
                 >
                   <option value="">Todos</option>
@@ -302,7 +319,7 @@ export default function AccesoEditModal({
                   id="cmbPantallax"
                   value={form.pantalla}
                   onChange={(e) => updateField("pantalla", e.target.value)}
-                  disabled={isTipoO || (modulos.length === 0 && !modulosLoading)}
+                  disabled={isTipoM || (modulos.length === 0 && !modulosLoading)}
                   className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] text-slate-700 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-slate-50"
                 >
                   <option value="">Todos</option>
@@ -406,7 +423,8 @@ export default function AccesoEditModal({
                   value={form.id_objeto}
                   onChange={(e) => updateField("id_objeto", e.target.value)}
                   maxLength={50}
-                  className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] text-slate-700 placeholder-slate-400 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none"
+                  disabled={isTipoM}
+                  className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] text-slate-700 placeholder-slate-400 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-slate-50"
                 />
               </div>
 

@@ -144,3 +144,21 @@ export async function saveAccesoAction(data: SaveAccesoData) {
     return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
   }
 }
+
+// ── Eliminar acceso (@busc='4') ───────────────────────────
+
+export async function deleteAccesoAction(id: string) {
+  try {
+    const response = await authFetch(`/seguridad/accesos/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.message ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    return { success: true as const, data: result.data as { id_acceso: string } };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}

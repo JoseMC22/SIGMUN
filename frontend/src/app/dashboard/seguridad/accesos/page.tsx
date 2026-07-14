@@ -19,9 +19,11 @@ import {
   searchAccesosAction,
   fetchMenusAction,
   fetchModulosAction,
+  deleteAccesoAction,
 } from "@/actions/seguridad/accesos";
 import type { MenuOption, ModuloOption } from "@/actions/seguridad/accesos";
 import AccesoEditModal from "./acceso-edit-modal";
+import ConfirmDialog from "@/components/confirm-dialog";
 
 // ── Types ────────────────────────────────────────────────
 
@@ -153,6 +155,31 @@ export default function AccesosPage() {
 
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editAccesoId, setEditAccesoId] = useState<string | null>(null);
+
+  // ── Delete confirm dialog ───────────────────────────────
+
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; nombre: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const openDeleteDialog = (id: string, nombre: string) =>
+    setDeleteTarget({ id, nombre });
+  const closeDeleteDialog = () => {
+    if (deleting) return;
+    setDeleteTarget(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    const result = await deleteAccesoAction(deleteTarget.id);
+    setDeleting(false);
+    setDeleteTarget(null);
+    if (result.success) {
+      executeSearch(page);
+    } else {
+      setError(result.error);
+    }
+  };
 
   const openEditModal = (id: string) => {
     setEditAccesoId(id);
@@ -415,7 +442,7 @@ export default function AccesosPage() {
               </button>
               <button
                 type="button"
-                onClick={() => {}}
+                onClick={() => openDeleteDialog(row.id_acceso, row.nombre)}
                 className="rounded p-1 text-slate-400 transition hover:bg-red-50 hover:text-red-500"
                 aria-label="Eliminar"
                 title="Eliminar acceso"
@@ -654,6 +681,22 @@ export default function AccesosPage() {
         onClose={closeEditModal}
         onSaved={handleSaved}
         accesoId={editAccesoId}
+      />
+
+      {/* Delete confirm dialog */}
+      <ConfirmDialog
+        isOpen={deleteTarget !== null}
+        title="Eliminar acceso"
+        message={
+          deleteTarget
+            ? `¿Está seguro de eliminar el acceso "${deleteTarget.id}" (${deleteTarget.nombre})? Esta acción no se puede deshacer.`
+            : ""
+        }
+        confirmLabel="Eliminar"
+        cancelLabel="No"
+        loading={deleting}
+        onConfirm={handleConfirmDelete}
+        onCancel={closeDeleteDialog}
       />
     </div>
   );

@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Query, Body, Param, UseGuards, NotFoundException } from '@nestjs/common';
+import { Controller, Post, Get, Delete, Query, Body, Param, UseGuards, NotFoundException } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { AccesosService } from './accesos.service';
 import {
@@ -61,6 +61,14 @@ export class AccesosController {
   async save(@Body() dto: SaveAccesoDto): Promise<{ data: { id_acceso: string } }> {
     const parsed = SaveAccoSchema.parse(dto);
     const result = await this.accesosService.save(parsed);
+    return { data: result };
+  }
+
+  // ── Eliminar (@busc='4') ─────────────────────────────
+
+  @Delete(':id')
+  async delete(@Param('id') id: string): Promise<{ data: { id_acceso: string } }> {
+    const result = await this.accesosService.delete(id);
     return { data: result };
   }
 }
