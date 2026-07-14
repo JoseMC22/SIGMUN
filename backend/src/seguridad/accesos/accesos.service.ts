@@ -1,7 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 import { SearchAccesoDto } from './dto/search-acceso.dto';
-import { AccesoRow, PaginatedResponse, MenuOption } from './dto/accesos.types';
+import { SaveAccesoDto } from './dto/save-acceso.dto';
+import {
+  AccesoRow,
+  PaginatedResponse,
+  MenuOption,
+} from './dto/accesos.types';
 
 // ── Pure pagination helper ──
 
@@ -92,5 +97,61 @@ export class AccesosService {
       id_acceso: row.id_acceso ?? '',
       nommenu: row.nommenu ?? '',
     }));
+  }
+
+  // ── Acceso por ID (@busc='3') ─────────────────────────
+
+  async getById(id: string): Promise<AccesoRow | null> {
+    const result = await this.db.executeProcedure<any>(
+      '[Acceso].[SP_MAcceso]',
+      { busc: 3, id_acceso: id },
+    );
+    const row = result.recordset[0];
+    if (!row) return null;
+    return {
+      id_acceso: row.id_acceso ?? '',
+      orden: row.orden ?? '',
+      nombre: row.nombre ?? '',
+      id_objeto: row.id_objeto ?? '',
+      icono: row.icono ?? '',
+      doform: row.doform ?? '',
+      nestado: String(row.nestado),
+    };
+  }
+
+  // ── Guardar (@busc='1') ──────────────────────────────
+
+  async save(dto: SaveAccesoDto): Promise<{ id_acceso: string }> {
+    // busc=1 → nuevo, busc=2 → edición (id_acceso_old con valor)
+    const busc = dto.id_acceso_old ? 2 : 1;
+    const result = await this.db.executeProcedure<any>(
+      '[Acceso].[SP_MAcceso]',
+      {
+        busc,
+        id_acceso: dto.id_acceso,
+        acceso_antiguo: dto.id_acceso_old || dto.id_acceso,
+        orden: dto.orden,
+        menu: dto.menu,
+        pantalla: dto.pantalla,
+        nombre: dto.nombre,
+        icono: dto.icono,
+        doform: dto.doform,
+        id_objeto: dto.id_objeto,
+        nestado: dto.nestado,
+      },
+    );
+    const row = result.recordset?.[0];
+    return { id_acceso: row?.id_acceso ?? dto.id_acceso };
+  }
+
+  // ── Eliminar (@busc='4') ─────────────────────────────
+
+  async delete(id: string): Promise<{ id_acceso: string }> {
+    const result = await this.db.executeProcedure<any>(
+      '[Acceso].[SP_MAcceso]',
+      { busc: 4, id_acceso: id },
+    );
+    const row = result.recordset?.[0];
+    return { id_acceso: row?.id_acceso ?? id };
   }
 }

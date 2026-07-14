@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { logoutAction } from "@/actions/auth";
+import { logoutAction } from "@/actions/auth/auth";
 import { clearAuth } from "@/lib/api";
 
 const INACTIVITY_MS = 20 * 60 * 1000; // 20 minutos

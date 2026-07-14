@@ -36,16 +36,25 @@ export interface PrediosUsoSearchFilters {
   uso?: string;
 }
 
-export interface UsoOption {
-  value: string;
-  label: string;
+// ── Tipos de uso (combo desde SP) ──────────────────────────
+
+export interface TipoUsoOption {
+  id_uso: string;
+  descripcion: string;
 }
 
-export interface DetallePredioUsoParams {
-  codigo?: string;
-  anno: number;
-  id_uso: string;
-  flag: string;
+export async function getTiposUsoAction(): Promise<{ success: true; data: TipoUsoOption[] } | { success: false; error: string }> {
+  try {
+    const response = await authFetch('/reportes-gerenciales/predios-uso/combos/tipos-uso');
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.message ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    return { success: true as const, data: result.data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
 }
 
 // ── Búsqueda de predios por uso ────────────────────────────

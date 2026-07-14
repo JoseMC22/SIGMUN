@@ -11,7 +11,7 @@ vi.mock("@/actions/modelos", () => ({
   eliminarModeloAction: vi.fn(),
 }));
 
-import { searchModelosAction, fetchMarcasAction, fetchCategoriasAction } from "@/actions/modelos";
+import { searchModelosAction, fetchMarcasAction, fetchCategoriasAction } from "@/actions/impuesto-vehicular/modelos";
 import ModelosPage from "./page";
 
 const mockedSearch = vi.mocked(searchModelosAction);

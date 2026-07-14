@@ -7,7 +7,7 @@ import {
   storeAuth,
   clearAuth,
 } from "@/lib/api";
-import { loginAction, logoutAction } from "@/actions/auth";
+import { loginAction, logoutAction } from "@/actions/auth/auth";
 import { useRef } from "react";
 
 export default function LoginPage() {

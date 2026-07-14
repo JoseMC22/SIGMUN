@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, FormEvent } from "react";
 import { X, Loader2, Save, Settings } from "lucide-react";
-import { getViaAction, createViaAction, updateViaAction, getTiposViaAction, getUrbanizacionesAction, getZonasAction, type TipoViaOption, type UrbanizacionOption, type ZonaOption } from "@/actions/mantenimiento-vias";
+import { getViaAction, createViaAction, updateViaAction, getTiposViaAction, getUrbanizacionesAction, getZonasAction, type TipoViaOption, type UrbanizacionOption, type ZonaOption } from "@/actions/administracion-tributaria/mantenimiento-vias";
 import { getStoredUser, getPcName, fetchPcName, setPcName } from "@/lib/api";
 
 // ─── Types ─────────────────────────────────────────────────

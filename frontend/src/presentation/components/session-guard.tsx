@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { checkSessionAction, logoutAction } from "@/actions/auth";
+import { checkSessionAction, logoutAction } from "@/actions/auth/auth";
 import { fetchAllowedPathsAction } from "@/actions/menu";
 import { clearAuth } from "@/lib/api";
 import { Loader2 } from "lucide-react";
 
-const VERIFY_TIMEOUT_MS = 10_000; // 10 seconds max wait
+const VERIFY_TIMEOUT_MS = 60_000; // 30 seconds max wait (backend SPs can be slow)
 
 export function SessionGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();

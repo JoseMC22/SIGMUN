@@ -9,7 +9,7 @@ import {
   ShieldCheck
 } from "lucide-react";
 import { clearAuth } from "@/lib/api";
-import { logoutAction } from "@/actions/auth";
+import { logoutAction } from "@/actions/auth/auth";
 
 export function Header() {
   const router = useRouter();

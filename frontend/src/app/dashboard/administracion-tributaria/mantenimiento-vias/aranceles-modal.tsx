@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { X, Loader2, Pencil, Plus, AlertCircle } from "lucide-react";
-import { getArancelesAction, type ArancelRow } from "@/actions/mantenimiento-vias";
-import { getViaAction } from "@/actions/mantenimiento-vias";
+import { getArancelesAction, type ArancelRow } from "@/actions/administracion-tributaria/mantenimiento-vias";
+import { getViaAction } from "@/actions/administracion-tributaria/mantenimiento-vias";
 import ArancelEditModal from "./arancel-edit-modal";
 
 interface Props {

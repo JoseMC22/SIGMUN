@@ -28,6 +28,16 @@ export interface AccesosSearchFilters {
   orden?: string;
 }
 
+export interface AccesoRow {
+  id_acceso: string;
+  orden: string;
+  nombre: string;
+  id_objeto: string;
+  icono: string;
+  doform: string;
+  nestado: string;
+}
+
 export interface MenuOption {
   id_acceso: string;
   nommenu: string;
@@ -85,6 +95,69 @@ export async function fetchModulosAction(menuId: string) {
     if (!response.ok) return { success: false as const, error: `Error ${response.status}` };
     const result = await response.json();
     return { success: true as const, data: result.data as ModuloOption[] };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ── Acceso por ID ──────────────────────────────────────────
+
+export async function fetchAccesoAction(id: string) {
+  try {
+    const response = await authFetch(`/seguridad/accesos/${encodeURIComponent(id)}`);
+    if (!response.ok) return { success: false as const, error: `Error ${response.status}` };
+    const result = await response.json();
+    return { success: true as const, data: result.data as AccesoRow };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ── Guardar acceso ─────────────────────────────────────────
+
+export interface SaveAccesoData {
+  id_acceso: string;
+  id_acceso_old?: string;
+  orden: string;
+  menu?: string;
+  pantalla?: string;
+  nombre: string;
+  icono?: string;
+  doform?: string;
+  id_objeto?: string;
+  nestado: boolean | string;
+}
+
+export async function saveAccesoAction(data: SaveAccesoData) {
+  try {
+    const response = await authFetch('/seguridad/accesos', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.message ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    return { success: true as const, data: result.data as { id_acceso: string } };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ── Eliminar acceso (@busc='4') ───────────────────────────
+
+export async function deleteAccesoAction(id: string) {
+  try {
+    const response = await authFetch(`/seguridad/accesos/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.message ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    return { success: true as const, data: result.data as { id_acceso: string } };
   } catch (error) {
     return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
   }

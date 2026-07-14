@@ -18,7 +18,7 @@ import {
 import {
   searchModelosAction,
   eliminarModeloAction,
-} from "@/actions/modelos";
+} from "@/actions/impuesto-vehicular/modelos";
 import ModeloEditModal from "./modelo-edit-modal";
 
 // ─── Types ────────────────────────────────────────────────

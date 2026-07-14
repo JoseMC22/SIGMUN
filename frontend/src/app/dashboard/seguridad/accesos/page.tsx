@@ -5,6 +5,7 @@ import {
   Search,
   Pencil,
   Trash2,
+  Plus,
   ChevronLeft,
   ChevronRight,
   Key,
@@ -18,9 +19,11 @@ import {
   searchAccesosAction,
   fetchMenusAction,
   fetchModulosAction,
-} from "@/actions/accesos";
-import type { MenuOption, ModuloOption } from "@/actions/accesos";
+  deleteAccesoAction,
+} from "@/actions/seguridad/accesos";
+import type { MenuOption, ModuloOption } from "@/actions/seguridad/accesos";
 import AccesoEditModal from "./acceso-edit-modal";
+import ConfirmDialog from "@/components/confirm-dialog";
 
 // ── Types ────────────────────────────────────────────────
 
@@ -153,8 +156,38 @@ export default function AccesosPage() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editAccesoId, setEditAccesoId] = useState<string | null>(null);
 
+  // ── Delete confirm dialog ───────────────────────────────
+
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; nombre: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const openDeleteDialog = (id: string, nombre: string) =>
+    setDeleteTarget({ id, nombre });
+  const closeDeleteDialog = () => {
+    if (deleting) return;
+    setDeleteTarget(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    const result = await deleteAccesoAction(deleteTarget.id);
+    setDeleting(false);
+    setDeleteTarget(null);
+    if (result.success) {
+      executeSearch(page);
+    } else {
+      setError(result.error);
+    }
+  };
+
   const openEditModal = (id: string) => {
     setEditAccesoId(id);
+    setEditModalOpen(true);
+  };
+
+  const openNewModal = () => {
+    setEditAccesoId(null);
     setEditModalOpen(true);
   };
 
@@ -409,7 +442,7 @@ export default function AccesosPage() {
               </button>
               <button
                 type="button"
-                onClick={() => {}}
+                onClick={() => openDeleteDialog(row.id_acceso, row.nombre)}
                 className="rounded p-1 text-slate-400 transition hover:bg-red-50 hover:text-red-500"
                 aria-label="Eliminar"
                 title="Eliminar acceso"
@@ -588,6 +621,18 @@ export default function AccesosPage() {
 
       {renderSearchForm()}
 
+      {/* Toolbar */}
+      <div className="flex items-center justify-end">
+        <button
+          type="button"
+          onClick={openNewModal}
+          className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-3.5 py-1.5 text-[11px] font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
+        >
+          <Plus size={12} />
+          Nuevo
+        </button>
+      </div>
+
       {/* Results info */}
       {!loading && !error && !initialLoading && data.length > 0 && (
         <div className="flex items-center justify-between">
@@ -630,11 +675,28 @@ export default function AccesosPage() {
         </>
       )}
 
-      {/* Edit modal */}
+      {/* Edit / New modal */}
       <AccesoEditModal
         isOpen={editModalOpen}
         onClose={closeEditModal}
         onSaved={handleSaved}
+        accesoId={editAccesoId}
+      />
+
+      {/* Delete confirm dialog */}
+      <ConfirmDialog
+        isOpen={deleteTarget !== null}
+        title="Eliminar acceso"
+        message={
+          deleteTarget
+            ? `¿Está seguro de eliminar el acceso "${deleteTarget.id}" (${deleteTarget.nombre})? Esta acción no se puede deshacer.`
+            : ""
+        }
+        confirmLabel="Eliminar"
+        cancelLabel="No"
+        loading={deleting}
+        onConfirm={handleConfirmDelete}
+        onCancel={closeDeleteDialog}
       />
     </div>
   );

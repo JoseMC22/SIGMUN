@@ -32,6 +32,26 @@ pnpm-debug.log*
 
 # Cache
 .cache/
-git config --global user.name "Tu Nombre"
-git config --global user.email tu@email.comgit config --global user.name "Tu Nombre"
-git config --global user.email tu@email.com*.tsbuildinfo
+<<<<<<< HEAD
+# TypeScript
+*.tsbuildinfo
+
+# Test files (all current and future)
+*.spec.ts
+*.spec.tsx
+*.test.ts
+*.test.tsx
+=======
+
+# Agent workspace
+.atl/
+
+# Test coverage
+coverage/
+
+# TypeScript
+*.tsbuildinfo
+
+# Test files
+*.spec.ts
+>>>>>>> 1660b8d4024ea91b7db6bc2a03d9414c2e735d42
