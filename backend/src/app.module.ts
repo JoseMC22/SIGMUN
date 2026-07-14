@@ -14,6 +14,7 @@ import { MantenimientoViasModule } from './administracion-tributaria/mantenimien
 import { DeclaracionJuradaModule } from './administracion-tributaria/declaracion-jurada/declaracion-jurada.module';
 import { ReportesModule } from './reportes-gerenciales/reportes-gerenciales.module';
 import { MantenimientoModule } from './mantenimiento/mantenimiento.module';
+import { ConvenioEstadoModule } from './mantenimiento/convenio-estados/convenio-estado.module';
 
 @Module({
   imports: [
@@ -63,6 +64,8 @@ import { MantenimientoModule } from './mantenimiento/mantenimiento.module';
     FiscalizacionTributariaModule,
     // Módulo de mantenimiento de tablas - UIT
     MantenimientoModule,
+    // Módulo de mantenimiento - estados de convenio
+    ConvenioEstadoModule,
   ],
   controllers: [AppController],
   providers: [AppService],
