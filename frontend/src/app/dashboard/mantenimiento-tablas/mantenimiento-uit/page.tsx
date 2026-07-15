@@ -54,7 +54,7 @@ export default function MantenimientoUitPage() {
 
   // Load years from DB on mount
   useEffect(() => {
-    fetch("/api/mantenimiento/uit/annos")
+    fetch("/api/mantenimiento-tablas/mantenimiento-uit/annos")
       .then((res) => res.json())
       .then((json) => {
         const annos = json.annos ?? [];
@@ -74,7 +74,7 @@ export default function MantenimientoUitPage() {
     setError(null);
     setHasSearched(true);
     try {
-      const res = await fetch(`/api/mantenimiento/uit?anno=${anno}`);
+      const res = await fetch(`/api/mantenimiento-tablas/mantenimiento-uit?anno=${anno}`);
       if (!res.ok) {
         if (res.status === 404) {
           setData([]);
@@ -128,7 +128,7 @@ export default function MantenimientoUitPage() {
   const handleDeleteConfirm = async () => {
     if (deleteAnno === null) return;
     try {
-      const res = await fetch(`/api/mantenimiento/uit/${deleteAnno}`, {
+      const res = await fetch(`/api/mantenimiento-tablas/mantenimiento-uit/${deleteAnno}`, {
         method: "DELETE",
       });
       if (!res.ok) {

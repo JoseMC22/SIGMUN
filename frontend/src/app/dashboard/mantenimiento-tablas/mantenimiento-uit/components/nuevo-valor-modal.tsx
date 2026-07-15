@@ -60,7 +60,7 @@ export default function NuevoValorModal({ isOpen, onClose, onSuccess }: Props) {
 
     setSaving(true);
     try {
-      const res = await fetch("/api/mantenimiento/uit", {
+      const res = await fetch("/api/mantenimiento-tablas/mantenimiento-uit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

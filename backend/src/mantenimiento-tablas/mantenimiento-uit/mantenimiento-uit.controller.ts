@@ -11,26 +11,26 @@ import {
   ParseIntPipe,
   BadRequestException,
 } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { MantenimientoService } from './mantenimiento.service';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { MantenimientoUitService } from './mantenimiento-uit.service';
 import { CrearUitSchema, CrearUitDto } from './dto/crear-uit.dto';
 import { EditarUitSchema } from './dto/editar-uit.dto';
 
 @UseGuards(JwtAuthGuard)
-@Controller('mantenimiento/uit')
-export class MantenimientoController {
+@Controller('mantenimiento-tablas/mantenimiento-uit')
+export class MantenimientoUitController {
   constructor(
-    private readonly mantenimientoService: MantenimientoService,
+    private readonly mantenimientoUitService: MantenimientoUitService,
   ) {}
 
   @Get('annos')
   async obtenerAnnos() {
-    return this.mantenimientoService.obtenerAnnos();
+    return this.mantenimientoUitService.obtenerAnnos();
   }
 
   @Get()
   async buscar(@Query('anno', ParseIntPipe) anno: number) {
-    return this.mantenimientoService.buscarPorAnno(anno);
+    return this.mantenimientoUitService.buscarPorAnno(anno);
   }
 
   @Post()
@@ -40,7 +40,7 @@ export class MantenimientoController {
       const msg = parsed.error.errors.map(e => e.message).join('; ');
       throw new BadRequestException(msg || 'Datos inválidos');
     }
-    return this.mantenimientoService.crear(parsed.data);
+    return this.mantenimientoUitService.crear(parsed.data);
   }
 
   @Put()
@@ -50,11 +50,11 @@ export class MantenimientoController {
       const msg = parsed.error.errors.map(e => e.message).join('; ');
       throw new BadRequestException(msg || 'Datos inválidos');
     }
-    return this.mantenimientoService.editar(parsed.data);
+    return this.mantenimientoUitService.editar(parsed.data);
   }
 
   @Delete(':anno')
   async eliminar(@Param('anno', ParseIntPipe) anno: number) {
-    return this.mantenimientoService.eliminar(anno);
+    return this.mantenimientoUitService.eliminar(anno);
   }
 }
