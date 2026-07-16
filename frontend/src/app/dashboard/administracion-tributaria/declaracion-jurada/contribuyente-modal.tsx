@@ -39,6 +39,7 @@ interface RepresentanteForm {
   materno: string;
   documento: string;
   numero: string;
+  codigoRepresentante: string;
   tipoRepresentante: string;
   // Domicilio fiscal
   distrito: string;
@@ -75,6 +76,7 @@ const emptyRepresentante: RepresentanteForm = {
   materno: "",
   documento: "",
   numero: "",
+  codigoRepresentante: "",
   tipoRepresentante: "",
   distrito: "",
   zonaCod: "",
@@ -257,7 +259,7 @@ function RepresentanteModal({
   tiposIngreso: { value: string; label: string }[];
   tiposAgrupamiento: { value: string; label: string }[];
   combosLoading: boolean;
-  onGrabar: () => void;
+  onGrabar: (form: RepresentanteForm) => void;
 }) {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchMessage, setSearchMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
@@ -296,6 +298,7 @@ function RepresentanteModal({
         return;
       }
       if (res.data.encontrado) {
+        onChange("codigoRepresentante", res.data.codigo);
         onChange("nombreRazon", res.data.nombres.toUpperCase());
         onChange("paterno", res.data.paterno.toUpperCase());
         onChange("materno", res.data.materno.toUpperCase());
@@ -344,131 +347,8 @@ function RepresentanteModal({
           >
             <X size={16} />
           </button>
+          </div>
         </div>
-
-        {/* ── Body ── */}
-        <div className="overflow-y-auto px-4 py-2.5 space-y-2.5">
-          {/* ══ Datos personales ══ */}
-          <fieldset className="rounded-lg border border-slate-200 bg-slate-50/40 px-2.5 pb-2 pt-0.5">
-            <legend className="flex items-center gap-1.5 px-1 text-[10px] font-semibold text-sat-navy">
-              <User size={13} />
-              Datos personales
-            </legend>
-            <div className="space-y-2">
-              {/* Nombre / Razon */}
-              <div>
-                <label htmlFor="r-nombre" className={repLabelClass}>
-                  Nombre y/o Razón Social
-                </label>
-                <input
-                  id="r-nombre"
-                  type="text"
-                  value={form.nombreRazon}
-                  onChange={(e) => onChange("nombreRazon", e.target.value.toUpperCase())}
-                  placeholder="Nombre y/o razón social"
-                  className={repInputClass}
-                />
-              </div>
-
-              {/* Apellidos */}
-              <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                <div>
-                  <label htmlFor="r-paterno" className={repLabelClass}>
-                    Apellido Paterno
-                  </label>
-                  <input
-                    id="r-paterno"
-                    type="text"
-                    value={form.paterno}
-                    onChange={(e) => onChange("paterno", e.target.value.toUpperCase())}
-                    placeholder="Apellido paterno"
-                    className={repInputClass}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="r-materno" className={repLabelClass}>
-                    Apellido Materno
-                  </label>
-                  <input
-                    id="r-materno"
-                    type="text"
-                    value={form.materno}
-                    onChange={(e) => onChange("materno", e.target.value.toUpperCase())}
-                    placeholder="Apellido materno"
-                    className={repInputClass}
-                  />
-                </div>
-              </div>
-
-                {/* Documento + Numero */}
-                <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-                  <div>
-                    <label htmlFor="r-documento" className={repLabelClass}>
-                      Documento
-                    </label>
-                    <select
-                      id="r-documento"
-                      value={form.documento}
-                      onChange={(e) => onChange("documento", e.target.value)}
-                      className={repInputClass}
-                      disabled={combosLoading}
-                    >
-                      <option value="">Seleccionar...</option>
-                      {tiposDoc.map((d) => (
-                        <option key={d.value} value={d.value}>
-                          {d.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="md:col-span-2">
-                    <label htmlFor="r-numero" className={repLabelClass}>
-                      Número
-                    </label>
-                    <div className="flex items-center gap-1.5">
-                      <input
-                        id="r-numero"
-                        type="text"
-                        value={form.numero}
-                        onChange={(e) => {
-                          onChange("numero", e.target.value.replace(/\D/g, ""));
-                          setSearchMessage(null);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            buscarContribuyente();
-                          }
-                        }}
-                        placeholder="Número de documento"
-                        className={repInputClass}
-                      />
-                      <button
-                        type="button"
-                        onClick={buscarContribuyente}
-                        disabled={searchLoading || !form.numero.trim()}
-                        title="Buscar Contribuyente"
-                        aria-label="Buscar Contribuyente"
-                        className="inline-flex shrink-0 items-center justify-center rounded-md border border-sat-amber bg-white p-1.5 text-sat-amber transition hover:bg-sat-amber/5 focus:outline-none focus:ring-2 focus:ring-sat-amber/40 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        {searchLoading ? (
-                          <Loader2 size={14} className="animate-spin" />
-                        ) : (
-                          <Search size={14} />
-                        )}
-                      </button>
-                    </div>
-                    {searchMessage && (
-                      <p
-                        className={`mt-1.5 text-[11px] font-medium ${
-                          searchMessage.type === "error" ? "text-red-500" : "text-emerald-600"
-                        }`}
-                      >
-                        {searchMessage.text}
-                      </p>
-                    )}
-                  </div>
-                </div>
 
               {/* Tipo de Representante */}
               <div>
@@ -490,6 +370,14 @@ function RepresentanteModal({
                   ))}
                 </select>
               </div>
+
+              {/* Código del representante (hidden) — se llena con la lupa "Buscar Contribuyente" */}
+              <input
+                type="hidden"
+                name="txtcodrepre"
+                id="txtcodrepre"
+                value={form.codigoRepresentante}
+              />
             </div>
           </fieldset>
 
@@ -955,10 +843,82 @@ export default function ContribuyenteModal({ isOpen, onClose }: Props) {
     setRepresentante((prev) => ({ ...prev, [field]: value }));
   };
 
-  const grabarRepresentante = () => {
-    // Por desarrollar: guardar los datos del representante
-    alert("Datos del representante grabados (por desarrollar)");
-    setRepresentanteModalOpen(false);
+  const grabarRepresentante = async () => {
+    const r = representante;
+    const esEdicion = !!r.codigoRepresentante && r.codigoRepresentante.trim().length > 0;
+    const motivo = `Acción - ${esEdicion ? "Actualización" : "Ingreso"} Representante - Operador ${form.operador} - Estación : ${form.estacion}`;
+
+    const esICA = r.distrito === "012";
+    const cvia = esICA ? r.viaCod : "";
+    const nvia = r.viaNom;
+    const tvia = esICA ? "" : r.viaCod;
+    const curba = esICA ? r.urbCod : "";
+    const nurba = r.urbNom;
+    const turba = esICA ? "" : r.urbCod;
+
+    const payload = {
+      codigo: r.codigoRepresentante ?? "",
+      id_docu: r.documento ?? "",
+      num_doc: r.numero ?? "",
+      nombres: r.nombreRazon ?? "",
+      paterno: r.paterno ?? "",
+      materno: r.materno ?? "",
+      id_dist: r.distrito ?? "",
+      tipourb: turba,
+      des_urb: nurba,
+      tipovia: tvia,
+      des_via: nvia,
+      id_zona: r.zonaCod ?? "",
+      id_urba: curba,
+      id_via: cvia,
+      referencia: r.referencia ?? "",
+      manzana: r.mz ?? "",
+      lote: r.lote ?? "",
+      sub_lote: r.subLote ?? "",
+      numero: r.numDomicilio ?? "",
+      departam: r.dpto ?? "",
+      nestado: "",
+      motivo,
+      operador: form.operador ?? "",
+      estacion: form.estacion ?? "",
+      id_tipocontri: r.tipoRepresentante ?? "",
+      id_subtipocontri: "",
+      id_motivo_actualizacion: "",
+      tipo_interior_id: r.tipoInterior ?? "",
+      tipo_edificio_id: r.tipoEdificacion ?? "",
+      tipo_ingreso_id: r.tipoIngreso ?? "",
+      tipo_agrupamiento_id: r.tipoAgrupamiento ?? "",
+      letra1: r.letra1 ?? "",
+      letra2: r.letra2 ?? "",
+      numero2: r.numero2 ?? "",
+      nombre_ingreso: r.nombreIngreso ?? "",
+      nombre_agrupamiento: r.nombreAgrupamiento ?? "",
+      nombre_edificio: r.nombreEdificacion ?? "",
+      piso: r.piso ?? "",
+      numero_interno: r.numInterior ?? "",
+      letra_interno: r.letraInterior ?? "",
+      correo_e: "",
+      partida_defuncion: "",
+      fecha_defuncion: "",
+      telefono1: "",
+      anexo1: "",
+      telefono2: "",
+      anexo2: "",
+      flag_notificar: "",
+      idperfil: "",
+    };
+
+    try {
+      const res = await guardarContribuyenteAction(payload);
+      if (!res.success) {
+        alert(res.error);
+        return;
+      }
+      alert(res.data.mensaje || "Representante guardado correctamente.");
+      setRepresentanteModalOpen(false);
+    } catch {
+      alert("Error al guardar el representante. Intente nuevamente.");
+    }
   };
 
   // ── Guardar contribuyente (botón Grabar) ──
