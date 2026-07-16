@@ -29,9 +29,25 @@ import { loginRequestSchema } from './schemas';
 import { ZodError } from 'zod';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
-const reverseDns = promisify(dns.reverse);
 const COOKIE_NAME = 'SIGMUN_AUTH';
 const SESSION_COOKIE_MAX_AGE_MS = 8 * 60 * 60 * 1000;
+
+/** Extrae la IP real del cliente desde los headers de proxy o el socket */
+function extractClientIp(req: Request & { socket: { remoteAddress?: string } }): string {
+  const rawIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
+    || req.socket?.remoteAddress
+    || '127.0.0.1';
+  return rawIp.replace(/^::ffff:/, '');
+}
+
+/** Hostnames que NO son nombres reales de PC */
+const INVALID_HOSTNAMES = new Set([
+  'GATEWAY', 'ROUTER', 'MODEM', 'LOCALHOST', 'UNKNOWN',
+  'WORKGROUP', 'MINWINPC', '(UNKNOWN)', '',
+]);
+
+/** IPs que representan acceso local (el cliente y servidor en la misma máquina) */
+const LOCALHOST_IPS = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1', 'unknown', '']);
 
 function getAuthCookieOptions() {
   const isProduction = process.env.NODE_ENV === 'production';
@@ -52,6 +68,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async login(
     @Body() body: unknown,
+    @Request() req: Request & { socket: { remoteAddress?: string } },
     @Res({ passthrough: true }) response: Response,
   ): Promise<LoginSuccessResponse> {
     let dto: LoginDto;
@@ -74,8 +91,9 @@ export class AuthController {
     }
 
     try {
+      const clientIp = extractClientIp(req);
       const { accessToken, response: authResponse } =
-        await this.authService.login(dto);
+        await this.authService.login(dto, clientIp);
 
       response.cookie(COOKIE_NAME, accessToken, getAuthCookieOptions());
       return authResponse;
@@ -100,18 +118,24 @@ export class AuthController {
   async clientInfo(
     @Request() req: Request & { socket: { remoteAddress?: string } },
   ): Promise<{ hostname: string; ip: string }> {
-    const rawIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
-      || req.socket?.remoteAddress
-      || 'unknown';
-    const ip = rawIp.replace(/^::ffff:/, '');
+    const ip = extractClientIp(req);
+
+    // Acceso local: usar el nombre del servidor directamente
+    if (LOCALHOST_IPS.has(ip)) {
+      return { hostname: os.hostname().toUpperCase(), ip };
+    }
 
     let hostname = ip;
     try {
-      const names = await reverseDns(ip);
+      const reverseDnsAsync = promisify(dns.reverse);
+      const names = await reverseDnsAsync(ip);
       if (names.length > 0) {
         const resolved = names[0].split('.')[0].toUpperCase();
-        // Only use resolved name if it looks like a real hostname (not an IP)
-        if (resolved !== ip && !/^\d+\.\d+\.\d+\.\d+$/.test(resolved)) {
+        if (
+          resolved !== ip &&
+          !/^\d+\.\d+\.\d+\.\d+$/.test(resolved) &&
+          !INVALID_HOSTNAMES.has(resolved)
+        ) {
           hostname = resolved;
         }
       }
@@ -119,11 +143,10 @@ export class AuthController {
       // DNS reverse lookup failed
     }
 
-    // Fallback: if reverse DNS didn't resolve a real name, use server hostname
-    // This covers the case where the client accesses via IP on the same LAN
-    // and the server runs on the same machine as the client
+    // Fallback: si reverse DNS no sirvió, usar el nombre del servidor
     if (hostname === ip) {
-      hostname = os.hostname().toUpperCase();
+      const serverHostname = os.hostname().toUpperCase();
+      hostname = INVALID_HOSTNAMES.has(serverHostname) ? '' : serverHostname;
     }
 
     return { hostname, ip };
@@ -134,12 +157,15 @@ export class AuthController {
   async session(
     @Request() req: { user: JwtPayload },
   ): Promise<SessionCheckResponse> {
+    // Leer hostname de la sesión cache (guardado durante login)
+    const sessionData = await this.authService.getSessionData(req.user.sub);
     return {
       authenticated: true,
       user: {
         id: req.user.sub,
         name: req.user.name,
         roles: req.user.roles,
+        hostname: sessionData?.hostname ?? '',
       },
     };
   }
