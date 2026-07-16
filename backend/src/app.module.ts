@@ -13,7 +13,8 @@ import { FiscalizacionTributariaModule } from './fiscalizacion-tributaria/fiscal
 import { MantenimientoViasModule } from './administracion-tributaria/mantenimiento-vias/mantenimiento-vias.module';
 import { DeclaracionJuradaModule } from './administracion-tributaria/declaracion-jurada/declaracion-jurada.module';
 import { ReportesModule } from './reportes-gerenciales/reportes-gerenciales.module';
-import { MantenimientoModule } from './mantenimiento/mantenimiento.module';
+import { MantenimientoUitModule } from './mantenimiento-tablas/mantenimiento-uit/mantenimiento-uit.module';
+import { ConvenioEstadoModule } from './mantenimiento-tablas/mantenimiento-estado-convenios/convenio-estado.module';
 
 @Module({
   imports: [
@@ -62,7 +63,9 @@ import { MantenimientoModule } from './mantenimiento/mantenimiento.module';
     // Módulo de fiscalización tributaria
     FiscalizacionTributariaModule,
     // Módulo de mantenimiento de tablas - UIT
-    MantenimientoModule,
+    MantenimientoUitModule,
+    // Módulo de mantenimiento - estados de convenio
+    ConvenioEstadoModule,
   ],
   controllers: [AppController],
   providers: [AppService],

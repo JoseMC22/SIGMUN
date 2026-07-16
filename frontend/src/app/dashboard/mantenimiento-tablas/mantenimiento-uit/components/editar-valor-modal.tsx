@@ -82,7 +82,7 @@ export default function EditarValorModal({ isOpen, row, onClose, onSuccess }: Pr
 
     setSaving(true);
     try {
-      const res = await fetch("/api/mantenimiento/uit", {
+      const res = await fetch("/api/mantenimiento-tablas/mantenimiento-uit", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

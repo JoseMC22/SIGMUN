@@ -4,14 +4,14 @@ import {
   NotFoundException,
   ConflictException,
 } from '@nestjs/common';
-import { DatabaseService } from '../database/database.service';
+import { DatabaseService } from '../../database/database.service';
 import { CrearUitDto } from './dto/crear-uit.dto';
 import { EditarUitDto } from './dto/editar-uit.dto';
 import { UitResponse } from './dto/uit-response.dto';
 
 @Injectable()
-export class MantenimientoService {
-  private readonly logger = new Logger(MantenimientoService.name);
+export class MantenimientoUitService {
+  private readonly logger = new Logger(MantenimientoUitService.name);
   private static readonly SP_UIT = '[Rentas].[sp_uit]';
 
   constructor(private readonly db: DatabaseService) {}
@@ -19,7 +19,7 @@ export class MantenimientoService {
   async obtenerAnnos(): Promise<{ annos: number[] }> {
     try {
       const result = await this.db.executeProcedure<{ anno: number }>(
-        MantenimientoService.SP_UIT,
+        MantenimientoUitService.SP_UIT,
         { busc: 1 },
       );
 
@@ -34,7 +34,7 @@ export class MantenimientoService {
   async buscarPorAnno(anno: number): Promise<{ data: UitResponse[] }> {
     try {
       const result = await this.db.executeProcedure<UitResponse>(
-        MantenimientoService.SP_UIT,
+        MantenimientoUitService.SP_UIT,
         { busc: 2, anno: String(anno) },
       );
 
@@ -57,7 +57,7 @@ export class MantenimientoService {
   async crear(dto: CrearUitDto): Promise<{ message: string; anno: number }> {
     try {
       const existente = await this.db.executeProcedure<UitResponse>(
-        MantenimientoService.SP_UIT,
+        MantenimientoUitService.SP_UIT,
         { busc: 2, anno: String(dto.anno) },
       );
 
@@ -67,7 +67,7 @@ export class MantenimientoService {
 
       this.logger.log(`[CREAR] Creando UIT ${dto.anno} — params: ${JSON.stringify({ tipo: '02.01', valor_uit: dto.valor_uit, imp_min: dto.imp_minimo, imp_max: dto.imp_maximo, costo_emision: dto.costo_emis, costo_adicional: dto.costo_adic, estado: dto.estado })}`);
 
-      await this.db.executeProcedure(MantenimientoService.SP_UIT, {
+      await this.db.executeProcedure(MantenimientoUitService.SP_UIT, {
         busc: 5,
         anno: String(dto.anno),
         tipo: '02.01',
@@ -95,7 +95,7 @@ export class MantenimientoService {
   async editar(dto: EditarUitDto): Promise<{ message: string; anno: number }> {
     try {
       const existente = await this.db.executeProcedure<UitResponse>(
-        MantenimientoService.SP_UIT,
+        MantenimientoUitService.SP_UIT,
         { busc: 2, anno: String(dto.anno) },
       );
 
@@ -105,7 +105,7 @@ export class MantenimientoService {
 
       const tipoActual = existente.recordset[0].tipo;
 
-      await this.db.executeProcedure(MantenimientoService.SP_UIT, {
+      await this.db.executeProcedure(MantenimientoUitService.SP_UIT, {
         busc: 6,
         anno: String(dto.anno),
         tipo: tipoActual,
@@ -131,7 +131,7 @@ export class MantenimientoService {
   async eliminar(anno: number): Promise<{ message: string }> {
     try {
       await this.db.executeProcedure(
-        MantenimientoService.SP_UIT,
+        MantenimientoUitService.SP_UIT,
         { busc: 7, anno: String(anno), estado: '0' },
       );
 
