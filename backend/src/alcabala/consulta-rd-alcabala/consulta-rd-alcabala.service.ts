@@ -98,11 +98,11 @@ export class ConsultaRdAlcabalaService {
   }
 
   async getDetail(dto: DetalleRdAlcabalaDto): Promise<DetalleRDResult> {
-    const { id_valor, num_val, ano_val, nombre, nomb_val } = dto;
+    const { num_val, ano_val, nombre, nomb_val } = dto;
 
     const spParams: Record<string, any> = {
       msquery: '4',
-      id_valor: id_valor || '',
+      id_valor: this.ID_VALOR_ALCABALA,
       num_val: num_val || '',
       ano_val: ano_val || '',
     };

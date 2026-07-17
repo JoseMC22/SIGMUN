@@ -122,7 +122,6 @@ describe('ConsultaRdAlcabalaController', () => {
       mockService.getDetail.mockResolvedValue(expected);
 
       const result = await controller.detail({
-        id_valor: '08',
         num_val: 'RD-001',
         ano_val: '2024',
         nombre: 'Empresa SAC',
@@ -131,7 +130,6 @@ describe('ConsultaRdAlcabalaController', () => {
 
       expect(result).toEqual(expected);
       expect(mockService.getDetail).toHaveBeenCalledWith({
-        id_valor: '08',
         num_val: 'RD-001',
         ano_val: '2024',
         nombre: 'Empresa SAC',
@@ -154,7 +152,6 @@ describe('ConsultaRdAlcabalaController', () => {
       expect(result.success).toBe(true);
       expect(mockService.getDetail).toHaveBeenCalledWith(
         expect.objectContaining({
-          id_valor: '',
           num_val: '',
           ano_val: '',
         }),
@@ -175,7 +172,6 @@ describe('ConsultaRdAlcabalaController', () => {
       });
 
       const result = await controller.detail({
-        id_valor: '08',
         num_val: 'RD-001',
         ano_val: '2024',
       });

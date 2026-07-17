@@ -313,7 +313,6 @@ describe('ConsultaRdAlcabalaService', () => {
       db.executeProcedure.mockResolvedValueOnce(mockSpResult([]));
 
       await service.getDetail({
-        id_valor: '08',
         num_val: 'RD-001',
         ano_val: '2024',
         nombre: 'Empresa SAC',
@@ -350,7 +349,6 @@ describe('ConsultaRdAlcabalaService', () => {
       db.executeProcedure.mockResolvedValueOnce(mockSpResult(spRows));
 
       const result = await service.getDetail({
-        id_valor: '08',
         num_val: 'RD-001',
         ano_val: '2024',
         nombre: 'Empresa SAC',
@@ -381,11 +379,10 @@ describe('ConsultaRdAlcabalaService', () => {
       db.executeProcedure.mockResolvedValueOnce(mockSpResult([spRow]));
 
       const result = await service.getDetail({
-        id_valor: '08',
         num_val: 'RD-001',
         ano_val: '2024',
-        nombre: '',
-        nomb_val: '',
+        nombre: 'Empresa',
+        nomb_val: 'R.D.',
       });
 
       expect(result.success).toBe(true);
@@ -405,7 +402,6 @@ describe('ConsultaRdAlcabalaService', () => {
       db.executeProcedure.mockResolvedValueOnce(mockSpResult([spRow]));
 
       const result = await service.getDetail({
-        id_valor: '08',
         num_val: 'RD-001',
         ano_val: '2024',
         nombre: '',
@@ -422,11 +418,10 @@ describe('ConsultaRdAlcabalaService', () => {
       db.executeProcedure.mockRejectedValueOnce(new Error('SP error'));
 
       const result = await service.getDetail({
-        id_valor: '08',
         num_val: 'RD-001',
         ano_val: '2024',
-        nombre: 'Empresa',
-        nomb_val: 'R.D.',
+        nombre: '',
+        nomb_val: '',
       });
 
       expect(result.success).toBe(false);
@@ -438,7 +433,6 @@ describe('ConsultaRdAlcabalaService', () => {
       db.executeProcedure.mockResolvedValueOnce(mockSpResult([]));
 
       const result = await service.getDetail({
-        id_valor: '08',
         num_val: 'RD-999',
         ano_val: '2024',
         nombre: '',
@@ -453,7 +447,6 @@ describe('ConsultaRdAlcabalaService', () => {
       db.executeProcedure.mockResolvedValueOnce({ recordset: undefined } as any);
 
       const result = await service.getDetail({
-        id_valor: '',
         num_val: '',
         ano_val: '',
         nombre: '',
@@ -468,7 +461,6 @@ describe('ConsultaRdAlcabalaService', () => {
       db.executeProcedure.mockResolvedValueOnce(mockSpResult([]));
 
       await service.getDetail({
-        id_valor: '',
         num_val: '',
         ano_val: '',
         nombre: '',
@@ -477,7 +469,7 @@ describe('ConsultaRdAlcabalaService', () => {
 
       expect(db.executeProcedure).toHaveBeenCalledWith(SP_NAME_DETAIL, {
         msquery: '4',
-        id_valor: '',
+        id_valor: '08',
         num_val: '',
         ano_val: '',
       });

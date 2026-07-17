@@ -85,7 +85,6 @@ function DetalleRDModal({
       setError(null);
       try {
         const result = await getDetailConsultaRDAction({
-          id_valor: "",
           num_val: row.num_val,
           ano_val: String(row.ano_val),
           nombre: row.nombre,

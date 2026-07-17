@@ -121,7 +121,6 @@ export async function searchConsultaRDAction(
 }
 
 export async function getDetailConsultaRDAction(params: {
-  id_valor?: string;
   num_val: string;
   ano_val: string;
   nombre?: string;
@@ -129,7 +128,6 @@ export async function getDetailConsultaRDAction(params: {
 }): Promise<DetalleRDResult> {
   try {
     const query = new URLSearchParams();
-    if (params.id_valor) query.set("id_valor", params.id_valor);
     query.set("num_val", params.num_val);
     query.set("ano_val", params.ano_val);
     if (params.nombre) query.set("nombre", params.nombre);
