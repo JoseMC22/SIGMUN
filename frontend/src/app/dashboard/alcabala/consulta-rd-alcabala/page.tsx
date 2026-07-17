@@ -181,7 +181,9 @@ function DetalleRDModal({
           <table>
             <thead>
               <tr>
-                <th>Año</th>
+                <th>#</th>
+                <th>ID</th>
+                <th>Año / Período</th>
                 <th>Imp. Insoluto</th>
                 <th>Imp. Reajustado</th>
                 <th>Costo Emisión</th>
@@ -191,6 +193,8 @@ function DetalleRDModal({
             </thead>
             <tbody>
               <tr class="header-row">
+                <td>${g.header.row_num}</td>
+                <td>${g.header.id}</td>
                 <td>${g.header.anio}</td>
                 <td>${formatCurrency(g.header.imp_insol)}</td>
                 <td>${formatCurrency(g.header.imp_reaj)}</td>
@@ -200,6 +204,8 @@ function DetalleRDModal({
               </tr>
               ${g.details.map((d) => `
               <tr>
+                <td>${d.row_num}</td>
+                <td>${d.id}</td>
                 <td>${d.anno}</td>
                 <td>${formatCurrency(d.imp_insol)}</td>
                 <td>${formatCurrency(d.imp_reaj)}</td>
@@ -309,12 +315,14 @@ function DetalleRDModal({
               <thead className="sticky top-0 z-10">
                 <tr className="bg-slate-100/80 backdrop-blur">
                   <th className="w-7" />
-                  <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-3 py-2">Año / Período</th>
-                  <th className="text-right text-[10px] font-semibold text-slate-500 uppercase px-3 py-2">Imp. Insoluto</th>
-                  <th className="text-right text-[10px] font-semibold text-slate-500 uppercase px-3 py-2">Imp. Reajustado</th>
-                  <th className="text-right text-[10px] font-semibold text-slate-500 uppercase px-3 py-2">Costo Emisión</th>
-                  <th className="text-right text-[10px] font-semibold text-slate-500 uppercase px-3 py-2">Mora</th>
-                  <th className="text-right text-[10px] font-semibold text-slate-500 uppercase px-3 py-2">Total</th>
+                  <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-2 py-2">#</th>
+                  <th className="text-right text-[10px] font-semibold text-slate-500 uppercase px-2 py-2">ID</th>
+                  <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-2 py-2">Año / Período</th>
+                  <th className="text-right text-[10px] font-semibold text-slate-500 uppercase px-2 py-2">Imp. Insoluto</th>
+                  <th className="text-right text-[10px] font-semibold text-slate-500 uppercase px-2 py-2">Imp. Reajustado</th>
+                  <th className="text-right text-[10px] font-semibold text-slate-500 uppercase px-2 py-2">Costo Emisión</th>
+                  <th className="text-right text-[10px] font-semibold text-slate-500 uppercase px-2 py-2">Mora</th>
+                  <th className="text-right text-[10px] font-semibold text-slate-500 uppercase px-2 py-2">Total</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -322,7 +330,7 @@ function DetalleRDModal({
                   const isExpanded = expandedHeaders.has(gIdx);
                   return (
                     <Fragment key={gIdx}>
-                      {/* Cabecera — fila clickeable */}
+                      {/* Cabecera — fila clickeable (anio 4 digitos) */}
                       <tr
                         onClick={() => toggleHeader(gIdx)}
                         className="cursor-pointer bg-slate-50 hover:bg-slate-100/70 transition select-none"
@@ -333,28 +341,32 @@ function DetalleRDModal({
                             className={`text-slate-400 transition-transform duration-200 inline-block ${isExpanded ? "" : "-rotate-90"}`}
                           />
                         </td>
-                        <td className="px-3 py-2 font-bold text-sat-navy">
+                        <td className="px-2 py-2 font-mono text-slate-500">{group.header.row_num}</td>
+                        <td className="px-2 py-2 font-mono text-right text-slate-500">{group.header.id}</td>
+                        <td className="px-2 py-2 font-bold text-sat-navy">
                           Año {group.header.anio}
                           <span className="ml-2 text-[10px] font-normal text-slate-400">
                             ({group.details.length} {group.details.length === 1 ? "período" : "períodos"})
                           </span>
                         </td>
-                        <td className="px-3 py-2 font-mono text-right text-slate-600">{formatCurrency(group.header.imp_insol)}</td>
-                        <td className="px-3 py-2 font-mono text-right text-slate-600">{formatCurrency(group.header.imp_reaj)}</td>
-                        <td className="px-3 py-2 font-mono text-right text-slate-600">{formatCurrency(group.header.costo_emis)}</td>
-                        <td className="px-3 py-2 font-mono text-right text-slate-600">{formatCurrency(group.header.mora)}</td>
-                        <td className="px-3 py-2 font-mono text-right font-bold text-sat-navy">{formatCurrency(group.header.total)}</td>
+                        <td className="px-2 py-2 font-mono text-right text-slate-600">{formatCurrency(group.header.imp_insol)}</td>
+                        <td className="px-2 py-2 font-mono text-right text-slate-600">{formatCurrency(group.header.imp_reaj)}</td>
+                        <td className="px-2 py-2 font-mono text-right text-slate-600">{formatCurrency(group.header.costo_emis)}</td>
+                        <td className="px-2 py-2 font-mono text-right text-slate-600">{formatCurrency(group.header.mora)}</td>
+                        <td className="px-2 py-2 font-mono text-right font-bold text-sat-navy">{formatCurrency(group.header.total)}</td>
                       </tr>
-                      {/* Detalle — filas expandibles debajo de la cabecera */}
+                      {/* Detalle — filas expandibles debajo de la cabecera (anno 2 digitos) */}
                       {isExpanded && group.details.map((d, dIdx) => (
                         <tr key={`d-${dIdx}`} className="bg-white hover:bg-slate-50/50 transition">
                           <td />
-                          <td className="px-3 py-1.5 font-mono text-slate-500 pl-7">{d.anno}</td>
-                          <td className="px-3 py-1.5 font-mono text-right text-slate-600">{formatCurrency(d.imp_insol)}</td>
-                          <td className="px-3 py-1.5 font-mono text-right text-slate-600">{formatCurrency(d.imp_reaj)}</td>
-                          <td className="px-3 py-1.5 font-mono text-right text-slate-600">{formatCurrency(d.costo_emis)}</td>
-                          <td className="px-3 py-1.5 font-mono text-right text-slate-600">{formatCurrency(d.mora)}</td>
-                          <td className="px-3 py-1.5 font-mono text-right font-semibold text-slate-700">{formatCurrency(d.total)}</td>
+                          <td className="px-2 py-1.5 font-mono text-slate-400">{d.row_num}</td>
+                          <td className="px-2 py-1.5 font-mono text-right text-slate-400">{d.id}</td>
+                          <td className="px-2 py-1.5 font-mono text-slate-500 pl-7">{d.anno}</td>
+                          <td className="px-2 py-1.5 font-mono text-right text-slate-600">{formatCurrency(d.imp_insol)}</td>
+                          <td className="px-2 py-1.5 font-mono text-right text-slate-600">{formatCurrency(d.imp_reaj)}</td>
+                          <td className="px-2 py-1.5 font-mono text-right text-slate-600">{formatCurrency(d.costo_emis)}</td>
+                          <td className="px-2 py-1.5 font-mono text-right text-slate-600">{formatCurrency(d.mora)}</td>
+                          <td className="px-2 py-1.5 font-mono text-right font-semibold text-slate-700">{formatCurrency(d.total)}</td>
                         </tr>
                       ))}
                     </Fragment>
