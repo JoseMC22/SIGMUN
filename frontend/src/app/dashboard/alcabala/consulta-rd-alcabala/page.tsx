@@ -110,6 +110,7 @@ function DetalleRDModal({
     new Set(),
   );
   const [printing, setPrinting] = useState(false);
+  const [printHtml, setPrintHtml] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -157,34 +158,28 @@ function DetalleRDModal({
 
   const handlePrint = async () => {
     setPrinting(true);
+    setError(null);
     try {
       const result = await imprimirConsultaRDAction({
         num_val: row.num_val,
         ano_val: String(row.ano_val),
       });
+
       if (!result.success || !result.html) {
-        setError(result.error ?? "Error al generar impresión");
+        setError(result.error ?? "Error al generar impresión del RD");
         return;
       }
 
-      const printWindow = window.open("", "_blank", "width=800,height=600");
-      if (!printWindow) {
-        setError("El navegador bloqueó la ventana de impresión. Permití pop-ups.");
-        return;
-      }
-      printWindow.document.open();
-      printWindow.document.write(result.html);
-      printWindow.document.close();
-      printWindow.focus();
-      // Wait for the document to load before printing
-      const triggerPrint = () => printWindow.print();
-      if (printWindow.document.readyState === "complete") {
-        setTimeout(triggerPrint, 300);
-      } else {
-        printWindow.onload = () => setTimeout(triggerPrint, 300);
-      }
+      // Show print preview inline (no popup, no iframe needed)
+      setPrintHtml(result.html);
+      // Wait a tick for render, then trigger print dialog
+      setTimeout(() => {
+        window.print();
+        // Clear preview after print dialog is dismissed
+        setTimeout(() => setPrintHtml(null), 500);
+      }, 300);
     } catch {
-      setError("Error al generar impresión");
+      setError("Error de conexión al generar la impresión. Revisá la consola del navegador.");
     } finally {
       setPrinting(false);
     }
@@ -200,6 +195,32 @@ function DetalleRDModal({
       aria-label="Detalle RD"
     >
       <div className="relative mx-4 w-full max-w-4xl max-h-[85vh] flex flex-col rounded-xl border border-slate-200 bg-white shadow-2xl">
+
+        {/* ── Print preview (only visible when printing) ── */}
+        {printHtml && (
+          <div className="print-only absolute inset-0 z-[60] overflow-auto bg-white p-4">
+            <div dangerouslySetInnerHTML={{ __html: printHtml }} />
+          </div>
+        )}
+
+        <style>{`
+          @media screen {
+            .print-only { display: none !important; }
+          }
+          @media print {
+            body * { visibility: hidden !important; }
+            .print-only, .print-only * { visibility: visible !important; }
+            .print-only {
+              position: absolute !important;
+              left: 0 !important;
+              top: 0 !important;
+              width: 100% !important;
+              height: auto !important;
+              overflow: visible !important;
+            }
+          }
+        `}</style>
+
         {/* ── Header ──────────────────────────────────── */}
         <div className="flex items-center justify-between border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-5 py-3 rounded-t-xl">
           <div className="flex items-center gap-2">
