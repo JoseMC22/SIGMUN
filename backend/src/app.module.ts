@@ -10,6 +10,7 @@ import { MenuModule } from './menu/menu.module';
 import { SeguridadModule } from './seguridad/seguridad.module';
 import { ImpuestoVehicularModule } from './impuesto-vehicular/impuesto-vehicular.module';
 import { FiscalizacionTributariaModule } from './fiscalizacion-tributaria/fiscalizacion-tributaria.module';
+import { AlcabalaModule } from './alcabala/alcabala.module';
 import { MantenimientoViasModule } from './administracion-tributaria/mantenimiento-vias/mantenimiento-vias.module';
 import { DeclaracionJuradaModule } from './administracion-tributaria/declaracion-jurada/declaracion-jurada.module';
 import { ReportesModule } from './reportes-gerenciales/reportes-gerenciales.module';
@@ -62,6 +63,8 @@ import { ConvenioEstadoModule } from './mantenimiento-tablas/mantenimiento-estad
     ImpuestoVehicularModule,
     // Módulo de fiscalización tributaria
     FiscalizacionTributariaModule,
+    // Módulo de alcabala
+    AlcabalaModule,
     // Módulo de mantenimiento de tablas - UIT
     MantenimientoUitModule,
     // Módulo de mantenimiento - estados de convenio
