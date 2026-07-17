@@ -21,6 +21,7 @@ import {
   searchConsultaRDAction,
   getDetailConsultaRDAction,
   getRutaConsultaRDAction,
+  imprimirConsultaRDAction,
 } from "@/actions/alcabala/consulta-rd";
 import type {
   ConsultaRDRow,
@@ -108,6 +109,7 @@ function DetalleRDModal({
   const [expandedHeaders, setExpandedHeaders] = useState<Set<number>>(
     new Set(),
   );
+  const [printing, setPrinting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -153,79 +155,40 @@ function DetalleRDModal({
     });
   };
 
-  const handlePrint = () => {
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) return;
-    const groups = detail ? groupDetailRows(detail.data) : [];
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>RD ${row.nomb_val} ${row.num_val}-${row.ano_val}</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 20px; font-size: 12px; }
-          h2 { text-align: center; margin-bottom: 4px; }
-          .header { text-align: center; margin-bottom: 12px; }
-          .header p { margin: 2px 0; }
-          table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-          th, td { border: 1px solid #333; padding: 4px 8px; text-align: left; font-size: 11px; }
-          th { background: #1e3050; color: white; }
-          tr.header-row { background: #f1f5f9; font-weight: bold; }
-          .total { font-weight: bold; text-align: right; margin-top: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h2>Registro de Deuda - Alcabala</h2>
-          <p><strong>${row.nomb_val} ${row.num_val}-${row.ano_val}</strong></p>
-          <p>${detail?.nombre ?? row.nombre}</p>
-        </div>
-        ${groups.map((g) => `
-          <table>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>ID</th>
-                <th>Año / Período</th>
-                <th>Imp. Insoluto</th>
-                <th>Imp. Reajustado</th>
-                <th>Costo Emisión</th>
-                <th>Mora</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr class="header-row">
-                <td>${g.header.row_num}</td>
-                <td>${g.header.id}</td>
-                <td>${g.header.anio}</td>
-                <td>${formatCurrency(g.header.imp_insol)}</td>
-                <td>${formatCurrency(g.header.imp_reaj)}</td>
-                <td>${formatCurrency(g.header.costo_emis)}</td>
-                <td>${formatCurrency(g.header.mora)}</td>
-                <td>${formatCurrency(g.header.total)}</td>
-              </tr>
-              ${g.details.map((d) => `
-              <tr>
-                <td>${d.row_num}</td>
-                <td>${d.id}</td>
-                <td>${d.anno}</td>
-                <td>${formatCurrency(d.imp_insol)}</td>
-                <td>${formatCurrency(d.imp_reaj)}</td>
-                <td>${formatCurrency(d.costo_emis)}</td>
-                <td>${formatCurrency(d.mora)}</td>
-                <td>${formatCurrency(d.total)}</td>
-              </tr>
-              `).join("")}
-            </tbody>
-          </table>
-        `).join("")}
-        <p class="total">Monto Total: ${formatCurrency(row.MontoTotal)}</p>
-      </body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.print();
+  const handlePrint = async () => {
+    setPrinting(true);
+    try {
+      const result = await imprimirConsultaRDAction({
+        num_val: row.num_val,
+        ano_val: String(row.ano_val),
+      });
+      if (result.success && result.html) {
+        const iframe = document.createElement("iframe");
+        iframe.style.position = "fixed";
+        iframe.style.width = "0";
+        iframe.style.height = "0";
+        iframe.style.border = "none";
+        document.body.appendChild(iframe);
+        const doc = iframe.contentWindow?.document;
+        if (doc) {
+          doc.open();
+          doc.write(result.html);
+          doc.close();
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+        }
+        // Clean up iframe after print dialog closes
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+        }, 1000);
+      } else {
+        setError(result.error ?? "Error al generar impresión");
+      }
+    } catch {
+      setError("Error al generar impresión");
+    } finally {
+      setPrinting(false);
+    }
   };
 
   const groups = detail ? groupDetailRows(detail.data) : [];
@@ -385,11 +348,15 @@ function DetalleRDModal({
           <button
             type="button"
             onClick={handlePrint}
-            disabled={loading || !!error || !detail || detail.data.length === 0}
+            disabled={loading || !!error || !detail || detail.data.length === 0 || printing}
             className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-4 py-1.5 text-[11px] font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            <Printer size={13} />
-            Imprimir
+            {printing ? (
+              <Loader2 size={13} className="animate-spin" />
+            ) : (
+              <Printer size={13} />
+            )}
+            {printing ? "Generando..." : "Imprimir"}
           </button>
         </div>
       </div>

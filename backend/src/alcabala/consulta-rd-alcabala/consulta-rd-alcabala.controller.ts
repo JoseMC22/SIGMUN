@@ -13,7 +13,11 @@ import {
   RutaRdAlcabalaSchema,
   RutaRdAlcabalaDto,
 } from './dto/ruta-rd-alcabala.dto';
-import { ConsultaRDResult, DetalleRDResult, RutaRDResult } from './consulta-rd-alcabala.types';
+import {
+  ImprimirRdAlcabalaSchema,
+  ImprimirRdAlcabalaDto,
+} from './dto/imprimir-rd-alcabala.dto';
+import { ConsultaRDResult, DetalleRDResult, RutaRDResult, ImprimirRDResult } from './consulta-rd-alcabala.types';
 import { z } from 'zod';
 
 @Controller('alcabala/consulta-rd')
@@ -107,5 +111,25 @@ export class ConsultaRdAlcabalaController {
       };
     }
     return this.service.getRuta(dto);
+  }
+
+  @Get('imprimir')
+  async imprimir(@Query() query: Record<string, string>): Promise<ImprimirRDResult> {
+    let dto: ImprimirRdAlcabalaDto;
+    try {
+      dto = ImprimirRdAlcabalaSchema.parse(query);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return {
+          success: false,
+          error: error.issues.map((i) => i.message).join(', ') || 'Parámetros inválidos',
+        };
+      }
+      return {
+        success: false,
+        error: 'Parámetros inválidos',
+      };
+    }
+    return this.service.getImprimir(dto);
   }
 }

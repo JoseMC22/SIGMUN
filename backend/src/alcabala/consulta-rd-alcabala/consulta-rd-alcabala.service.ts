@@ -3,6 +3,7 @@ import { DatabaseService } from '../../database/database.service';
 import { SearchRdAlcabalaDto } from './dto/search-rd-alcabala.dto';
 import { DetalleRdAlcabalaDto } from './dto/detalle-rd-alcabala.dto';
 import { RutaRdAlcabalaDto } from './dto/ruta-rd-alcabala.dto';
+import { ImprimirRdAlcabalaDto } from './dto/imprimir-rd-alcabala.dto';
 import {
   ConsultaRDRow,
   ConsultaRDResult,
@@ -10,6 +11,7 @@ import {
   DetalleRDResult,
   RutaRDRow,
   RutaRDResult,
+  ImprimirRDResult,
 } from './consulta-rd-alcabala.types';
 
 @Injectable()
@@ -233,6 +235,48 @@ export class ConsultaRdAlcabalaService {
     } catch (err) {
       this.logger.error(`[ConsultaRdAlcabala] getRuta SP error: ${err}`);
       return emptyResult;
+    }
+  }
+
+  async getImprimir(dto: ImprimirRdAlcabalaDto): Promise<ImprimirRDResult> {
+    const { num_val, ano_val } = dto;
+
+    try {
+      // 1. Fetch HTML plantilla from caja.plantillas WHERE id = 36
+      const plantillaResult = await this.db.query<{ plantillas_html: string }>(
+        'SELECT plantillas_html FROM caja.plantillas WHERE id = 36',
+      );
+      const plantillaHtml = plantillaResult.recordset?.[0]?.plantillas_html ?? '';
+
+      // 2. Call SP to get dynamic data row
+      const spParams: Record<string, any> = {
+        buscar: 1,
+        id_valor: this.ID_VALOR_ALCABALA,
+        num_val: num_val || '',
+        ano_val: ano_val || '',
+      };
+
+      this.logger.log(`[ConsultaRdAlcabala] getImprimir calling SP with params: ${JSON.stringify(spParams)}`);
+      const result = await this.db.executeProcedure<any>('Rentas.sp_Imprime_alcabala', spParams);
+      const rawRows: any[] = result.recordset || [];
+      this.logger.log(`[ConsultaRdAlcabala] getImprimir SP returned ${rawRows.length} rows`);
+
+      const dataRow = rawRows[0];
+      if (!dataRow) {
+        return { success: false, error: 'No se encontraron datos para imprimir' };
+      }
+
+      // 3. Merge: replace {{column_name}} placeholders with row values (case-insensitive)
+      let merged = plantillaHtml;
+      for (const key of Object.keys(dataRow)) {
+        const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'gi');
+        merged = merged.replace(regex, String(dataRow[key] ?? ''));
+      }
+
+      return { success: true, html: merged };
+    } catch (err) {
+      this.logger.error(`[ConsultaRdAlcabala] getImprimir error: ${err}`);
+      return { success: false, error: 'Error al generar impresión del RD' };
     }
   }
 }
