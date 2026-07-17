@@ -1,7 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 import { SearchRdAlcabalaDto } from './dto/search-rd-alcabala.dto';
-import { ConsultaRDRow, ConsultaRDResult } from './consulta-rd-alcabala.types';
+import { DetalleRdAlcabalaDto } from './dto/detalle-rd-alcabala.dto';
+import { RutaRdAlcabalaDto } from './dto/ruta-rd-alcabala.dto';
+import {
+  ConsultaRDRow,
+  ConsultaRDResult,
+  DetalleRDRow,
+  DetalleRDResult,
+  RutaRDRow,
+  RutaRDResult,
+} from './consulta-rd-alcabala.types';
 
 @Injectable()
 export class ConsultaRdAlcabalaService {
@@ -89,5 +98,141 @@ export class ConsultaRdAlcabalaService {
       page,
       totalPages,
     };
+  }
+
+  async getDetail(dto: DetalleRdAlcabalaDto): Promise<DetalleRDResult> {
+    const { num_val, ano_val, nombre, nomb_val } = dto;
+
+    const spParams: Record<string, any> = {
+      msquery: '1',
+      id_valor: this.ID_VALOR_ALCABALA,
+      num_val: num_val || '',
+      ano_val: ano_val || '',
+    };
+
+    const emptyResult: DetalleRDResult = {
+      success: false,
+      nombre: nombre || '',
+      nomb_val: nomb_val || '',
+      num_val,
+      ano_val: Number(ano_val) || 0,
+      data: [],
+      error: 'Error al consultar detalle del RD',
+    };
+
+    try {
+      this.logger.log(`[ConsultaRdAlcabala] getDetail calling SP with params: ${JSON.stringify(spParams)}`);
+      const result = await this.db.executeProcedure<any>(
+        'Rentas.SP_Dvalores',
+        spParams,
+      );
+      const rawRows: any[] = result.recordset || [];
+      this.logger.log(`[ConsultaRdAlcabala] getDetail SP returned ${rawRows.length} rows`);
+      if (rawRows.length > 0) {
+        this.logger.log(`[ConsultaRdAlcabala] getDetail first row keys: ${JSON.stringify(Object.keys(rawRows[0]))}`);
+      }
+
+      // Case-insensitive column mapping
+      function col(row: Record<string, any>, name: string): any {
+        const key = Object.keys(row).find(
+          (k) => k.toLowerCase() === name.toLowerCase(),
+        );
+        return key !== undefined ? row[key] : undefined;
+      }
+
+      const knownCols = [
+        'no_name_1', 'id', 'anno', 'imp_insol', 'imp_reaj',
+        'costo_emis', 'mora', 'total', 'anio',
+      ];
+
+      const data: DetalleRDRow[] = rawRows.map((row: any) => {
+        const mapped: DetalleRDRow = {
+          row_num: Number(col(row, 'no_name_1') ?? 0),
+          id: Number(col(row, 'id') ?? 0),
+          anno: String(col(row, 'anno') ?? ''),
+          imp_insol: Number(col(row, 'imp_insol') ?? 0),
+          imp_reaj: Number(col(row, 'imp_reaj') ?? 0),
+          costo_emis: Number(col(row, 'costo_emis') ?? 0),
+          mora: Number(col(row, 'mora') ?? 0),
+          total: Number(col(row, 'total') ?? 0),
+          anio: String(col(row, 'anio') ?? ''),
+        };
+        // Preserve extra columns not explicitly mapped
+        for (const key of Object.keys(row)) {
+          const lower = key.toLowerCase();
+          if (!knownCols.includes(lower)) {
+            (mapped as any)[key] = row[key];
+          }
+        }
+        return mapped;
+      });
+
+      return {
+        success: true,
+        nombre: nombre || '',
+        nomb_val: nomb_val || '',
+        num_val,
+        ano_val: Number(ano_val) || 0,
+        data,
+      };
+    } catch (err) {
+      this.logger.error(`[ConsultaRdAlcabala] getDetail SP error: ${err}`);
+      return emptyResult;
+    }
+  }
+
+  async getRuta(dto: RutaRdAlcabalaDto): Promise<RutaRDResult> {
+    const { num_val, ano_val, nombre, nomb_val } = dto;
+
+    const spParams: Record<string, any> = {
+      msquery: '3',
+      id_valor: this.ID_VALOR_ALCABALA,
+      num_val: num_val || '',
+      ano_val: ano_val || '',
+    };
+
+    const emptyResult: RutaRDResult = {
+      success: false,
+      nombre: nombre || '',
+      nomb_val: nomb_val || '',
+      num_val,
+      ano_val: Number(ano_val) || 0,
+      data: [],
+      error: 'Error al consultar ruta del RD',
+    };
+
+    try {
+      this.logger.log(`[ConsultaRdAlcabala] getRuta calling SP with params: ${JSON.stringify(spParams)}`);
+      const result = await this.db.executeProcedure<any>(
+        'Rentas.SP_MHRuta',
+        spParams,
+      );
+      const rawRows: any[] = result.recordset || [];
+      this.logger.log(`[ConsultaRdAlcabala] getRuta SP returned ${rawRows.length} rows`);
+      if (rawRows.length > 0) {
+        this.logger.log(`[ConsultaRdAlcabala] getRuta first row keys: ${JSON.stringify(Object.keys(rawRows[0]))}`);
+      }
+
+      // Dynamic column mapping — preserve all SP columns as-is
+      const data: RutaRDRow[] = rawRows.map((row: any) => {
+        const mapped: RutaRDRow = {};
+        for (const key of Object.keys(row)) {
+          mapped[key] = row[key];
+        }
+        return mapped;
+      });
+
+      return {
+        success: true,
+        nombre: nombre || '',
+        nomb_val: nomb_val || '',
+        num_val,
+        ano_val: Number(ano_val) || 0,
+        data,
+      };
+    } catch (err) {
+      this.logger.error(`[ConsultaRdAlcabala] getRuta SP error: ${err}`);
+      return emptyResult;
+    }
   }
 }

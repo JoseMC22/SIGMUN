@@ -23,3 +23,51 @@ export interface ConsultaRDResult {
   totalPages: number;
   error?: string;
 }
+
+// ── Detalle RD (SP_Dvalores msquery=1) ──
+
+/** A single detail row from SP_Dvalores msquery=1.
+ *  Header rows have a 4-digit `anio` (e.g. 2025).
+ *  Detail rows have a non-4-digit `anio` (e.g. 05) and belong to
+ *  the most recent header row above them. */
+export interface DetalleRDRow {
+  row_num: number;       // [no_name_1] — sequential row number from SP
+  id: number;            // id — row id within the group
+  anno: string;          // anno — sub-period identifier
+  imp_insol: number;     // imp_insol — importe insoluto
+  imp_reaj: number;      // imp_reaj — importe reajustado
+  costo_emis: number;    // costo_emis — costo de emisión
+  mora: number;          // mora — intereses moratorios
+  total: number;         // total — total del renglón
+  anio: string;          // anio — 4-digit = header, else detail
+  [key: string]: any;    // preserve any extra SP columns
+}
+
+export interface DetalleRDResult {
+  success: boolean;
+  nombre: string;        // nombre contribuyente (from row context)
+  nomb_val: string;      // tipo documento label
+  num_val: string;       // número RD
+  ano_val: number;       // año
+  data: DetalleRDRow[];
+  error?: string;
+}
+
+// ── Ruta RD (SP_MHRuta msquery=3) ──
+
+/** A single row from SP_MHRuta msquery=3.
+ *  Since exact columns are unknown, we use a flexible approach:
+ *  known fields are typed, everything else is preserved via index signature. */
+export interface RutaRDRow {
+  [key: string]: any;    // dynamic columns from SP_MHRuta
+}
+
+export interface RutaRDResult {
+  success: boolean;
+  nombre: string;        // nombre contribuyente (from row context)
+  nomb_val: string;      // tipo documento label
+  num_val: string;       // número RD
+  ano_val: number;       // año
+  data: RutaRDRow[];
+  error?: string;
+}

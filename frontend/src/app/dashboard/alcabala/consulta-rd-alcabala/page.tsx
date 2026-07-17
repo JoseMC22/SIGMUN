@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Fragment } from "react";
 import {
   Search,
   ChevronLeft,
@@ -14,11 +14,21 @@ import {
   Loader2,
   MapPin,
   Printer,
+  X,
+  ChevronDown,
 } from "lucide-react";
 import {
   searchConsultaRDAction,
+  getDetailConsultaRDAction,
+  getRutaConsultaRDAction,
 } from "@/actions/alcabala/consulta-rd";
-import type { ConsultaRDRow } from "@/actions/alcabala/consulta-rd";
+import type {
+  ConsultaRDRow,
+  DetalleRDRow,
+  DetalleRDResult,
+  RutaRDRow,
+  RutaRDResult,
+} from "@/actions/alcabala/consulta-rd";
 
 // ── Status badge ─────────────────────────────────────────
 
@@ -57,6 +67,518 @@ function formatCurrency(value: number): string {
     currency: "PEN",
     minimumFractionDigits: 2,
   }).format(value);
+}
+
+// ── Header/detail grouping helper ─────────────────────────
+
+interface DetailGroup {
+  header: DetalleRDRow;
+  details: DetalleRDRow[];
+}
+
+function groupDetailRows(rows: DetalleRDRow[]): DetailGroup[] {
+  const groups: DetailGroup[] = [];
+  let current: DetailGroup | null = null;
+
+  for (const row of rows) {
+    // Header row: anno field has exactly 4 digits
+    if (/^\d{4}$/.test(row.anno)) {
+      if (current) groups.push(current);
+      current = { header: row, details: [] };
+    } else if (current) {
+      current.details.push(row);
+    }
+  }
+  if (current) groups.push(current);
+  return groups;
+}
+
+// ── Detalle RD Modal ──────────────────────────────────────
+
+function DetalleRDModal({
+  row,
+  onClose,
+}: {
+  row: ConsultaRDRow;
+  onClose: () => void;
+}) {
+  const [detail, setDetail] = useState<DetalleRDResult | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [expandedHeaders, setExpandedHeaders] = useState<Set<number>>(
+    new Set(),
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await getDetailConsultaRDAction({
+          num_val: row.num_val,
+          ano_val: String(row.ano_val),
+          nombre: row.nombre,
+          nomb_val: row.nomb_val,
+        });
+        if (!cancelled) {
+          if (result.success) {
+            setDetail(result);
+            // Auto-expand all header groups
+            const groups = groupDetailRows(result.data);
+            setExpandedHeaders(
+              new Set(groups.map((_, i) => i)),
+            );
+          } else {
+            setError(result.error ?? "Error al cargar detalle");
+          }
+        }
+      } catch {
+        if (!cancelled) setError("Error de conexión");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [row]);
+
+  const toggleHeader = (idx: number) => {
+    setExpandedHeaders((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  };
+
+  const handlePrint = () => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    const groups = detail ? groupDetailRows(detail.data) : [];
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>RD ${row.nomb_val} ${row.num_val}-${row.ano_val}</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; font-size: 12px; }
+          h2 { text-align: center; margin-bottom: 4px; }
+          .header { text-align: center; margin-bottom: 12px; }
+          .header p { margin: 2px 0; }
+          table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+          th, td { border: 1px solid #333; padding: 4px 8px; text-align: left; font-size: 11px; }
+          th { background: #1e3050; color: white; }
+          tr.header-row { background: #f1f5f9; font-weight: bold; }
+          .total { font-weight: bold; text-align: right; margin-top: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h2>Registro de Deuda - Alcabala</h2>
+          <p><strong>${row.nomb_val} ${row.num_val}-${row.ano_val}</strong></p>
+          <p>${detail?.nombre ?? row.nombre}</p>
+        </div>
+        ${groups.map((g) => `
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>ID</th>
+                <th>Año / Período</th>
+                <th>Imp. Insoluto</th>
+                <th>Imp. Reajustado</th>
+                <th>Costo Emisión</th>
+                <th>Mora</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="header-row">
+                <td>${g.header.row_num}</td>
+                <td>${g.header.id}</td>
+                <td>${g.header.anio}</td>
+                <td>${formatCurrency(g.header.imp_insol)}</td>
+                <td>${formatCurrency(g.header.imp_reaj)}</td>
+                <td>${formatCurrency(g.header.costo_emis)}</td>
+                <td>${formatCurrency(g.header.mora)}</td>
+                <td>${formatCurrency(g.header.total)}</td>
+              </tr>
+              ${g.details.map((d) => `
+              <tr>
+                <td>${d.row_num}</td>
+                <td>${d.id}</td>
+                <td>${d.anno}</td>
+                <td>${formatCurrency(d.imp_insol)}</td>
+                <td>${formatCurrency(d.imp_reaj)}</td>
+                <td>${formatCurrency(d.costo_emis)}</td>
+                <td>${formatCurrency(d.mora)}</td>
+                <td>${formatCurrency(d.total)}</td>
+              </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        `).join("")}
+        <p class="total">Monto Total: ${formatCurrency(row.MontoTotal)}</p>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+  };
+
+  const groups = detail ? groupDetailRows(detail.data) : [];
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Detalle RD"
+    >
+      <div className="relative mx-4 w-full max-w-4xl max-h-[85vh] flex flex-col rounded-xl border border-slate-200 bg-white shadow-2xl">
+        {/* ── Header ──────────────────────────────────── */}
+        <div className="flex items-center justify-between border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-5 py-3 rounded-t-xl">
+          <div className="flex items-center gap-2">
+            <div className="w-0.5 h-3.5 bg-sat-cyan rounded-full" />
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
+              Detalle RD
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+            aria-label="Cerrar"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* ── Top section: Contributor info ───────────── */}
+        <div className="border-b border-slate-100 bg-slate-50/50 px-5 py-3">
+          <div className="grid grid-cols-3 gap-4 text-[11px]">
+            <div>
+              <span className="text-slate-400 font-semibold uppercase tracking-wider text-[9px]">
+                Contribuyente
+              </span>
+              <p className="text-slate-800 font-medium mt-0.5 truncate">
+                {detail?.nombre || row.nombre || "—"}
+              </p>
+            </div>
+            <div>
+              <span className="text-slate-400 font-semibold uppercase tracking-wider text-[9px]">
+                Tipo Documento
+              </span>
+              <p className="text-slate-800 font-medium mt-0.5">
+                {detail?.nomb_val || row.nomb_val || "—"}
+              </p>
+            </div>
+            <div>
+              <span className="text-slate-400 font-semibold uppercase tracking-wider text-[9px]">
+                N° Documento
+              </span>
+              <p className="text-slate-800 font-medium mt-0.5 font-mono">
+                {row.num_val}-{row.ano_val}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Center section: Expandable header-detail ── */}
+        <div className="flex-1 overflow-auto px-5 py-3">
+          {loading && (
+            <div className="flex items-center justify-center py-12">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-sat-cyan border-t-transparent" />
+              <span className="ml-2 text-xs text-slate-500">
+                Cargando detalle...
+              </span>
+            </div>
+          )}
+
+          {error && (
+            <div className="flex flex-col items-center justify-center py-12">
+              <AlertCircle size={20} className="text-red-400 mb-2" />
+              <p className="text-xs text-red-600">{error}</p>
+            </div>
+          )}
+
+          {!loading && !error && detail && detail.data.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-12">
+              <SearchX size={20} className="text-slate-300 mb-2" />
+              <p className="text-xs text-slate-500">
+                No se encontraron detalles para este RD
+              </p>
+            </div>
+          )}
+
+          {!loading && !error && groups.length > 0 && (
+            <table className="w-full text-[11px]">
+              <thead className="sticky top-0 z-10">
+                <tr className="bg-slate-100/80 backdrop-blur">
+                  <th className="w-7" />
+                  <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-2 py-2">#</th>
+                  <th className="text-right text-[10px] font-semibold text-slate-500 uppercase px-2 py-2">ID</th>
+                  <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-2 py-2">Año / Período</th>
+                  <th className="text-right text-[10px] font-semibold text-slate-500 uppercase px-2 py-2">Imp. Insoluto</th>
+                  <th className="text-right text-[10px] font-semibold text-slate-500 uppercase px-2 py-2">Imp. Reajustado</th>
+                  <th className="text-right text-[10px] font-semibold text-slate-500 uppercase px-2 py-2">Costo Emisión</th>
+                  <th className="text-right text-[10px] font-semibold text-slate-500 uppercase px-2 py-2">Mora</th>
+                  <th className="text-right text-[10px] font-semibold text-slate-500 uppercase px-2 py-2">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {groups.map((group, gIdx) => {
+                  const isExpanded = expandedHeaders.has(gIdx);
+                  return (
+                    <Fragment key={gIdx}>
+                      {/* Cabecera — fila clickeable (anio 4 digitos) */}
+                      <tr
+                        onClick={() => toggleHeader(gIdx)}
+                        className="cursor-pointer bg-slate-50 hover:bg-slate-100/70 transition select-none"
+                      >
+                        <td className="px-1.5 py-2 text-center">
+                          <ChevronDown
+                            size={13}
+                            className={`text-slate-400 transition-transform duration-200 inline-block ${isExpanded ? "" : "-rotate-90"}`}
+                          />
+                        </td>
+                        <td className="px-2 py-2 font-mono text-slate-500">{group.header.row_num}</td>
+                        <td className="px-2 py-2 font-mono text-right text-slate-500">{group.header.id}</td>
+                        <td className="px-2 py-2 font-bold text-sat-navy">
+                          Año {group.header.anio}
+                          <span className="ml-2 text-[10px] font-normal text-slate-400">
+                            ({group.details.length} {group.details.length === 1 ? "período" : "períodos"})
+                          </span>
+                        </td>
+                        <td className="px-2 py-2 font-mono text-right text-slate-600">{formatCurrency(group.header.imp_insol)}</td>
+                        <td className="px-2 py-2 font-mono text-right text-slate-600">{formatCurrency(group.header.imp_reaj)}</td>
+                        <td className="px-2 py-2 font-mono text-right text-slate-600">{formatCurrency(group.header.costo_emis)}</td>
+                        <td className="px-2 py-2 font-mono text-right text-slate-600">{formatCurrency(group.header.mora)}</td>
+                        <td className="px-2 py-2 font-mono text-right font-bold text-sat-navy">{formatCurrency(group.header.total)}</td>
+                      </tr>
+                      {/* Detalle — filas expandibles debajo de la cabecera (anno 2 digitos) */}
+                      {isExpanded && group.details.map((d, dIdx) => (
+                        <tr key={`d-${dIdx}`} className="bg-white hover:bg-slate-50/50 transition">
+                          <td />
+                          <td className="px-2 py-1.5 font-mono text-slate-400">{d.row_num}</td>
+                          <td className="px-2 py-1.5 font-mono text-right text-slate-400">{d.id}</td>
+                          <td className="px-2 py-1.5 font-mono text-slate-500 pl-7">{d.anno}</td>
+                          <td className="px-2 py-1.5 font-mono text-right text-slate-600">{formatCurrency(d.imp_insol)}</td>
+                          <td className="px-2 py-1.5 font-mono text-right text-slate-600">{formatCurrency(d.imp_reaj)}</td>
+                          <td className="px-2 py-1.5 font-mono text-right text-slate-600">{formatCurrency(d.costo_emis)}</td>
+                          <td className="px-2 py-1.5 font-mono text-right text-slate-600">{formatCurrency(d.mora)}</td>
+                          <td className="px-2 py-1.5 font-mono text-right font-semibold text-slate-700">{formatCurrency(d.total)}</td>
+                        </tr>
+                      ))}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* ── Bottom section: Print button ────────────── */}
+        <div className="flex items-center justify-end border-t border-slate-200 bg-slate-50/50 px-5 py-3 rounded-b-xl">
+          <button
+            type="button"
+            onClick={handlePrint}
+            disabled={loading || !!error || !detail || detail.data.length === 0}
+            className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-4 py-1.5 text-[11px] font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <Printer size={13} />
+            Imprimir
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Ruta RD Modal ───────────────────────────────────────
+
+function RutaRDModal({
+  row,
+  onClose,
+}: {
+  row: ConsultaRDRow;
+  onClose: () => void;
+}) {
+  const [ruta, setRuta] = useState<RutaRDResult | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await getRutaConsultaRDAction({
+          num_val: row.num_val,
+          ano_val: String(row.ano_val),
+          nombre: row.nombre,
+          nomb_val: row.nomb_val,
+        });
+        if (!cancelled) {
+          if (result.success) {
+            setRuta(result);
+          } else {
+            setError(result.error ?? "Error al cargar ruta");
+          }
+        }
+      } catch {
+        if (!cancelled) setError("Error de conexión");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [row]);
+
+  // Derive table columns from first row keys
+  const columns =
+    ruta && ruta.data.length > 0 ? Object.keys(ruta.data[0]) : [];
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Ruta RD"
+    >
+      <div className="relative mx-4 w-full max-w-4xl max-h-[85vh] flex flex-col rounded-xl border border-slate-200 bg-white shadow-2xl">
+        {/* ── Header ──────────────────────────────────── */}
+        <div className="flex items-center justify-between border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-5 py-3 rounded-t-xl">
+          <div className="flex items-center gap-2">
+            <div className="w-0.5 h-3.5 bg-sat-cyan rounded-full" />
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
+              Ruta RD
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+            aria-label="Cerrar"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* ── Top section: Contributor info ───────────── */}
+        <div className="border-b border-slate-100 bg-slate-50/50 px-5 py-3">
+          <div className="grid grid-cols-3 gap-4 text-[11px]">
+            <div>
+              <span className="text-slate-400 font-semibold uppercase tracking-wider text-[9px]">
+                Contribuyente
+              </span>
+              <p className="text-slate-800 font-medium mt-0.5 truncate">
+                {ruta?.nombre || row.nombre || "—"}
+              </p>
+            </div>
+            <div>
+              <span className="text-slate-400 font-semibold uppercase tracking-wider text-[9px]">
+                Tipo Documento
+              </span>
+              <p className="text-slate-800 font-medium mt-0.5">
+                {ruta?.nomb_val || row.nomb_val || "—"}
+              </p>
+            </div>
+            <div>
+              <span className="text-slate-400 font-semibold uppercase tracking-wider text-[9px]">
+                N° Documento
+              </span>
+              <p className="text-slate-800 font-medium mt-0.5 font-mono">
+                {row.num_val}-{row.ano_val}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Center section: Ruta data table ─────────── */}
+        <div className="flex-1 overflow-auto px-5 py-3">
+          {loading && (
+            <div className="flex items-center justify-center py-12">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-sat-cyan border-t-transparent" />
+              <span className="ml-2 text-xs text-slate-500">
+                Cargando ruta...
+              </span>
+            </div>
+          )}
+
+          {error && (
+            <div className="flex flex-col items-center justify-center py-12">
+              <AlertCircle size={20} className="text-red-400 mb-2" />
+              <p className="text-xs text-red-600">{error}</p>
+            </div>
+          )}
+
+          {!loading && !error && ruta && ruta.data.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-12">
+              <SearchX size={20} className="text-slate-300 mb-2" />
+              <p className="text-xs text-slate-500">
+                No se encontraron registros de ruta para este RD
+              </p>
+            </div>
+          )}
+
+          {!loading && !error && ruta && ruta.data.length > 0 && (
+            <div className="overflow-x-auto rounded-lg border border-slate-200">
+              <table className="w-full text-[11px]">
+                <thead className="sticky top-0 z-10">
+                  <tr className="bg-slate-100/80 backdrop-blur">
+                    {columns.map((col) => (
+                      <th
+                        key={col}
+                        className="text-left text-[10px] font-semibold text-slate-500 uppercase px-3 py-2 border-b border-slate-200 whitespace-nowrap"
+                      >
+                        {col.replace(/_/g, " ")}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {ruta.data.map((rRow, idx) => (
+                    <tr
+                      key={idx}
+                      className={`transition hover:bg-slate-50 ${
+                        idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"
+                      }`}
+                    >
+                      {columns.map((col) => (
+                        <td
+                          key={col}
+                          className="px-3 py-2 text-[11px] text-slate-700 whitespace-nowrap"
+                        >
+                          {rRow[col] != null ? String(rRow[col]) : "—"}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* ── Bottom section ─────────────────────────── */}
+        <div className="flex items-center justify-end border-t border-slate-200 bg-slate-50/50 px-5 py-3 rounded-b-xl">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-4 py-1.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ── Loading skeleton ─────────────────────────────────────
@@ -126,6 +648,12 @@ export default function ConsultaRDPage() {
   const [error, setError] = useState<string | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
+
+  // ── Detalle modal ──────────────────────────────────────
+  const [detalleRow, setDetalleRow] = useState<ConsultaRDRow | null>(null);
+
+  // ── Ruta modal ─────────────────────────────────────────
+  const [rutaRow, setRutaRow] = useState<ConsultaRDRow | null>(null);
 
   // ── Helpers ──────────────────────────────────────────────
 
@@ -431,6 +959,7 @@ export default function ConsultaRDPage() {
             <div className="flex items-center justify-center gap-1">
               <button
                 type="button"
+                onClick={() => setDetalleRow(row)}
                 className="rounded p-1 text-slate-400 transition hover:bg-sat-cyan/10 hover:text-sat-cyan"
                 aria-label="Ver detalle"
                 title="Ver detalle"
@@ -439,6 +968,7 @@ export default function ConsultaRDPage() {
               </button>
               <button
                 type="button"
+                onClick={() => setRutaRow(row)}
                 className="rounded p-1 text-slate-400 transition hover:bg-amber-100 hover:text-amber-600"
                 aria-label="Ver ruta"
                 title="Ver ruta"
@@ -722,6 +1252,22 @@ export default function ConsultaRDPage() {
           {renderGrid()}
           {renderPagination()}
         </>
+      )}
+
+      {/* Detalle modal */}
+      {detalleRow && (
+        <DetalleRDModal
+          row={detalleRow}
+          onClose={() => setDetalleRow(null)}
+        />
+      )}
+
+      {/* Ruta modal */}
+      {rutaRow && (
+        <RutaRDModal
+          row={rutaRow}
+          onClose={() => setRutaRow(null)}
+        />
       )}
     </div>
   );
