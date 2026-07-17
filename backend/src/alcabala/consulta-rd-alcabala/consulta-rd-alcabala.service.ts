@@ -266,10 +266,11 @@ export class ConsultaRdAlcabalaService {
         return { success: false, error: 'No se encontraron datos para imprimir' };
       }
 
-      // 3. Merge: replace {{column_name}} placeholders with row values (case-insensitive)
+      // 3. Merge: replace @column_name placeholders with row values (case-insensitive)
+      // Word boundary \b avoids clobbering emails like @gmail.com or decorative @SAT
       let merged = plantillaHtml;
       for (const key of Object.keys(dataRow)) {
-        const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'gi');
+        const regex = new RegExp(`@${key}\\b`, 'gi');
         merged = merged.replace(regex, String(dataRow[key] ?? ''));
       }
 

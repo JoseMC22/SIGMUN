@@ -673,19 +673,19 @@ describe('ConsultaRdAlcabalaService', () => {
     const SP_NAME_IMPRIMIR = 'Rentas.sp_Imprime_alcabala';
 
     it('should merge plantilla HTML with SP data row', async () => {
-      db.query.mockResolvedValueOnce({ recordset: [{ plantillas_html: '<p>{{nombre}}</p>' }] });
+      db.query.mockResolvedValueOnce({ recordset: [{ plantillas_html: '<p>@nombre</p>' }] });
       db.executeProcedure.mockResolvedValueOnce(mockSpResult([{ nombre: 'TEST' }]));
 
       const result = await service.getImprimir({ num_val: 'RD-001', ano_val: '2025' });
 
       expect(result.success).toBe(true);
       expect(result.html).toBe('<p>TEST</p>');
-      expect(result.html).not.toContain('{{nombre}}');
+      expect(result.html).not.toContain('@nombre');
     });
 
     it('should replace multiple placeholders case-insensitively', async () => {
       db.query.mockResolvedValueOnce({
-        recordset: [{ plantillas_html: '<p>{{NOMBRE}} - {{NUM_VAL}}</p>' }],
+        recordset: [{ plantillas_html: '<p>@NOMBRE - @NUM_VAL</p>' }],
       });
       db.executeProcedure.mockResolvedValueOnce(
         mockSpResult([{ nombre: 'Empresa', NUM_VAL: 'RD-099' }]),
@@ -732,7 +732,7 @@ describe('ConsultaRdAlcabalaService', () => {
     });
 
     it('should return success=false on SP error', async () => {
-      db.query.mockResolvedValueOnce({ recordset: [{ plantillas_html: '<p>{{x}}</p>' }] });
+      db.query.mockResolvedValueOnce({ recordset: [{ plantillas_html: '<p>@x</p>' }] });
       db.executeProcedure.mockRejectedValueOnce(new Error('SP error'));
 
       const result = await service.getImprimir({ num_val: 'RD-001', ano_val: '2025' });
@@ -752,7 +752,7 @@ describe('ConsultaRdAlcabalaService', () => {
 
     it('should replace null/undefined SP values with empty string', async () => {
       db.query.mockResolvedValueOnce({
-        recordset: [{ plantillas_html: '{{nombre}}|{{email}}' }],
+        recordset: [{ plantillas_html: '@nombre|@email' }],
       });
       db.executeProcedure.mockResolvedValueOnce(
         mockSpResult([{ nombre: 'OK', email: null }]),
