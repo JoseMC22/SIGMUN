@@ -14,11 +14,17 @@ import {
   Loader2,
   MapPin,
   Printer,
+  X,
 } from "lucide-react";
 import {
   searchConsultaRDAction,
+  getDetailConsultaRDAction,
 } from "@/actions/alcabala/consulta-rd";
-import type { ConsultaRDRow } from "@/actions/alcabala/consulta-rd";
+import type {
+  ConsultaRDRow,
+  DetalleRDRow,
+  DetalleRDResult,
+} from "@/actions/alcabala/consulta-rd";
 
 // ── Status badge ─────────────────────────────────────────
 
@@ -57,6 +63,275 @@ function formatCurrency(value: number): string {
     currency: "PEN",
     minimumFractionDigits: 2,
   }).format(value);
+}
+
+// ── Detalle RD Modal ──────────────────────────────────────
+
+function DetalleRDModal({
+  row,
+  onClose,
+}: {
+  row: ConsultaRDRow;
+  onClose: () => void;
+}) {
+  const [detail, setDetail] = useState<DetalleRDResult | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await getDetailConsultaRDAction({
+          id_valor: "",
+          num_val: row.num_val,
+          ano_val: String(row.ano_val),
+          nombre: row.nombre,
+          nomb_val: row.nomb_val,
+        });
+        if (!cancelled) {
+          if (result.success) {
+            setDetail(result);
+          } else {
+            setError(result.error ?? "Error al cargar detalle");
+          }
+        }
+      } catch {
+        if (!cancelled) setError("Error de conexión");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [row]);
+
+  const handlePrint = () => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    const rows = detail?.data ?? [];
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>RD ${row.nomb_val} ${row.num_val}-${row.ano_val}</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; font-size: 12px; }
+          h2 { text-align: center; margin-bottom: 4px; }
+          .header { text-align: center; margin-bottom: 12px; }
+          .header p { margin: 2px 0; }
+          table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+          th, td { border: 1px solid #333; padding: 4px 8px; text-align: left; font-size: 11px; }
+          th { background: #1e3050; color: white; }
+          .total { font-weight: bold; text-align: right; margin-top: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h2>Registro de Deuda - Alcabala</h2>
+          <p><strong>${row.nomb_val} ${row.num_val}-${row.ano_val}</strong></p>
+          <p>${detail?.nombre ?? row.nombre}</p>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Concepto</th>
+              <th>Base</th>
+              <th>Monto</th>
+              <th>Observaciones</th>
+              <th>Fecha</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map((r: DetalleRDRow) => `
+              <tr>
+                <td>${r.concepto}</td>
+                <td>${formatCurrency(r.base)}</td>
+                <td>${formatCurrency(r.monto)}</td>
+                <td>${r.observaciones}</td>
+                <td>${r.fecha}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+        <p class="total">Monto Total: ${formatCurrency(row.MontoTotal)}</p>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+  };
+
+  const totalMonto = (detail?.data ?? []).reduce(
+    (sum, r) => sum + (r.monto || 0),
+    0,
+  );
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Detalle RD"
+    >
+      <div className="relative mx-4 w-full max-w-3xl max-h-[85vh] flex flex-col rounded-xl border border-slate-200 bg-white shadow-2xl">
+        {/* ── Header ──────────────────────────────────── */}
+        <div className="flex items-center justify-between border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-5 py-3 rounded-t-xl">
+          <div className="flex items-center gap-2">
+            <div className="w-0.5 h-3.5 bg-sat-cyan rounded-full" />
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
+              Detalle RD
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+            aria-label="Cerrar"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* ── Top section: Contributor info ───────────── */}
+        <div className="border-b border-slate-100 bg-slate-50/50 px-5 py-3">
+          <div className="grid grid-cols-3 gap-4 text-[11px]">
+            <div>
+              <span className="text-slate-400 font-semibold uppercase tracking-wider text-[9px]">
+                Contribuyente
+              </span>
+              <p className="text-slate-800 font-medium mt-0.5 truncate">
+                {detail?.nombre || row.nombre || "—"}
+              </p>
+            </div>
+            <div>
+              <span className="text-slate-400 font-semibold uppercase tracking-wider text-[9px]">
+                Tipo Documento
+              </span>
+              <p className="text-slate-800 font-medium mt-0.5">
+                {detail?.nomb_val || row.nomb_val || "—"}
+              </p>
+            </div>
+            <div>
+              <span className="text-slate-400 font-semibold uppercase tracking-wider text-[9px]">
+                N° Documento
+              </span>
+              <p className="text-slate-800 font-medium mt-0.5 font-mono">
+                {row.num_val}-{row.ano_val}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Center section: Detail table ────────────── */}
+        <div className="flex-1 overflow-auto px-5 py-3">
+          {loading && (
+            <div className="flex items-center justify-center py-12">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-sat-cyan border-t-transparent" />
+              <span className="ml-2 text-xs text-slate-500">
+                Cargando detalle...
+              </span>
+            </div>
+          )}
+
+          {error && (
+            <div className="flex flex-col items-center justify-center py-12">
+              <AlertCircle size={20} className="text-red-400 mb-2" />
+              <p className="text-xs text-red-600">{error}</p>
+            </div>
+          )}
+
+          {!loading && !error && detail && detail.data.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-12">
+              <SearchX size={20} className="text-slate-300 mb-2" />
+              <p className="text-xs text-slate-500">
+                No se encontraron detalles para este RD
+              </p>
+            </div>
+          )}
+
+          {!loading && !error && detail && detail.data.length > 0 && (
+            <div className="overflow-hidden rounded-lg border border-slate-200">
+              <table className="w-full border-collapse text-[11px]">
+                <thead className="bg-gradient-to-r from-sat-navy to-[#1e3050]">
+                  <tr>
+                    <th className="text-left text-[10px] font-semibold text-white/90 uppercase px-3 py-2">
+                      Concepto
+                    </th>
+                    <th className="text-right text-[10px] font-semibold text-white/90 uppercase px-3 py-2">
+                      Base
+                    </th>
+                    <th className="text-right text-[10px] font-semibold text-white/90 uppercase px-3 py-2">
+                      Monto
+                    </th>
+                    <th className="text-left text-[10px] font-semibold text-white/90 uppercase px-3 py-2">
+                      Observaciones
+                    </th>
+                    <th className="text-left text-[10px] font-semibold text-white/90 uppercase px-3 py-2">
+                      Fecha
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {detail.data.map((r, idx) => (
+                    <tr
+                      key={idx}
+                      className={`transition hover:bg-slate-50 ${
+                        idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"
+                      }`}
+                    >
+                      <td className="px-3 py-1.5 font-medium text-slate-800 truncate">
+                        {r.concepto || "—"}
+                      </td>
+                      <td className="px-3 py-1.5 font-mono text-slate-600 text-right">
+                        {formatCurrency(r.base)}
+                      </td>
+                      <td className="px-3 py-1.5 font-mono text-slate-700 text-right font-semibold">
+                        {formatCurrency(r.monto)}
+                      </td>
+                      <td className="px-3 py-1.5 text-slate-500 truncate">
+                        {r.observaciones || "—"}
+                      </td>
+                      <td className="px-3 py-1.5 text-slate-500">
+                        {r.fecha || "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="border-t border-slate-200 bg-slate-50">
+                  <tr>
+                    <td className="px-3 py-2 text-right font-semibold text-slate-700" colSpan={2}>
+                      Total
+                    </td>
+                    <td className="px-3 py-2 text-right font-mono font-bold text-sat-navy">
+                      {formatCurrency(totalMonto)}
+                    </td>
+                    <td colSpan={2} />
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* ── Bottom section: Print button ────────────── */}
+        <div className="flex items-center justify-end border-t border-slate-200 bg-slate-50/50 px-5 py-3 rounded-b-xl">
+          <button
+            type="button"
+            onClick={handlePrint}
+            disabled={loading || !!error || !detail || detail.data.length === 0}
+            className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-4 py-1.5 text-[11px] font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <Printer size={13} />
+            Imprimir
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ── Loading skeleton ─────────────────────────────────────
@@ -126,6 +401,9 @@ export default function ConsultaRDPage() {
   const [error, setError] = useState<string | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
+
+  // ── Detalle modal ──────────────────────────────────────
+  const [detalleRow, setDetalleRow] = useState<ConsultaRDRow | null>(null);
 
   // ── Helpers ──────────────────────────────────────────────
 
@@ -431,6 +709,7 @@ export default function ConsultaRDPage() {
             <div className="flex items-center justify-center gap-1">
               <button
                 type="button"
+                onClick={() => setDetalleRow(row)}
                 className="rounded p-1 text-slate-400 transition hover:bg-sat-cyan/10 hover:text-sat-cyan"
                 aria-label="Ver detalle"
                 title="Ver detalle"
@@ -722,6 +1001,14 @@ export default function ConsultaRDPage() {
           {renderGrid()}
           {renderPagination()}
         </>
+      )}
+
+      {/* Detalle modal */}
+      {detalleRow && (
+        <DetalleRDModal
+          row={detalleRow}
+          onClose={() => setDetalleRow(null)}
+        />
       )}
     </div>
   );

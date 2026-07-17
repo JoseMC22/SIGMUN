@@ -5,7 +5,11 @@ import {
   SearchRdAlcabalaSchema,
   SearchRdAlcabalaDto,
 } from './dto/search-rd-alcabala.dto';
-import { ConsultaRDResult } from './consulta-rd-alcabala.types';
+import {
+  DetalleRdAlcabalaSchema,
+  DetalleRdAlcabalaDto,
+} from './dto/detalle-rd-alcabala.dto';
+import { ConsultaRDResult, DetalleRDResult } from './consulta-rd-alcabala.types';
 import { z } from 'zod';
 
 @Controller('alcabala/consulta-rd')
@@ -39,5 +43,35 @@ export class ConsultaRdAlcabalaController {
       };
     }
     return this.service.search(dto);
+  }
+
+  @Get('detail')
+  async detail(@Query() query: Record<string, string>): Promise<DetalleRDResult> {
+    let dto: DetalleRdAlcabalaDto;
+    try {
+      dto = DetalleRdAlcabalaSchema.parse(query);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return {
+          success: false,
+          nombre: '',
+          nomb_val: '',
+          num_val: '',
+          ano_val: 0,
+          data: [],
+          error: error.issues.map((i) => i.message).join(', ') || 'Parámetros inválidos',
+        };
+      }
+      return {
+        success: false,
+        nombre: '',
+        nomb_val: '',
+        num_val: '',
+        ano_val: 0,
+        data: [],
+        error: 'Parámetros inválidos',
+      };
+    }
+    return this.service.getDetail(dto);
   }
 }

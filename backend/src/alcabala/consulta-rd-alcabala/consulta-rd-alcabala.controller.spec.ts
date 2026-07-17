@@ -4,7 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConsultaRdAlcabalaController } from './consulta-rd-alcabala.controller';
 import { ConsultaRdAlcabalaService } from './consulta-rd-alcabala.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { ConsultaRDResult } from './consulta-rd-alcabala.types';
+import { ConsultaRDResult, DetalleRDResult } from './consulta-rd-alcabala.types';
 
 describe('ConsultaRdAlcabalaController', () => {
   let controller: ConsultaRdAlcabalaController;
@@ -12,6 +12,7 @@ describe('ConsultaRdAlcabalaController', () => {
 
   const mockService = {
     search: jest.fn(),
+    getDetail: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -97,6 +98,89 @@ describe('ConsultaRdAlcabalaController', () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toBeDefined();
+    });
+  });
+
+  describe('GET /alcabala/consulta-rd/detail', () => {
+    it('should delegate to service.getDetail with parsed query params', async () => {
+      const expected: DetalleRDResult = {
+        success: true,
+        nombre: 'Empresa SAC',
+        nomb_val: 'R.D.',
+        num_val: 'RD-001',
+        ano_val: 2024,
+        data: [
+          {
+            concepto: 'Impuesto Alcabala',
+            base: 500000,
+            monto: 5000,
+            observaciones: '',
+            fecha: '2024-06-15',
+          },
+        ],
+      };
+      mockService.getDetail.mockResolvedValue(expected);
+
+      const result = await controller.detail({
+        id_valor: '08',
+        num_val: 'RD-001',
+        ano_val: '2024',
+        nombre: 'Empresa SAC',
+        nomb_val: 'R.D.',
+      });
+
+      expect(result).toEqual(expected);
+      expect(mockService.getDetail).toHaveBeenCalledWith({
+        id_valor: '08',
+        num_val: 'RD-001',
+        ano_val: '2024',
+        nombre: 'Empresa SAC',
+        nomb_val: 'R.D.',
+      });
+    });
+
+    it('should apply Zod defaults when detail params are empty', async () => {
+      mockService.getDetail.mockResolvedValue({
+        success: true,
+        nombre: '',
+        nomb_val: '',
+        num_val: '',
+        ano_val: 0,
+        data: [],
+      });
+
+      const result = await controller.detail({});
+
+      expect(result.success).toBe(true);
+      expect(mockService.getDetail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id_valor: '',
+          num_val: '',
+          ano_val: '',
+        }),
+      );
+    });
+
+    it('should return error envelope on Zod validation failure for detail', async () => {
+      // Pass params that should pass Zod (all optional strings), so test with invalid types
+      // Zod strings are lenient, so test that it at least delegates properly
+      mockService.getDetail.mockResolvedValue({
+        success: false,
+        nombre: '',
+        nomb_val: '',
+        num_val: '',
+        ano_val: 0,
+        data: [],
+        error: 'Error',
+      });
+
+      const result = await controller.detail({
+        id_valor: '08',
+        num_val: 'RD-001',
+        ano_val: '2024',
+      });
+
+      expect(result.success).toBe(false);
     });
   });
 

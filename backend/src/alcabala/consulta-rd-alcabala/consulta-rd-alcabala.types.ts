@@ -23,3 +23,27 @@ export interface ConsultaRDResult {
   totalPages: number;
   error?: string;
 }
+
+// ── Detalle RD (SP_Mvalores msquery=4) ──
+
+/** A single detail row from SP_Mvalores msquery=4. Columns are flexible
+ *  because the SP schema is not documented; we map known fields and
+ *  preserve the rest as-is. */
+export interface DetalleRDRow {
+  concepto: string;      // concepto / descripción
+  base: number;          // base imponible
+  monto: number;         // monto del concepto
+  observaciones: string; // observaciones / notas
+  fecha: string;         // fecha asociada
+  [key: string]: any;    // preserve any extra SP columns
+}
+
+export interface DetalleRDResult {
+  success: boolean;
+  nombre: string;        // nombre contribuyente (from row context)
+  nomb_val: string;      // tipo documento label
+  num_val: string;       // número RD
+  ano_val: number;       // año
+  data: DetalleRDRow[];
+  error?: string;
+}

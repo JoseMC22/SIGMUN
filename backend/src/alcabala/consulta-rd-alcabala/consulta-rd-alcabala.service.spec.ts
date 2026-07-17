@@ -12,6 +12,7 @@ describe('ConsultaRdAlcabalaService', () => {
   let db: jest.Mocked<Pick<DatabaseService, 'executeProcedure'>>;
 
   const SP_NAME = 'Rentas.SP_ConsultadocuAlcabala';
+  const SP_NAME_DETAIL = 'Rentas.SP_Mvalores';
 
   beforeEach(() => {
     db = { executeProcedure: jest.fn() };
@@ -303,6 +304,182 @@ describe('ConsultaRdAlcabalaService', () => {
         estado: 'ACTIVO',
         fpago: 'Efectivo',
         recibo: 'REC-001',
+      });
+    });
+  });
+
+  describe('getDetail', () => {
+    it('should call SP_Mvalores with msquery=4 and correct params', async () => {
+      db.executeProcedure.mockResolvedValueOnce(mockSpResult([]));
+
+      await service.getDetail({
+        id_valor: '08',
+        num_val: 'RD-001',
+        ano_val: '2024',
+        nombre: 'Empresa SAC',
+        nomb_val: 'R.D.',
+      });
+
+      expect(db.executeProcedure).toHaveBeenCalledTimes(1);
+      expect(db.executeProcedure).toHaveBeenCalledWith(SP_NAME_DETAIL, {
+        msquery: '4',
+        id_valor: '08',
+        num_val: 'RD-001',
+        ano_val: '2024',
+      });
+    });
+
+    it('should map detail rows to DetalleRDRow with known fields', async () => {
+      const spRows = [
+        {
+          concepto: 'Impuesto Alcabala',
+          base: 500000,
+          monto: 5000,
+          observaciones: 'Pago parcial',
+          fecha: '2024-06-15',
+        },
+        {
+          concepto: 'Interés moratorio',
+          base: 5000,
+          monto: 250,
+          observaciones: '',
+          fecha: '2024-07-01',
+        },
+      ];
+
+      db.executeProcedure.mockResolvedValueOnce(mockSpResult(spRows));
+
+      const result = await service.getDetail({
+        id_valor: '08',
+        num_val: 'RD-001',
+        ano_val: '2024',
+        nombre: 'Empresa SAC',
+        nomb_val: 'R.D.',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.data).toHaveLength(2);
+      expect(result.data[0].concepto).toBe('Impuesto Alcabala');
+      expect(result.data[0].base).toBe(500000);
+      expect(result.data[0].monto).toBe(5000);
+      expect(result.data[1].concepto).toBe('Interés moratorio');
+      expect(result.nombre).toBe('Empresa SAC');
+      expect(result.nomb_val).toBe('R.D.');
+    });
+
+    it('should preserve extra SP columns not explicitly mapped', async () => {
+      const spRow = {
+        concepto: 'Test',
+        base: 100,
+        monto: 10,
+        observaciones: '',
+        fecha: '',
+        custom_field: 'extra_value',
+        another_col: 42,
+      };
+
+      db.executeProcedure.mockResolvedValueOnce(mockSpResult([spRow]));
+
+      const result = await service.getDetail({
+        id_valor: '08',
+        num_val: 'RD-001',
+        ano_val: '2024',
+        nombre: '',
+        nomb_val: '',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.data[0].custom_field).toBe('extra_value');
+      expect(result.data[0].another_col).toBe(42);
+    });
+
+    it('should handle case-insensitive SP column names in detail', async () => {
+      const spRow = {
+        Concepto: 'Impuesto',
+        BASE: 100000,
+        Monto: 1000,
+        Observaciones: 'Nota',
+        FECHA: '2024-01-01',
+      };
+
+      db.executeProcedure.mockResolvedValueOnce(mockSpResult([spRow]));
+
+      const result = await service.getDetail({
+        id_valor: '08',
+        num_val: 'RD-001',
+        ano_val: '2024',
+        nombre: '',
+        nomb_val: '',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.data[0].concepto).toBe('Impuesto');
+      expect(result.data[0].base).toBe(100000);
+      expect(result.data[0].monto).toBe(1000);
+    });
+
+    it('should return success=false on SP error', async () => {
+      db.executeProcedure.mockRejectedValueOnce(new Error('SP error'));
+
+      const result = await service.getDetail({
+        id_valor: '08',
+        num_val: 'RD-001',
+        ano_val: '2024',
+        nombre: 'Empresa',
+        nomb_val: 'R.D.',
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Error al consultar detalle del RD');
+      expect(result.data).toEqual([]);
+    });
+
+    it('should return empty data when SP returns no rows', async () => {
+      db.executeProcedure.mockResolvedValueOnce(mockSpResult([]));
+
+      const result = await service.getDetail({
+        id_valor: '08',
+        num_val: 'RD-999',
+        ano_val: '2024',
+        nombre: '',
+        nomb_val: '',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual([]);
+    });
+
+    it('should handle SP returning null recordset gracefully', async () => {
+      db.executeProcedure.mockResolvedValueOnce({ recordset: undefined } as any);
+
+      const result = await service.getDetail({
+        id_valor: '',
+        num_val: '',
+        ano_val: '',
+        nombre: '',
+        nomb_val: '',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual([]);
+    });
+
+    it('should default empty strings for missing params', async () => {
+      db.executeProcedure.mockResolvedValueOnce(mockSpResult([]));
+
+      await service.getDetail({
+        id_valor: '',
+        num_val: '',
+        ano_val: '',
+        nombre: '',
+        nomb_val: '',
+      });
+
+      expect(db.executeProcedure).toHaveBeenCalledWith(SP_NAME_DETAIL, {
+        msquery: '4',
+        id_valor: '',
+        num_val: '',
+        ano_val: '',
       });
     });
   });

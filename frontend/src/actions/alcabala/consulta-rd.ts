@@ -49,6 +49,25 @@ export interface ConsultaRDResult {
   error?: string;
 }
 
+export interface DetalleRDRow {
+  concepto: string;
+  base: number;
+  monto: number;
+  observaciones: string;
+  fecha: string;
+  [key: string]: any;
+}
+
+export interface DetalleRDResult {
+  success: boolean;
+  nombre: string;
+  nomb_val: string;
+  num_val: string;
+  ano_val: number;
+  data: DetalleRDRow[];
+  error?: string;
+}
+
 // ─── Server Actions ────────────────────────────────────────
 
 export async function searchConsultaRDAction(
@@ -96,6 +115,62 @@ export async function searchConsultaRDAction(
       total: 0,
       page: 1,
       totalPages: 0,
+      error: "Error de conexión con el servidor",
+    };
+  }
+}
+
+export async function getDetailConsultaRDAction(params: {
+  id_valor?: string;
+  num_val: string;
+  ano_val: string;
+  nombre?: string;
+  nomb_val?: string;
+}): Promise<DetalleRDResult> {
+  try {
+    const query = new URLSearchParams();
+    if (params.id_valor) query.set("id_valor", params.id_valor);
+    query.set("num_val", params.num_val);
+    query.set("ano_val", params.ano_val);
+    if (params.nombre) query.set("nombre", params.nombre);
+    if (params.nomb_val) query.set("nomb_val", params.nomb_val);
+
+    const response = await authFetch(
+      `/alcabala/consulta-rd/detail?${query.toString()}`,
+      { cache: "no-store" },
+    );
+
+    if (!response.ok) {
+      const text = await response.text();
+      return {
+        success: false,
+        nombre: params.nombre || "",
+        nomb_val: params.nomb_val || "",
+        num_val: params.num_val,
+        ano_val: Number(params.ano_val) || 0,
+        data: [],
+        error: text || "Error al consultar detalle del RD",
+      };
+    }
+
+    const json = await response.json();
+    return {
+      success: json.success ?? false,
+      nombre: json.nombre ?? params.nombre ?? "",
+      nomb_val: json.nomb_val ?? params.nomb_val ?? "",
+      num_val: json.num_val ?? params.num_val,
+      ano_val: json.ano_val ?? Number(params.ano_val) ?? 0,
+      data: json.data ?? [],
+      error: json.error,
+    };
+  } catch {
+    return {
+      success: false,
+      nombre: params.nombre || "",
+      nomb_val: params.nomb_val || "",
+      num_val: params.num_val,
+      ano_val: Number(params.ano_val) || 0,
+      data: [],
       error: "Error de conexión con el servidor",
     };
   }
