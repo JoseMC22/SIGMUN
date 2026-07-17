@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, Fragment } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Search,
   ChevronLeft,
@@ -305,104 +305,124 @@ function DetalleRDModal({
           )}
 
           {!loading && !error && groups.length > 0 && (
-            <table className="w-full text-[11px]">
-              <thead className="sticky top-0 z-10">
-                <tr className="bg-slate-100/80 backdrop-blur">
-                  <th className="w-6" />
-                  <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-3 py-2">
-                    Año / Período
-                  </th>
-                  <th className="text-right text-[10px] font-semibold text-slate-500 uppercase px-3 py-2">
-                    Imp. Insoluto
-                  </th>
-                  <th className="text-right text-[10px] font-semibold text-slate-500 uppercase px-3 py-2">
-                    Imp. Reajustado
-                  </th>
-                  <th className="text-right text-[10px] font-semibold text-slate-500 uppercase px-3 py-2">
-                    Costo Emisión
-                  </th>
-                  <th className="text-right text-[10px] font-semibold text-slate-500 uppercase px-3 py-2">
-                    Mora
-                  </th>
-                  <th className="text-right text-[10px] font-semibold text-slate-500 uppercase px-3 py-2">
-                    Total
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {groups.map((group, gIdx) => {
-                  const isExpanded = expandedHeaders.has(gIdx);
+            <div className="space-y-2">
+              {groups.map((group, gIdx) => {
+                const isExpanded = expandedHeaders.has(gIdx);
+                const groupTotal = [group.header, ...group.details].reduce(
+                  (sum, r) => sum + (r.total || 0),
+                  0,
+                );
 
-                  return (
-                    <Fragment key={gIdx}>
-                      {/* Header row — clickable */}
-                      <tr
-                        onClick={() => toggleHeader(gIdx)}
-                        className="cursor-pointer bg-slate-50 hover:bg-slate-100/70 transition select-none"
-                      >
-                        <td className="px-2 py-2 text-center">
-                          <ChevronDown
-                            size={13}
-                            className={`text-slate-400 transition-transform duration-200 inline-block ${
-                              isExpanded ? "rotate-0" : "-rotate-90"
-                            }`}
-                          />
-                        </td>
-                        <td className="px-3 py-2 font-bold text-sat-navy">
-                          Año {group.header.anio}
-                          <span className="ml-2 text-[10px] font-normal text-slate-400">
-                            ({group.details.length} {group.details.length === 1 ? "período" : "períodos"})
-                          </span>
-                        </td>
-                        <td className="px-3 py-2 font-mono text-right text-slate-600">
-                          {formatCurrency(group.header.imp_insol)}
-                        </td>
-                        <td className="px-3 py-2 font-mono text-right text-slate-600">
-                          {formatCurrency(group.header.imp_reaj)}
-                        </td>
-                        <td className="px-3 py-2 font-mono text-right text-slate-600">
-                          {formatCurrency(group.header.costo_emis)}
-                        </td>
-                        <td className="px-3 py-2 font-mono text-right text-slate-600">
-                          {formatCurrency(group.header.mora)}
-                        </td>
-                        <td className="px-3 py-2 font-mono text-right font-bold text-sat-navy">
-                          {formatCurrency(group.header.total)}
-                        </td>
-                      </tr>
-                      {/* Detail rows — collapsible */}
-                      {isExpanded &&
-                        group.details.map((d, dIdx) => (
-                          <tr
-                            key={`d-${dIdx}`}
-                            className="bg-white hover:bg-slate-50/50 transition"
-                          >
-                            <td />
-                            <td className="px-3 py-1.5 font-mono text-slate-500 pl-7">
-                              {d.anno}
-                            </td>
-                            <td className="px-3 py-1.5 font-mono text-right text-slate-600">
-                              {formatCurrency(d.imp_insol)}
-                            </td>
-                            <td className="px-3 py-1.5 font-mono text-right text-slate-600">
-                              {formatCurrency(d.imp_reaj)}
-                            </td>
-                            <td className="px-3 py-1.5 font-mono text-right text-slate-600">
-                              {formatCurrency(d.costo_emis)}
-                            </td>
-                            <td className="px-3 py-1.5 font-mono text-right text-slate-600">
-                              {formatCurrency(d.mora)}
-                            </td>
-                            <td className="px-3 py-1.5 font-mono text-right font-semibold text-slate-700">
-                              {formatCurrency(d.total)}
-                            </td>
-                          </tr>
-                        ))}
-                    </Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
+                return (
+                  <div
+                    key={gIdx}
+                    className="rounded-lg border border-slate-200 overflow-hidden"
+                  >
+                    {/* Header row (clickable toggle) */}
+                    <button
+                      type="button"
+                      onClick={() => toggleHeader(gIdx)}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 bg-gradient-to-r from-slate-50 to-white hover:from-slate-100 hover:to-slate-50 transition text-left"
+                    >
+                      <ChevronDown
+                        size={14}
+                        className={`text-slate-400 transition-transform duration-200 shrink-0 ${
+                          isExpanded ? "rotate-0" : "-rotate-90"
+                        }`}
+                      />
+                      <span className="text-[11px] font-bold text-sat-navy font-mono">
+                        Año {group.header.anio}
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        {group.details.length} {group.details.length === 1 ? "período" : "períodos"}
+                      </span>
+                      <span className="ml-auto text-[11px] font-semibold text-sat-navy font-mono">
+                        {formatCurrency(groupTotal)}
+                      </span>
+                    </button>
+
+                    {/* Detail rows (collapsible) */}
+                    {isExpanded && (
+                      <div className="border-t border-slate-100">
+                        <table className="w-full text-[11px]">
+                          <thead className="bg-slate-100/60">
+                            <tr>
+                              <th className="text-left text-[10px] font-semibold text-slate-500 uppercase px-4 py-1.5">
+                                Período
+                              </th>
+                              <th className="text-right text-[10px] font-semibold text-slate-500 uppercase px-4 py-1.5">
+                                Imp. Insoluto
+                              </th>
+                              <th className="text-right text-[10px] font-semibold text-slate-500 uppercase px-4 py-1.5">
+                                Imp. Reajustado
+                              </th>
+                              <th className="text-right text-[10px] font-semibold text-slate-500 uppercase px-4 py-1.5">
+                                Costo Emisión
+                              </th>
+                              <th className="text-right text-[10px] font-semibold text-slate-500 uppercase px-4 py-1.5">
+                                Mora
+                              </th>
+                              <th className="text-right text-[10px] font-semibold text-slate-500 uppercase px-4 py-1.5">
+                                Total
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {/* Sub-header row (the year summary) */}
+                            <tr className="bg-slate-50">
+                              <td className="px-4 py-1.5 font-semibold text-slate-700">
+                                {group.header.anno || group.header.anio}
+                              </td>
+                              <td className="px-4 py-1.5 font-mono text-right text-slate-600">
+                                {formatCurrency(group.header.imp_insol)}
+                              </td>
+                              <td className="px-4 py-1.5 font-mono text-right text-slate-600">
+                                {formatCurrency(group.header.imp_reaj)}
+                              </td>
+                              <td className="px-4 py-1.5 font-mono text-right text-slate-600">
+                                {formatCurrency(group.header.costo_emis)}
+                              </td>
+                              <td className="px-4 py-1.5 font-mono text-right text-slate-600">
+                                {formatCurrency(group.header.mora)}
+                              </td>
+                              <td className="px-4 py-1.5 font-mono text-right font-semibold text-slate-700">
+                                {formatCurrency(group.header.total)}
+                              </td>
+                            </tr>
+                            {/* Detail rows */}
+                            {group.details.map((d, dIdx) => (
+                              <tr
+                                key={dIdx}
+                                className="bg-white hover:bg-slate-50/50 transition"
+                              >
+                                <td className="px-4 py-1.5 font-mono text-slate-500">
+                                  {d.anno}
+                                </td>
+                                <td className="px-4 py-1.5 font-mono text-right text-slate-600">
+                                  {formatCurrency(d.imp_insol)}
+                                </td>
+                                <td className="px-4 py-1.5 font-mono text-right text-slate-600">
+                                  {formatCurrency(d.imp_reaj)}
+                                </td>
+                                <td className="px-4 py-1.5 font-mono text-right text-slate-600">
+                                  {formatCurrency(d.costo_emis)}
+                                </td>
+                                <td className="px-4 py-1.5 font-mono text-right text-slate-600">
+                                  {formatCurrency(d.mora)}
+                                </td>
+                                <td className="px-4 py-1.5 font-mono text-right font-semibold text-slate-700">
+                                  {formatCurrency(d.total)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
 
