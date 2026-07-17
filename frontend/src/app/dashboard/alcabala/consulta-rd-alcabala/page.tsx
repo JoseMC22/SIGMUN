@@ -162,27 +162,26 @@ function DetalleRDModal({
         num_val: row.num_val,
         ano_val: String(row.ano_val),
       });
-      if (result.success && result.html) {
-        const iframe = document.createElement("iframe");
-        iframe.style.position = "fixed";
-        iframe.style.width = "0";
-        iframe.style.height = "0";
-        iframe.style.border = "none";
-        document.body.appendChild(iframe);
-        const doc = iframe.contentWindow?.document;
-        if (doc) {
-          doc.open();
-          doc.write(result.html);
-          doc.close();
-          iframe.contentWindow?.focus();
-          iframe.contentWindow?.print();
-        }
-        // Clean up iframe after print dialog closes
-        setTimeout(() => {
-          document.body.removeChild(iframe);
-        }, 1000);
-      } else {
+      if (!result.success || !result.html) {
         setError(result.error ?? "Error al generar impresión");
+        return;
+      }
+
+      const printWindow = window.open("", "_blank", "width=800,height=600");
+      if (!printWindow) {
+        setError("El navegador bloqueó la ventana de impresión. Permití pop-ups.");
+        return;
+      }
+      printWindow.document.open();
+      printWindow.document.write(result.html);
+      printWindow.document.close();
+      printWindow.focus();
+      // Wait for the document to load before printing
+      const triggerPrint = () => printWindow.print();
+      if (printWindow.document.readyState === "complete") {
+        setTimeout(triggerPrint, 300);
+      } else {
+        printWindow.onload = () => setTimeout(triggerPrint, 300);
       }
     } catch {
       setError("Error al generar impresión");
