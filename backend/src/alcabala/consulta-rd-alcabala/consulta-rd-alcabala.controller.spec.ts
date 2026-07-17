@@ -111,11 +111,15 @@ describe('ConsultaRdAlcabalaController', () => {
         ano_val: 2024,
         data: [
           {
-            concepto: 'Impuesto Alcabala',
-            base: 500000,
-            monto: 5000,
-            observaciones: '',
-            fecha: '2024-06-15',
+            row_num: 1,
+            id: 0,
+            anno: '2025',
+            imp_insol: 137.56,
+            imp_reaj: 137.56,
+            costo_emis: 0,
+            mora: 2.97,
+            total: 140.53,
+            anio: '2025',
           },
         ],
       };

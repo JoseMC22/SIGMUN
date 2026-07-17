@@ -12,7 +12,7 @@ describe('ConsultaRdAlcabalaService', () => {
   let db: jest.Mocked<Pick<DatabaseService, 'executeProcedure'>>;
 
   const SP_NAME = 'Rentas.SP_ConsultadocuAlcabala';
-  const SP_NAME_DETAIL = 'Rentas.SP_Mvalores';
+  const SP_NAME_DETAIL = 'Rentas.SP_Dvalores';
 
   beforeEach(() => {
     db = { executeProcedure: jest.fn() };
@@ -309,7 +309,7 @@ describe('ConsultaRdAlcabalaService', () => {
   });
 
   describe('getDetail', () => {
-    it('should call SP_Mvalores with msquery=4 and correct params', async () => {
+    it('should call SP_Dvalores with msquery=1 and correct params', async () => {
       db.executeProcedure.mockResolvedValueOnce(mockSpResult([]));
 
       await service.getDetail({
@@ -321,28 +321,36 @@ describe('ConsultaRdAlcabalaService', () => {
 
       expect(db.executeProcedure).toHaveBeenCalledTimes(1);
       expect(db.executeProcedure).toHaveBeenCalledWith(SP_NAME_DETAIL, {
-        msquery: '4',
+        msquery: '1',
         id_valor: '08',
         num_val: 'RD-001',
         ano_val: '2024',
       });
     });
 
-    it('should map detail rows to DetalleRDRow with known fields', async () => {
+    it('should map detail rows to DetalleRDRow with actual SP_Dvalores columns', async () => {
       const spRows = [
         {
-          concepto: 'Impuesto Alcabala',
-          base: 500000,
-          monto: 5000,
-          observaciones: 'Pago parcial',
-          fecha: '2024-06-15',
+          no_name_1: 1,
+          id: 0,
+          anno: '2025',
+          imp_insol: 137.56,
+          imp_reaj: 137.56,
+          costo_emis: 0,
+          mora: 2.97,
+          total: 140.53,
+          anio: '2025',
         },
         {
-          concepto: 'Interés moratorio',
-          base: 5000,
-          monto: 250,
-          observaciones: '',
-          fecha: '2024-07-01',
+          no_name_1: 2,
+          id: 1,
+          anno: '05',
+          imp_insol: 137.56,
+          imp_reaj: 137.56,
+          costo_emis: 0,
+          mora: 2.97,
+          total: 140.53,
+          anio: '2025',
         },
       ];
 
@@ -357,21 +365,29 @@ describe('ConsultaRdAlcabalaService', () => {
 
       expect(result.success).toBe(true);
       expect(result.data).toHaveLength(2);
-      expect(result.data[0].concepto).toBe('Impuesto Alcabala');
-      expect(result.data[0].base).toBe(500000);
-      expect(result.data[0].monto).toBe(5000);
-      expect(result.data[1].concepto).toBe('Interés moratorio');
+      expect(result.data[0].row_num).toBe(1);
+      expect(result.data[0].id).toBe(0);
+      expect(result.data[0].anno).toBe('2025');
+      expect(result.data[0].imp_insol).toBe(137.56);
+      expect(result.data[0].total).toBe(140.53);
+      expect(result.data[0].anio).toBe('2025');
+      expect(result.data[1].anno).toBe('05');
+      expect(result.data[1].id).toBe(1);
       expect(result.nombre).toBe('Empresa SAC');
       expect(result.nomb_val).toBe('R.D.');
     });
 
     it('should preserve extra SP columns not explicitly mapped', async () => {
       const spRow = {
-        concepto: 'Test',
-        base: 100,
-        monto: 10,
-        observaciones: '',
-        fecha: '',
+        no_name_1: 1,
+        id: 0,
+        anno: '2025',
+        imp_insol: 100,
+        imp_reaj: 100,
+        costo_emis: 0,
+        mora: 0,
+        total: 100,
+        anio: '2025',
         custom_field: 'extra_value',
         another_col: 42,
       };
@@ -392,11 +408,15 @@ describe('ConsultaRdAlcabalaService', () => {
 
     it('should handle case-insensitive SP column names in detail', async () => {
       const spRow = {
-        Concepto: 'Impuesto',
-        BASE: 100000,
-        Monto: 1000,
-        Observaciones: 'Nota',
-        FECHA: '2024-01-01',
+        No_Name_1: 1,
+        ID: 0,
+        Anno: '2025',
+        Imp_Insol: 500,
+        Imp_Reaj: 500,
+        Costo_Emis: 10,
+        Mora: 5,
+        Total: 515,
+        ANIO: '2025',
       };
 
       db.executeProcedure.mockResolvedValueOnce(mockSpResult([spRow]));
@@ -409,9 +429,49 @@ describe('ConsultaRdAlcabalaService', () => {
       });
 
       expect(result.success).toBe(true);
-      expect(result.data[0].concepto).toBe('Impuesto');
-      expect(result.data[0].base).toBe(100000);
-      expect(result.data[0].monto).toBe(1000);
+      expect(result.data[0].row_num).toBe(1);
+      expect(result.data[0].imp_insol).toBe(500);
+      expect(result.data[0].total).toBe(515);
+      expect(result.data[0].anio).toBe('2025');
+    });
+
+    it('should distinguish header rows (4-digit anio) from detail rows', async () => {
+      const spRows = [
+        { no_name_1: 1, id: 0, anno: '2025', imp_insol: 200, imp_reaj: 200, costo_emis: 0, mora: 5, total: 205, anio: '2025' },
+        { no_name_1: 2, id: 1, anno: '05', imp_insol: 100, imp_reaj: 100, costo_emis: 0, mora: 2, total: 102, anio: '2025' },
+        { no_name_1: 3, id: 2, anno: '10', imp_insol: 100, imp_reaj: 100, costo_emis: 0, mora: 3, total: 103, anio: '2025' },
+        { no_name_1: 4, id: 0, anno: '2024', imp_insol: 300, imp_reaj: 300, costo_emis: 0, mora: 0, total: 300, anio: '2024' },
+        { no_name_1: 5, id: 1, anno: '01', imp_insol: 300, imp_reaj: 300, costo_emis: 0, mora: 0, total: 300, anio: '2024' },
+      ];
+
+      db.executeProcedure.mockResolvedValueOnce(mockSpResult(spRows));
+
+      const result = await service.getDetail({
+        num_val: 'RD-001',
+        ano_val: '2024',
+        nombre: '',
+        nomb_val: '',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.data).toHaveLength(5);
+
+      // Row 1: header (4-digit anio)
+      expect(result.data[0].anio).toBe('2025');
+      expect(result.data[0].id).toBe(0);
+
+      // Row 2-3: detail rows under 2025 header (non-4-digit anio)
+      expect(result.data[1].anno).toBe('05');
+      expect(result.data[1].anio).toBe('2025');
+      expect(result.data[2].anno).toBe('10');
+
+      // Row 4: header (4-digit anio)
+      expect(result.data[3].anio).toBe('2024');
+      expect(result.data[3].id).toBe(0);
+
+      // Row 5: detail under 2024 header
+      expect(result.data[4].anno).toBe('01');
+      expect(result.data[4].anio).toBe('2024');
     });
 
     it('should return success=false on SP error', async () => {
@@ -468,7 +528,7 @@ describe('ConsultaRdAlcabalaService', () => {
       });
 
       expect(db.executeProcedure).toHaveBeenCalledWith(SP_NAME_DETAIL, {
-        msquery: '4',
+        msquery: '1',
         id_valor: '08',
         num_val: '',
         ano_val: '',

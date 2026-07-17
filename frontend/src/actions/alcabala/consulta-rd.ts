@@ -50,11 +50,15 @@ export interface ConsultaRDResult {
 }
 
 export interface DetalleRDRow {
-  concepto: string;
-  base: number;
-  monto: number;
-  observaciones: string;
-  fecha: string;
+  row_num: number;
+  id: number;
+  anno: string;
+  imp_insol: number;
+  imp_reaj: number;
+  costo_emis: number;
+  mora: number;
+  total: number;
+  anio: string;
   [key: string]: any;
 }
 

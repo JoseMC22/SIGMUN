@@ -101,7 +101,7 @@ export class ConsultaRdAlcabalaService {
     const { num_val, ano_val, nombre, nomb_val } = dto;
 
     const spParams: Record<string, any> = {
-      msquery: '4',
+      msquery: '1',
       id_valor: this.ID_VALOR_ALCABALA,
       num_val: num_val || '',
       ano_val: ano_val || '',
@@ -120,7 +120,7 @@ export class ConsultaRdAlcabalaService {
     try {
       this.logger.log(`[ConsultaRdAlcabala] getDetail calling SP with params: ${JSON.stringify(spParams)}`);
       const result = await this.db.executeProcedure<any>(
-        'Rentas.SP_Mvalores',
+        'Rentas.SP_Dvalores',
         spParams,
       );
       const rawRows: any[] = result.recordset || [];
@@ -137,21 +137,27 @@ export class ConsultaRdAlcabalaService {
         return key !== undefined ? row[key] : undefined;
       }
 
+      const knownCols = [
+        'no_name_1', 'id', 'anno', 'imp_insol', 'imp_reaj',
+        'costo_emis', 'mora', 'total', 'anio',
+      ];
+
       const data: DetalleRDRow[] = rawRows.map((row: any) => {
         const mapped: DetalleRDRow = {
-          concepto: String(col(row, 'concepto') ?? col(row, 'descrip') ?? col(row, 'descripcion') ?? ''),
-          base: Number(col(row, 'base') ?? col(row, 'base_imponible') ?? 0),
-          monto: Number(col(row, 'monto') ?? col(row, 'monto_total') ?? 0),
-          observaciones: String(col(row, 'observaciones') ?? col(row, 'observ') ?? ''),
-          fecha: String(col(row, 'fecha') ?? col(row, 'fec_val') ?? ''),
+          row_num: Number(col(row, 'no_name_1') ?? 0),
+          id: Number(col(row, 'id') ?? 0),
+          anno: String(col(row, 'anno') ?? ''),
+          imp_insol: Number(col(row, 'imp_insol') ?? 0),
+          imp_reaj: Number(col(row, 'imp_reaj') ?? 0),
+          costo_emis: Number(col(row, 'costo_emis') ?? 0),
+          mora: Number(col(row, 'mora') ?? 0),
+          total: Number(col(row, 'total') ?? 0),
+          anio: String(col(row, 'anio') ?? ''),
         };
         // Preserve extra columns not explicitly mapped
         for (const key of Object.keys(row)) {
           const lower = key.toLowerCase();
-          if (
-            !['concepto', 'descrip', 'descripcion', 'base', 'base_imponible',
-              'monto', 'monto_total', 'observaciones', 'observ', 'fecha', 'fec_val'].includes(lower)
-          ) {
+          if (!knownCols.includes(lower)) {
             (mapped as any)[key] = row[key];
           }
         }

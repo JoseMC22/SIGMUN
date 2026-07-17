@@ -24,17 +24,22 @@ export interface ConsultaRDResult {
   error?: string;
 }
 
-// ── Detalle RD (SP_Mvalores msquery=4) ──
+// ── Detalle RD (SP_Dvalores msquery=1) ──
 
-/** A single detail row from SP_Mvalores msquery=4. Columns are flexible
- *  because the SP schema is not documented; we map known fields and
- *  preserve the rest as-is. */
+/** A single detail row from SP_Dvalores msquery=1.
+ *  Header rows have a 4-digit `anio` (e.g. 2025).
+ *  Detail rows have a non-4-digit `anio` (e.g. 05) and belong to
+ *  the most recent header row above them. */
 export interface DetalleRDRow {
-  concepto: string;      // concepto / descripción
-  base: number;          // base imponible
-  monto: number;         // monto del concepto
-  observaciones: string; // observaciones / notas
-  fecha: string;         // fecha asociada
+  row_num: number;       // [no_name_1] — sequential row number from SP
+  id: number;            // id — row id within the group
+  anno: string;          // anno — sub-period identifier
+  imp_insol: number;     // imp_insol — importe insoluto
+  imp_reaj: number;      // imp_reaj — importe reajustado
+  costo_emis: number;    // costo_emis — costo de emisión
+  mora: number;          // mora — intereses moratorios
+  total: number;         // total — total del renglón
+  anio: string;          // anio — 4-digit = header, else detail
   [key: string]: any;    // preserve any extra SP columns
 }
 
