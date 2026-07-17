@@ -78,8 +78,8 @@ function groupDetailRows(rows: DetalleRDRow[]): DetailGroup[] {
   let current: DetailGroup | null = null;
 
   for (const row of rows) {
-    // Header row: anio field has exactly 4 digits
-    if (/^\d{4}$/.test(row.anio)) {
+    // Header row: anno field has exactly 4 digits
+    if (/^\d{4}$/.test(row.anno)) {
       if (current) groups.push(current);
       current = { header: row, details: [] };
     } else if (current) {
