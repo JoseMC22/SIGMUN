@@ -20,11 +20,14 @@ import {
 import {
   searchConsultaRDAction,
   getDetailConsultaRDAction,
+  getRutaConsultaRDAction,
 } from "@/actions/alcabala/consulta-rd";
 import type {
   ConsultaRDRow,
   DetalleRDRow,
   DetalleRDResult,
+  RutaRDRow,
+  RutaRDResult,
 } from "@/actions/alcabala/consulta-rd";
 
 // ── Status badge ─────────────────────────────────────────
@@ -394,6 +397,190 @@ function DetalleRDModal({
   );
 }
 
+// ── Ruta RD Modal ───────────────────────────────────────
+
+function RutaRDModal({
+  row,
+  onClose,
+}: {
+  row: ConsultaRDRow;
+  onClose: () => void;
+}) {
+  const [ruta, setRuta] = useState<RutaRDResult | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await getRutaConsultaRDAction({
+          num_val: row.num_val,
+          ano_val: String(row.ano_val),
+          nombre: row.nombre,
+          nomb_val: row.nomb_val,
+        });
+        if (!cancelled) {
+          if (result.success) {
+            setRuta(result);
+          } else {
+            setError(result.error ?? "Error al cargar ruta");
+          }
+        }
+      } catch {
+        if (!cancelled) setError("Error de conexión");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [row]);
+
+  // Derive table columns from first row keys
+  const columns =
+    ruta && ruta.data.length > 0 ? Object.keys(ruta.data[0]) : [];
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Ruta RD"
+    >
+      <div className="relative mx-4 w-full max-w-4xl max-h-[85vh] flex flex-col rounded-xl border border-slate-200 bg-white shadow-2xl">
+        {/* ── Header ──────────────────────────────────── */}
+        <div className="flex items-center justify-between border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-5 py-3 rounded-t-xl">
+          <div className="flex items-center gap-2">
+            <div className="w-0.5 h-3.5 bg-sat-cyan rounded-full" />
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
+              Ruta RD
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+            aria-label="Cerrar"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* ── Top section: Contributor info ───────────── */}
+        <div className="border-b border-slate-100 bg-slate-50/50 px-5 py-3">
+          <div className="grid grid-cols-3 gap-4 text-[11px]">
+            <div>
+              <span className="text-slate-400 font-semibold uppercase tracking-wider text-[9px]">
+                Contribuyente
+              </span>
+              <p className="text-slate-800 font-medium mt-0.5 truncate">
+                {ruta?.nombre || row.nombre || "—"}
+              </p>
+            </div>
+            <div>
+              <span className="text-slate-400 font-semibold uppercase tracking-wider text-[9px]">
+                Tipo Documento
+              </span>
+              <p className="text-slate-800 font-medium mt-0.5">
+                {ruta?.nomb_val || row.nomb_val || "—"}
+              </p>
+            </div>
+            <div>
+              <span className="text-slate-400 font-semibold uppercase tracking-wider text-[9px]">
+                N° Documento
+              </span>
+              <p className="text-slate-800 font-medium mt-0.5 font-mono">
+                {row.num_val}-{row.ano_val}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Center section: Ruta data table ─────────── */}
+        <div className="flex-1 overflow-auto px-5 py-3">
+          {loading && (
+            <div className="flex items-center justify-center py-12">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-sat-cyan border-t-transparent" />
+              <span className="ml-2 text-xs text-slate-500">
+                Cargando ruta...
+              </span>
+            </div>
+          )}
+
+          {error && (
+            <div className="flex flex-col items-center justify-center py-12">
+              <AlertCircle size={20} className="text-red-400 mb-2" />
+              <p className="text-xs text-red-600">{error}</p>
+            </div>
+          )}
+
+          {!loading && !error && ruta && ruta.data.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-12">
+              <SearchX size={20} className="text-slate-300 mb-2" />
+              <p className="text-xs text-slate-500">
+                No se encontraron registros de ruta para este RD
+              </p>
+            </div>
+          )}
+
+          {!loading && !error && ruta && ruta.data.length > 0 && (
+            <div className="overflow-x-auto rounded-lg border border-slate-200">
+              <table className="w-full text-[11px]">
+                <thead className="sticky top-0 z-10">
+                  <tr className="bg-slate-100/80 backdrop-blur">
+                    {columns.map((col) => (
+                      <th
+                        key={col}
+                        className="text-left text-[10px] font-semibold text-slate-500 uppercase px-3 py-2 border-b border-slate-200 whitespace-nowrap"
+                      >
+                        {col.replace(/_/g, " ")}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {ruta.data.map((rRow, idx) => (
+                    <tr
+                      key={idx}
+                      className={`transition hover:bg-slate-50 ${
+                        idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"
+                      }`}
+                    >
+                      {columns.map((col) => (
+                        <td
+                          key={col}
+                          className="px-3 py-2 text-[11px] text-slate-700 whitespace-nowrap"
+                        >
+                          {rRow[col] != null ? String(rRow[col]) : "—"}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* ── Bottom section ─────────────────────────── */}
+        <div className="flex items-center justify-end border-t border-slate-200 bg-slate-50/50 px-5 py-3 rounded-b-xl">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-4 py-1.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Loading skeleton ─────────────────────────────────────
 
 function TableSkeleton() {
@@ -464,6 +651,9 @@ export default function ConsultaRDPage() {
 
   // ── Detalle modal ──────────────────────────────────────
   const [detalleRow, setDetalleRow] = useState<ConsultaRDRow | null>(null);
+
+  // ── Ruta modal ─────────────────────────────────────────
+  const [rutaRow, setRutaRow] = useState<ConsultaRDRow | null>(null);
 
   // ── Helpers ──────────────────────────────────────────────
 
@@ -778,6 +968,7 @@ export default function ConsultaRDPage() {
               </button>
               <button
                 type="button"
+                onClick={() => setRutaRow(row)}
                 className="rounded p-1 text-slate-400 transition hover:bg-amber-100 hover:text-amber-600"
                 aria-label="Ver ruta"
                 title="Ver ruta"
@@ -1068,6 +1259,14 @@ export default function ConsultaRDPage() {
         <DetalleRDModal
           row={detalleRow}
           onClose={() => setDetalleRow(null)}
+        />
+      )}
+
+      {/* Ruta modal */}
+      {rutaRow && (
+        <RutaRDModal
+          row={rutaRow}
+          onClose={() => setRutaRow(null)}
         />
       )}
     </div>

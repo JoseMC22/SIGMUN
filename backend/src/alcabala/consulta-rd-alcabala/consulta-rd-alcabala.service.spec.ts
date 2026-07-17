@@ -13,6 +13,7 @@ describe('ConsultaRdAlcabalaService', () => {
 
   const SP_NAME = 'Rentas.SP_ConsultadocuAlcabala';
   const SP_NAME_DETAIL = 'Rentas.SP_Dvalores';
+  const SP_NAME_RUTA = 'Rentas.SP_MHRuta';
 
   beforeEach(() => {
     db = { executeProcedure: jest.fn() };
@@ -529,6 +530,138 @@ describe('ConsultaRdAlcabalaService', () => {
 
       expect(db.executeProcedure).toHaveBeenCalledWith(SP_NAME_DETAIL, {
         msquery: '1',
+        id_valor: '08',
+        num_val: '',
+        ano_val: '',
+      });
+    });
+  });
+
+  describe('getRuta', () => {
+    it('should call SP_MHRuta with msquery=3 and correct params', async () => {
+      db.executeProcedure.mockResolvedValueOnce(mockSpResult([]));
+
+      await service.getRuta({
+        num_val: 'RD-001',
+        ano_val: '2025',
+        nombre: 'Empresa SAC',
+        nomb_val: 'R.D.',
+      });
+
+      expect(db.executeProcedure).toHaveBeenCalledTimes(1);
+      expect(db.executeProcedure).toHaveBeenCalledWith(SP_NAME_RUTA, {
+        msquery: '3',
+        id_valor: '08',
+        num_val: 'RD-001',
+        ano_val: '2025',
+      });
+    });
+
+    it('should return ruta rows with dynamic columns preserved', async () => {
+      const spRows = [
+        {
+          fecha: '2025-01-15',
+          destino: 'Municipalidad',
+          observacion: 'Tramite completado',
+          monto: 500,
+        },
+        {
+          fecha: '2025-02-10',
+          destino: 'Sunat',
+          observacion: 'Verificacion',
+          monto: 0,
+        },
+      ];
+
+      db.executeProcedure.mockResolvedValueOnce(mockSpResult(spRows));
+
+      const result = await service.getRuta({
+        num_val: 'RD-001',
+        ano_val: '2025',
+        nombre: 'Empresa SAC',
+        nomb_val: 'R.D.',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.data).toHaveLength(2);
+      expect(result.data[0].fecha).toBe('2025-01-15');
+      expect(result.data[0].destino).toBe('Municipalidad');
+      expect(result.data[0].monto).toBe(500);
+      expect(result.data[1].fecha).toBe('2025-02-10');
+      expect(result.nombre).toBe('Empresa SAC');
+      expect(result.nomb_val).toBe('R.D.');
+    });
+
+    it('should return success=true with empty data when SP returns no rows', async () => {
+      db.executeProcedure.mockResolvedValueOnce(mockSpResult([]));
+
+      const result = await service.getRuta({
+        num_val: 'RD-999',
+        ano_val: '2025',
+        nombre: '',
+        nomb_val: '',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual([]);
+    });
+
+    it('should return success=false on SP error', async () => {
+      db.executeProcedure.mockRejectedValueOnce(new Error('SP error'));
+
+      const result = await service.getRuta({
+        num_val: 'RD-001',
+        ano_val: '2025',
+        nombre: '',
+        nomb_val: '',
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Error al consultar ruta del RD');
+      expect(result.data).toEqual([]);
+    });
+
+    it('should handle SP returning null recordset gracefully', async () => {
+      db.executeProcedure.mockResolvedValueOnce({ recordset: undefined } as any);
+
+      const result = await service.getRuta({
+        num_val: '',
+        ano_val: '',
+        nombre: '',
+        nomb_val: '',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual([]);
+    });
+
+    it('should always pass id_valor="08" for Alcabala', async () => {
+      db.executeProcedure.mockResolvedValueOnce(mockSpResult([]));
+
+      await service.getRuta({
+        num_val: 'RD-001',
+        ano_val: '2025',
+        nombre: '',
+        nomb_val: '',
+      });
+
+      expect(db.executeProcedure).toHaveBeenCalledWith(SP_NAME_RUTA, expect.objectContaining({
+        id_valor: '08',
+      }));
+    });
+
+    it('should default empty strings for missing params', async () => {
+      db.executeProcedure.mockResolvedValueOnce(mockSpResult([]));
+
+      await service.getRuta({
+        num_val: '',
+        ano_val: '',
+        nombre: '',
+        nomb_val: '',
+      });
+
+      expect(db.executeProcedure).toHaveBeenCalledWith(SP_NAME_RUTA, {
+        msquery: '3',
         id_valor: '08',
         num_val: '',
         ano_val: '',

@@ -52,3 +52,22 @@ export interface DetalleRDResult {
   data: DetalleRDRow[];
   error?: string;
 }
+
+// ── Ruta RD (SP_MHRuta msquery=3) ──
+
+/** A single row from SP_MHRuta msquery=3.
+ *  Since exact columns are unknown, we use a flexible approach:
+ *  known fields are typed, everything else is preserved via index signature. */
+export interface RutaRDRow {
+  [key: string]: any;    // dynamic columns from SP_MHRuta
+}
+
+export interface RutaRDResult {
+  success: boolean;
+  nombre: string;        // nombre contribuyente (from row context)
+  nomb_val: string;      // tipo documento label
+  num_val: string;       // número RD
+  ano_val: number;       // año
+  data: RutaRDRow[];
+  error?: string;
+}

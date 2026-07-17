@@ -4,7 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConsultaRdAlcabalaController } from './consulta-rd-alcabala.controller';
 import { ConsultaRdAlcabalaService } from './consulta-rd-alcabala.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { ConsultaRDResult, DetalleRDResult } from './consulta-rd-alcabala.types';
+import { ConsultaRDResult, DetalleRDResult, RutaRDResult } from './consulta-rd-alcabala.types';
 
 describe('ConsultaRdAlcabalaController', () => {
   let controller: ConsultaRdAlcabalaController;
@@ -13,6 +13,7 @@ describe('ConsultaRdAlcabalaController', () => {
   const mockService = {
     search: jest.fn(),
     getDetail: jest.fn(),
+    getRuta: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -189,6 +190,77 @@ describe('ConsultaRdAlcabalaController', () => {
       const guards = Reflect.getMetadata('__guards__', ConsultaRdAlcabalaController);
       expect(guards).toBeDefined();
       expect(guards.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('GET /alcabala/consulta-rd/ruta', () => {
+    it('should delegate to service.getRuta with parsed query params', async () => {
+      const expected: RutaRDResult = {
+        success: true,
+        nombre: 'Empresa SAC',
+        nomb_val: 'R.D.',
+        num_val: 'RD-001',
+        ano_val: 2025,
+        data: [
+          { fecha: '2025-01-15', destino: 'Municipalidad', monto: 500 },
+        ],
+      };
+      mockService.getRuta.mockResolvedValue(expected);
+
+      const result = await controller.ruta({
+        num_val: 'RD-001',
+        ano_val: '2025',
+        nombre: 'Empresa SAC',
+        nomb_val: 'R.D.',
+      });
+
+      expect(result).toEqual(expected);
+      expect(mockService.getRuta).toHaveBeenCalledWith({
+        num_val: 'RD-001',
+        ano_val: '2025',
+        nombre: 'Empresa SAC',
+        nomb_val: 'R.D.',
+      });
+    });
+
+    it('should apply Zod defaults when ruta params are empty', async () => {
+      mockService.getRuta.mockResolvedValue({
+        success: true,
+        nombre: '',
+        nomb_val: '',
+        num_val: '',
+        ano_val: 0,
+        data: [],
+      });
+
+      const result = await controller.ruta({});
+
+      expect(result.success).toBe(true);
+      expect(mockService.getRuta).toHaveBeenCalledWith(
+        expect.objectContaining({
+          num_val: '',
+          ano_val: '',
+        }),
+      );
+    });
+
+    it('should return error envelope on Zod validation failure for ruta', async () => {
+      mockService.getRuta.mockResolvedValue({
+        success: false,
+        nombre: '',
+        nomb_val: '',
+        num_val: '',
+        ano_val: 0,
+        data: [],
+        error: 'Error',
+      });
+
+      const result = await controller.ruta({
+        num_val: 'RD-001',
+        ano_val: '2025',
+      });
+
+      expect(result.success).toBe(false);
     });
   });
 });
