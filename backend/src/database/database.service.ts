@@ -106,6 +106,24 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     return request.query<T>(queryStr);
   }
 
+  async queryWithParams<T>(
+    queryStr: string,
+    params: Record<string, any> = {},
+    timeout?: number,
+  ): Promise<mssql.IResult<T>> {
+    const request = this.pool.request();
+
+    for (const [key, value] of Object.entries(params)) {
+      request.input(key, value);
+    }
+
+    if (timeout !== undefined && timeout !== null && timeout > 0) {
+      return this.executeWithTimeout(request.query<T>(queryStr), timeout);
+    }
+
+    return request.query<T>(queryStr);
+  }
+
   /**
    * Ejecuta una promesa con un timeout manual usando race.
    * Si el timeout se alcanza antes de que la promesa se resuelva,
