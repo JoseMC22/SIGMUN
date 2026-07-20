@@ -96,7 +96,7 @@ export class AuthService {
     dto: LoginDto,
     clientIp: string,
   ): Promise<{ accessToken: string; response: LoginSuccessResponse }> {
-    try {
+    try {      
       const result = await this.db.executeProcedure<SpLoginResult>(
         '[Acceso].[sp_LogOut]',
         {
@@ -154,6 +154,7 @@ export class AuthService {
             isEncargado: userData.cajero,
             isRemoto: userData.remoto,
           },
+          
           sessionExpiresAt: new Date(
             Date.now() + INACTIVITY_TTL_MS,
           ).toISOString(),
@@ -180,6 +181,7 @@ export class AuthService {
       this.logger.log(`Sesión cerrada para el usuario: ${username}`);
     } catch (error) {
       this.logger.error(`Error al cerrar sesión para ${username}`, error);
+      
       throw new InternalServerErrorException(
         'Error al procesar el cierre de sesión.',
       );

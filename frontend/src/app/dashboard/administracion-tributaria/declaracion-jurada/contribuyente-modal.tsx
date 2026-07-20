@@ -259,7 +259,7 @@ function RepresentanteModal({
   tiposIngreso: { value: string; label: string }[];
   tiposAgrupamiento: { value: string; label: string }[];
   combosLoading: boolean;
-  onGrabar: (form: RepresentanteForm) => void;
+  onGrabar: () => void;
 }) {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchMessage, setSearchMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
@@ -347,9 +347,12 @@ function RepresentanteModal({
           >
             <X size={16} />
           </button>
-          </div>
         </div>
 
+        {/* ── Body ── */}
+        <div className="overflow-y-auto px-4 py-2.5 space-y-2.5">
+          {/* ══ Datos personales ══ */}
+          <FieldGroup title="Datos personales" icon={<User size={13} />}>
               {/* Tipo de Representante */}
               <div>
                 <label htmlFor="r-tipo" className={repLabelClass}>
@@ -378,16 +381,10 @@ function RepresentanteModal({
                 id="txtcodrepre"
                 value={form.codigoRepresentante}
               />
-            </div>
-          </fieldset>
+          </FieldGroup>
 
           {/* ══ Domicilio fiscal ══ */}
-          <fieldset className="rounded-lg border border-slate-200 bg-slate-50/40 px-2.5 pb-2 pt-0.5">
-            <legend className="flex items-center gap-1.5 px-1 text-[10px] font-semibold text-sat-navy">
-              <MapPin size={13} />
-              Domicilio fiscal
-            </legend>
-            <div className="space-y-2">
+          <FieldGroup title="Domicilio fiscal" icon={<MapPin size={13} />}>
               {/* Distrito */}
               <div>
                 <label htmlFor="r-distrito" className={repLabelClass}>
@@ -603,8 +600,7 @@ function RepresentanteModal({
                 <label className={repLabelClass}>Referencia</label>
                 <input type="text" value={form.referencia} onChange={(e) => onChange("referencia", e.target.value.toUpperCase())} maxLength={400} placeholder="Referencia" className={repInputClass} />
               </div>
-            </div>
-          </fieldset>
+          </FieldGroup>
         </div>
 
         {/* ── Footer ── */}

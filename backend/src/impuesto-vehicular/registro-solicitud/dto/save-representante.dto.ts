@@ -1,0 +1,37 @@
+import { z } from 'zod';
+
+export const SaveRepresentanteSchema = z.object({
+  id_representante: z.string().optional(),
+  codigo_contribuyente: z.string().min(1, 'Código contribuyente requerido'),
+  nombres: z.string().min(1, 'Nombres requerido'),
+  paterno: z.string().min(1, 'Apellido paterno requerido'),
+  materno: z.string().optional().default(''),
+  id_documento: z.string().min(1, 'Tipo documento requerido'),
+  num_documento: z.string().min(1, 'N° documento requerido'),
+  tipo_relacion_id: z.string().min(1, 'Tipo relación requerido'),
+  // Domicilio — all optional
+  id_dist: z.string().optional().default(''),
+  id_via: z.string().optional().default(''),
+  id_zona: z.string().optional().default(''),
+  id_urba: z.string().optional().default(''),
+  manzana: z.string().optional().default(''),
+  lote: z.string().optional().default(''),
+  sub_lote: z.string().optional().default(''),
+  numero: z.string().optional().default(''),
+  departam: z.string().optional().default(''),
+  referencia: z.string().optional().default(''),
+  piso: z.string().optional().default(''),
+  letra1: z.string().optional().default(''),
+  numero2: z.string().optional().default(''),
+  letra2: z.string().optional().default(''),
+  tipo_interior_id: z.string().optional().default(''),
+  numero_interno: z.string().optional().default(''),
+  letra_interno: z.string().optional().default(''),
+  tipo_edificacion_id: z.string().optional().default(''),
+  nombre_edificio: z.string().optional().default(''),
+  tipo_ingreso_id: z.string().optional().default(''),
+  nombre_ingreso: z.string().optional().default(''),
+  tipo_agrupamiento_id: z.string().optional().default(''),
+  nombre_agrupamiento: z.string().optional().default(''),
+});
+export type SaveRepresentanteDto = z.infer<typeof SaveRepresentanteSchema>;

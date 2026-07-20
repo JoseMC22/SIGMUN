@@ -54,6 +54,7 @@ function getAuthCookieOptions() {
   return {
     httpOnly: true,
     secure: isProduction,
+    
     sameSite: isProduction ? ('strict' as const) : ('lax' as const),
     path: '/',
     maxAge: SESSION_COOKIE_MAX_AGE_MS,
@@ -87,6 +88,7 @@ export class AuthController {
         authenticated: false,
         errorCode: 'AUTH_CONTRACT_MISMATCH',
         message: 'Datos de entrada inválidos.',
+     
       });
     }
 
@@ -103,6 +105,7 @@ export class AuthController {
           authenticated: false,
           errorCode: 'AUTH_INVALID_CREDENTIALS',
           message: 'Invalid credentials',
+        
         });
       }
 
