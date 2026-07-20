@@ -208,6 +208,7 @@ function DetalleRDModal({
             .print-only { display: none !important; }
           }
           @media print {
+            @page { margin: 2mm; }
             body * { visibility: hidden !important; }
             .print-only, .print-only * { visibility: visible !important; }
             .print-only {
@@ -642,6 +643,36 @@ export default function ConsultaRDPage() {
   // ── Ruta modal ─────────────────────────────────────────
   const [rutaRow, setRutaRow] = useState<ConsultaRDRow | null>(null);
 
+  // ── Print from actions column ────────────────────────
+  const [printingRow, setPrintingRow] = useState(false);
+  const [printHtmlRow, setPrintHtmlRow] = useState<string | null>(null);
+
+  const handlePrintRow = async (row: ConsultaRDRow) => {
+    setPrintingRow(true);
+    setError(null);
+    try {
+      const result = await imprimirConsultaRDAction({
+        num_val: row.num_val,
+        ano_val: String(row.ano_val),
+      });
+
+      if (!result.success || !result.html) {
+        setError(result.error ?? "Error al generar impresión del RD");
+        return;
+      }
+
+      setPrintHtmlRow(result.html);
+      setTimeout(() => {
+        window.print();
+        setTimeout(() => setPrintHtmlRow(null), 500);
+      }, 300);
+    } catch {
+      setError("Error de conexión al generar la impresión. Revisá la consola del navegador.");
+    } finally {
+      setPrintingRow(false);
+    }
+  };
+
   // ── Helpers ──────────────────────────────────────────────
 
   /** Formatea código a 7 dígitos con ceros a la izquierda */
@@ -763,10 +794,11 @@ export default function ConsultaRDPage() {
       const allData = await fetchAllRecords();
       const { default: jsPDF } = await import("jspdf");
       const { default: autoTable } = await import("jspdf-autotable");
-      const doc = new jsPDF({ orientation: "landscape" });
-      doc.text("Consulta RD - Alcabala", 14, 10);
+      const doc = new jsPDF({ orientation: "landscape", unit: "mm" });
+      doc.text("Consulta RD - Alcabala", 2, 4);
       autoTable(doc, {
-        startY: 16,
+        startY: 7,
+        margin: { top: 2, right: 2, bottom: 2, left: 2 },
         head: [
           [
             "#",
@@ -791,8 +823,19 @@ export default function ConsultaRDPage() {
           r.fpago,
           r.recibo,
         ]),
-        styles: { fontSize: 7 },
+        styles: { fontSize: 5, cellPadding: 0.5 },
         headStyles: { fillColor: [30, 48, 80] },
+        columnStyles: {
+          0: { cellWidth: 8 },
+          1: { cellWidth: 26 },
+          2: { cellWidth: 70 },
+          3: { cellWidth: 75 },
+          4: { cellWidth: 22 },
+          5: { cellWidth: 28 },
+          6: { cellWidth: 18 },
+          7: { cellWidth: 24 },
+          8: { cellWidth: 22 },
+        },
       });
       doc.save("consulta-rd-alcabala.pdf");
     } catch {
@@ -964,7 +1007,9 @@ export default function ConsultaRDPage() {
               </button>
               <button
                 type="button"
-                className="rounded p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                onClick={() => handlePrintRow(row)}
+                disabled={printingRow}
+                className="rounded p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
                 aria-label="Imprimir"
                 title="Imprimir"
               >
@@ -1256,6 +1301,30 @@ export default function ConsultaRDPage() {
           onClose={() => setRutaRow(null)}
         />
       )}
+
+      {/* Print preview from actions column (only visible when printing) */}
+      {printHtmlRow && (
+        <div className="print-only fixed inset-0 z-[70] overflow-auto bg-white p-4">
+          <div dangerouslySetInnerHTML={{ __html: printHtmlRow }} />
+        </div>
+      )}
+      <style>{`
+        @media screen {
+          .print-only { display: none !important; }
+        }
+        @media print {
+          @page { margin: 2mm; }
+          body * { visibility: hidden !important; }
+          .print-only, .print-only * { visibility: visible !important; }
+          .print-only {
+            position: fixed !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            height: auto !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

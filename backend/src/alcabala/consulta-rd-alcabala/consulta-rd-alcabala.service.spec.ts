@@ -673,7 +673,7 @@ describe('ConsultaRdAlcabalaService', () => {
     const SP_NAME_IMPRIMIR = 'Rentas.sp_Imprime_alcabala';
 
     it('should merge plantilla HTML with SP data row', async () => {
-      db.query.mockResolvedValueOnce({ recordset: [{ plantillas_html: '<p>@nombre</p>' }] });
+      db.query.mockResolvedValueOnce({ recordset: [{ plantilla: '<p>@nombre</p>' }] });
       db.executeProcedure.mockResolvedValueOnce(mockSpResult([{ nombre: 'TEST' }]));
 
       const result = await service.getImprimir({ num_val: 'RD-001', ano_val: '2025' });
@@ -685,7 +685,7 @@ describe('ConsultaRdAlcabalaService', () => {
 
     it('should replace multiple placeholders case-insensitively', async () => {
       db.query.mockResolvedValueOnce({
-        recordset: [{ plantillas_html: '<p>@NOMBRE - @NUM_VAL</p>' }],
+        recordset: [{ plantilla: '<p>@NOMBRE - @NUM_VAL</p>' }],
       });
       db.executeProcedure.mockResolvedValueOnce(
         mockSpResult([{ nombre: 'Empresa', NUM_VAL: 'RD-099' }]),
@@ -698,7 +698,7 @@ describe('ConsultaRdAlcabalaService', () => {
     });
 
     it('should call SP with buscar=1 and id_valor=08', async () => {
-      db.query.mockResolvedValueOnce({ recordset: [{ plantillas_html: '' }] });
+      db.query.mockResolvedValueOnce({ recordset: [{ plantilla: '<p>@x</p>' }] });
       db.executeProcedure.mockResolvedValueOnce(mockSpResult([{ any_col: 'x' }]));
 
       await service.getImprimir({ num_val: 'RD-001', ano_val: '2025' });
@@ -712,7 +712,7 @@ describe('ConsultaRdAlcabalaService', () => {
     });
 
     it('should return success=false when SP returns no rows', async () => {
-      db.query.mockResolvedValueOnce({ recordset: [{ plantillas_html: '<p>Template</p>' }] });
+      db.query.mockResolvedValueOnce({ recordset: [{ plantilla: '<p>Template</p>' }] });
       db.executeProcedure.mockResolvedValueOnce(mockSpResult([]));
 
       const result = await service.getImprimir({ num_val: 'RD-001', ano_val: '2025' });
@@ -721,24 +721,24 @@ describe('ConsultaRdAlcabalaService', () => {
       expect(result.error).toBe('No se encontraron datos para imprimir');
     });
 
-    it('should handle empty plantilla gracefully', async () => {
+    it('should return success=false when plantilla is empty', async () => {
       db.query.mockResolvedValueOnce({ recordset: [] });
       db.executeProcedure.mockResolvedValueOnce(mockSpResult([{ nombre: 'TEST' }]));
 
       const result = await service.getImprimir({ num_val: 'RD-001', ano_val: '2025' });
 
-      expect(result.success).toBe(true);
-      expect(result.html).toBe('');
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Plantilla');
     });
 
     it('should return success=false on SP error', async () => {
-      db.query.mockResolvedValueOnce({ recordset: [{ plantillas_html: '<p>@x</p>' }] });
+      db.query.mockResolvedValueOnce({ recordset: [{ plantilla: '<p>@x</p>' }] });
       db.executeProcedure.mockRejectedValueOnce(new Error('SP error'));
 
       const result = await service.getImprimir({ num_val: 'RD-001', ano_val: '2025' });
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('Error al generar impresión del RD');
+      expect(result.error).toContain('Error al generar impresión del RD');
     });
 
     it('should return success=false on query error', async () => {
@@ -747,12 +747,12 @@ describe('ConsultaRdAlcabalaService', () => {
       const result = await service.getImprimir({ num_val: 'RD-001', ano_val: '2025' });
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('Error al generar impresión del RD');
+      expect(result.error).toContain('Error al generar impresión del RD');
     });
 
     it('should replace null/undefined SP values with empty string', async () => {
       db.query.mockResolvedValueOnce({
-        recordset: [{ plantillas_html: '@nombre|@email' }],
+        recordset: [{ plantilla: '@nombre|@email' }],
       });
       db.executeProcedure.mockResolvedValueOnce(
         mockSpResult([{ nombre: 'OK', email: null }]),
@@ -765,7 +765,7 @@ describe('ConsultaRdAlcabalaService', () => {
     });
 
     it('should default empty strings when num_val/ano_val are empty', async () => {
-      db.query.mockResolvedValueOnce({ recordset: [{ plantillas_html: '' }] });
+      db.query.mockResolvedValueOnce({ recordset: [{ plantilla: '<p>@x</p>' }] });
       db.executeProcedure.mockResolvedValueOnce(mockSpResult([{ x: 1 }]));
 
       await service.getImprimir({ num_val: '', ano_val: '' });
