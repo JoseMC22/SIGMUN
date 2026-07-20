@@ -117,6 +117,12 @@ function SelectField({
   required?: boolean; error?: string; placeholder?: string;
 }) {
   const selectId = `rep-select-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`;
+  
+  // Deduplicate options based on value
+  const uniqueOptions = Array.from(
+    new Map(options.map(opt => [opt.value, opt])).values()
+  );
+  
   return (
     <div>
       <label htmlFor={selectId} className="block text-[10px] font-bold text-slate-500 mb-0.5 leading-none">
@@ -133,8 +139,8 @@ function SelectField({
         }`}
       >
         <option value="">{placeholder ?? "[Seleccione]"}</option>
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>{opt.label}</option>
+        {uniqueOptions.map((opt, index) => (
+          <option key={`${opt.value}-${index}`} value={opt.value}>{opt.label}</option>
         ))}
       </select>
       {error && <p className="mt-0.5 text-[9px] text-red-500">{error}</p>}
@@ -146,12 +152,13 @@ interface RepresentanteModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSaved: () => void;
+  onSavePending?: (data: any) => void;
   codigoContribuyente: string;
   existingData?: Record<string, any> | null;
 }
 
 export default function RepresentanteModal({
-  isOpen, onClose, onSaved, codigoContribuyente, existingData,
+  isOpen, onClose, onSaved, onSavePending, codigoContribuyente, existingData,
 }: RepresentanteModalProps) {
   const isEditing = !!existingData;
   const [form, setForm] = useState<RepresentanteFormData>(EMPTY_FORM);
@@ -170,6 +177,9 @@ export default function RepresentanteModal({
   const [tiposAgrupamiento, setTiposAgrupamiento] = useState<TipoAgrupamientoItem[]>([]);
 
   const [isViasModalOpen, setIsViasModalOpen] = useState(false);
+  const [zonaNombre, setZonaNombre] = useState("");
+  const [urbaNombre, setUrbaNombre] = useState("");
+  const [viaNombre, setViaNombre] = useState("");
 
   const setField = (field: keyof RepresentanteFormData, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -203,6 +213,9 @@ export default function RepresentanteModal({
   // Populate form when editing
   useEffect(() => {
     if (!isOpen) return;
+    console.log("[RepresentanteModal] useEffect, isOpen:", isOpen);
+    console.log("[RepresentanteModal] existingData:", existingData);
+    console.log("[RepresentanteModal] codigoContribuyente prop:", codigoContribuyente);
     if (existingData) {
       setForm({
         id_representante: existingData.id_representante ?? "",
@@ -244,8 +257,12 @@ export default function RepresentanteModal({
         id_dist: "012",
       });
     }
+    console.log("[RepresentanteModal] Set form to:", existingData ? existingData : { ...EMPTY_FORM, codigo_contribuyente: codigoContribuyente, id_dist: "012" });
     setErrors({});
     setSaveError(null);
+    setZonaNombre("");
+    setUrbaNombre("");
+    setViaNombre("");
   }, [isOpen, existingData, codigoContribuyente]);
 
   const validate = (): boolean => {
@@ -260,43 +277,54 @@ export default function RepresentanteModal({
   };
 
   const handleSave = async () => {
+    console.log("[RepresentanteModal] handleSave called, form:", form);
     if (!validate()) return;
     setSaving(true);
     setSaveError(null);
     try {
-      const res = await saveRepresentanteAction({
+      const payload = {
         id_representante: isEditing ? form.id_representante : undefined,
         codigo_contribuyente: form.codigo_contribuyente,
         nombres: form.nombres,
         paterno: form.paterno,
-        materno: form.materno || undefined,
+        materno: form.materno,
         id_documento: form.id_documento,
         num_documento: form.num_documento,
         tipo_relacion_id: form.tipo_relacion_id,
-        id_dist: form.id_dist || undefined,
-        id_via: form.id_via || undefined,
-        id_zona: form.id_zona || undefined,
-        id_urba: form.id_urba || undefined,
-        manzana: form.manzana || undefined,
-        lote: form.lote || undefined,
-        sub_lote: form.sub_lote || undefined,
-        numero: form.numero || undefined,
-        departam: form.departam || undefined,
-        referencia: form.referencia || undefined,
-        piso: form.piso || undefined,
-        letra1: form.letra1 || undefined,
-        numero2: form.numero2 || undefined,
-        letra2: form.letra2 || undefined,
-        tipo_interior_id: form.tipo_interior_id || undefined,
-        numero_interno: form.numero_interno || undefined,
-        letra_interno: form.letra_interno || undefined,
-        tipo_edificacion_id: form.tipo_edificacion_id || undefined,
-        nombre_edificio: form.nombre_edificio || undefined,
-        tipo_ingreso_id: form.tipo_ingreso_id || undefined,
-        nombre_ingreso: form.nombre_ingreso || undefined,
-        tipo_agrupamiento_id: form.tipo_agrupamiento_id || undefined,
-        nombre_agrupamiento: form.nombre_agrupamiento || undefined,
-      });
+        id_dist: form.id_dist,
+        id_via: form.id_via,
+        id_zona: form.id_zona,
+        id_urba: form.id_urba,
+        manzana: form.manzana,
+        lote: form.lote,
+        sub_lote: form.sub_lote,
+        numero: form.numero,
+        departam: form.departam,
+        referencia: form.referencia,
+        piso: form.piso,
+        letra1: form.letra1,
+        numero2: form.numero2,
+        letra2: form.letra2,
+        tipo_interior_id: form.tipo_interior_id,
+        numero_interno: form.numero_interno,
+        letra_interno: form.letra_interno,
+        tipo_edificacion_id: form.tipo_edificacion_id,
+        nombre_edificio: form.nombre_edificio,
+        tipo_ingreso_id: form.tipo_ingreso_id,
+        nombre_ingreso: form.nombre_ingreso,
+        tipo_agrupamiento_id: form.tipo_agrupamiento_id,
+        nombre_agrupamiento: form.nombre_agrupamiento,
+      };
+      
+      // Si no hay código contribuyente, usar el callback pendiente
+      if (!form.codigo_contribuyente.trim() && onSavePending) {
+        console.log("[RepresentanteModal] Saving as pending representante:", payload);
+        onSavePending(payload);
+        return;
+      }
+      
+      console.log("[RepresentanteModal] Sending payload to saveRepresentanteAction:", payload);
+      const res = await saveRepresentanteAction(payload);
       if (res.success) {
         onSaved();
         onClose();
@@ -337,6 +365,13 @@ export default function RepresentanteModal({
         </div>
 
         <div className="p-4 space-y-4">
+          {!codigoContribuyente.trim() && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-blue-800 text-xs">
+                ⓘ El representante se guardará automáticamente después de que guardes el contribuyente.
+              </p>
+            </div>
+          )}
           {/* Section 1: Datos Personales + Tipo Relación */}
           <fieldset className="rounded-lg border border-slate-200 bg-slate-50/40">
             <legend className="ml-3 px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
@@ -391,7 +426,7 @@ export default function RepresentanteModal({
                       <InputField label="Zona (Código):" value={form.id_zona} onChange={(v) => setField("id_zona", v)} />
                     </div>
                     <div className="md:col-span-9">
-                      <InputField label="Zona (Nombre):" value="" onChange={() => {}} readOnly />
+                      <InputField label="Zona (Nombre):" value={zonaNombre} onChange={() => {}} readOnly />
                     </div>
                   </div>
 
@@ -400,7 +435,7 @@ export default function RepresentanteModal({
                       <InputField label="Urbanización (Código):" value={form.id_urba} onChange={(v) => setField("id_urba", v)} />
                     </div>
                     <div className="md:col-span-7">
-                      <InputField label="Urbanización (Nombre):" value="" onChange={() => {}} readOnly />
+                      <InputField label="Urbanización (Nombre):" value={urbaNombre} onChange={() => {}} readOnly />
                     </div>
                     <div className="md:col-span-2">
                       <button
@@ -418,7 +453,7 @@ export default function RepresentanteModal({
                       <InputField label="Vía (Código):" value={form.id_via} onChange={(v) => setField("id_via", v)} />
                     </div>
                     <div className="md:col-span-9">
-                      <InputField label="Vía (Nombre):" value="" onChange={() => {}} readOnly />
+                      <InputField label="Vía (Nombre):" value={viaNombre} onChange={() => {}} readOnly />
                     </div>
                   </div>
                 </div>
@@ -562,6 +597,9 @@ export default function RepresentanteModal({
             id_urba: selected.codurba,
             id_via: selected.codigo,
           }));
+          setZonaNombre(selected.nomzona);
+          setUrbaNombre(selected.nomurba);
+          setViaNombre(selected.nomvia);
         }}
       />
     </div>

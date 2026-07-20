@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
-  X, Loader2, Save, AlertCircle, Search,
+  X, Loader2, Save, AlertCircle, Search, UserCog,
 } from "lucide-react";
 import ViasSearchModal from "./vias-search-modal";
 import RepresentanteModal from "./representante-modal";
@@ -21,7 +21,8 @@ import {
   fetchTiposIngresoAction,
   fetchTiposAgrupamientoAction,
   getRepresentantesByContribuyenteAction,
-  verificarRepresentanteAction,
+  getRepresentanteAction,
+  saveRepresentanteAction,
 } from "@/actions/registro-solicitud";
 
 interface CatalogoItem { id: string; nombre: string }
@@ -58,6 +59,7 @@ interface FormData {
   sub_lote: string;
   numero: string;
   departam: string;
+  nestado: string;
   id_tipocontri: string;
   id_subtipocontri: string;
   id_motivo_actualizacion: string;
@@ -71,7 +73,7 @@ interface FormData {
   tipo_interior_id: string;
   tipo_agrupamiento_id: string;
   tipo_ingreso_id: string;
-  tipo_edificacion_id: string;
+  tipo_edificio_id: string;
   nombre_edificio: string;
   nombre_ingreso: string;
   nombre_agrupamiento: string;
@@ -93,15 +95,15 @@ const EMPTY_FORM: FormData = {
   tipourb: "", des_urb: "", tipovia: "", des_via: "",
   id_zona: "", id_urba: "", id_via: "", referencia: "",
   manzana: "", lote: "", sub_lote: "", numero: "",
-  departam: "", id_tipocontri: "", id_subtipocontri: "",
+  departam: "", nestado: "1", id_tipocontri: "", id_subtipocontri: "",
   id_motivo_actualizacion: "", telefono1: "", anexo1: "",
   telefono2: "", anexo2: "", letra1: "", numero2: "",
   letra2: "", tipo_interior_id: "", tipo_agrupamiento_id: "",
-  tipo_ingreso_id: "", tipo_edificacion_id: "", nombre_edificio: "",
+  tipo_ingreso_id: "", tipo_edificio_id: "", nombre_edificio: "",
   nombre_ingreso: "", nombre_agrupamiento: "", piso: "",
   letra_interno: "", numero_interno: "", correo_e: "",
-  partida_defuncion: "", fecha_defuncion: "", flag_notificar: "",
-  zona_nombre: "", urbanizacion_nombre: "", via_nombre: "",
+  partida_defuncion: "", fecha_defuncion: "",
+  flag_notificar: "", zona_nombre: "", urbanizacion_nombre: "", via_nombre: "",
 };
 
 interface Props {
@@ -146,15 +148,21 @@ function InputField({
 }
 
 function SelectField({
-  label, value, onChange, options, required, error, placeholder,
+  label, value, onChange, options, required, error, placeholder, className,
 }: {
   label: string; value: string; onChange: (v: string) => void;
   options: { value: string; label: string }[];
-  required?: boolean; error?: string; placeholder?: string;
+  required?: boolean; error?: string; placeholder?: string; className?: string;
 }) {
   const selectId = `select-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`;
+  
+  // Deduplicate options based on value
+  const uniqueOptions = Array.from(
+    new Map(options.map(opt => [opt.value, opt])).values()
+  );
+  
   return (
-    <div>
+    <div className={className}>
       <label htmlFor={selectId} className="block text-[10px] font-bold text-slate-500 mb-0.5 leading-none">
         {label}{required && <span className="text-red-500 ml-0.5">*</span>}
       </label>
@@ -169,8 +177,8 @@ function SelectField({
         }`}
       >
         <option value="">{placeholder ?? "[Seleccione]"}</option>
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>{opt.label}</option>
+        {uniqueOptions.map((opt, index) => (
+          <option key={`${opt.value}-${index}`} value={opt.value}>{opt.label}</option>
         ))}
       </select>
       {error && <p className="mt-0.5 text-[9px] text-red-500">{error}</p>}
@@ -207,6 +215,7 @@ export default function RegistroSolicitudEditModal({ isOpen, codigo, onClose, on
   const [representanteData, setRepresentanteData] = useState<Record<string, any> | null>(null);
   const [hasRepresentante, setHasRepresentante] = useState(false);
   const [isRepresentanteModalOpen, setIsRepresentanteModalOpen] = useState(false);
+  const [pendingRepresentante, setPendingRepresentante] = useState<Record<string, any> | null>(null);
 
   const setField = (field: keyof FormData, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -245,35 +254,42 @@ export default function RegistroSolicitudEditModal({ isOpen, codigo, onClose, on
       const res = await getContribuyenteAction(id);
       if (res.success) {
         const d = res.data;
+        const getValue = (val: any) => {
+          if (Array.isArray(val)) {
+            return String(val[0] ?? "");
+          }
+          return String(val ?? "");
+        };
+        
         setForm({
-          codigo: d.codigo ?? "", id_pers: d.id_pers ?? "",
-          id_docu: d.id_docu ?? "", num_doc: d.num_doc ?? "",
-          nombres: d.nombres ?? "", paterno: d.paterno ?? "", materno: d.materno ?? "",
-          id_dist: d.id_dist ?? "", tipourb: d.tipourb ?? "", des_urb: d.des_urb ?? "",
-          tipovia: d.tipovia ?? "", des_via: d.des_via ?? "",
-          id_zona: d.id_zona ?? "", id_urba: d.id_urba ?? "", id_via: d.id_via ?? "",
-          referencia: d.referencia ?? "", manzana: d.manzana ?? "",
-          lote: d.lote ?? "", sub_lote: d.sub_lote ?? "", numero: d.numero ?? "",
-          departam: d.departam ?? "", id_tipocontri: d.id_tipocontri ?? "",
-          id_subtipocontri: d.id_subtipocontri ?? "",
-          id_motivo_actualizacion: d.id_motivo_actualizacion ?? "",
-          telefono1: d.telefono1 ?? "", anexo1: d.anexo1 ?? "",
-          telefono2: d.telefono2 ?? "", anexo2: d.anexo2 ?? "",
-          letra1: d.letra1 ?? "", numero2: d.numero2 ?? "", letra2: d.letra2 ?? "",
-          tipo_interior_id: d.tipo_interior_id ?? "",
-          tipo_agrupamiento_id: d.tipo_agrupamiento_id ?? "",
-          tipo_ingreso_id: d.tipo_ingreso_id ?? "",
-          tipo_edificacion_id: d.tipo_edificacion_id ?? "",
-          nombre_edificio: d.nombre_edificio ?? "", nombre_ingreso: d.nombre_ingreso ?? "",
-          nombre_agrupamiento: d.nombre_agrupamiento ?? "",
-          piso: d.piso ?? "", letra_interno: d.letra_interno ?? "",
-          numero_interno: d.numero_interno ?? "", correo_e: d.correo_e ?? "",
-          partida_defuncion: d.partida_defuncion ?? "",
-          fecha_defuncion: d.fecha_defuncion ?? "",
-          flag_notificar: d.flag_notificar ?? "",
-          zona_nombre: d.zona ?? "",
-          urbanizacion_nombre: [d.nombabr, d.nombre_urba].filter(Boolean).join(" "),
-          via_nombre: d.nombre_via ?? "",
+          codigo: getValue(d.codigo), id_pers: getValue(d.id_pers),
+          id_docu: getValue(d.id_docu), num_doc: getValue(d.num_doc),
+          nombres: getValue(d.nombres), paterno: getValue(d.paterno), materno: getValue(d.materno),
+          id_dist: getValue(d.id_dist), tipourb: getValue(d.tipourb), des_urb: getValue(d.des_urb),
+          tipovia: getValue(d.tipovia), des_via: getValue(d.des_via),
+          id_zona: getValue(d.id_zona), id_urba: getValue(d.id_urba), id_via: getValue(d.id_via),
+          referencia: getValue(d.referencia), manzana: getValue(d.manzana),
+          lote: getValue(d.lote), sub_lote: getValue(d.sub_lote), numero: getValue(d.numero),
+          departam: getValue(d.departam), nestado: getValue(d.nestado) || "1", id_tipocontri: getValue(d.id_tipocontri),
+          id_subtipocontri: getValue(d.id_subtipocontri),
+          id_motivo_actualizacion: getValue(d.id_motivo_actualizacion),
+          telefono1: getValue(d.telefono1), anexo1: getValue(d.anexo1),
+          telefono2: getValue(d.telefono2), anexo2: getValue(d.anexo2),
+          letra1: getValue(d.letra1), numero2: getValue(d.numero2), letra2: getValue(d.letra2),
+          tipo_interior_id: getValue(d.tipo_interior_id),
+          tipo_agrupamiento_id: getValue(d.tipo_agrupamiento_id),
+          tipo_ingreso_id: getValue(d.tipo_ingreso_id),
+          tipo_edificio_id: getValue(d.tipo_edificio_id ?? d.tipo_edificacion_id),
+          nombre_edificio: getValue(d.nombre_edificio), nombre_ingreso: getValue(d.nombre_ingreso),
+          nombre_agrupamiento: getValue(d.nombre_agrupamiento),
+          piso: getValue(d.piso), letra_interno: getValue(d.letra_interno),
+          numero_interno: getValue(d.numero_interno), correo_e: getValue(d.correo_e),
+          partida_defuncion: getValue(d.partida_defuncion),
+          fecha_defuncion: getValue(d.fecha_defuncion),
+          flag_notificar: getValue(d.flag_notificar),
+          zona_nombre: getValue(d.zona),
+          urbanizacion_nombre: [getValue(d.nombabr), getValue(d.nombre_urba)].filter(Boolean).join(" "),
+          via_nombre: getValue(d.nombre_via),
         });
         setDniValidated(true);
         if (d.id_tipocontri) loadSubtipos(d.id_tipocontri);
@@ -281,7 +297,17 @@ export default function RegistroSolicitudEditModal({ isOpen, codigo, onClose, on
         if (d.codigo) {
           const repRes = await getRepresentantesByContribuyenteAction(d.codigo);
           if (repRes.success && repRes.data && repRes.data.length > 0) {
-            setRepresentanteData(repRes.data[0]);
+            const repId = repRes.data[0].id_representante;
+            if (repId) {
+              const fullRepRes = await getRepresentanteAction(repId);
+              if (fullRepRes.success && fullRepRes.data) {
+                setRepresentanteData(fullRepRes.data);
+              } else {
+                setRepresentanteData(repRes.data[0]);
+              }
+            } else {
+              setRepresentanteData(repRes.data[0]);
+            }
             setHasRepresentante(true);
           }
         }
@@ -310,6 +336,7 @@ export default function RegistroSolicitudEditModal({ isOpen, codigo, onClose, on
       setActiveTab("datos");
       setRepresentanteData(null);
       setHasRepresentante(false);
+      setPendingRepresentante(null);
       if (codigo) loadDetail(codigo);
     }
   }, [isOpen, codigo, loadDetail]);
@@ -385,66 +412,74 @@ export default function RegistroSolicitudEditModal({ isOpen, codigo, onClose, on
   const handleSave = async () => {
     if (!validate()) return;
 
-    // Verify representante exists for juridico contribuyentes (only when codigo exists)
-    if (form.id_tipocontri !== '' && form.id_tipocontri !== '01' && form.codigo) {
-      const verRes = await verificarRepresentanteAction(form.codigo);
-      if (verRes.success && !verRes.exists) {
-        setSaveError("Debe agregar un representante legal antes de guardar");
-        return;
-      }
-    }
+    const dataToSend = {
+        codigo: isEditing ? String(form.codigo).trim() : undefined,
+        id_pers: String(form.id_pers).trim(),
+        id_docu: String(form.id_docu).trim(),
+        num_doc: String(form.num_doc).trim(),
+        nombres: String(form.nombres).trim(),
+        paterno: String(form.paterno).trim(),
+        materno: String(form.materno).trim(),
+        id_dist: String(form.id_dist).trim(),
+        tipourb: String(form.tipourb).trim(),
+        des_urb: String(form.des_urb).trim(),
+        tipovia: String(form.tipovia).trim(),
+        des_via: String(form.des_via).trim(),
+        id_zona: String(form.id_zona).trim(),
+        id_urba: String(form.id_urba).trim(),
+        id_via: String(form.id_via).trim(),
+        referencia: String(form.referencia).trim(),
+        manzana: String(form.manzana).trim(),
+        lote: String(form.lote).trim(),
+        sub_lote: String(form.sub_lote).trim(),
+        numero: String(form.numero).trim(),
+        departam: String(form.departam).trim(),
+        nestado: String(form.nestado).trim(),
+        id_tipocontri: String(form.id_tipocontri).trim(),
+        id_subtipocontri: String(form.id_subtipocontri).trim(),
+        id_motivo_actualizacion: String(form.id_motivo_actualizacion).trim(),
+        telefono1: String(form.telefono1).trim(),
+        anexo1: String(form.anexo1).trim(),
+        telefono2: String(form.telefono2).trim(),
+        anexo2: String(form.anexo2).trim(),
+        letra1: String(form.letra1).trim(),
+        numero2: String(form.numero2).trim(),
+        letra2: String(form.letra2).trim(),
+        tipo_interior_id: String(form.tipo_interior_id).trim(),
+        tipo_agrupamiento_id: String(form.tipo_agrupamiento_id).trim(),
+        tipo_ingreso_id: String(form.tipo_ingreso_id).trim(),
+        tipo_edificio_id: String(form.tipo_edificio_id).trim(),
+        nombre_edificio: String(form.nombre_edificio).trim(),
+        nombre_ingreso: String(form.nombre_ingreso).trim(),
+        nombre_agrupamiento: String(form.nombre_agrupamiento).trim(),
+        piso: String(form.piso).trim(),
+        letra_interno: String(form.letra_interno).trim(),
+        numero_interno: String(form.numero_interno).trim(),
+        correo_e: String(form.correo_e).trim(),
+        partida_defuncion: String(form.partida_defuncion).trim(),
+        fecha_defuncion: String(form.fecha_defuncion).trim(),
+        flag_notificar: String(form.flag_notificar).trim(),
+      };
+
+    console.log("Datos a enviar:", dataToSend);
 
     setSaving(true);
     setSaveError(null);
     try {
-      const res = await saveContribuyenteAction({
-        codigo: isEditing ? form.codigo : undefined,
-        id_pers: form.id_pers || undefined,
-        id_docu: form.id_docu,
-        num_doc: form.num_doc,
-        nombres: form.nombres || undefined,
-        paterno: form.paterno || undefined,
-        materno: form.materno || undefined,
-        id_dist: form.id_dist || undefined,
-        tipourb: form.tipourb || undefined,
-        des_urb: form.des_urb || undefined,
-        tipovia: form.tipovia || undefined,
-        des_via: form.des_via || undefined,
-        id_zona: form.id_zona || undefined,
-        id_urba: form.id_urba || undefined,
-        id_via: form.id_via || undefined,
-        referencia: form.referencia || undefined,
-        manzana: form.manzana || undefined,
-        lote: form.lote || undefined,
-        sub_lote: form.sub_lote || undefined,
-        numero: form.numero || undefined,
-        departam: form.departam || undefined,
-        id_tipocontri: form.id_tipocontri || undefined,
-        id_subtipocontri: form.id_subtipocontri || undefined,
-        id_motivo_actualizacion: form.id_motivo_actualizacion || undefined,
-        telefono1: form.telefono1 || undefined,
-        anexo1: form.anexo1 || undefined,
-        telefono2: form.telefono2 || undefined,
-        anexo2: form.anexo2 || undefined,
-        letra1: form.letra1 || undefined,
-        numero2: form.numero2 || undefined,
-        letra2: form.letra2 || undefined,
-        tipo_interior_id: form.tipo_interior_id || undefined,
-        tipo_agrupamiento_id: form.tipo_agrupamiento_id || undefined,
-        tipo_ingreso_id: form.tipo_ingreso_id || undefined,
-        tipo_edificacion_id: form.tipo_edificacion_id || undefined,
-        nombre_edificio: form.nombre_edificio || undefined,
-        nombre_ingreso: form.nombre_ingreso || undefined,
-        nombre_agrupamiento: form.nombre_agrupamiento || undefined,
-        piso: form.piso || undefined,
-        letra_interno: form.letra_interno || undefined,
-        numero_interno: form.numero_interno || undefined,
-        correo_e: form.correo_e || undefined,
-        partida_defuncion: form.partida_defuncion || undefined,
-        fecha_defuncion: form.fecha_defuncion || undefined,
-        flag_notificar: form.flag_notificar || undefined,
-      });
+      const res = await saveContribuyenteAction(dataToSend);
+      console.log("Respuesta del servidor:", res);
       if (res.success) {
+        const codigoGenerado = res.codigo || form.codigo;
+        
+        // Si hay un representante pendiente, guardarlo ahora con el código generado
+        if (pendingRepresentante && codigoGenerado) {
+          console.log("Guardando representante pendiente con código:", codigoGenerado);
+          await saveRepresentanteAction({
+            ...pendingRepresentante,
+            codigo_contribuyente: codigoGenerado,
+          });
+        }
+        
         onClose();
         onSaved();
       } else {
@@ -589,46 +624,52 @@ export default function RegistroSolicitudEditModal({ isOpen, codigo, onClose, on
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <SelectField
-                          label="Tipo de Contribuyente:" value={form.id_tipocontri}
-                          onChange={handleTipoContribuyenteChange}
-                          options={tiposContribuyente.map((t) => ({ value: t.id_tipocontri, label: t.tipo_detalle }))}
-                        />
-                        <SelectField
-                          label="SubTipo Contribuyente:" value={form.id_subtipocontri}
-                          onChange={(v) => setField("id_subtipocontri", v)}
-                          options={subtiposContribuyente.map((s) => ({ value: s.id_subtipocontri, label: s.subtipo_detalle }))}
-                        />
-                      </div>
-                      {/* Representante button — visible only for juridico */}
-                      {form.id_tipocontri !== '' && form.id_tipocontri !== '01' && (
-                        <div className="pt-2">
-                          <button
-                            type="button"
-                            onClick={() => setIsRepresentanteModalOpen(true)}
-                            className="inline-flex items-center gap-1.5 rounded border border-sat-cyan bg-sat-cyan/10 hover:bg-sat-cyan/20 text-sat-cyan px-3 py-1.5 text-[11px] font-bold transition active:scale-[0.98]"
-                          >
-                            {hasRepresentante ? "Editar Representante" : "Agregar Representante"}
-                          </button>
-                          {hasRepresentante && representanteData && (
-                            <span className="ml-2 text-[10px] text-slate-500">
-                              {representanteData.nombres} {representanteData.paterno}
-                            </span>
+                      <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                        <div className="md:col-span-6 flex items-end gap-2">
+                          <div className="flex-1">
+                            <SelectField
+                              label="Tipo de Contribuyente:" value={form.id_tipocontri}
+                              onChange={(v) => { setField("id_tipocontri", v); loadSubtipos(v); setField("id_subtipocontri", ""); }}
+                              options={tiposContribuyente.map((t) => ({ value: t.id_tipocontri, label: t.tipo_detalle }))}
+                            />
+                          </div>
+                          {form.codigo && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (hasRepresentante && representanteData) {
+                                  setIsRepresentanteModalOpen(true);
+                                } else {
+                                  setRepresentanteData(null);
+                                  setIsRepresentanteModalOpen(true);
+                                }
+                              }}
+                              className="mb-[2px] flex items-center justify-center rounded bg-slate-100 p-1.5 text-slate-600 transition hover:bg-slate-200 border border-slate-300"
+                              title={hasRepresentante ? "Editar Representante" : "Agregar Representante"}
+                            >
+                              <UserCog size={16} className={hasRepresentante ? "text-sat-cyan" : ""} />
+                            </button>
                           )}
                         </div>
-                      )}
+                        <div className="md:col-span-4">
+                          <SelectField
+                            label="SubTipo Contribuyente:" value={form.id_subtipocontri} onChange={(v) => setField("id_subtipocontri", v)}
+                            options={subtiposContribuyente.map((t) => ({ value: t.id_subtipocontri, label: t.subtipo_detalle }))}
+                          />
+                        </div>
+                      </div>
 
                       {/* Motivo de Actualización */}
                       {!isEditing ? (
                         <input type="hidden" value="" />
                       ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <SelectField
-                            label="Tipo de Contribuyente Actualizacion:" value={form.id_motivo_actualizacion}
-                            onChange={(v) => setField("id_motivo_actualizacion", v)}
-                            options={motivosActualizacion.map((m) => ({ value: m.motivo_actualizacion_id, label: m.descripcion }))}
-                          />
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                          <div className="md:col-span-6">
+                            <SelectField
+                              label="Tipo de Contribuyente Actualizacion:" value={form.id_motivo_actualizacion} onChange={(v) => setField("id_motivo_actualizacion", v)}
+                              options={motivosActualizacion.map((m) => ({ value: m.motivo_actualizacion_id, label: m.descripcion }))}
+                            />
+                          </div>
                         </div>
                       )}
 
@@ -639,16 +680,18 @@ export default function RegistroSolicitudEditModal({ isOpen, codigo, onClose, on
                         </div>
                       )}
 
-                      <div className="grid grid-cols-1 md:grid-cols-1 gap-3">
-                        <InputField label="Correo Electronico (*):" value={form.correo_e} onChange={(v) => setField("correo_e", v)} />
+                      <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                        <div className="md:col-span-6">
+                          <InputField label="Correo Electronico (*):" value={form.correo_e} onChange={(v) => setField("correo_e", v)} type="email" />
+                        </div>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-                        <div className="md:col-span-6">
-                          <InputField label="Telefono1 (*):" value={form.telefono1} onChange={(v) => setField("telefono1", v)} />
+                      <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                        <div className="md:col-span-3">
+                          <InputField label="Telefono1 (*):" value={form.telefono1} onChange={(v) => setField("telefono1", v)} maxLength={15} />
                         </div>
-                        <div className="md:col-span-6">
-                          <InputField label="Anexo1:" value={form.anexo1} onChange={(v) => setField("anexo1", v)} />
+                        <div className="md:col-span-2">
+                          <InputField label="Anexo1:" value={form.anexo1} onChange={(v) => setField("anexo1", v)} maxLength={10} />
                         </div>
                       </div>
                     </div>
@@ -669,26 +712,26 @@ export default function RegistroSolicitudEditModal({ isOpen, codigo, onClose, on
                       {form.id_dist === "012" ? (
                         <div className="space-y-3 pt-2 border-t border-slate-200/60 animate-fade-in">
                           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                            <div className="md:col-span-3">
-                              <InputField label="Zona (Código):" value={form.id_zona} onChange={(v) => setField("id_zona", v)} />
+                            <div className="md:col-span-2">
+                              <InputField label="Zona:" value={form.id_zona} onChange={(v) => setField("id_zona", v)} />
                             </div>
-                            <div className="md:col-span-9">
-                              <InputField label="Zona (Nombre):" value={form.zona_nombre} onChange={(v) => setField("zona_nombre", v)} />
+                            <div className="md:col-span-4">
+                              <InputField label="&nbsp;" value={form.zona_nombre} onChange={(v) => setField("zona_nombre", v)} readOnly />
                             </div>
                           </div>
 
                           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                            <div className="md:col-span-3">
-                              <InputField label="Urbanización (Código):" value={form.id_urba} onChange={(v) => setField("id_urba", v)} />
-                            </div>
-                            <div className="md:col-span-7">
-                              <InputField label="Urbanización (Nombre):" value={form.urbanizacion_nombre} onChange={(v) => setField("urbanizacion_nombre", v)} />
-                            </div>
                             <div className="md:col-span-2">
+                              <InputField label="Urbanización:" value={form.id_urba} onChange={(v) => setField("id_urba", v)} />
+                            </div>
+                            <div className="md:col-span-4">
+                              <InputField label="&nbsp;" value={form.urbanizacion_nombre} onChange={(v) => setField("urbanizacion_nombre", v)} readOnly />
+                            </div>
+                            <div className="md:col-span-6 flex justify-end">
                               <button
                                 type="button"
                                 onClick={() => setIsViasModalOpen(true)}
-                                className="w-full rounded border border-slate-300 bg-slate-100 hover:bg-slate-200 text-slate-700 py-1.5 text-[11px] font-medium transition active:scale-[0.98]"
+                                className="rounded border border-slate-300 bg-slate-100 hover:bg-slate-200 text-slate-700 px-6 py-1.5 text-[11px] font-medium transition active:scale-[0.98]"
                               >
                                 Busqueda
                               </button>
@@ -697,10 +740,10 @@ export default function RegistroSolicitudEditModal({ isOpen, codigo, onClose, on
 
                           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
                             <div className="md:col-span-3">
-                              <InputField label="Vía (Código):" value={form.id_via} onChange={(v) => setField("id_via", v)} />
+                              <InputField label="Vía:" value={form.id_via} onChange={(v) => setField("id_via", v)} />
                             </div>
-                            <div className="md:col-span-9">
-                              <InputField label="Vía (Nombre):" value={form.via_nombre} onChange={(v) => setField("via_nombre", v)} />
+                            <div className="md:col-span-4">
+                              <InputField label="&nbsp;" value={form.via_nombre} onChange={(v) => setField("via_nombre", v)} readOnly />
                             </div>
                           </div>
                         </div>
@@ -744,72 +787,72 @@ export default function RegistroSolicitudEditModal({ isOpen, codigo, onClose, on
                       Datos Domicilio fiscal:
                     </legend>
                     <div className="p-3 space-y-3">
-                      <div className="grid grid-cols-5 gap-2">
-                        <InputField label="Mz:" value={form.manzana} onChange={(v) => setField("manzana", v)} maxLength={12} />
-                        <InputField label="Lote:" value={form.lote} onChange={(v) => setField("lote", v)} maxLength={12} />
-                        <InputField label="Sub Lote:" value={form.sub_lote} onChange={(v) => setField("sub_lote", v)} maxLength={12} />
-                        <InputField label="Número:" value={form.numero} onChange={(v) => setField("numero", v)} maxLength={12} />
-                        <InputField label="Dpto:" value={form.departam} onChange={(v) => setField("departam", v)} maxLength={12} />
+                      <div className="grid grid-cols-12 gap-3">
+                        <div className="col-span-2"><InputField label="Mz:" value={form.manzana} onChange={(v) => setField("manzana", v)} maxLength={12} /></div>
+                        <div className="col-span-2"><InputField label="Lote:" value={form.lote} onChange={(v) => setField("lote", v)} maxLength={12} /></div>
+                        <div className="col-span-2"><InputField label="Sub Lote:" value={form.sub_lote} onChange={(v) => setField("sub_lote", v)} maxLength={12} /></div>
+                        <div className="col-span-2"><InputField label="Número:" value={form.numero} onChange={(v) => setField("numero", v)} maxLength={12} /></div>
+                        <div className="col-span-2"><InputField label="Dpto:" value={form.departam} onChange={(v) => setField("departam", v)} maxLength={12} /></div>
                       </div>
 
-                      <div className="grid grid-cols-4 gap-2">
-                        <InputField label="Letra 1:" value={form.letra1} onChange={(v) => setField("letra1", v)} maxLength={10} />
-                        <InputField label="Num 2:" value={form.numero2} onChange={(v) => setField("numero2", v)} maxLength={10} />
-                        <InputField label="Letra 2:" value={form.letra2} onChange={(v) => setField("letra2", v)} maxLength={10} />
-                        <InputField label="Piso:" value={form.piso} onChange={(v) => setField("piso", v)} maxLength={10} />
+                      <div className="grid grid-cols-12 gap-3">
+                        <div className="col-span-2"><InputField label="Letra 1:" value={form.letra1} onChange={(v) => setField("letra1", v)} maxLength={10} /></div>
+                        <div className="col-span-2"><InputField label="Num 2:" value={form.numero2} onChange={(v) => setField("numero2", v)} maxLength={10} /></div>
+                        <div className="col-span-2"><InputField label="Letra 2:" value={form.letra2} onChange={(v) => setField("letra2", v)} maxLength={10} /></div>
+                        <div className="col-span-2"><InputField label="Piso:" value={form.piso} onChange={(v) => setField("piso", v)} maxLength={10} /></div>
                       </div>
 
-                      <div className="grid grid-cols-12 gap-2 items-end">
-                        <div className="col-span-4">
+                      <div className="grid grid-cols-12 gap-3 items-end">
+                        <div className="col-span-3">
                           <SelectField
                             label="Tipo de Interior:" value={form.tipo_interior_id}
                             onChange={(v) => setField("tipo_interior_id", v)}
                             options={tiposInterior.map((t) => ({ value: t.tipo_interior_id, label: t.descripcion }))}
                           />
                         </div>
-                        <div className="col-span-4">
+                        <div className="col-span-2">
                           <InputField label="Num:" value={form.numero_interno} onChange={(v) => setField("numero_interno", v)} maxLength={10} />
                         </div>
-                        <div className="col-span-4">
+                        <div className="col-span-2">
                           <InputField label="Letra:" value={form.letra_interno} onChange={(v) => setField("letra_interno", v)} maxLength={10} />
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-12 gap-2 items-end">
-                        <div className="col-span-4">
+                      <div className="grid grid-cols-12 gap-3 items-end">
+                        <div className="col-span-3">
                           <SelectField
-                            label="Tipo de Edificación:" value={form.tipo_edificacion_id}
-                            onChange={(v) => setField("tipo_edificacion_id", v)}
+                            label="Tipo de Edificación:" value={form.tipo_edificio_id}
+                            onChange={(v) => setField("tipo_edificio_id", v)}
                             options={tiposEdificacion.map((t) => ({ value: t.tipo_edificacion_id, label: t.descripcion }))}
                           />
                         </div>
-                        <div className="col-span-8">
+                        <div className="col-span-4">
                           <InputField label="Nombre de Edificación:" value={form.nombre_edificio} onChange={(v) => setField("nombre_edificio", v)} />
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-12 gap-2 items-end">
-                        <div className="col-span-4">
+                      <div className="grid grid-cols-12 gap-3 items-end">
+                        <div className="col-span-3">
                           <SelectField
                             label="Tipo de Ingreso:" value={form.tipo_ingreso_id}
                             onChange={(v) => setField("tipo_ingreso_id", v)}
                             options={tiposIngreso.map((t) => ({ value: t.tipo_ingreso_id, label: t.descripcion }))}
                           />
                         </div>
-                        <div className="col-span-8">
+                        <div className="col-span-4">
                           <InputField label="Nombre de Ingreso:" value={form.nombre_ingreso} onChange={(v) => setField("nombre_ingreso", v)} />
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-12 gap-2 items-end">
-                        <div className="col-span-4">
+                      <div className="grid grid-cols-12 gap-3 items-end">
+                        <div className="col-span-3">
                           <SelectField
                             label="Tipo de Agrupamiento:" value={form.tipo_agrupamiento_id}
                             onChange={(v) => setField("tipo_agrupamiento_id", v)}
                             options={tiposAgrupamiento.map((t) => ({ value: t.tipo_agrupamiento_id, label: t.descripcion }))}
                           />
                         </div>
-                        <div className="col-span-8">
+                        <div className="col-span-4">
                           <InputField label="Nombre de Agrupamiento:" value={form.nombre_agrupamiento} onChange={(v) => setField("nombre_agrupamiento", v)} />
                         </div>
                       </div>
@@ -889,6 +932,8 @@ export default function RegistroSolicitudEditModal({ isOpen, codigo, onClose, on
             urbanizacion_nombre: selected.nomurba,
             id_via: selected.codigo,
             via_nombre: selected.nomvia,
+            des_via: selected.nomvia, // Set des_via to the via name like PHP does
+            des_urb: selected.nomurba, // Set des_urb to the urbanización name like PHP does
           }));
         }}
       />
@@ -899,13 +944,30 @@ export default function RegistroSolicitudEditModal({ isOpen, codigo, onClose, on
         onSaved={() => {
           // Refresh representante state after save
           if (form.codigo) {
-            getRepresentantesByContribuyenteAction(form.codigo).then((res) => {
+            getRepresentantesByContribuyenteAction(form.codigo).then(async (res) => {
               if (res.success && res.data && res.data.length > 0) {
-                setRepresentanteData(res.data[0]);
+                const repId = res.data[0].id_representante;
+                if (repId) {
+                  const fullRepRes = await getRepresentanteAction(repId);
+                  if (fullRepRes.success && fullRepRes.data) {
+                    setRepresentanteData(fullRepRes.data);
+                  } else {
+                    setRepresentanteData(res.data[0]);
+                  }
+                } else {
+                  setRepresentanteData(res.data[0]);
+                }
                 setHasRepresentante(true);
               }
             });
           }
+        }}
+        onSavePending={(data) => {
+          // Guardar representante en estado pendiente
+          setPendingRepresentante(data);
+          setRepresentanteData(data);
+          setHasRepresentante(true);
+          setIsRepresentanteModalOpen(false);
         }}
         codigoContribuyente={form.codigo || ''}
         existingData={representanteData}

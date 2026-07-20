@@ -1,15 +1,8 @@
 import { Controller, Post, Get, Query, Body, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { AccesosService } from './accesos.service';
-import {
-  SearchAccoSchema,
-  SearchAccesoDto,
-} from './dto/search-acceso.dto';
-import {
-  AccesoRow,
-  PaginatedResponse,
-  MenuOption,
-} from './dto/accesos.types';
+import { SearchAccoSchema, SearchAccesoDto } from './dto/search-acceso.dto';
+import { AccesoRow, PaginatedResponse, MenuOption } from './dto/accesos.types';
 
 @Controller('seguridad/accesos')
 @UseGuards(JwtAuthGuard)

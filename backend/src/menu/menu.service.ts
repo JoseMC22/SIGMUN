@@ -46,7 +46,10 @@ export class MenuService {
     }
   }
 
-  async getSubmenus(moduleId: string, vlogin: string): Promise<MenuSubmenuResponse[]> {
+  async getSubmenus(
+    moduleId: string,
+    vlogin: string,
+  ): Promise<MenuSubmenuResponse[]> {
     const cacheKey = `menu:submenus:${vlogin}:${moduleId}`;
 
     const cached = await this.cacheManager.get<MenuSubmenuResponse[]>(cacheKey);
@@ -91,12 +94,18 @@ export class MenuService {
         modules.map((mod) => this.getSubmenus(mod.id, vlogin)),
       );
 
-      const paths = results.flat().map((sub) => sub.path).filter(Boolean);
+      const paths = results
+        .flat()
+        .map((sub) => sub.path)
+        .filter(Boolean);
 
       await this.cacheManager.set(cacheKey, paths, MENU_CACHE_TTL_MS);
       return paths;
     } catch (error) {
-      this.logger.error(`Error al obtener paths accesibles para ${vlogin}`, error);
+      this.logger.error(
+        `Error al obtener paths accesibles para ${vlogin}`,
+        error,
+      );
       throw error;
     }
   }

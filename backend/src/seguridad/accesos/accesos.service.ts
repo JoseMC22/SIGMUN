@@ -1,11 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 import { SearchAccesoDto } from './dto/search-acceso.dto';
-import {
-  AccesoRow,
-  PaginatedResponse,
-  MenuOption,
-} from './dto/accesos.types';
+import { AccesoRow, PaginatedResponse, MenuOption } from './dto/accesos.types';
 
 // ── Pure pagination helper ──
 

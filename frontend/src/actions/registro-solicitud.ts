@@ -414,6 +414,7 @@ export async function verificarRepresentanteAction(codigo: string) {
 }
 
 export async function saveDJAction(body: {
+  id_dj?: string;
   num_decla: string;
   anio_dj: string;
   id_solicitud: string;
@@ -437,6 +438,206 @@ export async function saveDJAction(body: {
     const response = await authFetch('/impuesto-vehicular/registro-solicitud/dj/save', {
       method: 'POST',
       body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      return { success: false as const, error: err.message ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    return { success: true as const, ...result };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+export async function getVehiculoCombosAction() {
+  try {
+    const response = await authFetch('/impuesto-vehicular/registro-solicitud/vehiculo-combos');
+    if (!response.ok) return { success: false as const, error: `Error ${response.status}` };
+    const result = await response.json();
+    return { success: true as const, ...result };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+export async function getDJDetalleAction(idDj: string) {
+  try {
+    const response = await authFetch(`/impuesto-vehicular/registro-solicitud/dj-detalle/${encodeURIComponent(idDj)}`);
+    if (!response.ok) return { success: false as const, error: `Error ${response.status}` };
+    const result = await response.json();
+    // Backend returns { data: {...} } or the object directly
+    return { success: true as const, data: result.data ?? result };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+export async function getDjPdfBase64Action(idDj: string): Promise<string | null> {
+  try {
+    const response = await authFetch(
+      `/impuesto-vehicular/registro-solicitud/dj-pdf/${encodeURIComponent(idDj)}`,
+    );
+    if (!response.ok) return null;
+    const buffer = Buffer.from(await response.arrayBuffer());
+    return buffer.toString('base64');
+  } catch {
+    return null;
+  }
+}
+
+
+export async function searchModelosAction(opcion: string, criterio: string, categoria: string, page = 1, pageSize = 10) {
+  try {
+    const params = new URLSearchParams({ opcion, criterio, categoria, page: String(page), pageSize: String(pageSize) });
+    const response = await authFetch(`/impuesto-vehicular/registro-solicitud/vehiculo-modelos?${params}`);
+    if (!response.ok) return { success: false as const, error: `Error ${response.status}`, data: [], total: 0 };
+    const result = await response.json();
+    return { success: true as const, data: result.data ?? [], total: result.total ?? 0 };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión', data: [], total: 0 };
+  }
+}
+
+export async function saveVehiculoAction(dto: Record<string, any>) {
+  try {
+    const response = await authFetch('/impuesto-vehicular/registro-solicitud/vehiculo/save', {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      return { success: false as const, error: result.message ?? `Error ${response.status}` };
+    }
+    if (result.success === false) {
+      return { success: false as const, error: result.message || 'Error al guardar el vehículo' };
+    }
+    return { success: true as const, data: result };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+export async function getVehiculosByContribAction(codigo: string) {
+  try {
+    const response = await authFetch(`/impuesto-vehicular/registro-solicitud/vehiculo/list/${encodeURIComponent(codigo)}`);
+    if (!response.ok) return { success: false as const, error: `Error ${response.status}`, data: [] };
+    const result = await response.json();
+    return { success: true as const, data: result.data ?? [] };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión', data: [] };
+  }
+}
+
+export async function getVehiculoDetailAction(id: string) {
+  try {
+    const response = await authFetch(`/impuesto-vehicular/registro-solicitud/vehiculo/detail/${encodeURIComponent(id)}`);
+    if (!response.ok) return { success: false as const, error: `Error ${response.status}`, data: null };
+    const result = await response.json();
+    return { success: true as const, data: result.data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión', data: null };
+  }
+}
+
+export async function getFormDescargoAction(codigo: string, idVehiculo: string) {
+  try {
+    const response = await authFetch(`/impuesto-vehicular/registro-solicitud/vehiculo/descargo/${encodeURIComponent(codigo)}/${encodeURIComponent(idVehiculo)}`);
+    if (!response.ok) return { success: false as const, error: `Error ${response.status}` };
+    const result = await response.json();
+    return { success: true as const, data: result.data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+export async function getTipoCambioAction(fecha: string) {
+  try {
+    const response = await authFetch('/impuesto-vehicular/registro-solicitud/vehiculo/tipo-cambio', {
+      method: 'POST',
+      body: JSON.stringify({ fecha }),
+    });
+    if (!response.ok) return { success: false as const, error: `Error ${response.status}` };
+    return await response.json();
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+export async function descargarVehiculoAction(body: { codigo: string; id_vehiculo: string; num_placa: string; fecha_descargo: string; observacion: string }) {
+  try {
+    const response = await authFetch('/impuesto-vehicular/registro-solicitud/vehiculo/descargo/save', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      return { success: false as const, error: err.message ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    return { success: true as const, ...result };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+export async function getAssignedRequisitosAction(idSolicitud: string, page = 1, pageSize = 15) {
+  try {
+    const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+    const response = await authFetch(`/impuesto-vehicular/registro-solicitud/solicitud/${encodeURIComponent(idSolicitud)}/requisitos?${params}`);
+    if (!response.ok) return { success: false as const, error: `Error ${response.status}`, data: [], total: 0 };
+    const result = await response.json();
+    return { success: true as const, data: result.data ?? [], total: result.total ?? 0 };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión', data: [], total: 0 };
+  }
+}
+
+export async function deleteAssignedRequisitoAction(idSolicitud: string, idRequisito: string) {
+  try {
+    const response = await authFetch(`/impuesto-vehicular/registro-solicitud/solicitud/${encodeURIComponent(idSolicitud)}/requisito/${encodeURIComponent(idRequisito)}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      return { success: false as const, error: err.message ?? `Error ${response.status}` };
+    }
+    return { success: true as const };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+export async function getAllRequisitosAction(page = 1, pageSize = 15) {
+  try {
+    const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+    const response = await authFetch(`/impuesto-vehicular/registro-solicitud/requisitos?${params}`);
+    if (!response.ok) return { success: false as const, error: `Error ${response.status}`, data: [], total: 0 };
+    const result = await response.json();
+    return { success: true as const, data: result.data ?? [], total: result.total ?? 0 };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión', data: [], total: 0 };
+  }
+}
+
+export async function getSolicitudPdfBase64Action(codigo: string, idSolicitud: string): Promise<string | null> {
+  try {
+    const response = await authFetch(
+      `/impuesto-vehicular/registro-solicitud/solicitud-pdf/${encodeURIComponent(codigo)}/${encodeURIComponent(idSolicitud)}`,
+    );
+    if (!response.ok) return null;
+    const buffer = Buffer.from(await response.arrayBuffer());
+    return buffer.toString('base64');
+  } catch {
+    return null;
+  }
+}
+
+export async function saveAssignedRequisitosAction(idSolicitud: string, requisitos: string[]) {
+  try {
+    const response = await authFetch(`/impuesto-vehicular/registro-solicitud/solicitud/${encodeURIComponent(idSolicitud)}/requisitos`, {
+      method: 'POST',
+      body: JSON.stringify({ requisitos }),
     });
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));

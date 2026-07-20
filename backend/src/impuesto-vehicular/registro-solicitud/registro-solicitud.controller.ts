@@ -9,7 +9,9 @@ import {
   UseGuards,
   Req,
   Query,
+  Res,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RegistroSolicitudService } from './registro-solicitud.service';
 import {
@@ -20,6 +22,10 @@ import {
   SaveRegistroSolicitudSchema,
   SaveRegistroSolicitudDto,
 } from './dto/save-registro-solicitud.dto';
+import {
+  SaveVehiculoSchema,
+  SaveVehiculoDto,
+} from './dto/save-vehiculo.dto';
 import {
   ContribuyenteRow,
   PaginatedResponse,
@@ -66,9 +72,13 @@ export class RegistroSolicitudController {
     @Req() req: any,
   ) {
     const parsed = SaveRegistroSolicitudSchema.parse(dto);
-    const operador = req.user.sub;
-    const estacion = req.headers?.host || req.ip || 'unknown';
-    return this.registroSolicitudService.save(parsed, operador, estacion);
+    const operador = req.user.username;
+    // Estacion should NOT include the port, just the hostname or IP
+    const hostWithPort = req.headers?.host || req.ip || 'unknown';
+    const estacion = hostWithPort.split(':')[0];
+    const idperfil = req.user.profileId;
+    const result = await this.registroSolicitudService.save(parsed, operador, estacion, idperfil);
+    return result;
   }
 
   @Delete(':codigo')
@@ -77,7 +87,7 @@ export class RegistroSolicitudController {
     @Body() body: { motivo: string },
     @Req() req: any,
   ) {
-    const operador = req.user.sub;
+    const operador = req.user.username;
     return this.registroSolicitudService.eliminar(codigo, body.motivo, operador);
   }
 
@@ -246,6 +256,10 @@ export class RegistroSolicitudController {
   }> {
     return this.registroSolicitudService.getDJCombos();
   }
+  @Get('dj-detalle/:id')
+  async getDJDetalle(@Param('id') id: string): Promise<any> {
+    return this.registroSolicitudService.getDJDetalle(id);
+  }
 
   @Post('dj/save')
   async saveDJ(
@@ -255,6 +269,92 @@ export class RegistroSolicitudController {
     const operador = req.user?.username ?? 'SISTEMA';
     const estacion = req.hostname ?? 'WEB';
     return this.registroSolicitudService.saveDJ({ ...body, operador, estacion });
+  }
+
+  @Get('dj-pdf/:idDj')
+  async getDjPdf(
+    @Param('idDj') idDj: string,
+    @Res() res: Response,
+    @Req() req: any,
+  ) {
+    const operador = req.user?.username ?? 'SISTEMA';
+    const estacion = req.hostname ?? 'WEB';
+    const pdfBuffer = await this.registroSolicitudService.generateDjPdf(idDj, operador, estacion);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `inline; filename="dj_${idDj}.pdf"`,
+      'Content-Length': pdfBuffer.length,
+    });
+    res.end(pdfBuffer);
+  }
+
+  // ──────────────────────────────────────────────
+  // Registro Vehicular & Descargo endpoints
+  // ──────────────────────────────────────────────
+
+  @Get('vehiculo-combos')
+  async getVehiculoCombos() {
+    const data = await this.registroSolicitudService.getVehiculoCombos();
+    return { data };
+  }
+
+  @Get('vehiculo-modelos')
+  async searchModelos(
+    @Query('opcion') opcion: string,
+    @Query('criterio') criterio: string,
+    @Query('categoria') categoria: string,
+    @Query('page') page: string = '1',
+    @Query('pageSize') pageSize: string = '10'
+  ) {
+    return this.registroSolicitudService.searchModelos(opcion, criterio, categoria, Number(page), Number(pageSize));
+  }
+
+  @Post('vehiculo/save')
+  async saveVehiculo(@Body() dto: SaveVehiculoDto, @Req() req: any) {
+    const parsed = SaveVehiculoSchema.parse(dto);
+    const operador = req.user?.username ?? 'SISTEMA';
+    const estacion = req.hostname ?? 'WEB';
+    return this.registroSolicitudService.saveVehiculo(parsed, operador, estacion);
+  }
+
+  @Get('vehiculo/valida-valor')
+  async validaValorVehiculo(
+    @Query('anio') anio: string,
+    @Query('idcate') idcate: string,
+    @Query('idmarca') idmarca: string,
+    @Query('idmodel') idmodel: string
+  ) {
+    return this.registroSolicitudService.validaValorVehiculo(anio, idcate, idmarca, idmodel);
+  }
+
+  @Get('vehiculo/detail/:id')
+  async getVehiculoDetail(@Param('id') id: string) {
+    const data = await this.registroSolicitudService.getVehiculoDetail(id);
+    return { data };
+  }
+
+  @Post('vehiculo/tipo-cambio')
+  async getTipoCambio(@Body() body: { fecha: string }) {
+    return this.registroSolicitudService.getTipoCambio(body.fecha);
+  }
+
+  @Get('vehiculo/descargo/:codigo/:idvehiculo')
+  async getFormDescargo(
+    @Param('codigo') codigo: string,
+    @Param('idvehiculo') idVehiculo: string
+  ) {
+    const data = await this.registroSolicitudService.getFormDescargo(codigo, idVehiculo);
+    return { data };
+  }
+
+  @Post('vehiculo/descargo/save')
+  async descargarVehiculo(
+    @Body() body: { codigo: string; id_vehiculo: string; num_placa: string; fecha_descargo: string; observacion: string },
+    @Req() req: any
+  ) {
+    const operador = req.user?.username ?? 'SISTEMA';
+    const estacion = req.hostname ?? 'WEB';
+    return this.registroSolicitudService.descargarVehiculo(body.codigo, body.id_vehiculo, body.num_placa, body.fecha_descargo, body.observacion, operador, estacion);
   }
 
   // ──────────────────────────────────────────────
@@ -314,7 +414,68 @@ export class RegistroSolicitudController {
     return { data };
   }
 
+  // ──────────────────────────────────────────────
+  // Requisitos endpoints
+  // ──────────────────────────────────────────────
+
+  @Get('solicitud/:idSolicitud/requisitos')
+  async getAssignedRequisitos(
+    @Param('idSolicitud') idSolicitud: string,
+    @Query('page') page: string = '1',
+    @Query('pageSize') pageSize: string = '15',
+  ) {
+    return this.registroSolicitudService.getAssignedRequisitos(idSolicitud, Number(page), Number(pageSize));
+  }
+
+  @Delete('solicitud/:idSolicitud/requisito/:idRequisito')
+  async deleteAssignedRequisito(
+    @Param('idSolicitud') idSolicitud: string,
+    @Param('idRequisito') idRequisito: string,
+  ) {
+    return this.registroSolicitudService.deleteAssignedRequisito(idSolicitud, idRequisito);
+  }
+
+  @Get('requisitos')
+  async getAllRequisitos(
+    @Query('page') page: string = '1',
+    @Query('pageSize') pageSize: string = '15',
+  ) {
+    return this.registroSolicitudService.getAllRequisitos(Number(page), Number(pageSize));
+  }
+
+  @Post('solicitud/:idSolicitud/requisitos')
+  async saveAssignedRequisitos(
+    @Param('idSolicitud') idSolicitud: string,
+    @Body() body: { requisitos: string[] },
+    @Req() req: any,
+  ) {
+    const operador = req.user?.username ?? 'SISTEMA';
+    const estacion = req.hostname ?? 'WEB';
+    return this.registroSolicitudService.saveAssignedRequisitos(idSolicitud, body.requisitos, operador, estacion);
+  }
+
+  @Get('solicitud-pdf/:codigo/:idSolicitud')
+  async getSolicitudPdf(
+    @Param('codigo') codigo: string,
+    @Param('idSolicitud') idSolicitud: string,
+    @Res() res: Response,
+  ) {
+    const pdfBuffer = await this.registroSolicitudService.generateSolicitudPdf(codigo, idSolicitud);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `inline; filename="solicitud_${idSolicitud}.pdf"`,
+      'Content-Length': pdfBuffer.length,
+    });
+    res.end(pdfBuffer);
+  }
+
   // NOTE: this generic route MUST be last — it catches any single-segment GET
+  @Get('vehiculo/list/:codigo')
+  async getVehiculosByContrib(@Param('codigo') codigo: string) {
+    const data = await this.registroSolicitudService.getVehiculosByContrib(codigo);
+    return { data };
+  }
+
   @Get(':codigo')
   async getById(@Param('codigo') codigo: string) {
     const data = await this.registroSolicitudService.getById(codigo);

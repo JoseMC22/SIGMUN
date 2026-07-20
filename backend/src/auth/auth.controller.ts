@@ -33,7 +33,7 @@ function getAuthCookieOptions() {
   return {
     httpOnly: true,
     secure: isProduction,
-    sameSite: isProduction ? 'strict' as const : 'lax' as const,
+    sameSite: isProduction ? ('strict' as const) : ('lax' as const),
     path: '/',
     maxAge: SESSION_COOKIE_MAX_AGE_MS,
   };
@@ -59,17 +59,18 @@ export class AuthController {
           authenticated: false,
           errorCode: 'AUTH_CONTRACT_MISMATCH',
           message: messages,
-        } as AuthErrorResponse);
+        });
       }
       throw new BadRequestException({
         authenticated: false,
         errorCode: 'AUTH_CONTRACT_MISMATCH',
         message: 'Datos de entrada inválidos.',
-      } as AuthErrorResponse);
+      });
     }
 
     try {
-      const { accessToken, response: authResponse } = await this.authService.login(dto);
+      const { accessToken, response: authResponse } =
+        await this.authService.login(dto);
 
       response.cookie(COOKIE_NAME, accessToken, getAuthCookieOptions());
       return authResponse;
@@ -79,7 +80,7 @@ export class AuthController {
           authenticated: false,
           errorCode: 'AUTH_INVALID_CREDENTIALS',
           message: 'Invalid credentials',
-        } as AuthErrorResponse);
+        });
       }
 
       if (error instanceof BadRequestException) {

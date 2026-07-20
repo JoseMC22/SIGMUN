@@ -1,14 +1,16 @@
-import { Controller, Post, Get, Delete, Param, Body, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Delete,
+  Param,
+  Body,
+  UseGuards,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PerfilesService } from './perfiles.service';
-import {
-  SearchPerfilSchema,
-  SearchPerfilDto,
-} from './dto/search-perfil.dto';
-import {
-  SavePerfilSchema,
-  SavePerfilDto,
-} from './dto/save-perfil.dto';
+import { SearchPerfilSchema, SearchPerfilDto } from './dto/search-perfil.dto';
+import { SavePerfilSchema, SavePerfilDto } from './dto/save-perfil.dto';
 import {
   PerfilRow,
   PaginatedResponse,
@@ -33,9 +35,7 @@ export class PerfilesController {
   // ── Save / Update ─────────────────────────────────────────
 
   @Post('save')
-  async save(
-    @Body() dto: SavePerfilDto,
-  ): Promise<{ data: { id: string } }> {
+  async save(@Body() dto: SavePerfilDto): Promise<{ data: { id: string } }> {
     const parsed = SavePerfilSchema.parse(dto);
     const data = await this.perfilesService.save(parsed);
     return { data };
