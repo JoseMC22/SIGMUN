@@ -8,6 +8,9 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
+import * as dns from 'dns';
+import * as os from 'os';
+import { promisify } from 'util';
 import { DatabaseService } from '../database/database.service';
 import {
   LoginDto,
@@ -17,6 +20,20 @@ import {
 } from './dto/auth.dto';
 
 const INACTIVITY_TTL_MS = 20 * 60 * 1000; // 20 minutos sin actividad → sesión expira
+const reverseDns = promisify(dns.reverse);
+
+/** Hostnames que NO son nombres reales de PC */
+const INVALID_HOSTNAMES = new Set([
+  'GATEWAY', 'ROUTER', 'MODEM', 'LOCALHOST', 'UNKNOWN',
+  'WORKGROUP', 'MINWINPC', '(UNKNOWN)', '',
+]);
+
+/** Datos extendidos de sesión (JWT payload + metadata del cliente) */
+export interface SessionData {
+  payload: JwtPayload;
+  hostname: string;
+  ip: string;
+}
 
 @Injectable()
 export class AuthService {
@@ -28,10 +45,58 @@ export class AuthService {
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
+  /** IPs que representan acceso local (cliente y servidor en la misma máquina) */
+  private static readonly LOCALHOST_IPS = new Set([
+    '127.0.0.1', '::1', '::ffff:127.0.0.1', 'unknown', '',
+  ]);
+
+  /**
+   * Resuelve el hostname del cliente a partir de su IP.
+   * - Si la IP es localhost → usa os.hostname() directamente (el servidor SÍ es la PC del usuario).
+   * - Si no, intenta DNS reverse y valida que no sea un nombre genérico.
+   * - Si todo falla, retorna string vacío.
+   */
+  async resolveHostname(ip: string): Promise<string> {
+    // Acceso local: el cliente y el servidor están en la misma máquina
+    if (AuthService.LOCALHOST_IPS.has(ip)) {
+      const host = os.hostname().toUpperCase();
+      this.logger.debug(`resolveHostname: IP local '${ip}' → os.hostname() = '${host}'`);
+      return host;
+    }
+
+    try {
+      const names = await reverseDns(ip);
+      if (names.length > 0) {
+        const resolved = names[0].split('.')[0].toUpperCase();
+        if (
+          resolved !== ip &&
+          !/^\d+\.\d+\.\d+\.\d+$/.test(resolved) &&
+          !INVALID_HOSTNAMES.has(resolved)
+        ) {
+          this.logger.debug(`resolveHostname: IP '${ip}' → reverse DNS = '${resolved}'`);
+          return resolved;
+        }
+        this.logger.debug(`resolveHostname: IP '${ip}' → reverse DNS '${resolved}' rechazado (inválido)`);
+      }
+    } catch {
+      this.logger.debug(`resolveHostname: IP '${ip}' → reverse DNS falló`);
+    }
+
+    // Fallback: si reverse DNS no sirvió, intentar con os.hostname()
+    const serverHostname = os.hostname().toUpperCase();
+    if (!INVALID_HOSTNAMES.has(serverHostname)) {
+      this.logger.debug(`resolveHostname: IP '${ip}' → fallback os.hostname() = '${serverHostname}'`);
+      return serverHostname;
+    }
+
+    return '';
+  }
+
   async login(
     dto: LoginDto,
+    clientIp: string,
   ): Promise<{ accessToken: string; response: LoginSuccessResponse }> {
-    try {
+    try {      
       const result = await this.db.executeProcedure<SpLoginResult>(
         '[Acceso].[sp_LogOut]',
         {
@@ -59,9 +124,14 @@ export class AuthService {
       };
 
       const accessToken = await this.jwtService.signAsync(payload);
+
+      // Resolver hostname del cliente y guardar en sesión extendida
+      const hostname = await this.resolveHostname(clientIp);
+      const sessionData: SessionData = { payload, hostname, ip: clientIp };
+
       await this.cacheManager.set(
         `session:${userData.id_usuario}`,
-        payload,
+        sessionData,
         INACTIVITY_TTL_MS,
       );
 
@@ -84,6 +154,7 @@ export class AuthService {
             isEncargado: userData.cajero,
             isRemoto: userData.remoto,
           },
+          
           sessionExpiresAt: new Date(
             Date.now() + INACTIVITY_TTL_MS,
           ).toISOString(),
@@ -110,6 +181,7 @@ export class AuthService {
       this.logger.log(`Sesión cerrada para el usuario: ${username}`);
     } catch (error) {
       this.logger.error(`Error al cerrar sesión para ${username}`, error);
+      
       throw new InternalServerErrorException(
         'Error al procesar el cierre de sesión.',
       );
@@ -127,5 +199,13 @@ export class AuthService {
       INACTIVITY_TTL_MS,
     );
     return true;
+  }
+
+  async getSessionData(userId: string): Promise<SessionData | null> {
+    const session = await this.cacheManager.get<SessionData>(`session:${userId}`);
+    if (!session) return null;
+    // Sliding expiration
+    await this.cacheManager.set(`session:${userId}`, session, INACTIVITY_TTL_MS);
+    return session;
   }
 }

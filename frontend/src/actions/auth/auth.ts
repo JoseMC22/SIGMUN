@@ -75,16 +75,17 @@ export async function checkSessionAction() {
     const response = await authFetch('/auth/session', { method: 'GET', cache: 'no-store' });
 
     if (!response.ok) {
-      return { authenticated: false, user: null };
+      return { authenticated: false, user: null, hostname: '' };
     }
 
     const data = await response.json();
     return {
       authenticated: data?.authenticated === true,
       user: data?.user ?? null,
+      hostname: data?.user?.hostname ?? '',
     };
   } catch {
-    return { authenticated: false, user: null };
+    return { authenticated: false, user: null, hostname: '' };
   }
 }
 

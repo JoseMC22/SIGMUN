@@ -120,3 +120,66 @@ export interface DistritoOption {
   value: string;
   label: string;
 }
+
+// ── SP_vw_Mvias types (búsqueda de vías) ──
+
+export interface SpMviaRow {
+  cod_via: string;
+  id_zona: string;
+  nom_zona: string;
+  id_urba: string;
+  nombabr: string;
+  nombres: string;
+  tipoabr: string;
+  nombre_via: string;
+  arancel: string;
+  vcuadra: string;
+  lado_via: string;
+  ROW: number;
+}
+
+export interface MviaItem {
+  codVia: string;
+  idZona: string;
+  zona: string;
+  idUrba: string;
+  urbanizacion: string;
+  via: string;
+  nCuadra: string;
+  nLado: string;
+  arancel: string;
+}
+
+// ── SP result for busc=26 (Buscar contribuyente por nº documento) ──
+
+export interface SpMBuscarContribuyenteRow {
+  nombres: string;
+  paterno: string;
+  materno: string;
+  codigo: string;
+  correo_e: string;
+  num_doc: string;
+}
+
+export interface BuscarContribuyenteResult {
+  encontrado: boolean;
+  nombres: string;
+  paterno: string;
+  materno: string;
+  codigo: string;
+  correo_e: string;
+  num_doc: string;
+}
+
+// ── SP result for busc=25 (Validar si debe agregar representante) ──
+
+export interface ValidarRepresentanteResult {
+  debeAgregarRepresentante: boolean;
+}
+
+// ── SP result for busc=1 (Guardar contribuyente) ──
+
+export interface GuardarContribuyenteResult {
+  codigo: string;
+  mensaje: string;
+}

@@ -17,6 +17,7 @@ out/
 .vscode/
 .idea/
 .trae/
+frontend/.gitignore
 
 # OS
 .DS_Store
@@ -35,6 +36,7 @@ pnpm-debug.log*
 
 # Agent workspace
 .atl/
+openspec/
 
 # Test coverage
 coverage/

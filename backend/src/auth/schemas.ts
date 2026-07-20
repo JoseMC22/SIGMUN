@@ -45,5 +45,6 @@ export const sessionCheckSuccessSchema = z.object({
     id: z.string(),
     name: z.string(),
     roles: z.array(z.string()),
+    hostname: z.string().optional(),
   }),
 });

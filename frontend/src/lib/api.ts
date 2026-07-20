@@ -86,41 +86,58 @@ export function clearAuth(): void {
 }
 
 const PC_NAME_KEY = 'sigmun_pc_name';
+const PC_NAME_MANUAL_KEY = 'sigmun_pc_name_manual';
+
+/** Hostnames que NO son nombres reales de PC */
+const INVALID_HOSTNAMES = new Set([
+  'GATEWAY', 'ROUTER', 'MODEM', 'LOCALHOST', 'UNKNOWN',
+  'WORKGROUP', 'MINWINPC', '(UNKNOWN)', '',
+]);
+
+function isValidPcName(name: string): boolean {
+  if (!name || !name.trim()) return false;
+  const upper = name.toUpperCase().trim();
+  if (INVALID_HOSTNAMES.has(upper)) return false;
+  // Rechazar si es solo una IP
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(upper)) return false;
+  // Rechazar si tiene caracteres sospechosos
+  if (/[^A-Z0-9\-_]/.test(upper)) return false;
+  return true;
+}
 
 /**
  * Obtiene el nombre de la PC.
- * Siempre consulta al backend (que usa DNS reverse lookup + os.hostname() como fallback).
- * El valor manual del usuario (localStorage) solo se usa si fue configurado explícitamente.
+ * Si el usuario configuró manualmente el nombre, se usa ese.
+ * Si no, consulta al backend (DNS reverse lookup) y valida el resultado.
  */
 export async function fetchPcName(): Promise<string> {
-  // 1. If user manually configured PC name in localStorage, use it first
-  if (typeof window !== 'undefined') {
-    const stored = localStorage.getItem(PC_NAME_KEY);
-    if (stored && stored.trim()) return stored;
-  }
-  // 2. Try backend (DNS reverse lookup + server hostname fallback)
+  if (typeof window === 'undefined') return '';
+
+  // 1. Si el usuario configuró manualmente, usar ese
+  const manual = localStorage.getItem(PC_NAME_MANUAL_KEY);
+  if (manual && manual.trim()) return manual.trim();
+
+  // 2. Si hay un cache válido (no inválido), usarlo
+  const cached = localStorage.getItem(PC_NAME_KEY);
+  if (cached && isValidPcName(cached)) return cached;
+
+  // Si el cache es inválido, limpiarlo
+  if (cached) localStorage.removeItem(PC_NAME_KEY);
+
+  // 3. Consultar backend
   try {
     const response = await fetch(`${API_BASE_URL}/auth/client-info`, {
       credentials: 'include',
     });
     if (response.ok) {
       const data = await response.json();
-      if (data.hostname && data.hostname !== 'unknown') {
-        // Save to localStorage for sync access
-        if (typeof window !== 'undefined') {
-          localStorage.setItem(PC_NAME_KEY, data.hostname);
-        }
+      if (data.hostname && isValidPcName(data.hostname)) {
+        localStorage.setItem(PC_NAME_KEY, data.hostname);
         return data.hostname;
       }
     }
   } catch {
     // ignore
-  }
-
-  // 2. Fallback to localStorage if backend fails
-  if (typeof window !== 'undefined') {
-    const stored = localStorage.getItem(PC_NAME_KEY);
-    if (stored) return stored;
   }
 
   return '';
@@ -131,7 +148,11 @@ export async function fetchPcName(): Promise<string> {
  */
 export function setPcName(name: string): void {
   if (typeof window !== 'undefined') {
-    localStorage.setItem(PC_NAME_KEY, name);
+    if (name && name.trim()) {
+      localStorage.setItem(PC_NAME_MANUAL_KEY, name.trim());
+    } else {
+      localStorage.removeItem(PC_NAME_MANUAL_KEY);
+    }
   }
 }
 
@@ -140,6 +161,8 @@ export function setPcName(name: string): void {
  */
 export function getPcName(): string {
   if (typeof window === 'undefined') return '';
+  const manual = localStorage.getItem(PC_NAME_MANUAL_KEY);
+  if (manual) return manual;
   return localStorage.getItem(PC_NAME_KEY) || '';
 }
 

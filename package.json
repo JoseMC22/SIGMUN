@@ -1,9 +1,9 @@
 {
 	"scripts": {
-		"dev:frontend": "cd frontend && pnpm dev",
-		"dev:backend": "cd backend && pnpm start:dev",
-		"build:frontend": "cd frontend && pnpm build",
-		"build:backend": "cd backend && pnpm build",
+		"dev:frontend": "pnpm --filter frontend dev",
+		"dev:backend": "pnpm --filter backend start:dev",
+		"build:frontend": "pnpm --filter frontend build",
+		"build:backend": "pnpm --filter backend build",
 		"build": "pnpm build:frontend && pnpm build:backend",
 		"lint": "pnpm --filter frontend lint && pnpm --filter backend lint",
 		"test": "pnpm --filter frontend test && pnpm --filter backend test",

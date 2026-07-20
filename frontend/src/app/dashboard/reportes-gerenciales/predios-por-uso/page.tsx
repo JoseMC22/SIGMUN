@@ -199,10 +199,11 @@ export default function PrediosUsoPage() {
       const allData = await fetchAllRecords();
       const { default: jsPDF } = await import("jspdf");
       const { default: autoTable } = await import("jspdf-autotable");
-      const doc = new jsPDF({ orientation: "landscape" });
-      doc.text("Predios por Uso", 14, 10);
+      const doc = new jsPDF({ orientation: "landscape", unit: "mm" });
+      doc.text("Predios por Uso", 2, 4);
       autoTable(doc, {
-        startY: 16,
+        startY: 6,
+        margin: { top: 1.5, right: 1.5, bottom: 1.5, left: 1.5 },
         head: [["Tipo", "Uso", "Predios", "Condición", "Total", "Año"]],
         body: allData.map((r) => [
           r.tipo,
@@ -212,8 +213,16 @@ export default function PrediosUsoPage() {
           String(r.count),
           String(r.anno),
         ]),
-        styles: { fontSize: 8 },
+        styles: { fontSize: 5, cellPadding: 0.3 },
         headStyles: { fillColor: [30, 48, 80] },
+        columnStyles: {
+          0: { cellWidth: 30 },
+          1: { cellWidth: 80 },
+          2: { cellWidth: 30 },
+          3: { cellWidth: 63 },
+          4: { cellWidth: 45 },
+          5: { cellWidth: 45 },
+        },
       });
       doc.save("predios-por-uso.pdf");
     } catch {
