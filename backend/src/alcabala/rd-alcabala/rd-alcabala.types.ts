@@ -119,3 +119,32 @@ export interface GenerarRdResult {
   data?: any[];
   error?: string;
 }
+
+// SP result: Rentas.sp_Imprime_alcabala @buscar=1
+export interface SpImprimeAlcabalaRow {
+  id_valor: string;
+  num_val: string;
+  ano_val: string;
+  tributo: string;
+  numerOP: string;
+  fec_val: string;
+  fecvaln: string;
+  fec_valn: string;
+  codigo: string;
+  nombre: string;
+  num_doc: string;
+  dirfiscal: string;
+  idrecibo: number;
+  anio_fiscal: string;
+  valortotal: number;
+  monto_afecto: number;
+  monto_inafecto: number;
+  tasa: string;
+  monto_alcabala: number;
+  mora: number;
+  total: number;
+  codpred: string;
+  direccion_predio: string;
+  fechacontrato: string;
+  fono: string;
+}

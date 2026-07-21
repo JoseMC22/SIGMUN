@@ -85,6 +85,14 @@ function CrearRDModal({
       return;
     }
 
+    // Build the registros array with idrecibo and anio for each selected pendiente
+    const registros = pendientes
+      .filter((p) => selectedIds.has(p.idrecibo))
+      .map((p) => ({
+        idrecibo: p.idrecibo,
+        anio: p.anio,
+      }));
+
     setProcesando(true);
     try {
       const response = await fetch('/api/alcabala/rd-alcabala/generar-rd', {
@@ -92,7 +100,7 @@ function CrearRDModal({
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ ids: Array.from(selectedIds) }),
+        body: JSON.stringify({ registros }),
       });
 
       const result = await response.json();

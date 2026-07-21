@@ -6,6 +6,7 @@ import { GenerarRdDto } from './dto/generar-rd.dto';
 import {
   SpMContribuyenteSearchRow,
   SpPendienteAlcabalaRow,
+  SpImprimeAlcabalaRow,
   ContribuyenteSearchResult,
   ContribuyenteSearchItem,
   PendienteAlcabalaItem,
@@ -148,18 +149,82 @@ export class RdAlcabalaService {
   }
 
   async generarRD(dto: GenerarRdDto): Promise<GenerarRdResult> {
-    const { ids } = dto;
+    const { registros } = dto;
 
-    // TODO: reemplazar por el SP de generación de RD cuando esté disponible
-    // Por ahora devolvemos un resultado simulado
-    return {
-      success: true,
-      message: `RD generada exitosamente para ${ids.length} registro(s)`,
-      data: ids.map((id, index) => ({
-        idrecibo: id,
-        estado: 'GENERADO',
-        correlativo: `RD-${Date.now()}-${index + 1}`,
-      })),
-    };
+    if (!registros || registros.length === 0) {
+      return {
+        success: false,
+        error: 'Debe seleccionar al menos un registro',
+      };
+    }
+
+    try {
+      const results: SpImprimeAlcabalaRow[] = [];
+
+      for (const registro of registros) {
+        const numVal = String(registro.idrecibo).padStart(7, '0');
+        const anoVal = String(registro.anio);
+
+        const result = await this.db.executeProcedure<any>(
+          'Rentas.sp_Imprime_alcabala',
+          {
+            buscar: 1,
+            id_valor: '08',
+            num_val: numVal,
+            ano_val: anoVal,
+          },
+        );
+
+        const row = result.recordset?.[0];
+        if (row) {
+          results.push({
+            id_valor: row.id_valor ?? '',
+            num_val: row.num_val ?? '',
+            ano_val: row.ano_val ?? '',
+            tributo: row.tributo ?? '',
+            numerOP: row.numerOP ?? '',
+            fec_val: row.fec_val ?? '',
+            fecvaln: row.fecvaln ?? '',
+            fec_valn: row.fec_valn ?? '',
+            codigo: row.codigo ?? '',
+            nombre: row.nombre ?? '',
+            num_doc: row.num_doc ?? '',
+            dirfiscal: row.dirfiscal ?? '',
+            idrecibo: Number(row.idrecibo ?? 0),
+            anio_fiscal: row.anio_fiscal ?? '',
+            valortotal: Number(row.valortotal ?? 0),
+            monto_afecto: Number(row.monto_afecto ?? 0),
+            monto_inafecto: Number(row.monto_inafecto ?? 0),
+            tasa: row.tasa ?? '',
+            monto_alcabala: Number(row.monto_alcabala ?? 0),
+            mora: Number(row.mora ?? 0),
+            total: Number(row.total ?? 0),
+            codpred: row.codpred ?? '',
+            direccion_predio: row.direccion_predio ?? '',
+            fechacontrato: row.fechacontrato ?? '',
+            fono: row.fono ?? '',
+          });
+        }
+      }
+
+      if (results.length === 0) {
+        return {
+          success: false,
+          error: 'No se pudo generar el reporte de RD',
+        };
+      }
+
+      return {
+        success: true,
+        message: `RD generada exitosamente para ${results.length} registro(s)`,
+        data: results,
+      };
+    } catch (err) {
+      this.logger.error(`[RdAlcabala] generarRD SP error: ${err}`);
+      return {
+        success: false,
+        error: 'Error al generar la RD de Alcabala',
+      };
+    }
   }
 }
