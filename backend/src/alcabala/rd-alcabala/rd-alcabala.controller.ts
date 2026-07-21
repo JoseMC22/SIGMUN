@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Query, Body, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RdAlcabalaService } from './rd-alcabala.service';
 import {
@@ -9,7 +9,8 @@ import {
   SearchPendientesSchema,
   SearchPendientesDto,
 } from './dto/search-pendientes.dto';
-import { ContribuyenteSearchResult, PendienteAlcabalaResult } from './rd-alcabala.types';
+import { GenerarRdSchema, GenerarRdDto } from './dto/generar-rd.dto';
+import { ContribuyenteSearchResult, PendienteAlcabalaResult, GenerarRdResult } from './rd-alcabala.types';
 import { z } from 'zod';
 
 @Controller('alcabala/rd-alcabala')
@@ -73,5 +74,25 @@ export class RdAlcabalaController {
       };
     }
     return this.service.searchPendientes(dto);
+  }
+
+  @Post('generar-rd')
+  async generarRD(@Body() body: Record<string, any>): Promise<GenerarRdResult> {
+    let dto: GenerarRdDto;
+    try {
+      dto = GenerarRdSchema.parse(body);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return {
+          success: false,
+          error: error.issues.map((i) => i.message).join(', ') || 'Parámetros inválidos',
+        };
+      }
+      return {
+        success: false,
+        error: 'Parámetros inválidos',
+      };
+    }
+    return this.service.generarRD(dto);
   }
 }

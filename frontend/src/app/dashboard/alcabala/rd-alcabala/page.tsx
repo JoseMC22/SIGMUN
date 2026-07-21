@@ -25,13 +25,16 @@ function CrearRDModal({
   onClose: () => void;
 }) {
   const [pendientes, setPendientes] = useState<PendienteAlcabalaItem[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [procesando, setProcesando] = useState(false);
 
   useEffect(() => {
     let active = true;
     setLoading(true);
     setError(null);
+    setSelectedIds(new Set());
 
     searchPendientesAction({ codigo: row.codigo })
       .then((result) => {
@@ -55,6 +58,57 @@ function CrearRDModal({
       active = false;
     };
   }, [row.codigo]);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === pendientes.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(pendientes.map((p) => p.idrecibo)));
+    }
+  };
+
+  const handleProcesarRD = async () => {
+    if (selectedIds.size === 0) {
+      alert('Debe seleccionar al menos un registro');
+      return;
+    }
+
+    setProcesando(true);
+    try {
+      const response = await fetch('/api/alcabala/rd-alcabala/generar-rd', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ ids: Array.from(selectedIds) }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        alert(result.message || 'RD generada exitosamente');
+        onClose();
+      } else {
+        alert(result.error || 'Error al generar RD');
+      }
+    } catch (err) {
+      alert('Error de conexión');
+    } finally {
+      setProcesando(false);
+    }
+  };
 
   return (
     <div
@@ -140,6 +194,7 @@ function CrearRDModal({
             <div className="overflow-hidden rounded-lg border border-slate-200 shadow-sm">
               <table className="w-full table-fixed border-collapse">
                 <colgroup>
+                  <col className="w-[4%]" />
                   <col className="w-[10%]" />
                   <col className="w-[8%]" />
                   <col className="w-[10%]" />
@@ -155,6 +210,14 @@ function CrearRDModal({
                 </colgroup>
                 <thead className="bg-gradient-to-r from-sat-navy to-[#1e3050]">
                   <tr>
+                    <th className="text-center text-[11px] font-semibold text-white/90 uppercase px-2 py-2.5 border-b border-white/5">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.size === pendientes.length && pendientes.length > 0}
+                        onChange={toggleSelectAll}
+                        className="h-3.5 w-3.5 rounded border-slate-300 text-sat-cyan focus:ring-sat-cyan/30"
+                      />
+                    </th>
                     <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Tributo</th>
                     <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Año</th>
                     <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Predio</th>
@@ -177,6 +240,14 @@ function CrearRDModal({
                         idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"
                       }`}
                     >
+                      <td className="px-2 py-1.5 text-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(row.idrecibo)}
+                          onChange={() => toggleSelect(row.idrecibo)}
+                          className="h-3.5 w-3.5 rounded border-slate-300 text-sat-cyan focus:ring-sat-cyan/30"
+                        />
+                      </td>
                       <td className="px-2 py-1.5 text-[11px] font-medium text-slate-800 truncate">
                         {row.tributo || '—'}
                       </td>
@@ -222,21 +293,39 @@ function CrearRDModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 border-t border-slate-200 bg-slate-50/50 px-5 py-3 rounded-b-xl">
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-4 py-1.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-4 py-1.5 text-[11px] font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
-          >
-            <Plus size={13} />
-            Generar RD
-          </button>
+        <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50/50 px-5 py-3 rounded-b-xl">
+          <div className="text-[11px] text-slate-500">
+            {selectedIds.size > 0
+              ? `${selectedIds.size} registro(s) seleccionado(s)`
+              : 'Seleccione al menos un registro para procesar'}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-4 py-1.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleProcesarRD}
+              disabled={selectedIds.size === 0 || procesando}
+              className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-4 py-1.5 text-[11px] font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {procesando ? (
+                <>
+                  <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  Procesando...
+                </>
+              ) : (
+                <>
+                  <Plus size={13} />
+                  Procesar RD
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>

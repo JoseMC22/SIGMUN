@@ -112,3 +112,10 @@ export interface PendienteAlcabalaResult {
   total: number;
   error?: string;
 }
+
+export interface GenerarRdResult {
+  success: boolean;
+  message?: string;
+  data?: any[];
+  error?: string;
+}

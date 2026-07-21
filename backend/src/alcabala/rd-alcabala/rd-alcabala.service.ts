@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 import { SearchContribuyenteDto } from './dto/search-contribuyente.dto';
 import { SearchPendientesDto } from './dto/search-pendientes.dto';
+import { GenerarRdDto } from './dto/generar-rd.dto';
 import {
   SpMContribuyenteSearchRow,
   SpPendienteAlcabalaRow,
@@ -9,6 +10,7 @@ import {
   ContribuyenteSearchItem,
   PendienteAlcabalaItem,
   PendienteAlcabalaResult,
+  GenerarRdResult,
 } from './rd-alcabala.types';
 
 @Injectable()
@@ -107,7 +109,7 @@ export class RdAlcabalaService {
         const impReaj = Number(row.imp_reaj ?? 0);
         const mora = Number(row.mora ?? 0);
         const costoEmis = Number(row.costo_emis ?? 0);
-        const total = impInsol + impReaj + mora + costoEmis;
+        const total = impReaj + mora + costoEmis;
 
         return {
           tributo: row.tipo_docu ?? '',
@@ -143,5 +145,21 @@ export class RdAlcabalaService {
         error: 'Error al consultar pendientes de alcabala',
       };
     }
+  }
+
+  async generarRD(dto: GenerarRdDto): Promise<GenerarRdResult> {
+    const { ids } = dto;
+
+    // TODO: reemplazar por el SP de generación de RD cuando esté disponible
+    // Por ahora devolvemos un resultado simulado
+    return {
+      success: true,
+      message: `RD generada exitosamente para ${ids.length} registro(s)`,
+      data: ids.map((id, index) => ({
+        idrecibo: id,
+        estado: 'GENERADO',
+        correlativo: `RD-${Date.now()}-${index + 1}`,
+      })),
+    };
   }
 }
