@@ -20,9 +20,11 @@ import type { ContribuyenteSearchItem, ContribuyenteSearchResult, PendienteAlcab
 function CrearRDModal({
   row,
   onClose,
+  onDocumentoGenerado,
 }: {
   row: ContribuyenteSearchItem;
   onClose: () => void;
+  onDocumentoGenerado: (data: any) => void;
 }) {
   const [pendientes, setPendientes] = useState<PendienteAlcabalaItem[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -106,8 +108,7 @@ function CrearRDModal({
       const result = await response.json();
 
       if (result.success) {
-        alert(result.message || 'RD generada exitosamente');
-        onClose();
+        onDocumentoGenerado(result.data);
       } else {
         alert(result.error || 'Error al generar RD');
       }
@@ -399,6 +400,8 @@ export default function RdAlcabalaPage() {
   const [initialLoading, setInitialLoading] = useState(true);
 
   const [crearRow, setCrearRow] = useState<ContribuyenteSearchItem | null>(null);
+  const [documentoGenerado, setDocumentoGenerado] = useState<any>(null);
+  const [mostrarDocumento, setMostrarDocumento] = useState(false);
 
   // Clear fields when search criterion changes
   useEffect(() => {
@@ -961,8 +964,195 @@ export default function RdAlcabalaPage() {
         <CrearRDModal
           row={crearRow}
           onClose={() => setCrearRow(null)}
+          onDocumentoGenerado={(data) => {
+            setDocumentoGenerado(data);
+            setMostrarDocumento(true);
+          }}
         />
       )}
+
+      {/* Visualizar documento de RD */}
+      {mostrarDocumento && documentoGenerado && (
+        <DocumentoRDModal
+          data={documentoGenerado}
+          onClose={() => {
+            setMostrarDocumento(false);
+            setDocumentoGenerado(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Documento RD Modal ────────────────────────────────────
+
+function DocumentoRDModal({
+  data,
+  onClose,
+}: {
+  data: any[];
+  onClose: () => void;
+}) {
+  const registro = data[0] || {};
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Documento RD Alcabala"
+    >
+      <div className="relative mx-4 w-full max-w-4xl max-h-[90vh] flex flex-col rounded-xl border border-slate-200 bg-white shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-5 py-3 rounded-t-xl">
+          <div className="flex items-center gap-2">
+            <div className="w-0.5 h-3.5 bg-sat-cyan rounded-full" />
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
+              Documento RD Alcabala
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+            aria-label="Cerrar"
+          >
+            <span className="text-sm">✕</span>
+          </button>
+        </div>
+
+        {/* Documento */}
+        <div className="flex-1 overflow-auto px-5 py-4">
+          <div className="print:p-0 print:shadow-none">
+            {/* Encabezado del documento */}
+            <div className="border border-slate-300 p-4 mb-4">
+              <div className="text-center mb-4">
+                <h2 className="text-sm font-bold text-slate-800">
+                  SERVICIO DE ADMINISTRACIÓN TRIBUTARIA
+                </h2>
+                <h3 className="text-xs font-semibold text-slate-700">
+                  DEPARTAMENTO DE REGISTRO Y FISCALIZACIÓN
+                </h3>
+                <h4 className="text-[10px] text-slate-600">
+                  SUB GERENCIA DE OPERACIONES
+                </h4>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 text-[10px]">
+                <div>
+                  <span className="font-semibold">CÓDIGO:</span> {registro.codigo || '-'}
+                </div>
+                <div>
+                  <span className="font-semibold">EJERCICIO FISCAL:</span> {registro.anio_fiscal || registro.ano_val || '-'}
+                </div>
+                <div>
+                  <span className="font-semibold">TRIBUTO:</span> {registro.tributo || '-'}
+                </div>
+                <div>
+                  <span className="font-semibold">FECHA DE EMISIÓN:</span> {registro.fec_val || '-'}
+                </div>
+              </div>
+
+              <div className="mt-3 pt-3 border-t border-slate-200">
+                <div className="text-[10px] space-y-1">
+                  <div>
+                    <span className="font-semibold">I.- DEL CONTRIBUYENTE:</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 ml-4">
+                    <div>
+                      <span className="font-semibold">APELLIDOS Y NOMBRES / RAZÓN SOCIAL:</span>
+                      <div className="ml-2">{registro.nombre || '-'}</div>
+                    </div>
+                    <div>
+                      <span className="font-semibold">DOCUMENTO DE IDENTIDAD / RUC:</span>
+                      <div className="ml-2">{registro.num_doc || '-'}</div>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="font-semibold">DOMICILIO FISCAL:</span>
+                      <div className="ml-2">{registro.dirfiscal || '-'}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-3 pt-3 border-t border-slate-200">
+                <div className="text-[10px]">
+                  <div className="font-semibold">II.- MOTIVO DE LA DETERMINACIÓN:</div>
+                  <p className="text-[10px] leading-relaxed mt-1">
+                    POR NO HABER REALIZADO EL PAGO DEL IMPUESTO DE ALCABALA, CONFORME A LEY EN EL PLAZO ESTABLECIDO, 
+                    POR LA ADQUISICIÓN DE LA PROPIEDAD UBICADA EN {registro.direccion_predio || '-'}; 
+                    MEDIANTE DOCUMENTO DE TRANSFERENCIA CELEBRADA DE FECHA {registro.fechacontrato || '-'}.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-3 pt-3 border-t border-slate-200">
+                <div className="text-[10px] space-y-2">
+                  <div className="font-semibold">III.- DETALLE DE LA DEUDA:</div>
+                  <div className="grid grid-cols-3 gap-2 ml-4">
+                    <div className="border border-slate-300 p-2 text-center">
+                      <div className="text-[9px] font-semibold">VALOR PREDIO (BASE IMPONIBLE)</div>
+                      <div className="text-xs font-bold mt-1">S/. {Number(registro.valortotal || 0).toFixed(2)}</div>
+                    </div>
+                    <div className="border border-slate-300 p-2 text-center">
+                      <div className="text-[9px] font-semibold">IMPUESTO ALCABALA</div>
+                      <div className="text-xs font-bold mt-1">S/. {Number(registro.monto_alcabala || 0).toFixed(2)}</div>
+                    </div>
+                    <div className="border border-slate-300 p-2 text-center">
+                      <div className="text-[9px] font-semibold">INTERESES</div>
+                      <div className="text-xs font-bold mt-1">S/. {Number(registro.mora || 0).toFixed(2)}</div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 ml-4 mt-2">
+                    <div className="border border-slate-300 p-2 text-center">
+                      <div className="text-[9px] font-semibold">INAFECTACIÓN 10 UIT</div>
+                      <div className="text-xs font-bold mt-1">S/. {Number(registro.monto_inafecto || 0).toFixed(2)}</div>
+                    </div>
+                    <div className="border border-slate-300 p-2 text-center">
+                      <div className="text-[9px] font-semibold">TOTAL A CANCELAR</div>
+                      <div className="text-sm font-bold mt-1 text-sat-cyan">S/. {Number(registro.total || 0).toFixed(2)}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-3 pt-3 border-t border-slate-200 text-[9px] text-slate-600">
+                <div className="font-semibold">IV.- BASE LEGAL:</div>
+                <ul className="list-disc ml-4 mt-1 space-y-0.5">
+                  <li>Art. 194º - 195º de la Constitución Política del Perú</li>
+                  <li>Arts.21º al 29º de la Ley de Tributación Municipal D. L. 776 y su Modificatoria D.L. 952</li>
+                  <li>Art. 76º -77º - Inc. 1 al 7 D.S. 133-2013-EF TUO del Código Tributario</li>
+                  <li>Art. 69º - 70º Ley Nº 27972 Ley Orgánica de Municipalidades</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer con botones */}
+        <div className="flex items-center justify-end gap-2 border-t border-slate-200 bg-slate-50/50 px-5 py-3 rounded-b-xl">
+          <button
+            type="button"
+            onClick={handlePrint}
+            className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-4 py-1.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
+          >
+            <span className="text-xs">🖨️</span>
+            Imprimir / PDF
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-4 py-1.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
