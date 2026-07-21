@@ -12,33 +12,50 @@ import {
   Loader2,
   Plus,
 } from "lucide-react";
-import { searchContribuyenteAction } from "@/actions/alcabala/rd-alcabala";
-import type { ContribuyenteSearchItem, ContribuyenteSearchResult } from "@/actions/alcabala/rd-alcabala";
+import { searchContribuyenteAction, searchPendientesAction } from "@/actions/alcabala/rd-alcabala";
+import type { ContribuyenteSearchItem, ContribuyenteSearchResult, PendienteAlcabalaItem, PendienteAlcabalaResult } from "@/actions/alcabala/rd-alcabala";
+
+// ── Types ──────────────────────────────────────────────────
+
+type ModoVista = 'pendientes' | 'contribuyentes';
 
 // ── Crear RD Modal ────────────────────────────────────────
 
 function CrearRDModal({
   row,
   onClose,
+  modo,
 }: {
-  row: ContribuyenteSearchItem;
+  row: ContribuyenteSearchItem | PendienteAlcabalaItem;
   onClose: () => void;
+  modo: ModoVista;
 }) {
-  // TODO: implementar lógica de creación de RD de Alcabala
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    alert('Backend pendiente. Aquí se enviará la solicitud de generación de RD.');
+  };
+
+  const esPendiente = modo === 'pendientes';
+  const pendiente = esPendiente ? (row as PendienteAlcabalaItem) : null;
+  const contribuyente = !esPendiente ? (row as ContribuyenteSearchItem) : null;
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in"
       role="dialog"
       aria-modal="true"
-      aria-label="Crear RD Alcabala"
+      aria-label="Generar RD Alcabala"
     >
-      <div className="relative mx-4 w-full max-w-2xl max-h-[85vh] flex flex-col rounded-xl border border-slate-200 bg-white shadow-2xl">
+      <form
+        onSubmit={handleSubmit}
+        className="relative mx-4 w-full max-w-2xl max-h-[85vh] flex flex-col rounded-xl border border-slate-200 bg-white shadow-2xl"
+      >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-5 py-3 rounded-t-xl">
           <div className="flex items-center gap-2">
             <div className="w-0.5 h-3.5 bg-sat-cyan rounded-full" />
             <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
-              Crear RD Alcabala
+              Generar RD Alcabala
             </span>
           </div>
           <button
@@ -51,41 +68,153 @@ function CrearRDModal({
           </button>
         </div>
 
-        {/* Contribuyente info */}
+        {/* Info del registro */}
         <div className="border-b border-slate-100 bg-slate-50/50 px-5 py-3">
-          <div className="grid grid-cols-3 gap-4 text-[11px]">
-            <div>
-              <span className="text-slate-400 font-semibold uppercase tracking-wider text-[9px]">
-                Contribuyente
-              </span>
-              <p className="text-slate-800 font-medium mt-0.5 truncate">
-                {[row.paterno, row.materno, row.nombres].filter(Boolean).join(' ') || "—"}
-              </p>
+          {esPendiente && pendiente ? (
+            <div className="grid grid-cols-3 gap-4 text-[11px]">
+              <div>
+                <span className="text-slate-400 font-semibold uppercase tracking-wider text-[9px]">
+                  Tributo
+                </span>
+                <p className="text-slate-800 font-medium mt-0.5 truncate">
+                  {pendiente.tributo || "—"}
+                </p>
+              </div>
+              <div>
+                <span className="text-slate-400 font-semibold uppercase tracking-wider text-[9px]">
+                  Predio / Anexo
+                </span>
+                <p className="text-slate-800 font-medium mt-0.5 font-mono">
+                  {pendiente.predio} / {pendiente.anexo}-{pendiente.subanexo}
+                </p>
+              </div>
+              <div>
+                <span className="text-slate-400 font-semibold uppercase tracking-wider text-[9px]">
+                  Período / Año
+                </span>
+                <p className="text-slate-800 font-medium mt-0.5 font-mono">
+                  {pendiente.periodo} / {pendiente.anio}
+                </p>
+              </div>
             </div>
-            <div>
-              <span className="text-slate-400 font-semibold uppercase tracking-wider text-[9px]">
-                Código
-              </span>
-              <p className="text-slate-800 font-medium mt-0.5 font-mono">
-                {row.codigo || "—"}
-              </p>
+          ) : contribuyente ? (
+            <div className="grid grid-cols-3 gap-4 text-[11px]">
+              <div>
+                <span className="text-slate-400 font-semibold uppercase tracking-wider text-[9px]">
+                  Contribuyente
+                </span>
+                <p className="text-slate-800 font-medium mt-0.5 truncate">
+                  {[contribuyente.paterno, contribuyente.materno, contribuyente.nombres].filter(Boolean).join(' ') || "—"}
+                </p>
+              </div>
+              <div>
+                <span className="text-slate-400 font-semibold uppercase tracking-wider text-[9px]">
+                  Código
+                </span>
+                <p className="text-slate-800 font-medium mt-0.5 font-mono">
+                  {contribuyente.codigo || "—"}
+                </p>
+              </div>
+              <div>
+                <span className="text-slate-400 font-semibold uppercase tracking-wider text-[9px]">
+                  N° Documento
+                </span>
+                <p className="text-slate-800 font-medium mt-0.5 font-mono">
+                  {contribuyente.numDoc || "—"}
+                </p>
+              </div>
             </div>
-            <div>
-              <span className="text-slate-400 font-semibold uppercase tracking-wider text-[9px]">
-                N° Documento
-              </span>
-              <p className="text-slate-800 font-medium mt-0.5 font-mono">
-                {row.numDoc || "—"}
-              </p>
-            </div>
-          </div>
+          ) : null}
         </div>
 
-        {/* Formulario placeholder */}
-        <div className="flex-1 overflow-auto px-5 py-6">
-          <p className="text-xs text-slate-500">
-            Formulario de creación de RD Alcabala — por implementar
-          </p>
+        {/* Formulario de generación de RD */}
+        <div className="flex-1 overflow-auto px-5 py-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/* Ejercicio / Año */}
+            <div className="md:col-span-1">
+              <label
+                htmlFor="ejercicio"
+                className="block text-[9px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5 leading-none"
+              >
+                Ejercicio / Año
+              </label>
+              <input
+                id="ejercicio"
+                type="text"
+                inputMode="numeric"
+                placeholder="Ej: 2026"
+                className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] text-slate-700 placeholder-slate-400 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none"
+              />
+            </div>
+
+            {/* Mes / Período */}
+            <div className="md:col-span-1">
+              <label
+                htmlFor="periodo"
+                className="block text-[9px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5 leading-none"
+              >
+                Mes / Período
+              </label>
+              <input
+                id="periodo"
+                type="text"
+                placeholder="Ej: 07/2026"
+                className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] text-slate-700 placeholder-slate-400 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none"
+              />
+            </div>
+
+            {/* Base imponible */}
+            <div className="md:col-span-1">
+              <label
+                htmlFor="baseImponible"
+                className="block text-[9px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5 leading-none"
+              >
+                Base imponible (S/.)
+              </label>
+              <input
+                id="baseImponible"
+                type="text"
+                inputMode="decimal"
+                placeholder="0.00"
+                className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] text-slate-700 placeholder-slate-400 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none"
+              />
+            </div>
+
+            {/* Tipo de RD */}
+            <div className="md:col-span-1">
+              <label
+                htmlFor="tipoRd"
+                className="block text-[9px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5 leading-none"
+              >
+                Tipo de RD
+              </label>
+              <select
+                id="tipoRd"
+                className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] text-slate-700 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none"
+              >
+                <option value="">Seleccionar...</option>
+                <option value="ALCABALA">Alcabala</option>
+                <option value="VEHICULAR">Vehicular</option>
+                <option value="PREDIAL">Predial</option>
+              </select>
+            </div>
+
+            {/* Observaciones */}
+            <div className="md:col-span-2">
+              <label
+                htmlFor="observaciones"
+                className="block text-[9px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5 leading-none"
+              >
+                Observaciones
+              </label>
+              <textarea
+                id="observaciones"
+                rows={2}
+                placeholder="Observaciones adicionales para la RD..."
+                className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] text-slate-700 placeholder-slate-400 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none"
+              />
+            </div>
+          </div>
         </div>
 
         {/* Footer */}
@@ -98,27 +227,29 @@ function CrearRDModal({
             Cancelar
           </button>
           <button
-            type="button"
+            type="submit"
             className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-4 py-1.5 text-[11px] font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
           >
             <Plus size={13} />
-            Guardar RD
+            Generar RD
           </button>
         </div>
-      </div>
+      </form>
     </div>
   );
 }
 
 // ── Loading skeleton ──────────────────────────────────────
 
-function TableSkeleton() {
+function TableSkeleton({ modoVista }: { modoVista: ModoVista }) {
+  const cols = modoVista === 'pendientes' ? 12 : 5;
+
   return (
     <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
       <div className="animate-pulse">
         <div className="bg-slate-100 border-b border-slate-200 px-3 py-2.5">
-          <div className="grid grid-cols-5 gap-4">
-            {[...Array(5)].map((_, i) => (
+          <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+            {[...Array(cols)].map((_, i) => (
               <div key={i} className="h-3 bg-slate-200 rounded w-3/4" />
             ))}
           </div>
@@ -130,12 +261,12 @@ function TableSkeleton() {
               i === 4 ? "border-b-0" : ""
             }`}
           >
-            <div className="grid grid-cols-5 gap-4">
-              {[...Array(5)].map((_, j) => (
+            <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+              {[...Array(cols)].map((_, j) => (
                 <div
                   key={j}
                   className="h-3.5 bg-slate-100 rounded"
-                  style={{ width: j === 1 ? "50%" : j === 3 ? "40%" : "65%" }}
+                  style={{ width: j === 0 ? "50%" : j === cols - 1 ? "35%" : "65%" }}
                 />
               ))}
             </div>
@@ -149,6 +280,7 @@ function TableSkeleton() {
 // ── Main Page ─────────────────────────────────────────────
 
 export default function RdAlcabalaPage() {
+  const [modoVista, setModoVista] = useState<ModoVista>('pendientes');
   const [filters, setFilters] = useState({
     tipoBusqueda: 'C' as 'C' | 'N' | 'R' | 'D',
     codigo: "",
@@ -159,7 +291,7 @@ export default function RdAlcabalaPage() {
     numDoc: "",
   });
 
-  const [data, setData] = useState<ContribuyenteSearchItem[]>([]);
+  const [data, setData] = useState<(ContribuyenteSearchItem | PendienteAlcabalaItem)[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(15);
@@ -168,7 +300,7 @@ export default function RdAlcabalaPage() {
   const [error, setError] = useState<string | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
 
-  const [crearRow, setCrearRow] = useState<ContribuyenteSearchItem | null>(null);
+  const [crearRow, setCrearRow] = useState<ContribuyenteSearchItem | PendienteAlcabalaItem | null>(null);
 
   // Clear fields when search criterion changes
   useEffect(() => {
@@ -207,8 +339,36 @@ export default function RdAlcabalaPage() {
     setPage(1);
   }, [filters.tipoBusqueda]);
 
+  const loadPendientes = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await searchPendientesAction();
+      if (result.success) {
+        setData(result.data as PendienteAlcabalaItem[]);
+        setTotal(result.total);
+        setPage(1);
+        setTotalPages(1);
+      } else {
+        setError(result.error ?? "Error desconocido");
+        setData([]);
+      }
+    } catch {
+      setError("Error de conexión");
+      setData([]);
+    } finally {
+      setLoading(false);
+      setInitialLoading(false);
+    }
+  }, []);
+
   const executeSearch = useCallback(
     async (pageNum: number) => {
+      if (modoVista === 'pendientes') {
+        await loadPendientes();
+        return;
+      }
+
       setLoading(true);
       setError(null);
       try {
@@ -242,11 +402,11 @@ export default function RdAlcabalaPage() {
         setInitialLoading(false);
       }
     },
-    [filters, pageSize],
+    [filters, pageSize, modoVista, loadPendientes],
   );
 
   useEffect(() => {
-    executeSearch(1);
+    loadPendientes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -467,76 +627,183 @@ export default function RdAlcabalaPage() {
     );
   };
 
-  const renderTableHeader = () => (
-    <colgroup>
-      <col className="w-[8%]" />
-      <col className="w-[22%]" />
-      <col className="w-[15%]" />
-      <col className="w-[35%]" />
-      <col className="w-[10%]" />
-    </colgroup>
-  );
+  const renderTableHeader = () => {
+    if (modoVista === 'pendientes') {
+      return (
+        <colgroup>
+          <col className="w-[10%]" />
+          <col className="w-[8%]" />
+          <col className="w-[10%]" />
+          <col className="w-[8%]" />
+          <col className="w-[8%]" />
+          <col className="w-[8%]" />
+          <col className="w-[8%]" />
+          <col className="w-[8%]" />
+          <col className="w-[8%]" />
+          <col className="w-[8%]" />
+          <col className="w-[8%]" />
+          <col className="w-[8%]" />
+        </colgroup>
+      );
+    }
 
-  const renderTableBody = () => (
-    <tbody className="divide-y divide-slate-100">
-      {data.map((row, idx) => (
-        <tr
-          key={row.row || `contrib-${idx}`}
-          className={`transition hover:bg-slate-50 ${
-            idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"
-          }`}
-        >
-          <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate">
-            {row.codigo}
-          </td>
-          <td className="px-2 py-1.5 text-[11px] font-medium text-slate-800 truncate">
-            {[row.paterno, row.materno, row.nombres].filter(Boolean).join(' ') || '—'}
-          </td>
-          <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate">
-            {row.numDoc}
-          </td>
-          <td className="px-2 py-1.5 text-[11px] text-slate-600 truncate">
-            {row.direccion}
-          </td>
-          <td className="px-2 py-1.5">
-            <div className="flex items-center justify-center">
-              <button
-                type="button"
-                onClick={() => setCrearRow(row)}
-                className="inline-flex items-center gap-1 rounded-md bg-sat-cyan px-2.5 py-1 text-[10px] font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
-              >
-                <Plus size={12} />
-                Acción
-              </button>
-            </div>
-          </td>
-        </tr>
-      ))}
-    </tbody>
-  );
+    return (
+      <colgroup>
+        <col className="w-[8%]" />
+        <col className="w-[22%]" />
+        <col className="w-[15%]" />
+        <col className="w-[35%]" />
+        <col className="w-[10%]" />
+      </colgroup>
+    );
+  };
+
+  const renderTableBody = () => {
+    if (modoVista === 'pendientes') {
+      const pendientes = data as PendienteAlcabalaItem[];
+      return (
+        <tbody className="divide-y divide-slate-100">
+          {pendientes.map((row, idx) => (
+            <tr
+              key={row.idrecibo || `pend-${idx}`}
+              className={`transition hover:bg-slate-50 ${
+                idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"
+              }`}
+            >
+              <td className="px-2 py-1.5 text-[11px] font-medium text-slate-800 truncate">
+                {row.tributo || '—'}
+              </td>
+              <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate">
+                {row.anio}
+              </td>
+              <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate">
+                {row.predio}
+              </td>
+              <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate">
+                {row.anexo}
+              </td>
+              <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate">
+                {row.subanexo}
+              </td>
+              <td className="px-2 py-1.5 text-[11px] text-slate-600 truncate">
+                {row.periodo}
+              </td>
+              <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate text-right">
+                {row.impInsol.toFixed(2)}
+              </td>
+              <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate text-right">
+                {row.impReaj.toFixed(2)}
+              </td>
+              <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate text-right">
+                {row.factorMora.toFixed(4)}
+              </td>
+              <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate text-right">
+                {row.interes.toFixed(2)}
+              </td>
+              <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate text-right">
+                {row.costoEmis.toFixed(2)}
+              </td>
+              <td className="px-2 py-1.5 text-[11px] font-mono text-slate-700 truncate text-right font-semibold">
+                {row.total.toFixed(2)}
+              </td>
+              <td className="px-2 py-1.5">
+                <div className="flex items-center justify-center">
+                  <button
+                    type="button"
+                    onClick={() => setCrearRow(row)}
+                    className="inline-flex items-center gap-1 rounded-md bg-sat-cyan px-2.5 py-1 text-[10px] font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
+                  >
+                    <Plus size={12} />
+                    Generar RD
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      );
+    }
+
+    const contribuyentes = data as ContribuyenteSearchItem[];
+    return (
+      <tbody className="divide-y divide-slate-100">
+        {contribuyentes.map((row, idx) => (
+          <tr
+            key={row.row || `contrib-${idx}`}
+            className={`transition hover:bg-slate-50 ${
+              idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"
+            }`}
+          >
+            <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate">
+              {row.codigo}
+            </td>
+            <td className="px-2 py-1.5 text-[11px] font-medium text-slate-800 truncate">
+              {[row.paterno, row.materno, row.nombres].filter(Boolean).join(' ') || '—'}
+            </td>
+            <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate">
+              {row.numDoc}
+            </td>
+            <td className="px-2 py-1.5 text-[11px] text-slate-600 truncate">
+              {row.direccion}
+            </td>
+            <td className="px-2 py-1.5">
+              <div className="flex items-center justify-center">
+                <button
+                  type="button"
+                  onClick={() => setCrearRow(row)}
+                  className="inline-flex items-center gap-1 rounded-md bg-sat-cyan px-2.5 py-1 text-[10px] font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
+                >
+                  <Plus size={12} />
+                  Generar RD
+                </button>
+              </div>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    );
+  };
 
   const renderGrid = () => (
     <div className="overflow-hidden rounded-lg border border-slate-200 shadow-sm animate-fade-in">
       <table className="w-full table-fixed border-collapse" role="grid">
         {renderTableHeader()}
         <thead className="bg-gradient-to-r from-sat-navy to-[#1e3050]">
-          <tr>
-            <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">
-              Código
-            </th>
-            <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">
-              Nombres
-            </th>
-            <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">
-              N° Documento
-            </th>
-            <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">
-              Dirección
-            </th>
-            <th className="text-center text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">
-              Acción
-            </th>
-          </tr>
+          {modoVista === 'pendientes' ? (
+            <tr>
+              <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Tributo</th>
+              <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Año</th>
+              <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Predio</th>
+              <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Anexo</th>
+              <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Subanexo</th>
+              <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Periodo</th>
+              <th className="text-right text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Imp. Insol</th>
+              <th className="text-right text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Imp. Reaj</th>
+              <th className="text-right text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Fact. Mora</th>
+              <th className="text-right text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Interés</th>
+              <th className="text-right text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Costo Emis</th>
+              <th className="text-right text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Total</th>
+              <th className="text-center text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Acción</th>
+            </tr>
+          ) : (
+            <tr>
+              <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">
+                Código
+              </th>
+              <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">
+                Nombres
+              </th>
+              <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">
+                N° Documento
+              </th>
+              <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">
+                Dirección
+              </th>
+              <th className="text-center text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">
+                Acción
+              </th>
+            </tr>
+          )}
         </thead>
         {renderTableBody()}
       </table>
@@ -547,9 +814,9 @@ export default function RdAlcabalaPage() {
     <div className="flex items-center gap-2 text-xs text-slate-500">
       <Receipt size={13} className="text-slate-400" />
       <span>
-        Se encontraron{" "}
-        <span className="font-semibold text-slate-700">{total}</span>{" "}
-        {total === 1 ? "contribuyente" : "contribuyentes"}
+        {modoVista === 'pendientes'
+          ? <>Se encontraron <span className="font-semibold text-slate-700">{total}</span> {total === 1 ? 'registro pendiente' : 'registros pendientes'}</>
+          : <>Se encontraron <span className="font-semibold text-slate-700">{total}</span> {total === 1 ? 'contribuyente' : 'contribuyentes'}</>}
       </span>
     </div>
   );
@@ -625,10 +892,14 @@ export default function RdAlcabalaPage() {
         <SearchX size={24} className="text-slate-300" />
       </div>
       <p className="text-sm font-medium text-slate-500">
-        No se encontraron contribuyentes
+        {modoVista === 'pendientes'
+          ? 'No se encontraron alcabalas pendientes'
+          : 'No se encontraron contribuyentes'}
       </p>
       <p className="mt-1 text-xs text-slate-400">
-        Intente ajustar los filtros de búsqueda
+        {modoVista === 'pendientes'
+          ? 'No hay registros pendientes de pago'
+          : 'Intente ajustar los filtros de búsqueda'}
       </p>
     </div>
   );
@@ -677,13 +948,44 @@ export default function RdAlcabalaPage() {
               RD Alcabala
             </h1>
             <p className="text-xs text-white/50 font-inter">
-              Búsqueda de contribuyentes para creación de RD
+              {modoVista === 'pendientes'
+                ? 'Alcabalas pendientes de pago'
+                : 'Búsqueda de contribuyentes para creación de RD'}
             </p>
+          </div>
+
+          {/* Toggle modo */}
+          <div className="ml-auto flex items-center gap-1 rounded-md border border-white/10 bg-white/10 p-0.5">
+            <button
+              type="button"
+              onClick={() => {
+                setModoVista('pendientes');
+                loadPendientes();
+              }}
+              className={`rounded-md px-2.5 py-1 text-[10px] font-semibold transition ${
+                modoVista === 'pendientes'
+                  ? 'bg-white text-sat-navy shadow-sm'
+                  : 'text-white/70 hover:text-white'
+              }`}
+            >
+              Pendientes
+            </button>
+            <button
+              type="button"
+              onClick={() => setModoVista('contribuyentes')}
+              className={`rounded-md px-2.5 py-1 text-[10px] font-semibold transition ${
+                modoVista === 'contribuyentes'
+                  ? 'bg-white text-sat-navy shadow-sm'
+                  : 'text-white/70 hover:text-white'
+              }`}
+            >
+              Contribuyentes
+            </button>
           </div>
         </div>
       </div>
 
-      {renderSearchForm()}
+      {modoVista === 'contribuyentes' && renderSearchForm()}
 
       {/* Results info */}
       {!loading && !error && !initialLoading && data.length > 0 && (
@@ -693,7 +995,7 @@ export default function RdAlcabalaPage() {
       )}
 
       {/* Loading state */}
-      {loading && initialLoading && <TableSkeleton />}
+      {loading && initialLoading && <TableSkeleton modoVista={modoVista} />}
 
       {/* Loading overlay for subsequent searches */}
       {loading && !initialLoading && (
@@ -707,7 +1009,7 @@ export default function RdAlcabalaPage() {
             </div>
           </div>
           {renderGrid()}
-          {renderPagination()}
+          {modoVista === 'contribuyentes' && renderPagination()}
         </div>
       )}
 
@@ -722,7 +1024,7 @@ export default function RdAlcabalaPage() {
       {!loading && !error && data.length > 0 && (
         <>
           {renderGrid()}
-          {renderPagination()}
+          {modoVista === 'contribuyentes' && renderPagination()}
         </>
       )}
 
@@ -731,6 +1033,7 @@ export default function RdAlcabalaPage() {
         <CrearRDModal
           row={crearRow}
           onClose={() => setCrearRow(null)}
+          modo={modoVista}
         />
       )}
     </div>

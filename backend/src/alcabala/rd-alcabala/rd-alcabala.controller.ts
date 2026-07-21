@@ -5,7 +5,11 @@ import {
   SearchContribuyenteSchema,
   SearchContribuyenteDto,
 } from './dto/search-contribuyente.dto';
-import { ContribuyenteSearchResult } from './rd-alcabala.types';
+import {
+  SearchPendientesSchema,
+  SearchPendientesDto,
+} from './dto/search-pendientes.dto';
+import { ContribuyenteSearchResult, PendienteAlcabalaResult } from './rd-alcabala.types';
 import { z } from 'zod';
 
 @Controller('alcabala/rd-alcabala')
@@ -43,5 +47,31 @@ export class RdAlcabalaController {
       };
     }
     return this.service.searchContribuyente(dto);
+  }
+
+  @Get('pendientes')
+  async searchPendientes(
+    @Query() query: Record<string, string>,
+  ): Promise<PendienteAlcabalaResult> {
+    let dto: SearchPendientesDto;
+    try {
+      dto = SearchPendientesSchema.parse(query);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return {
+          success: false,
+          data: [],
+          total: 0,
+          error: error.issues.map((i) => i.message).join(', ') || 'Parámetros inválidos',
+        };
+      }
+      return {
+        success: false,
+        data: [],
+        total: 0,
+        error: 'Parámetros inválidos',
+      };
+    }
+    return this.service.searchPendientes(dto);
   }
 }
