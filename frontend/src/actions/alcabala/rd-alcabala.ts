@@ -40,6 +40,32 @@ export interface ContribuyenteSearchResult {
   error?: string;
 }
 
+export interface PendienteAlcabalaItem {
+  tributo: string;
+  anio: string;
+  predio: string;
+  anexo: string;
+  subanexo: string;
+  periodo: string;
+  impInsol: number;
+  impReaj: number;
+  factorMora: number;
+  interes: number;
+  costoEmis: number;
+  total: number;
+  estado: string;
+  observacion: string;
+  idrecibo: string;
+  codigo: string;
+}
+
+export interface PendienteAlcabalaResult {
+  success: boolean;
+  data: PendienteAlcabalaItem[];
+  total: number;
+  error?: string;
+}
+
 // ─── Server Actions ────────────────────────────────────────
 
 export async function searchContribuyenteAction(
@@ -102,6 +128,61 @@ export async function searchContribuyenteAction(
       page: 1,
       pageSize,
       totalPages: 0,
+      error: "Error de conexión con el servidor",
+    };
+  }
+}
+
+export async function searchPendientesAction(
+  filters: {
+    codigo?: string;
+    annos?: string;
+    tipos?: string;
+    tiporec?: string;
+    perio?: string;
+    predio?: string;
+    estado?: string;
+    fechaProyectada?: string;
+  } = {},
+): Promise<PendienteAlcabalaResult> {
+  try {
+    const params = new URLSearchParams();
+    if (filters.codigo) params.set("codigo", filters.codigo);
+    if (filters.annos) params.set("annos", filters.annos);
+    if (filters.tipos) params.set("tipos", filters.tipos);
+    if (filters.tiporec) params.set("tiporec", filters.tiporec);
+    if (filters.perio) params.set("perio", filters.perio);
+    if (filters.predio) params.set("predio", filters.predio);
+    if (filters.estado) params.set("estado", filters.estado);
+    if (filters.fechaProyectada) params.set("fechaProyectada", filters.fechaProyectada);
+
+    const response = await authFetch(
+      `/alcabala/rd-alcabala/pendientes?${params.toString()}`,
+      { cache: "no-store" },
+    );
+
+    if (!response.ok) {
+      const text = await response.text();
+      return {
+        success: false,
+        data: [],
+        total: 0,
+        error: text || "Error al consultar pendientes",
+      };
+    }
+
+    const json = await response.json();
+    return {
+      success: true,
+      data: json.data ?? [],
+      total: json.total ?? 0,
+      error: json.error,
+    };
+  } catch {
+    return {
+      success: false,
+      data: [],
+      total: 0,
       error: "Error de conexión con el servidor",
     };
   }

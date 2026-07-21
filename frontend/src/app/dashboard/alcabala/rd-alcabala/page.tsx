@@ -12,8 +12,8 @@ import {
   Loader2,
   Plus,
 } from "lucide-react";
-import { searchContribuyenteAction } from "@/actions/alcabala/rd-alcabala";
-import type { ContribuyenteSearchItem, ContribuyenteSearchResult } from "@/actions/alcabala/rd-alcabala";
+import { searchContribuyenteAction, searchPendientesAction } from "@/actions/alcabala/rd-alcabala";
+import type { ContribuyenteSearchItem, ContribuyenteSearchResult, PendienteAlcabalaItem, PendienteAlcabalaResult } from "@/actions/alcabala/rd-alcabala";
 
 // ── Crear RD Modal ────────────────────────────────────────
 
@@ -24,21 +24,52 @@ function CrearRDModal({
   row: ContribuyenteSearchItem;
   onClose: () => void;
 }) {
-  // TODO: implementar lógica de creación de RD de Alcabala
+  const [pendientes, setPendientes] = useState<PendienteAlcabalaItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError(null);
+
+    searchPendientesAction({ codigo: row.codigo })
+      .then((result) => {
+        if (!active) return;
+        if (result.success) {
+          setPendientes(result.data);
+        } else {
+          setError(result.error ?? "Error al cargar pendientes");
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        setError("Error de conexión");
+      })
+      .finally(() => {
+        if (!active) return;
+        setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [row.codigo]);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in"
       role="dialog"
       aria-modal="true"
-      aria-label="Crear RD Alcabala"
+      aria-label="Generar RD Alcabala"
     >
-      <div className="relative mx-4 w-full max-w-2xl max-h-[85vh] flex flex-col rounded-xl border border-slate-200 bg-white shadow-2xl">
+      <div className="relative mx-4 w-full max-w-5xl max-h-[85vh] flex flex-col rounded-xl border border-slate-200 bg-white shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-5 py-3 rounded-t-xl">
           <div className="flex items-center gap-2">
             <div className="w-0.5 h-3.5 bg-sat-cyan rounded-full" />
             <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
-              Crear RD Alcabala
+              Generar RD Alcabala
             </span>
           </div>
           <button
@@ -81,11 +112,113 @@ function CrearRDModal({
           </div>
         </div>
 
-        {/* Formulario placeholder */}
-        <div className="flex-1 overflow-auto px-5 py-6">
-          <p className="text-xs text-slate-500">
-            Formulario de creación de RD Alcabala — por implementar
-          </p>
+        {/* Pendientes table */}
+        <div className="flex-1 overflow-auto px-5 py-4">
+          {loading && (
+            <div className="flex items-center justify-center py-8">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-sat-cyan border-t-transparent" />
+              <span className="ml-2 text-xs text-slate-500">Cargando pendientes...</span>
+            </div>
+          )}
+
+          {error && (
+            <div className="flex flex-col items-center justify-center rounded-lg border border-red-200 bg-red-50 py-8">
+              <p className="text-sm font-medium text-red-600">{error}</p>
+            </div>
+          )}
+
+          {!loading && !error && pendientes.length === 0 && (
+            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-200 bg-white py-8">
+              <SearchX size={24} className="text-slate-300" />
+              <p className="mt-2 text-sm font-medium text-slate-500">
+                No se encontraron alcabalas pendientes
+              </p>
+            </div>
+          )}
+
+          {!loading && !error && pendientes.length > 0 && (
+            <div className="overflow-hidden rounded-lg border border-slate-200 shadow-sm">
+              <table className="w-full table-fixed border-collapse">
+                <colgroup>
+                  <col className="w-[10%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[8%]" />
+                </colgroup>
+                <thead className="bg-gradient-to-r from-sat-navy to-[#1e3050]">
+                  <tr>
+                    <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Tributo</th>
+                    <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Año</th>
+                    <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Predio</th>
+                    <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Anexo</th>
+                    <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Subanexo</th>
+                    <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Periodo</th>
+                    <th className="text-right text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Imp. Insol</th>
+                    <th className="text-right text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Imp. Reaj</th>
+                    <th className="text-right text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Fact. Mora</th>
+                    <th className="text-right text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Interés</th>
+                    <th className="text-right text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Costo Emis</th>
+                    <th className="text-right text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {pendientes.map((row, idx) => (
+                    <tr
+                      key={row.idrecibo || `pend-${idx}`}
+                      className={`transition hover:bg-slate-50 ${
+                        idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"
+                      }`}
+                    >
+                      <td className="px-2 py-1.5 text-[11px] font-medium text-slate-800 truncate">
+                        {row.tributo || '—'}
+                      </td>
+                      <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate">
+                        {row.anio}
+                      </td>
+                      <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate">
+                        {row.predio}
+                      </td>
+                      <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate">
+                        {row.anexo}
+                      </td>
+                      <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate">
+                        {row.subanexo}
+                      </td>
+                      <td className="px-2 py-1.5 text-[11px] text-slate-600 truncate">
+                        {row.periodo}
+                      </td>
+                      <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate text-right">
+                        {row.impInsol.toFixed(2)}
+                      </td>
+                      <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate text-right">
+                        {row.impReaj.toFixed(2)}
+                      </td>
+                      <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate text-right">
+                        {row.factorMora.toFixed(4)}
+                      </td>
+                      <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate text-right">
+                        {row.interes.toFixed(2)}
+                      </td>
+                      <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate text-right">
+                        {row.costoEmis.toFixed(2)}
+                      </td>
+                      <td className="px-2 py-1.5 text-[11px] font-mono text-slate-700 truncate text-right font-semibold">
+                        {row.total.toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
