@@ -67,6 +67,37 @@ export interface SpPendienteAlcabalaRow {
 
 // ── Domain types for frontend ──
 
+// SP result: Caja.sp_EstCta_Rentasalcabala_proyectado
+export interface SpPendienteAlcabalaRow {
+  idrecibo: string;
+  codigo: string;
+  tipo: string;
+  anno: string;
+  cod_pred: string;
+  anexo: string;
+  sub_anexo: string;
+  tipo_docu: string;
+  num_docu: string;
+  tipo_rec: string;
+  periodo: string;
+  imp_insol: number;
+  costo_emis: number;
+  fact_reaj: number;
+  imp_reaj: number;
+  fact_mora: number;
+  mora: number;
+  observacion: string;
+  estado: string;
+  ubica: string;
+  fec_venc: string;
+  num_ingr: string;
+  operador: string;
+  estacion: string;
+  fech_ing: string;
+  fec_pago: string;
+  des_tipo: string;
+}
+
 export interface ContribuyenteSearchItem {
   codigo: string;
   paterno: string;
