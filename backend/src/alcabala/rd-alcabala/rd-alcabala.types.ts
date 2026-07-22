@@ -88,6 +88,7 @@ export interface SpPendienteAlcabalaRow {
 }
 
 export interface PendienteAlcabalaItem {
+  // Campos de dominio (para la UI)
   tributo: string;
   anio: string;
   predio: string;
@@ -104,6 +105,27 @@ export interface PendienteAlcabalaItem {
   observacion: string;
   idrecibo: string;
   codigo: string;
+
+  // Campos crudos del SP (para @dataxml en generarRD)
+  tipo: string;
+  tipo_docu: string;
+  num_docu: string;
+  tipo_rec: string;
+  imp_insol: number;
+  costo_emis: number;
+  fact_reaj: number;
+  imp_reaj: number;
+  fact_mora: number;
+  imp_mora: number;
+  fec_venc: string;
+  num_ingr: string;
+  operador: string;
+  estacion: string;
+  fech_ing: string;
+  fec_pago: string;
+  des_tipo: string;
+  cod_pred: string;
+  sub_anexo: string;
 }
 
 export interface PendienteAlcabalaResult {
