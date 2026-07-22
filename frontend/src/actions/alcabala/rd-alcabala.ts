@@ -40,29 +40,63 @@ export interface ContribuyenteSearchResult {
   error?: string;
 }
 
-export interface PendienteAlcabalaItem {
+// Raw SP row (matches backend SpPendienteAlcabalaRow)
+export interface SpPendienteAlcabalaRow {
+  idrecibo: string;
+  codigo: string;
+  tipo: string;
+  anno: string;
+  cod_pred: string;
+  anexo: string;
+  sub_anexo: string;
+  tipo_docu: string;
+  num_docu: string;
+  tipo_rec: string;
+  periodo: string;
+  imp_insol: number;
+  costo_emis: number;
+  fact_reaj: number;
+  imp_reaj: number;
+  fact_mora: number;
+  mora: number;
+  observacion: string;
+  estado: string;
+  ubica: string;
+  fec_venc: string;
+  num_ingr: string;
+  operador: string;
+  estacion: string;
+  fech_ing: string;
+  fec_pago: string;
+  des_tipo: string;
+}
+
+// Frontend domain type (includes ALL raw fields for dataxml)
+export interface PendienteAlcabalaItem extends SpPendienteAlcabalaRow {
+  // Computed/renamed fields
   tributo: string;
   anio: string;
   predio: string;
-  anexo: string;
   subanexo: string;
-  periodo: string;
   impInsol: number;
   impReaj: number;
   factorMora: number;
   interes: number;
   costoEmis: number;
   total: number;
-  estado: string;
-  observacion: string;
-  idrecibo: string;
-  codigo: string;
 }
 
 export interface PendienteAlcabalaResult {
   success: boolean;
   data: PendienteAlcabalaItem[];
   total: number;
+  error?: string;
+}
+
+export interface GenerarRdResult {
+  success: boolean;
+  message?: string;
+  data?: any[];
   error?: string;
 }
 
