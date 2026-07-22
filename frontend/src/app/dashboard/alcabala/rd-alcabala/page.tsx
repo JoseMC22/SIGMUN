@@ -1,0 +1,1470 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import {
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  SearchX,
+  AlertCircle,
+  RotateCcw,
+  Receipt,
+  Loader2,
+  Plus,
+} from "lucide-react";
+import { searchContribuyenteAction, searchPendientesAction } from "@/actions/alcabala/rd-alcabala";
+import type { ContribuyenteSearchItem, ContribuyenteSearchResult, PendienteAlcabalaItem, PendienteAlcabalaResult } from "@/actions/alcabala/rd-alcabala";
+
+// ── Crear RD Modal ────────────────────────────────────────
+
+function CrearRDModal({
+  row,
+  onClose,
+  onDocumentoGenerado,
+}: {
+  row: ContribuyenteSearchItem;
+  onClose: () => void;
+  onDocumentoGenerado: (data: any) => void;
+}) {
+  const [pendientes, setPendientes] = useState<PendienteAlcabalaItem[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [procesando, setProcesando] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError(null);
+    setSelectedIds(new Set());
+
+    searchPendientesAction({ codigo: row.codigo })
+      .then((result) => {
+        if (!active) return;
+        if (result.success) {
+          setPendientes(result.data);
+        } else {
+          setError(result.error ?? "Error al cargar pendientes");
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        setError("Error de conexión");
+      })
+      .finally(() => {
+        if (!active) return;
+        setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [row.codigo]);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === pendientes.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(pendientes.map((p) => p.idrecibo)));
+    }
+  };
+
+  const handleProcesarRD = async () => {
+    if (selectedIds.size === 0) {
+      alert('Debe seleccionar al menos un registro');
+      return;
+    }
+
+    // Build the registros array with ALL fields needed for @dataxml
+    const registros = pendientes
+      .filter((p) => selectedIds.has(p.idrecibo))
+      .map((p) => {
+        // montotal no viene del SP, se calcula: imp_reaj + mora + costo_emis
+        const montotal = (p.impReaj ?? 0) + (p.interes ?? 0) + (p.costoEmis ?? 0);
+
+        // Helpers para formatear según el SP
+        const s2 = (v: any) => {  // 2 decimales: "13680.00"
+          const n = Number(v ?? 0);
+          return n.toFixed(2);
+        };
+        const s5 = (v: any) => {  // 5 decimales: "1.00000"
+          const n = Number(v ?? 0);
+          return n.toFixed(5);
+        };
+
+        return {
+          // Campos obligatorios
+          idrecibo: p.idrecibo,
+          anio: p.anio,
+          codigo: p.codigo,
+          // Datos del contribuyente para el SP generador
+          nombre: [row.paterno, row.materno, row.nombres].filter(Boolean).join(' '),
+          dirfiscal: row.direccion ?? '',
+          num_doc: row.numDoc ?? '',
+          // Campos para @dataxml del SP generador
+          num_ingr: String(p.num_ingr ?? '0'),
+          montotal: s2(montotal),
+          cod_pred: p.cod_pred ?? p.predio ?? '',
+          anexo: p.anexo ?? '',
+          sub_anexo: p.subanexo ?? p.sub_anexo ?? '',
+          tipo_rec: p.tipo_rec ?? '',
+          periodo: p.periodo ?? '',
+          imp_insol: s2(p.imp_insol ?? p.impInsol),
+          fact_reaj: s5(p.fact_reaj),
+          imp_reaj: s2(p.imp_reaj ?? p.impReaj),
+          fact_mora: s5(p.fact_mora),
+          imp_mora: s2(p.mora ?? p.interes),
+          costo_emis: s2(p.costo_emis ?? p.costoEmis),
+          observacion: p.observacion ?? '',
+          operador: p.operador ?? '',
+          estacion: p.estacion ?? '',
+          fech_ing: p.fech_ing ?? '',
+          tipo: p.tipo ?? '',
+          tipo_docu: p.tipo_docu ?? '',
+          num_docu: p.num_docu ?? '',
+          fec_venc: p.fec_venc ?? '',
+          ubica: (p as any).ubica ?? '',
+          des_tipo: p.des_tipo ?? '',
+        };
+      });
+
+    setProcesando(true);
+    try {
+      const response = await fetch('/api/alcabala/rd-alcabala/generar-rd', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ registros }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        onDocumentoGenerado(result.data);
+      } else {
+        alert(result.error || 'Error al generar RD');
+      }
+    } catch (err) {
+      alert('Error de conexión');
+    } finally {
+      setProcesando(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Generar RD Alcabala"
+    >
+      <div className="relative mx-4 w-full max-w-5xl max-h-[85vh] flex flex-col rounded-xl border border-slate-200 bg-white shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-5 py-3 rounded-t-xl">
+          <div className="flex items-center gap-2">
+            <div className="w-0.5 h-3.5 bg-sat-cyan rounded-full" />
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
+              Generar RD Alcabala
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+            aria-label="Cerrar"
+          >
+            <span className="text-sm">✕</span>
+          </button>
+        </div>
+
+        {/* Contribuyente info */}
+        <div className="border-b border-slate-100 bg-slate-50/50 px-5 py-3">
+          <div className="grid grid-cols-3 gap-4 text-[11px]">
+            <div>
+              <span className="text-slate-400 font-semibold uppercase tracking-wider text-[9px]">
+                Contribuyente
+              </span>
+              <p className="text-slate-800 font-medium mt-0.5 truncate">
+                {[row.paterno, row.materno, row.nombres].filter(Boolean).join(' ') || "—"}
+              </p>
+            </div>
+            <div>
+              <span className="text-slate-400 font-semibold uppercase tracking-wider text-[9px]">
+                Código
+              </span>
+              <p className="text-slate-800 font-medium mt-0.5 font-mono">
+                {row.codigo || "—"}
+              </p>
+            </div>
+            <div>
+              <span className="text-slate-400 font-semibold uppercase tracking-wider text-[9px]">
+                N° Documento
+              </span>
+              <p className="text-slate-800 font-medium mt-0.5 font-mono">
+                {row.numDoc || "—"}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Pendientes table */}
+        <div className="flex-1 overflow-auto px-5 py-4">
+          {loading && (
+            <div className="flex items-center justify-center py-8">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-sat-cyan border-t-transparent" />
+              <span className="ml-2 text-xs text-slate-500">Cargando pendientes...</span>
+            </div>
+          )}
+
+          {error && (
+            <div className="flex flex-col items-center justify-center rounded-lg border border-red-200 bg-red-50 py-8">
+              <p className="text-sm font-medium text-red-600">{error}</p>
+            </div>
+          )}
+
+          {!loading && !error && pendientes.length === 0 && (
+            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-200 bg-white py-8">
+              <SearchX size={24} className="text-slate-300" />
+              <p className="mt-2 text-sm font-medium text-slate-500">
+                No se encontraron alcabalas pendientes
+              </p>
+            </div>
+          )}
+
+          {!loading && !error && pendientes.length > 0 && (
+            <div className="overflow-hidden rounded-lg border border-slate-200 shadow-sm">
+              <table className="w-full table-fixed border-collapse">
+                <colgroup>
+                  <col className="w-[4%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[8%]" />
+                </colgroup>
+                <thead className="bg-gradient-to-r from-sat-navy to-[#1e3050]">
+                  <tr>
+                    <th className="text-center text-[11px] font-semibold text-white/90 uppercase px-2 py-2.5 border-b border-white/5">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.size === pendientes.length && pendientes.length > 0}
+                        onChange={toggleSelectAll}
+                        className="h-3.5 w-3.5 rounded border-slate-300 text-sat-cyan focus:ring-sat-cyan/30"
+                      />
+                    </th>
+                    <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Tributo</th>
+                    <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Año</th>
+                    <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Predio</th>
+                    <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Anexo</th>
+                    <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Subanexo</th>
+                    <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Periodo</th>
+                    <th className="text-right text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Imp. Insol</th>
+                    <th className="text-right text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Imp. Reaj</th>
+                    <th className="text-right text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Fact. Mora</th>
+                    <th className="text-right text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Interés</th>
+                    <th className="text-right text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Costo Emis</th>
+                    <th className="text-right text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {pendientes.map((row, idx) => (
+                    <tr
+                      key={row.idrecibo || `pend-${idx}`}
+                      className={`transition hover:bg-slate-50 ${
+                        idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"
+                      }`}
+                    >
+                      <td className="px-2 py-1.5 text-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(row.idrecibo)}
+                          onChange={() => toggleSelect(row.idrecibo)}
+                          className="h-3.5 w-3.5 rounded border-slate-300 text-sat-cyan focus:ring-sat-cyan/30"
+                        />
+                      </td>
+                      <td className="px-2 py-1.5 text-[11px] font-medium text-slate-800 truncate">
+                        {row.tributo || '—'}
+                      </td>
+                      <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate">
+                        {row.anio}
+                      </td>
+                      <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate">
+                        {row.predio}
+                      </td>
+                      <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate">
+                        {row.anexo}
+                      </td>
+                      <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate">
+                        {row.subanexo}
+                      </td>
+                      <td className="px-2 py-1.5 text-[11px] text-slate-600 truncate">
+                        {row.periodo}
+                      </td>
+                      <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate text-right">
+                        {row.impInsol.toFixed(2)}
+                      </td>
+                      <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate text-right">
+                        {row.impReaj.toFixed(2)}
+                      </td>
+                      <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate text-right">
+                        {row.factorMora.toFixed(4)}
+                      </td>
+                      <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate text-right">
+                        {row.interes.toFixed(2)}
+                      </td>
+                      <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate text-right">
+                        {row.costoEmis.toFixed(2)}
+                      </td>
+                      <td className="px-2 py-1.5 text-[11px] font-mono text-slate-700 truncate text-right font-semibold">
+                        {row.total.toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50/50 px-5 py-3 rounded-b-xl">
+          <div className="text-[11px] text-slate-500">
+            {selectedIds.size > 0
+              ? `${selectedIds.size} registro(s) seleccionado(s)`
+              : 'Seleccione al menos un registro para procesar'}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-4 py-1.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleProcesarRD}
+              disabled={selectedIds.size === 0 || procesando}
+              className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-4 py-1.5 text-[11px] font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {procesando ? (
+                <>
+                  <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  Procesando...
+                </>
+              ) : (
+                <>
+                  <Plus size={13} />
+                  Procesar RD
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Loading skeleton ──────────────────────────────────────
+
+function TableSkeleton() {
+  return (
+    <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+      <div className="animate-pulse">
+        <div className="bg-slate-100 border-b border-slate-200 px-3 py-2.5">
+          <div className="grid grid-cols-5 gap-4">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="h-3 bg-slate-200 rounded w-3/4" />
+            ))}
+          </div>
+        </div>
+        {[...Array(5)].map((_, i) => (
+          <div
+            key={i}
+            className={`px-3 py-3 border-b border-slate-100 ${
+              i === 4 ? "border-b-0" : ""
+            }`}
+          >
+            <div className="grid grid-cols-5 gap-4">
+              {[...Array(5)].map((_, j) => (
+                <div
+                  key={j}
+                  className="h-3.5 bg-slate-100 rounded"
+                  style={{ width: j === 1 ? "50%" : j === 3 ? "40%" : "65%" }}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Main Page ─────────────────────────────────────────────
+
+export default function RdAlcabalaPage() {
+  const [filters, setFilters] = useState({
+    tipoBusqueda: 'C' as 'C' | 'N' | 'R' | 'D',
+    codigo: "",
+    nombres: "",
+    paterno: "",
+    materno: "",
+    razonSocial: "",
+    numDoc: "",
+  });
+
+  const [data, setData] = useState<ContribuyenteSearchItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(15);
+  const [totalPages, setTotalPages] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [initialLoading, setInitialLoading] = useState(true);
+
+  const [crearRow, setCrearRow] = useState<ContribuyenteSearchItem | null>(null);
+  const [documentoGenerado, setDocumentoGenerado] = useState<any>(null);
+  const [mostrarDocumento, setMostrarDocumento] = useState(false);
+
+  // Clear fields when search criterion changes
+  useEffect(() => {
+    setFilters((prev) => {
+      const next = { ...prev };
+      switch (next.tipoBusqueda) {
+        case 'C':
+          next.nombres = '';
+          next.paterno = '';
+          next.materno = '';
+          next.razonSocial = '';
+          next.numDoc = '';
+          break;
+        case 'N':
+          next.codigo = '';
+          next.razonSocial = '';
+          next.numDoc = '';
+          break;
+        case 'R':
+          next.codigo = '';
+          next.nombres = '';
+          next.paterno = '';
+          next.materno = '';
+          next.numDoc = '';
+          break;
+        case 'D':
+          next.codigo = '';
+          next.nombres = '';
+          next.paterno = '';
+          next.materno = '';
+          next.razonSocial = '';
+          break;
+      }
+      return next;
+    });
+    setPage(1);
+  }, [filters.tipoBusqueda]);
+
+  const executeSearch = useCallback(
+    async (pageNum: number) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await searchContribuyenteAction(
+          {
+            tipoBusqueda: filters.tipoBusqueda,
+            codigo: filters.tipoBusqueda === 'C' ? filters.codigo || undefined : undefined,
+            nombres: filters.tipoBusqueda === 'N' ? filters.nombres || undefined : undefined,
+            paterno: filters.tipoBusqueda === 'N' ? filters.paterno || undefined : undefined,
+            materno: filters.tipoBusqueda === 'N' ? filters.materno || undefined : undefined,
+            razonSocial: filters.tipoBusqueda === 'R' ? filters.razonSocial || undefined : undefined,
+            numDoc: filters.tipoBusqueda === 'D' ? filters.numDoc || undefined : undefined,
+          },
+          pageNum,
+          pageSize,
+        );
+        if (result.success) {
+          setData(result.data);
+          setTotal(result.total);
+          setPage(result.page);
+          setTotalPages(result.totalPages);
+        } else {
+          setError(result.error ?? "Error desconocido");
+          setData([]);
+        }
+      } catch {
+        setError("Error de conexión");
+        setData([]);
+      } finally {
+        setLoading(false);
+        setInitialLoading(false);
+      }
+    },
+    [filters, pageSize],
+  );
+
+  useEffect(() => {
+    executeSearch(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleFilterChange = (field: string, value: string) => {
+    setFilters((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSearch = () => {
+    setPage(1);
+    executeSearch(1);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") handleSearch();
+  };
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > totalPages) return;
+    executeSearch(newPage);
+  };
+
+  const renderSearchForm = () => {
+    const criterios = [
+      { value: 'C', label: 'Código' },
+      { value: 'N', label: 'Nombre' },
+      { value: 'R', label: 'Razón Social' },
+      { value: 'D', label: 'Documento' },
+    ] as const;
+
+    const isCodigo = filters.tipoBusqueda === 'C';
+    const isNombre = filters.tipoBusqueda === 'N';
+    const isRazon = filters.tipoBusqueda === 'R';
+    const isDoc = filters.tipoBusqueda === 'D';
+
+    return (
+      <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
+        <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
+          <div className="w-0.5 h-3.5 bg-sat-cyan rounded-full" />
+          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
+            Filtros de búsqueda
+          </span>
+        </div>
+
+        <div className="p-2.5 space-y-2.5">
+          {/* Criterios de búsqueda */}
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+              Criterio:
+            </span>
+            {criterios.map((c) => (
+              <label
+                key={c.value}
+                className="inline-flex items-center gap-1.5 cursor-pointer"
+              >
+                <input
+                  type="radio"
+                  name="tipoBusqueda"
+                  value={c.value}
+                  checked={filters.tipoBusqueda === c.value}
+                  onChange={(e) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      tipoBusqueda: e.target.value as 'C' | 'N' | 'R' | 'D',
+                    }))
+                  }
+                  className="h-3.5 w-3.5 border-slate-300 text-sat-cyan focus:ring-sat-cyan/30"
+                />
+                <span className="text-[11px] text-slate-700">{c.label}</span>
+              </label>
+            ))}
+          </div>
+
+          {/* Inputs condicionales */}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+            {isCodigo && (
+              <div className="md:col-span-4">
+                <label
+                  htmlFor="codigo"
+                  className="block text-[9px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5 leading-none"
+                >
+                  Código
+                </label>
+                <input
+                  id="codigo"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="Código contribuyente"
+                  value={filters.codigo}
+                  onChange={(e) =>
+                    handleFilterChange("codigo", e.target.value.replace(/\D/g, "").slice(0, 7))
+                  }
+                  onKeyDown={handleKeyDown}
+                  className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] text-slate-700 placeholder-slate-400 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none"
+                />
+              </div>
+            )}
+
+            {isNombre && (
+              <>
+                <div className="md:col-span-3">
+                  <label
+                    htmlFor="paterno"
+                    className="block text-[9px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5 leading-none"
+                  >
+                    Apellido Paterno
+                  </label>
+                  <input
+                    id="paterno"
+                    type="text"
+                    placeholder="PATERNO"
+                    value={filters.paterno}
+                    onChange={(e) =>
+                      handleFilterChange("paterno", e.target.value.toUpperCase())
+                    }
+                    onKeyDown={handleKeyDown}
+                    className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] text-slate-700 placeholder-slate-400 uppercase transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none"
+                  />
+                </div>
+
+                <div className="md:col-span-3">
+                  <label
+                    htmlFor="materno"
+                    className="block text-[9px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5 leading-none"
+                  >
+                    Apellido Materno
+                  </label>
+                  <input
+                    id="materno"
+                    type="text"
+                    placeholder="MATERNO"
+                    value={filters.materno}
+                    onChange={(e) =>
+                      handleFilterChange("materno", e.target.value.toUpperCase())
+                    }
+                    onKeyDown={handleKeyDown}
+                    className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] text-slate-700 placeholder-slate-400 uppercase transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none"
+                  />
+                </div>
+
+                <div className="md:col-span-3">
+                  <label
+                    htmlFor="nombres"
+                    className="block text-[9px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5 leading-none"
+                  >
+                    Nombres
+                  </label>
+                  <input
+                    id="nombres"
+                    type="text"
+                    placeholder="NOMBRES"
+                    value={filters.nombres}
+                    onChange={(e) =>
+                      handleFilterChange("nombres", e.target.value.toUpperCase())
+                    }
+                    onKeyDown={handleKeyDown}
+                    className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] text-slate-700 placeholder-slate-400 uppercase transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none"
+                  />
+                </div>
+              </>
+            )}
+
+            {isRazon && (
+              <div className="md:col-span-4">
+                <label
+                  htmlFor="razonSocial"
+                  className="block text-[9px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5 leading-none"
+                >
+                  Razón Social
+                </label>
+                <input
+                  id="razonSocial"
+                  type="text"
+                  placeholder="RAZÓN SOCIAL"
+                  value={filters.razonSocial}
+                  onChange={(e) =>
+                    handleFilterChange("razonSocial", e.target.value.toUpperCase())
+                  }
+                  onKeyDown={handleKeyDown}
+                  className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] text-slate-700 placeholder-slate-400 uppercase transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none"
+                />
+              </div>
+            )}
+
+            {isDoc && (
+              <div className="md:col-span-4">
+                <label
+                  htmlFor="numDoc"
+                  className="block text-[9px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5 leading-none"
+                >
+                  N° Documento
+                </label>
+                <input
+                  id="numDoc"
+                  type="text"
+                  placeholder="Número documento"
+                  value={filters.numDoc}
+                  onChange={(e) => handleFilterChange("numDoc", e.target.value.toUpperCase())}
+                  onKeyDown={handleKeyDown}
+                  className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] text-slate-700 placeholder-slate-400 uppercase transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none"
+                />
+              </div>
+            )}
+
+            {/* Buscar button */}
+            <div className="md:col-span-2 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleSearch}
+                className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-3.5 py-1.5 text-[11px] font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
+              >
+                <Search size={12} />
+                Buscar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderTableHeader = () => (
+    <colgroup>
+      <col className="w-[8%]" />
+      <col className="w-[22%]" />
+      <col className="w-[15%]" />
+      <col className="w-[35%]" />
+      <col className="w-[10%]" />
+    </colgroup>
+  );
+
+  const renderTableBody = () => (
+    <tbody className="divide-y divide-slate-100">
+      {data.map((row, idx) => (
+        <tr
+          key={row.row || `contrib-${idx}`}
+          className={`transition hover:bg-slate-50 ${
+            idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"
+          }`}
+        >
+          <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate">
+            {row.codigo}
+          </td>
+          <td className="px-2 py-1.5 text-[11px] font-medium text-slate-800 truncate">
+            {[row.paterno, row.materno, row.nombres].filter(Boolean).join(' ') || '—'}
+          </td>
+          <td className="px-2 py-1.5 text-[11px] font-mono text-slate-600 truncate">
+            {row.numDoc}
+          </td>
+          <td className="px-2 py-1.5 text-[11px] text-slate-600 truncate">
+            {row.direccion}
+          </td>
+          <td className="px-2 py-1.5">
+            <div className="flex items-center justify-center">
+              <button
+                type="button"
+                onClick={() => setCrearRow(row)}
+                className="inline-flex items-center gap-1 rounded-md bg-sat-cyan px-2.5 py-1 text-[10px] font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
+              >
+                <Plus size={12} />
+                Generar RD
+              </button>
+            </div>
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  );
+
+  const renderGrid = () => (
+    <div className="overflow-hidden rounded-lg border border-slate-200 shadow-sm animate-fade-in">
+      <table className="w-full table-fixed border-collapse" role="grid">
+        {renderTableHeader()}
+        <thead className="bg-gradient-to-r from-sat-navy to-[#1e3050]">
+          <tr>
+            <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">
+              Código
+            </th>
+            <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">
+              Nombres
+            </th>
+            <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">
+              N° Documento
+            </th>
+            <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">
+              Dirección
+            </th>
+            <th className="text-center text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5">
+              Acción
+            </th>
+          </tr>
+        </thead>
+        {renderTableBody()}
+      </table>
+    </div>
+  );
+
+  const renderResultsBar = () => (
+    <div className="flex items-center gap-2 text-xs text-slate-500">
+      <Receipt size={13} className="text-slate-400" />
+      <span>
+        Se encontraron{" "}
+        <span className="font-semibold text-slate-700">{total}</span>{" "}
+        {total === 1 ? "contribuyente" : "contribuyentes"}
+      </span>
+    </div>
+  );
+
+  const renderPagination = () => {
+    if (totalPages <= 1) return null;
+
+    const from = (page - 1) * pageSize + 1;
+    const to = Math.min(page * pageSize, total);
+    const pages: number[] = [];
+    const startPage = Math.max(1, page - 2);
+    const endPage = Math.min(totalPages, page + 2);
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+
+    return (
+      <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-2 shadow-sm">
+        <span className="text-xs text-slate-500">
+          Mostrando{" "}
+          <span className="font-semibold text-slate-700">{from}</span>
+          {" – "}
+          <span className="font-semibold text-slate-700">{to}</span> de{" "}
+          <span className="font-semibold text-slate-700">{total}</span>{" "}
+          resultados
+        </span>
+
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            disabled={page <= 1}
+            onClick={() => handlePageChange(page - 1)}
+            className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+            aria-label="Anterior"
+          >
+            <ChevronLeft size={13} />
+            Anterior
+          </button>
+
+          {pages.map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => handlePageChange(p)}
+              className={`min-w-[28px] rounded-md px-2 py-1 text-xs font-medium transition ${
+                p === page
+                  ? "bg-sat-cyan text-white shadow-sm"
+                  : "border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-800"
+              }`}
+            >
+              {p}
+            </button>
+          ))}
+
+          <button
+            type="button"
+            disabled={page >= totalPages}
+            onClick={() => handlePageChange(page + 1)}
+            className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+            aria-label="Siguiente"
+          >
+            Siguiente
+            <ChevronRight size={13} />
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderEmptyState = () => (
+    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-200 bg-white py-16 animate-fade-in">
+      <div className="mb-3 rounded-full bg-slate-100 p-3">
+        <SearchX size={24} className="text-slate-300" />
+      </div>
+      <p className="text-sm font-medium text-slate-500">
+        No se encontraron contribuyentes
+      </p>
+      <p className="mt-1 text-xs text-slate-400">
+        Intente ajustar los filtros de búsqueda
+      </p>
+    </div>
+  );
+
+  const renderErrorState = () => (
+    <div className="flex flex-col items-center justify-center rounded-lg border border-red-200 bg-red-50 py-16 animate-fade-in">
+      <div className="mb-3 rounded-full bg-red-100 p-3">
+        <AlertCircle size={24} className="text-red-400" />
+      </div>
+      <p className="text-sm font-medium text-red-600">{error}</p>
+      <button
+        type="button"
+        onClick={handleSearch}
+        className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-red-600 px-4 py-1.5 text-xs font-medium text-white transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400/40"
+      >
+        <RotateCcw size={13} />
+        Reintentar
+      </button>
+    </div>
+  );
+
+  // ── Main render ─────────────────────────────────────────
+
+  return (
+    <div className="space-y-4">
+      {/* Page header */}
+      <div className="relative overflow-hidden rounded-lg bg-gradient-to-br from-sat-navy via-[#1b2b4a] to-slate-800 px-5 py-4 shadow-sm">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.04]"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle, #fff 0.5px, transparent 0.5px)",
+            backgroundSize: "16px 16px",
+          }}
+        />
+        <div className="pointer-events-none absolute -top-8 -right-8 h-24 w-24 rounded-full bg-white/5 blur-2xl" />
+        <div className="relative flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-white/15 to-white/5 backdrop-blur-sm ring-1 ring-white/10">
+            <Receipt
+              size={18}
+              className="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]"
+            />
+          </div>
+          <div>
+            <h1 className="text-lg font-bold text-white font-outfit tracking-tight">
+              RD Alcabala
+            </h1>
+            <p className="text-xs text-white/50 font-inter">
+              Búsqueda de contribuyentes para creación de RD
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {renderSearchForm()}
+
+      {/* Results info */}
+      {!loading && !error && !initialLoading && data.length > 0 && (
+        <div className="flex items-center justify-between">
+          {renderResultsBar()}
+        </div>
+      )}
+
+      {/* Loading state */}
+      {loading && initialLoading && <TableSkeleton />}
+
+      {/* Loading overlay for subsequent searches */}
+      {loading && !initialLoading && (
+        <div className="relative animate-fade-in">
+          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/60 backdrop-blur-[1px]">
+            <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 shadow-lg">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-sat-cyan border-t-transparent" />
+              <span className="text-xs font-medium text-slate-500">
+                Buscando...
+              </span>
+            </div>
+          </div>
+          {renderGrid()}
+          {renderPagination()}
+        </div>
+      )}
+
+      {/* Error state */}
+      {!loading && error && renderErrorState()}
+
+      {/* Empty state */}
+      {!loading && !error && data.length === 0 && !initialLoading &&
+        renderEmptyState()}
+
+      {/* Populated grid */}
+      {!loading && !error && data.length > 0 && (
+        <>
+          {renderGrid()}
+          {renderPagination()}
+        </>
+      )}
+
+      {/* Crear RD modal */}
+      {crearRow && (
+        <CrearRDModal
+          row={crearRow}
+          onClose={() => setCrearRow(null)}
+          onDocumentoGenerado={(data) => {
+            setDocumentoGenerado(data);
+            setMostrarDocumento(true);
+          }}
+        />
+      )}
+
+      {/* Visualizar documento de RD */}
+      {mostrarDocumento && documentoGenerado && (
+        <DocumentoRDModal
+          data={documentoGenerado}
+          onClose={() => {
+            setMostrarDocumento(false);
+            setDocumentoGenerado(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Documento RD Modal ────────────────────────────────────
+
+function DocumentoRDModal({
+  data,
+  onClose,
+}: {
+  data: any[];
+  onClose: () => void;
+}) {
+  const registro = data[0] || {};
+
+  const handlePrint = () => {
+    const printContainer = document.getElementById('rd-print-container');
+    if (!printContainer) return;
+
+    // Remember original parent to restore later
+    const originalParent = printContainer.parentElement;
+    const originalNextSibling = printContainer.nextSibling;
+
+    // Move to body so it's the ONLY thing on the page
+    document.body.appendChild(printContainer);
+    printContainer.style.display = 'block';
+
+    const cleanup = () => {
+      printContainer.style.display = 'none';
+      // Move back to original position
+      if (originalNextSibling) {
+        originalParent?.insertBefore(printContainer, originalNextSibling);
+      } else {
+        originalParent?.appendChild(printContainer);
+      }
+    };
+
+    window.addEventListener('afterprint', cleanup, { once: true });
+
+    window.print();
+
+    // Fallback cleanup
+    setTimeout(cleanup, 2000);
+  };
+
+  // ── Helper: format currency ──
+  const fmt = (v: any) => `S/. ${Number(v ?? 0).toFixed(2)}`;
+
+  // ── Single document copy ──
+  const renderDocumento = () => (
+    <div className="bg-white text-black leading-tight" style={{ fontFamily: "Arial, Helvetica, sans-serif" }}>
+      {/* ── HEADER: Logo + institution lines ── */}
+      <div className="flex items-start gap-3 mb-0.5">
+        {/* Logo placeholder */}
+        <div className="flex-shrink-0 w-[49px] h-[49px] border border-slate-300 rounded overflow-hidden flex items-center justify-center">
+          <img src="/logo_sat_2026.jpeg" alt="Logo SAT" className="w-full h-full object-contain" />
+        </div>
+        <div className="flex-1 text-left">
+          <div className="text-[10px] font-bold text-sat-navy leading-tight">
+            SERVICIO DE ADMINISTRACIÓN TRIBUTARIA
+          </div>
+          <div className="text-[9px] font-bold text-sat-navy leading-tight">
+            DEPARTAMENTO DE REGISTRO Y FISCALIZACIÓN
+          </div>
+          <div className="text-[8px] font-semibold text-slate-700 leading-tight">
+            SUB GERENCIA DE OPERACIONES
+          </div>
+        </div>
+        <div className="flex-shrink-0 w-[40px]" />
+      </div>
+
+      {/* ── PAGE HEADER: numerOP ── */}
+      <div className="text-center mb-1">
+        <span className="text-[10px] font-bold text-sat-navy underline">
+          {registro.numerOP || "N° O.P. _________"}
+        </span>
+      </div>
+
+      <hr className="border-black mb-0.5" />
+
+      {/* ── SECTION I: DEL CONTRIBUYENTE ── */}
+      <div className="mb-0.5">
+        <div className="text-[8px] font-bold text-sat-navy mb-0.5">
+          I.- DEL CONTRIBUYENTE:
+        </div>
+        <table className="w-full text-[8px] border-collapse" style={{ tableLayout: "fixed" }}>
+          <tbody>
+            <tr>
+              <td className="font-bold text-slate-800 py-0.5 pr-2 w-[140px] align-top">CÓDIGO:</td>
+              <td className="py-0.5 text-slate-900">{registro.codigo || "-"}</td>
+            </tr>
+            <tr>
+              <td className="font-bold text-slate-800 py-0.5 pr-2 align-top">CÓDIGO DE PREDIO:</td>
+              <td className="py-0.5 text-slate-900">{registro.codpred || "-"}</td>
+            </tr>
+            <tr>
+              <td className="font-bold text-slate-800 py-0.5 pr-2 align-top">
+                Documento Identidad / RUC:
+              </td>
+              <td className="py-0.5 text-slate-900">{registro.num_doc || "-"}</td>
+            </tr>
+            <tr>
+              <td className="font-bold text-slate-800 py-0.5 pr-2 align-top">
+                Apellidos y Nombres / Razón Social:
+              </td>
+              <td className="py-0.5 text-slate-900">{registro.nombre || "-"}</td>
+            </tr>
+            <tr>
+              <td className="font-bold text-slate-800 py-0.5 pr-2 align-top">Domicilio Fiscal:</td>
+              <td className="py-0.5 text-slate-900">{registro.dirfiscal || "-"}</td>
+            </tr>
+            <tr>
+              <td className="font-bold text-slate-800 py-0.5 pr-2 align-top">Teléfono:</td>
+              <td className="py-0.5 text-slate-900">{registro.fono || "-"}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <hr className="border-slate-300 mb-1" />
+
+      {/* ── SECTION II: MOTIVO DE LA DETERMINACIÓN ── */}
+      <div className="mb-0.5">
+        <div className="text-[8px] font-bold text-sat-navy mb-0.5">
+          II.- MOTIVO DE LA DETERMINACIÓN:
+        </div>
+        <p className="text-[7.5px] leading-[1.4] text-slate-900 text-justify">
+          POR NO HABER REALIZADO EL PAGO DEL IMPUESTO DE ALCABALA, CONFORME A LEY EN EL PLAZO ESTABLECIDO, POR LA ADQUISICIÓN DE LA PROPIEDAD UBICADA EN{" "}
+          <span className="font-bold">{registro.direccion_predio || "________"}</span>;
+          MEDIANTE DOCUMENTO DE TRANSFERENCIA CELEBRADA DE FECHA{" "}
+          <span className="font-bold">{registro.fechacontrato || "________"}</span>.
+        </p>
+      </div>
+
+      <hr className="border-slate-300 mb-0.5" />
+
+      {/* ── SECTION III: Financial boxes ── */}
+      <div className="mb-1">
+        <div className="text-[8px] font-bold text-sat-navy mb-0.5">
+          III.- DETALLE DE LA DEUDA:
+        </div>
+        <div className="grid grid-cols-7 gap-[6px]">
+          {/* VALOR PREDIO */}
+          <div className="border border-sat-navy px-1.5 pt-1 pb-0.5 text-center">
+            <div className="text-[6px] font-bold text-sat-navy leading-tight">
+              VALOR PREDIO (B. IMP.)
+            </div>
+            <div className="text-[6px] font-bold text-slate-900 mt-0.5">
+              {fmt(registro.valortotal)}
+            </div>
+          </div>
+          {/* INAFECTACIÓN 10 UIT */}
+          <div className="border border-sat-navy px-1.5 pt-1 pb-0.5 text-center">
+            <div className="text-[6px] font-bold text-sat-navy leading-tight">
+              INAFECTACIÓN 10 UIT
+            </div>
+            <div className="text-[6px] font-bold text-slate-900 mt-0.5">
+              {fmt(registro.monto_inafecto)}
+            </div>
+          </div>
+          {/* IMPORTE APLICARSE */}
+          <div className="border border-sat-navy px-1.5 pt-1 pb-0.5 text-center">
+            <div className="text-[6px] font-bold text-sat-navy leading-tight">
+              IMPORTE APLICARSE
+            </div>
+            <div className="text-[6px] font-bold text-slate-900 mt-0.5">
+              {fmt(registro.monto_afecto)}
+            </div>
+          </div>
+          {/* TASA APLICABLE */}
+          <div className="border border-sat-navy px-1.5 pt-1 pb-0.5 text-center">
+            <div className="text-[6px] font-bold text-sat-navy leading-tight">
+              TASA APLICABLE
+            </div>
+            <div className="text-[6px] font-bold text-slate-900 mt-0.5">
+              {registro.tasa || "-"}%
+            </div>
+          </div>
+        {/* </div>
+        <div className="grid grid-cols-3 gap-[5px] mt-[6px]"> */}
+          {/* INSOLUTO */}
+          <div className="border border-sat-navy px-1.5 pt-1 pb-0.5 text-center">
+            <div className="text-[6px] font-bold text-sat-navy leading-tight">INSOLUTO</div>
+            <div className="text-[6px] font-bold text-slate-900 mt-0.5">
+              {fmt(registro.monto_alcabala)}
+            </div>
+          </div>
+          {/* INTERÉS */}
+          <div className="border border-sat-navy px-1.5 pt-1 pb-0.5 text-center">
+            <div className="text-[6px] font-bold text-sat-navy leading-tight">INTERÉS</div>
+            <div className="text-[6px] font-bold text-slate-900 mt-0.5">{fmt(registro.mora)}</div>
+          </div>
+          {/* TOTAL A CANCELAR */}
+          <div className="border-2 border-sat-navy px-1.5 pt-1 pb-0.5 text-center bg-slate-50">
+            <div className="text-[6px] font-bold text-sat-navy leading-tight">TOTAL A CANCELAR</div>
+            <div className="text-[6px] font-extrabold text-sat-navy mt-0.5">
+              {fmt(registro.total)}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── TRAMO section ── */}
+      <div className="mb-0.5 border border-slate-300 p-0.5">
+        <div className="text-[7px] text-slate-800">
+          <span className="font-bold">TRAMO:</span>{" "}
+          <span className="font-semibold">HASTA LAS 10 UIT S/. </span>
+          <span className="font-bold">{Number(registro.monto_inafecto ?? 0).toFixed(2)}</span>
+          <span className="font-bold text-green-700 ml-1">EXONERADA</span>
+        {/* </div>
+        <div className="text-[7px] text-slate-700 mt-0.5"> */}
+          T. A. = 3% (BASE IMPONIBLE – 10 UIT)
+        </div>
+      </div>
+
+      <hr className="border-slate-300 mb-0.5" />
+
+      {/* ── SECTION IV + NOTIFICATION BOX side by side ── */}
+      <div className="grid grid-cols-[1fr_0.9fr] gap-2 mb-0">
+        {/* Left: Base Legal + Requerimiento + Notificación + Lugar de Pago */}
+        <div>
+          {/* BASE LEGAL */}
+          <div className="mb-0.5">
+            <div className="text-[8px] font-bold text-sat-navy mb-1">IV.- BASE LEGAL:</div>
+            <ul className="text-[7px] text-slate-800 list-disc ml-3 space-y-[1px]">
+              <li>Art. 194° - 195° de la Constitución Política del Perú</li>
+              <li>
+                Arts. 21° al 29° de la Ley de Tributación Municipal D. L. 776 y su Modificatoria
+                D.L. 952
+              </li>
+              <li>
+                Art. 76° - 77° - Inc. 1 al 7 D.S. 133-2013-EF TUO del Código Tributario
+              </li>
+              <li>Art. 69° - 70° Ley N° 27972 Ley Orgánica de Municipalidades</li>
+              <li>Ley 26979</li>
+            </ul>
+          </div>
+
+          <hr className="border-slate-300 mb-0.5" />
+
+          {/* REQUERIMIENTO */}
+          <div className="mb-0.5">
+            <p className="text-[6.5px] leading-[1.4] text-slate-900 text-justify">
+              <span className="font-bold">REQUIERASE</span> al obligado al pago de la deuda
+              tributaria consignada en el presente documento, al pago de la misma dentro del plazo
+              de <span className="font-bold">VEINTE (20) días</span> hábiles contados a partir de la
+              notificación del presente requerimiento; so pena de iniciarse la ejecución coactiva de
+              acuerdo a las normas tributarias vigentes.
+            </p>
+          </div>
+
+          {/* NOTIFICACIÓN */}
+          <div className="mb-0.5">
+            <p className="text-[7px] leading-[1.4] text-slate-900 text-justify">
+              <span className="font-bold">NOTIFICADO</span> que quede no debe sorprenderle la
+              ejecución coactiva de acuerdo al Art. 118° al 124° del TUO del Código Tributario
+              aprobado por D.S. N° 133-2013-EF y su modificatoria, la cual se hará efectiva
+              vencido el plazo concedido sin que se haya pagado la deuda consignada.
+            </p>
+          </div>
+
+          {/* LUGAR DE PAGO */}
+          <div className="mb-0.5 text-[7px] text-slate-800">
+            <span className="font-bold">LUGAR DE PAGO:</span>{" "}
+            Avenida José Matías Manzanilla N°421
+          </div>
+
+          {/* Firma VoBo + Sello */}
+          <div className="text-center mt-1">
+            {/* <div className="text-[7px] text-slate-700 mb-1">
+              {new Date().toLocaleDateString("es-PE", {
+                day: "2-digit",
+                month: "long",
+                year: "numeric",
+              })}
+            </div> */}
+            {/* <div className="border-t border-black w-40 mx-auto" />
+            <div className="text-[7px] font-bold text-slate-800 mt-0.5">
+              VoBo. Sub Gerencia de Operaciones
+            </div> */}
+            <div className="text-[6px] text-slate-600 mt-0.5">Sello de Registro</div>
+            <div className="w-[60px] h-[60px] border border-dashed border-slate-400 mx-auto mt-0.5 bg-slate-50 flex items-center justify-center text-[6px] text-slate-400">
+              SELLO
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Cuadro de Notificaciones */}
+        <div className="border border-sat-navy p-1.5 self-start">
+          <div className="text-[7px] font-bold text-sat-navy mb-1 text-center">NOTIFICACIONES</div>
+          <table className="w-full text-[7px] border-collapse" style={{ tableLayout: "fixed" }}>
+            <tbody>
+              <tr>
+                <td className="font-bold text-slate-800 py-1 pr-0.5 w-[90px] align-top">
+                  Fecha de Recepción:
+                </td>
+                <td className="py-1 border-b border-slate-400 text-transparent">&nbsp;</td>
+              </tr>
+              <tr>
+                <td className="font-bold text-slate-800 py-1 pr-0.5 align-top">
+                  Apellidos y Nombre:
+                </td>
+                <td className="py-1 border-b border-slate-400 text-transparent">&nbsp;</td>
+              </tr>
+              <tr>
+                <td className="font-bold text-slate-800 py-1 pr-0.5">FIRMA Recepción:</td>
+                <td className="py-1 border-b border-slate-400 text-transparent">&nbsp;</td>
+              </tr>
+              <tr>
+                <td className="font-bold text-slate-800 py-1 pr-0.5">Parentesco:</td>
+                <td className="py-1 border-b border-slate-400 text-transparent">&nbsp;</td>
+              </tr>
+              <tr>
+                <td className="font-bold text-slate-800 py-1 pr-0.5 align-top">
+                  Notificado por:
+                </td>
+                <td className="py-1 border-b border-slate-400 text-transparent">&nbsp;</td>
+              </tr>
+              <tr>
+                <td className="font-bold text-slate-800 py-1 pr-0.5">FIRMA Notificador:</td>
+                <td className="py-1 border-b border-slate-400 text-transparent">&nbsp;</td>
+              </tr>
+              <tr>
+                <td className="font-bold text-slate-800 py-1 pr-0.5">DNI Notificador:</td>
+                <td className="py-1 border-b border-slate-400 text-transparent">&nbsp;</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      {/* ── Print-only styles ── */}
+      <style>{`
+        @media print {
+          body > *:not(#rd-print-container) {
+            display: none !important;
+          }
+          #rd-print-container {
+            display: block !important;
+            width: 100% !important;
+            background: white !important;
+          }
+          #rd-print-container .rd-copia {
+            height: 135mm !important;
+            max-height: 135mm !important;
+            overflow: hidden !important;
+            page-break-after: avoid !important;
+            page-break-before: avoid !important;
+            page-break-inside: avoid !important;
+            border-bottom: 1px dashed #999 !important;
+            padding-bottom: 0mm !important;
+            margin-bottom: 0 !important;
+          }
+          #rd-print-container .rd-copia:last-child {
+            border-bottom: none !important;
+          }
+          @page {
+            size: A4 portrait;
+            margin: 5mm 10mm 5mm 10mm;
+          }
+        }
+      `}</style>
+
+      {/* ── Print container: visible only on print ── */}
+      <div
+        id="rd-print-container"
+        style={{
+          fontFamily: "Arial, Helvetica, sans-serif",
+          display: "none",
+        }}
+      >
+        <div className="rd-copia">
+          {renderDocumento()}
+        </div>
+        <div className="rd-copia">
+          {renderDocumento()}
+        </div>
+      </div>
+
+      {/* ── Screen-only modal ── */}
+      <div
+        className="rd-modal-overlay fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Documento RD Alcabala"
+      >
+        <div className="relative mx-4 w-full max-w-4xl max-h-[90vh] flex flex-col rounded-xl border border-slate-200 bg-white shadow-2xl">
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-slate-200 bg-gradient-to-r from-sat-navy to-[#1e3050] px-5 py-3 rounded-t-xl">
+            <div className="flex items-center gap-2">
+              <div className="w-0.5 h-3.5 bg-sat-cyan rounded-full" />
+              <span className="text-[10px] font-semibold text-white/90 uppercase tracking-widest">
+                Documento RD Alcabala
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md p-1 text-white/60 transition hover:bg-white/10 hover:text-white"
+              aria-label="Cerrar"
+            >
+              <span className="text-sm">✕</span>
+            </button>
+          </div>
+
+          {/* Documento scrollable area */}
+          <div className="flex-1 overflow-auto bg-slate-100 p-4">
+            <div className="mx-auto max-w-[700px] border border-slate-300 bg-white p-5 shadow-sm print:shadow-none print:border-0 print:p-0">
+              {renderDocumento()}
+            </div>
+            <div className="mx-auto max-w-[700px] border border-slate-300 bg-white p-5 shadow-sm mt-4 print:shadow-none print:border-0 print:p-0">
+              {renderDocumento()}
+            </div>
+          </div>
+
+          {/* Footer con botones */}
+          <div className="flex items-center justify-end gap-2 border-t border-slate-200 bg-slate-50/50 px-5 py-3 rounded-b-xl">
+            <button
+              type="button"
+              onClick={handlePrint}
+              className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-4 py-1.5 text-[11px] font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
+            >
+              <span className="text-xs">🖨️</span>
+              Imprimir / PDF
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-4 py-1.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
