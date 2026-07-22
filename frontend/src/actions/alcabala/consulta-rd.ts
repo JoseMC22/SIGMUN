@@ -86,6 +86,12 @@ export interface RutaRDResult {
   error?: string;
 }
 
+export interface ImprimirRDResult {
+  success: boolean;
+  html?: string;
+  error?: string;
+}
+
 // ─── Server Actions ────────────────────────────────────────
 
 export async function searchConsultaRDAction(
@@ -241,6 +247,42 @@ export async function getRutaConsultaRDAction(params: {
       num_val: params.num_val,
       ano_val: Number(params.ano_val) || 0,
       data: [],
+      error: "Error de conexión con el servidor",
+    };
+  }
+}
+
+export async function imprimirConsultaRDAction(params: {
+  num_val: string;
+  ano_val: string;
+}): Promise<ImprimirRDResult> {
+  try {
+    const query = new URLSearchParams();
+    query.set("num_val", params.num_val);
+    query.set("ano_val", params.ano_val);
+
+    const response = await authFetch(
+      `/alcabala/consulta-rd/imprimir?${query.toString()}`,
+      { cache: "no-store" },
+    );
+
+    if (!response.ok) {
+      const text = await response.text();
+      return {
+        success: false,
+        error: text || "Error al generar impresión del RD",
+      };
+    }
+
+    const json = await response.json();
+    return {
+      success: json.success ?? false,
+      html: json.html,
+      error: json.error,
+    };
+  } catch {
+    return {
+      success: false,
       error: "Error de conexión con el servidor",
     };
   }

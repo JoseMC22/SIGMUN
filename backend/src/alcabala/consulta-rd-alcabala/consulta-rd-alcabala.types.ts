@@ -71,3 +71,11 @@ export interface RutaRDResult {
   data: RutaRDRow[];
   error?: string;
 }
+
+// ── Imprimir RD (plantilla HTML + SP merge) ──
+
+export interface ImprimirRDResult {
+  success: boolean;
+  html?: string;
+  error?: string;
+}

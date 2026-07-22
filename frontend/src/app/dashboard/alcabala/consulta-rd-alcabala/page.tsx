@@ -21,6 +21,7 @@ import {
   searchConsultaRDAction,
   getDetailConsultaRDAction,
   getRutaConsultaRDAction,
+  imprimirConsultaRDAction,
 } from "@/actions/alcabala/consulta-rd";
 import type {
   ConsultaRDRow,
@@ -108,6 +109,8 @@ function DetalleRDModal({
   const [expandedHeaders, setExpandedHeaders] = useState<Set<number>>(
     new Set(),
   );
+  const [printing, setPrinting] = useState(false);
+  const [printHtml, setPrintHtml] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -153,79 +156,33 @@ function DetalleRDModal({
     });
   };
 
-  const handlePrint = () => {
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) return;
-    const groups = detail ? groupDetailRows(detail.data) : [];
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>RD ${row.nomb_val} ${row.num_val}-${row.ano_val}</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 20px; font-size: 12px; }
-          h2 { text-align: center; margin-bottom: 4px; }
-          .header { text-align: center; margin-bottom: 12px; }
-          .header p { margin: 2px 0; }
-          table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-          th, td { border: 1px solid #333; padding: 4px 8px; text-align: left; font-size: 11px; }
-          th { background: #1e3050; color: white; }
-          tr.header-row { background: #f1f5f9; font-weight: bold; }
-          .total { font-weight: bold; text-align: right; margin-top: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h2>Registro de Deuda - Alcabala</h2>
-          <p><strong>${row.nomb_val} ${row.num_val}-${row.ano_val}</strong></p>
-          <p>${detail?.nombre ?? row.nombre}</p>
-        </div>
-        ${groups.map((g) => `
-          <table>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>ID</th>
-                <th>Año / Período</th>
-                <th>Imp. Insoluto</th>
-                <th>Imp. Reajustado</th>
-                <th>Costo Emisión</th>
-                <th>Mora</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr class="header-row">
-                <td>${g.header.row_num}</td>
-                <td>${g.header.id}</td>
-                <td>${g.header.anio}</td>
-                <td>${formatCurrency(g.header.imp_insol)}</td>
-                <td>${formatCurrency(g.header.imp_reaj)}</td>
-                <td>${formatCurrency(g.header.costo_emis)}</td>
-                <td>${formatCurrency(g.header.mora)}</td>
-                <td>${formatCurrency(g.header.total)}</td>
-              </tr>
-              ${g.details.map((d) => `
-              <tr>
-                <td>${d.row_num}</td>
-                <td>${d.id}</td>
-                <td>${d.anno}</td>
-                <td>${formatCurrency(d.imp_insol)}</td>
-                <td>${formatCurrency(d.imp_reaj)}</td>
-                <td>${formatCurrency(d.costo_emis)}</td>
-                <td>${formatCurrency(d.mora)}</td>
-                <td>${formatCurrency(d.total)}</td>
-              </tr>
-              `).join("")}
-            </tbody>
-          </table>
-        `).join("")}
-        <p class="total">Monto Total: ${formatCurrency(row.MontoTotal)}</p>
-      </body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.print();
+  const handlePrint = async () => {
+    setPrinting(true);
+    setError(null);
+    try {
+      const result = await imprimirConsultaRDAction({
+        num_val: row.num_val,
+        ano_val: String(row.ano_val),
+      });
+
+      if (!result.success || !result.html) {
+        setError(result.error ?? "Error al generar impresión del RD");
+        return;
+      }
+
+      // Show print preview inline (no popup, no iframe needed)
+      setPrintHtml(result.html);
+      // Wait a tick for render, then trigger print dialog
+      setTimeout(() => {
+        window.print();
+        // Clear preview after print dialog is dismissed
+        setTimeout(() => setPrintHtml(null), 500);
+      }, 300);
+    } catch {
+      setError("Error de conexión al generar la impresión. Revisá la consola del navegador.");
+    } finally {
+      setPrinting(false);
+    }
   };
 
   const groups = detail ? groupDetailRows(detail.data) : [];
@@ -238,6 +195,33 @@ function DetalleRDModal({
       aria-label="Detalle RD"
     >
       <div className="relative mx-4 w-full max-w-4xl max-h-[85vh] flex flex-col rounded-xl border border-slate-200 bg-white shadow-2xl">
+
+        {/* ── Print preview (only visible when printing) ── */}
+        {printHtml && (
+          <div className="print-only absolute inset-0 z-[60] overflow-auto bg-white p-4">
+            <div dangerouslySetInnerHTML={{ __html: printHtml }} />
+          </div>
+        )}
+
+        <style>{`
+          @media screen {
+            .print-only { display: none !important; }
+          }
+          @media print {
+            @page { margin: 2mm; }
+            body * { visibility: hidden !important; }
+            .print-only, .print-only * { visibility: visible !important; }
+            .print-only {
+              position: absolute !important;
+              left: 0 !important;
+              top: 0 !important;
+              width: 100% !important;
+              height: auto !important;
+              overflow: visible !important;
+            }
+          }
+        `}</style>
+
         {/* ── Header ──────────────────────────────────── */}
         <div className="flex items-center justify-between border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-5 py-3 rounded-t-xl">
           <div className="flex items-center gap-2">
@@ -385,11 +369,15 @@ function DetalleRDModal({
           <button
             type="button"
             onClick={handlePrint}
-            disabled={loading || !!error || !detail || detail.data.length === 0}
+            disabled={loading || !!error || !detail || detail.data.length === 0 || printing}
             className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-4 py-1.5 text-[11px] font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            <Printer size={13} />
-            Imprimir
+            {printing ? (
+              <Loader2 size={13} className="animate-spin" />
+            ) : (
+              <Printer size={13} />
+            )}
+            {printing ? "Generando..." : "Imprimir"}
           </button>
         </div>
       </div>
@@ -655,6 +643,36 @@ export default function ConsultaRDPage() {
   // ── Ruta modal ─────────────────────────────────────────
   const [rutaRow, setRutaRow] = useState<ConsultaRDRow | null>(null);
 
+  // ── Print from actions column ────────────────────────
+  const [printingRow, setPrintingRow] = useState(false);
+  const [printHtmlRow, setPrintHtmlRow] = useState<string | null>(null);
+
+  const handlePrintRow = async (row: ConsultaRDRow) => {
+    setPrintingRow(true);
+    setError(null);
+    try {
+      const result = await imprimirConsultaRDAction({
+        num_val: row.num_val,
+        ano_val: String(row.ano_val),
+      });
+
+      if (!result.success || !result.html) {
+        setError(result.error ?? "Error al generar impresión del RD");
+        return;
+      }
+
+      setPrintHtmlRow(result.html);
+      setTimeout(() => {
+        window.print();
+        setTimeout(() => setPrintHtmlRow(null), 500);
+      }, 300);
+    } catch {
+      setError("Error de conexión al generar la impresión. Revisá la consola del navegador.");
+    } finally {
+      setPrintingRow(false);
+    }
+  };
+
   // ── Helpers ──────────────────────────────────────────────
 
   /** Formatea código a 7 dígitos con ceros a la izquierda */
@@ -776,10 +794,11 @@ export default function ConsultaRDPage() {
       const allData = await fetchAllRecords();
       const { default: jsPDF } = await import("jspdf");
       const { default: autoTable } = await import("jspdf-autotable");
-      const doc = new jsPDF({ orientation: "landscape" });
-      doc.text("Consulta RD - Alcabala", 14, 10);
+      const doc = new jsPDF({ orientation: "landscape", unit: "mm" });
+      doc.text("Consulta RD - Alcabala", 2, 4);
       autoTable(doc, {
-        startY: 16,
+        startY: 7,
+        margin: { top: 2, right: 2, bottom: 2, left: 2 },
         head: [
           [
             "#",
@@ -804,8 +823,19 @@ export default function ConsultaRDPage() {
           r.fpago,
           r.recibo,
         ]),
-        styles: { fontSize: 7 },
+        styles: { fontSize: 5, cellPadding: 0.5 },
         headStyles: { fillColor: [30, 48, 80] },
+        columnStyles: {
+          0: { cellWidth: 8 },
+          1: { cellWidth: 26 },
+          2: { cellWidth: 70 },
+          3: { cellWidth: 75 },
+          4: { cellWidth: 22 },
+          5: { cellWidth: 28 },
+          6: { cellWidth: 18 },
+          7: { cellWidth: 24 },
+          8: { cellWidth: 22 },
+        },
       });
       doc.save("consulta-rd-alcabala.pdf");
     } catch {
@@ -977,7 +1007,9 @@ export default function ConsultaRDPage() {
               </button>
               <button
                 type="button"
-                className="rounded p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                onClick={() => handlePrintRow(row)}
+                disabled={printingRow}
+                className="rounded p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
                 aria-label="Imprimir"
                 title="Imprimir"
               >
@@ -1269,6 +1301,30 @@ export default function ConsultaRDPage() {
           onClose={() => setRutaRow(null)}
         />
       )}
+
+      {/* Print preview from actions column (only visible when printing) */}
+      {printHtmlRow && (
+        <div className="print-only fixed inset-0 z-[70] overflow-auto bg-white p-4">
+          <div dangerouslySetInnerHTML={{ __html: printHtmlRow }} />
+        </div>
+      )}
+      <style>{`
+        @media screen {
+          .print-only { display: none !important; }
+        }
+        @media print {
+          @page { margin: 2mm; }
+          body * { visibility: hidden !important; }
+          .print-only, .print-only * { visibility: visible !important; }
+          .print-only {
+            position: fixed !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            height: auto !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConsultaRdAlcabalaController } from './consulta-rd-alcabala.controller';
 import { ConsultaRdAlcabalaService } from './consulta-rd-alcabala.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { ConsultaRDResult, DetalleRDResult, RutaRDResult } from './consulta-rd-alcabala.types';
+import { ConsultaRDResult, DetalleRDResult, RutaRDResult, ImprimirRDResult } from './consulta-rd-alcabala.types';
 
 describe('ConsultaRdAlcabalaController', () => {
   let controller: ConsultaRdAlcabalaController;
@@ -14,6 +14,7 @@ describe('ConsultaRdAlcabalaController', () => {
     search: jest.fn(),
     getDetail: jest.fn(),
     getRuta: jest.fn(),
+    getImprimir: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -256,6 +257,56 @@ describe('ConsultaRdAlcabalaController', () => {
       });
 
       const result = await controller.ruta({
+        num_val: 'RD-001',
+        ano_val: '2025',
+      });
+
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe('GET /alcabala/consulta-rd/imprimir', () => {
+    it('should delegate to service.getImprimir with parsed query params', async () => {
+      const expected: ImprimirRDResult = {
+        success: true,
+        html: '<p>TEST</p>',
+      };
+      mockService.getImprimir.mockResolvedValue(expected);
+
+      const result = await controller.imprimir({
+        num_val: 'RD-001',
+        ano_val: '2025',
+      });
+
+      expect(result).toEqual(expected);
+      expect(mockService.getImprimir).toHaveBeenCalledWith({
+        num_val: 'RD-001',
+        ano_val: '2025',
+      });
+    });
+
+    it('should apply Zod defaults when imprimir params are empty', async () => {
+      mockService.getImprimir.mockResolvedValue({
+        success: true,
+        html: '',
+      });
+
+      const result = await controller.imprimir({});
+
+      expect(result.success).toBe(true);
+      expect(mockService.getImprimir).toHaveBeenCalledWith({
+        num_val: '',
+        ano_val: '',
+      });
+    });
+
+    it('should return error envelope on Zod validation failure for imprimir', async () => {
+      mockService.getImprimir.mockResolvedValue({
+        success: false,
+        error: 'Error',
+      });
+
+      const result = await controller.imprimir({
         num_val: 'RD-001',
         ano_val: '2025',
       });
