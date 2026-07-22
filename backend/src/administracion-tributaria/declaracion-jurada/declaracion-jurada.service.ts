@@ -418,6 +418,32 @@ export class DeclaracionJuradaService {
   }
 
   /**
+   * Validar si el contribuyente tiene representante por código — exec Rentas.sp_Mcontribuyente @busc=25, @codigo
+   * La primera columna del result set viene como string 'true'/'false'.
+   *   'true'  -> tiene representante (NO debe agregar representante)
+   *   'false' -> no tiene representante (debeAgregarRepresentante = true)
+   */
+  async validarRepresentantePorCodigo(codigo: string): Promise<ValidarRepresentanteResult> {
+    if (!codigo || !codigo.trim()) {
+      return { debeAgregarRepresentante: false };
+    }
+
+    const result = await this.db.executeProcedure<any>(this.SP_MCONTRIBUYENTE, {
+      busc: 25,
+      codigo: codigo.trim(),
+    });
+
+    const row = result.recordset?.[0] as { [key: string]: unknown } | undefined;
+    if (!row) return { debeAgregarRepresentante: false };
+
+    const firstValue = Object.values(row)[0];
+    const firstStr = String(firstValue ?? '').trim().toLowerCase();
+    const debeAgregar = firstStr === 'false';
+
+    return { debeAgregarRepresentante: debeAgregar };
+  }
+
+  /**
    * Guardar contribuyente (nuevo o actualización) — exec Rentas.sp_Mcontribuyente @busc=1
    * Mapea 1:1 los parámetros del SP. Devuelve el código generado / mensaje.
    */
