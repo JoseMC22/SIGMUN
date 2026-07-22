@@ -81,6 +81,39 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Ejecuta un SP con parámetros OUTPUT.
+   * @param procedureName Nombre del SP
+   * @param inputParams Parámetros de entrada
+   * @param outputParams Definiciones de OUTPUT: { nombre: mssql.Type }
+   * @param timeout Timeout opcional
+   */
+  async executeProcedureWithOutput<T>(
+    procedureName: string,
+    inputParams: Record<string, any> = {},
+    outputParams: Record<string, mssql.ISqlTypeFactoryWithNoParams> = {},
+    timeout?: number,
+  ): Promise<mssql.IProcedureResult<T>> {
+    const request = this.pool.request();
+
+    for (const [key, value] of Object.entries(inputParams)) {
+      request.input(key, value);
+    }
+
+    for (const [key, typeFactory] of Object.entries(outputParams)) {
+      request.output(key, typeFactory);
+    }
+
+    if (timeout !== undefined && timeout !== null && timeout > 0) {
+      return this.executeWithTimeout(
+        request.execute<T>(procedureName),
+        timeout,
+      );
+    }
+
+    return request.execute<T>(procedureName);
+  }
+
+  /**
    * Ejecuta una consulta raw (query) si fuera necesaria.
    * @param queryStr Consulta SQL
    * @param params Parámetros para la consulta (opcional)
