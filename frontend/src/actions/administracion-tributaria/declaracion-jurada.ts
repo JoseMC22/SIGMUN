@@ -330,6 +330,27 @@ export async function validarRepresentanteAction(
   }
 }
 
+// ─── Validar representante por código (modal Representante) ──
+
+export async function validarRepresentantePorCodigoAction(
+  codigo: string,
+): Promise<
+  { success: true; data: ValidarRepresentanteResult } | { success: false; error: string }
+> {
+  try {
+    const params = new URLSearchParams({ codigo });
+    const response = await authFetch(`/declaracion-jurada/validar-representante-por-codigo?${params}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.message ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    return { success: true as const, ...result };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
 // ─── Guardar contribuyente (botón Grabar) ──
 
 export interface GuardarContribuyentePayload {

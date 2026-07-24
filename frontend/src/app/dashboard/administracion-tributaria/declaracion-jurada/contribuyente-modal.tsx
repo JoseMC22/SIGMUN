@@ -13,6 +13,7 @@ import {
   getTiposAgrupamientoAction,
   buscarContribuyentePorDocAction,
   validarRepresentanteAction,
+  validarRepresentantePorCodigoAction,
   guardarContribuyenteAction,
   type TipoDocumentoOption,
   type TipoContribuyenteOption,
@@ -246,6 +247,7 @@ function RepresentanteModal({
   tiposAgrupamiento,
   combosLoading,
   onGrabar,
+  saveMessage,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -260,6 +262,7 @@ function RepresentanteModal({
   tiposAgrupamiento: { value: string; label: string }[];
   combosLoading: boolean;
   onGrabar: () => void;
+  saveMessage: { type: "error" | "success"; text: string } | null;
 }) {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchMessage, setSearchMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
@@ -604,21 +607,34 @@ function RepresentanteModal({
         </div>
 
         {/* ── Footer ── */}
-        <div className="flex items-center justify-end gap-2 border-t border-slate-100 px-4 py-2 shrink-0">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md border border-slate-200 bg-white px-4 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-sat-cyan/30"
-          >
-            Cerrar Formulario
-          </button>
-          <button
-            type="button"
-            onClick={onGrabar}
-            className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-4 py-1.5 text-xs font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
-          >
-            Grabar Datos
-          </button>
+        <div className="border-t border-slate-100 px-4 py-2 shrink-0 space-y-2">
+          {saveMessage && (
+            <div
+              className={`rounded-md px-3 py-1.5 text-[11px] font-medium ${
+                saveMessage.type === "error"
+                  ? "bg-red-50 text-red-600 border border-red-200"
+                  : "bg-emerald-50 text-emerald-600 border border-emerald-200"
+              }`}
+            >
+              {saveMessage.text}
+            </div>
+          )}
+          <div className="flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md border border-slate-200 bg-white px-4 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-sat-cyan/30"
+            >
+              Cerrar Formulario
+            </button>
+            <button
+              type="button"
+              onClick={onGrabar}
+              className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-4 py-1.5 text-xs font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
+            >
+              Grabar Datos
+            </button>
+          </div>
         </div>
       </div>
 
@@ -662,6 +678,7 @@ export default function ContribuyenteModal({ isOpen, onClose }: Props) {
   // ── Representante modal state ──
   const [representanteModalOpen, setRepresentanteModalOpen] = useState(false);
   const [representante, setRepresentante] = useState<RepresentanteForm>(emptyRepresentante);
+  const [representanteMessage, setRepresentanteMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
 
   // ── Guardar contribuyente state ──
   const [guardando, setGuardando] = useState(false);
@@ -679,6 +696,7 @@ export default function ContribuyenteModal({ isOpen, onClose }: Props) {
     setSearchLoading(false);
     setRepresentanteModalOpen(false);
     setRepresentante(emptyRepresentante);
+    setRepresentanteMessage(null);
 
     let cancelled = false;
     setCombosLoading(true);
@@ -907,13 +925,16 @@ export default function ContribuyenteModal({ isOpen, onClose }: Props) {
     try {
       const res = await guardarContribuyenteAction(payload);
       if (!res.success) {
-        alert(res.error);
+        setRepresentanteMessage({ type: "error", text: res.error });
         return;
       }
-      alert(res.data.mensaje || "Representante guardado correctamente.");
-      setRepresentanteModalOpen(false);
+      setRepresentanteMessage({ type: "success", text: res.data.mensaje || "Representante guardado correctamente." });
+      setTimeout(() => {
+        setRepresentanteModalOpen(false);
+        setRepresentanteMessage(null);
+      }, 1500);
     } catch {
-      alert("Error al guardar el representante. Intente nuevamente.");
+      setRepresentanteMessage({ type: "error", text: "Error al guardar el representante. Intente nuevamente." });
     }
   };
 
@@ -953,6 +974,19 @@ export default function ContribuyenteModal({ isOpen, onClose }: Props) {
       if (validacion.data.debeAgregarRepresentante) {
         setGuardarError("Debe Agregar un Representate");
         return;
+      }
+
+      // 2b) Validar representante por código (tipo !== "01") — exec @busc=25, @codigo
+      if (form.tipoContri !== "01" && form.codigo && form.codigo.trim()) {
+        const valCodigo = await validarRepresentantePorCodigoAction(form.codigo.trim());
+        if (!valCodigo.success) {
+          setGuardarError(valCodigo.error);
+          return;
+        }
+        if (valCodigo.data.debeAgregarRepresentante) {
+          setGuardarError("El contribuyente no tiene representante. Debe agregar un representante antes de guardar.");
+          return;
+        }
       }
 
       // 3) Guardar — exec @busc=1 (nuevo => tip=1)
@@ -1728,7 +1762,7 @@ export default function ContribuyenteModal({ isOpen, onClose }: Props) {
       {/* ── Modal de representante ── */}
       <RepresentanteModal
         isOpen={representanteModalOpen}
-        onClose={() => setRepresentanteModalOpen(false)}
+        onClose={() => { setRepresentanteModalOpen(false); setRepresentanteMessage(null); }}
         form={representante}
         onChange={handleRepresentanteChange}
         tiposDoc={tiposDoc}
@@ -1740,6 +1774,7 @@ export default function ContribuyenteModal({ isOpen, onClose }: Props) {
         tiposAgrupamiento={tiposAgrupamiento}
         combosLoading={combosLoading}
         onGrabar={grabarRepresentante}
+        saveMessage={representanteMessage}
       />
     </div>
   );

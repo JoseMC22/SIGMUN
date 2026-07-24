@@ -154,6 +154,23 @@ export class DeclaracionJuradaController {
     }
   }
 
+  // ── Validar si requiere representante por código (modal Representante) ──
+
+  @Get('validar-representante-por-codigo')
+  async validarRepresentantePorCodigo(
+    @Query('codigo') codigo: string,
+  ): Promise<{ success: true; data: ValidarRepresentanteResult } | { success: false; error: string }> {
+    try {
+      const data = await this.service.validarRepresentantePorCodigo(codigo ?? '');
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error al validar representante por código.',
+      };
+    }
+  }
+
   // ── Guardar contribuyente (modal Nuevo Contribuyente) ──
 
   @Post('guardar')
