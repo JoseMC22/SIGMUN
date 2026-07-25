@@ -5,9 +5,10 @@ import { ConsultaRdAlcabalaService } from './consulta-rd-alcabala/consulta-rd-al
 import { RdAlcabalaController } from './rd-alcabala/rd-alcabala.controller';
 import { RdAlcabalaService } from './rd-alcabala/rd-alcabala.service';
 import { ReporteDeAlcabalaModule } from './reporte-de-alcabala/reporte-de-alcabala.module';
+import { DeterminarAlcabalaModule } from './determinar-alcabala/determinar-alcabala.module';
 
 @Module({
-  imports: [AuthModule, ReporteDeAlcabalaModule],
+  imports: [AuthModule, ReporteDeAlcabalaModule, DeterminarAlcabalaModule],
   controllers: [ConsultaRdAlcabalaController, RdAlcabalaController],
   providers: [ConsultaRdAlcabalaService, RdAlcabalaService],
 })
