@@ -4,10 +4,13 @@ import { SearchContribuyenteDto } from './dto/search-contribuyente.dto';
 import {
   SpMContribuyenteRow,
   SpAlcabalasByContribuyenteRow,
+  SpDetalleAlcabalaRow,
   ContribuyenteItem,
   AlcabalaItem,
+  DetalleAlcabalaItem,
   ContribuyenteSearchResult,
   AlcabalasResult,
+  DetalleAlcabalaResult,
 } from './determinar-alcabala.types';
 
 // ── Case-insensitive column accessor (mssql v12+ preserves SP casing) ──
@@ -148,6 +151,85 @@ export class DeterminarAlcabalaService {
         success: false,
         data: [],
         error: 'Error al consultar alcabalas del contribuyente',
+      };
+    }
+  }
+
+  async getDetalleAlcabala(
+    idAlcabala: number,
+  ): Promise<DetalleAlcabalaResult> {
+    try {
+      const result = await this.db.executeProcedure<SpDetalleAlcabalaRow>(
+        this.SP_DJALCABALA,
+        {
+          buscar: '8',
+          id_alcabala: idAlcabala,
+        },
+      );
+
+      const row = result.recordset?.[0];
+      if (!row) {
+        return {
+          success: false,
+          data: null,
+          error: 'Alcabala no encontrada',
+        };
+      }
+
+      const data: DetalleAlcabalaItem = {
+        codigoCompra: String(col(row, 'codigo_compra') ?? ''),
+        anio: String(col(row, 'anio') ?? ''),
+        nombres: String(col(row, 'nombres') ?? ''),
+        documento: String(col(row, 'documento') ?? ''),
+        numDoc: String(col(row, 'num_doc') ?? ''),
+        direccFiscal: String(col(row, 'direcc_fiscal') ?? ''),
+        distrito: String(col(row, 'distrito') ?? ''),
+        provincia: String(col(row, 'provincia') ?? ''),
+        departamento: String(col(row, 'departamento') ?? ''),
+        codigoVenta: String(col(row, 'codigo_venta') ?? ''),
+        nombres1: String(col(row, 'nombres1') ?? ''),
+        documento1: String(col(row, 'documento1') ?? ''),
+        numDoc1: String(col(row, 'num_doc1') ?? ''),
+        direccFiscal1: String(col(row, 'direcc_fiscal1') ?? ''),
+        distrito1: String(col(row, 'distrito1') ?? ''),
+        provincia1: String(col(row, 'provincia1') ?? ''),
+        departamento1: String(col(row, 'departamento1') ?? ''),
+        codPred: String(col(row, 'codpred') ?? ''),
+        anioPred: String(col(row, 'aniopred') ?? ''),
+        fechaContrato: String(col(row, 'fecha_contrato') ?? ''),
+        transferencia: String(col(row, 'transferencia') ?? ''),
+        observacion: String(col(row, 'observacion') ?? ''),
+        contrato: String(col(row, 'contrato') ?? ''),
+        montoAlcabala: Number(col(row, 'monto_alcabala') ?? 0),
+        autoavaluo: Number(col(row, 'autoavaluo') ?? 0),
+        direccionPredio: String(col(row, 'direccion_predio') ?? ''),
+        montoInafecto: Number(col(row, 'monto_inafecto') ?? 0),
+        montoAfecto: Number(col(row, 'monto_afecto') ?? 0),
+        anexo: String(col(row, 'anexo') ?? ''),
+        subAnexo: String(col(row, 'sub_anexo') ?? ''),
+        flagCheck: String(col(row, 'flag_check') ?? ''),
+        observacionFlag: String(col(row, 'observacion_flag') ?? ''),
+        nombre: String(col(row, 'nombre') ?? ''),
+        direccion: String(col(row, 'direccion') ?? ''),
+        dni: String(col(row, 'dni') ?? ''),
+        tipodoc: String(col(row, 'tipodoc') ?? ''),
+        usuario: String(col(row, 'usuario') ?? ''),
+        estacion: String(col(row, 'estacion') ?? ''),
+        fechaIng: String(col(row, 'fecha_ing') ?? ''),
+        flagInafecto: String(col(row, 'flag_inafecto') ?? ''),
+        tipoPred: String(col(row, 'tipo_pred') ?? ''),
+      };
+
+      return {
+        success: true,
+        data,
+      };
+    } catch (err) {
+      this.logger.error(`[DeterminarAlcabala] getDetalleAlcabala SP error: ${err}`);
+      return {
+        success: false,
+        data: null,
+        error: 'Error al obtener detalle de alcabala',
       };
     }
   }

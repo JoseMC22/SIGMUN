@@ -5,7 +5,7 @@ import {
   SearchContribuyenteSchema,
   SearchContribuyenteDto,
 } from './dto/search-contribuyente.dto';
-import { ContribuyenteSearchResult, AlcabalasResult } from './determinar-alcabala.types';
+import { ContribuyenteSearchResult, AlcabalasResult, DetalleAlcabalaResult } from './determinar-alcabala.types';
 import { z } from 'zod';
 
 @Controller('alcabala/determinar-alcabala')
@@ -50,5 +50,20 @@ export class DeterminarAlcabalaController {
     @Param('codigo') codigo: string,
   ): Promise<AlcabalasResult> {
     return this.service.getAlcabalasByContribuyente(codigo);
+  }
+
+  @Get('detalle/:idAlcabala')
+  async getDetalle(
+    @Param('idAlcabala') idAlcabala: string,
+  ): Promise<DetalleAlcabalaResult> {
+    const id = parseInt(idAlcabala, 10);
+    if (isNaN(id)) {
+      return {
+        success: false,
+        data: null,
+        error: 'ID de alcabala inválido',
+      };
+    }
+    return this.service.getDetalleAlcabala(id);
   }
 }

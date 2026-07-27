@@ -135,3 +135,81 @@ export async function getAlcabalasAction(
     };
   }
 }
+
+// ─── Get Detalle Alcabala ─────────────────────────────────
+
+export interface DetalleAlcabalaItem {
+  codigoCompra: string;
+  anio: string;
+  nombres: string;
+  documento: string;
+  numDoc: string;
+  direccFiscal: string;
+  distrito: string;
+  provincia: string;
+  departamento: string;
+  codigoVenta: string;
+  nombres1: string;
+  documento1: string;
+  numDoc1: string;
+  direccFiscal1: string;
+  distrito1: string;
+  provincia1: string;
+  departamento1: string;
+  codPred: string;
+  anioPred: string;
+  fechaContrato: string;
+  transferencia: string;
+  observacion: string;
+  contrato: string;
+  montoAlcabala: number;
+  autoavaluo: number;
+  direccionPredio: string;
+  montoInafecto: number;
+  montoAfecto: number;
+  anexo: string;
+  subAnexo: string;
+  flagCheck: string;
+  observacionFlag: string;
+  nombre: string;
+  direccion: string;
+  dni: string;
+  tipodoc: string;
+  usuario: string;
+  estacion: string;
+  fechaIng: string;
+  flagInafecto: string;
+  tipoPred: string;
+}
+
+export interface DetalleAlcabalaResult {
+  success: boolean;
+  data: DetalleAlcabalaItem | null;
+  error?: string;
+}
+
+export async function getDetalleAlcabalaAction(
+  idAlcabala: number,
+): Promise<DetalleAlcabalaResult> {
+  try {
+    const response = await authFetch(`/alcabala/determinar-alcabala/detalle/${idAlcabala}`);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        data: null,
+        error: errorData.error ?? `Error ${response.status}`,
+      };
+    }
+
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    return {
+      success: false,
+      data: null,
+      error: error instanceof Error ? error.message : 'Error de conexión',
+    };
+  }
+}

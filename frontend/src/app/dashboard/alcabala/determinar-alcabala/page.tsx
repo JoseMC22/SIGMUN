@@ -387,7 +387,7 @@ export default function DeterminarAlcabalaPage() {
       <DetalleAlcabala
         open={detalleRow !== null}
         onClose={() => setDetalleRow(null)}
-        alcabala={detalleRow}
+        idAlcabala={detalleRow?.idAlcabala ?? null}
       />
 
       {/* Empty state when no search */}
