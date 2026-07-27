@@ -176,10 +176,15 @@ export class DeterminarAlcabalaService {
         };
       }
 
+      const nombresRaw = String(col(row, 'nombres') ?? '');
+      const nombresSplit = nombresRaw.split(',').map((s: string) => s.trim());
+      const nombreComprador = nombresSplit[0] ?? '';
+      const nombreVendedor = nombresSplit[1] ?? '';
+
       const data: DetalleAlcabalaItem = {
         codigoCompra: String(col(row, 'codigo_compra') ?? ''),
         anio: String(col(row, 'anio') ?? ''),
-        nombres: String(col(row, 'nombres') ?? ''),
+        nombres: nombreComprador,
         documento: String(col(row, 'documento') ?? ''),
         numDoc: String(col(row, 'num_doc') ?? ''),
         direccFiscal: String(col(row, 'direcc_fiscal') ?? ''),
@@ -187,7 +192,7 @@ export class DeterminarAlcabalaService {
         provincia: String(col(row, 'provincia') ?? ''),
         departamento: String(col(row, 'departamento') ?? ''),
         codigoVenta: String(col(row, 'codigo_venta') ?? ''),
-        nombres1: String(col(row, 'nombres1') ?? ''),
+        nombres1: nombreVendedor,
         documento1: String(col(row, 'documento1') ?? ''),
         numDoc1: String(col(row, 'num_doc1') ?? ''),
         direccFiscal1: String(col(row, 'direcc_fiscal1') ?? ''),
