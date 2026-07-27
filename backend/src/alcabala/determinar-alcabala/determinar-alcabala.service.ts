@@ -176,29 +176,38 @@ export class DeterminarAlcabalaService {
         };
       }
 
-      const nombresRaw = String(col(row, 'nombres') ?? '');
-      const nombresSplit = nombresRaw.split(',').map((s: string) => s.trim());
-      const nombreComprador = nombresSplit[0] ?? '';
-      const nombreVendedor = nombresSplit[1] ?? '';
+      // SP returns comma-separated pairs: "comprador,vendedor"
+      const split = (val: string): [string, string] => {
+        const parts = val.split(',').map((s: string) => s.trim());
+        return [parts[0] ?? '', parts[1] ?? ''];
+      };
+
+      const [nombresC, nombresV] = split(String(col(row, 'nombres') ?? ''));
+      const [documentoC, documentoV] = split(String(col(row, 'documento') ?? ''));
+      const [numDocC, numDocV] = split(String(col(row, 'num_doc') ?? ''));
+      const [direccC, direccV] = split(String(col(row, 'direcc_fiscal') ?? ''));
+      const [distC, distV] = split(String(col(row, 'distrito') ?? ''));
+      const [provC, provV] = split(String(col(row, 'provincia') ?? ''));
+      const [dptoC, dptoV] = split(String(col(row, 'departamento') ?? ''));
 
       const data: DetalleAlcabalaItem = {
         codigoCompra: String(col(row, 'codigo_compra') ?? ''),
         anio: String(col(row, 'anio') ?? ''),
-        nombres: nombreComprador,
-        documento: String(col(row, 'documento') ?? ''),
-        numDoc: String(col(row, 'num_doc') ?? ''),
-        direccFiscal: String(col(row, 'direcc_fiscal') ?? ''),
-        distrito: String(col(row, 'distrito') ?? ''),
-        provincia: String(col(row, 'provincia') ?? ''),
-        departamento: String(col(row, 'departamento') ?? ''),
+        nombres: nombresC,
+        documento: documentoC,
+        numDoc: numDocC,
+        direccFiscal: direccC,
+        distrito: distC,
+        provincia: provC,
+        departamento: dptoC,
         codigoVenta: String(col(row, 'codigo_venta') ?? ''),
-        nombres1: nombreVendedor,
-        documento1: String(col(row, 'documento1') ?? ''),
-        numDoc1: String(col(row, 'num_doc1') ?? ''),
-        direccFiscal1: String(col(row, 'direcc_fiscal1') ?? ''),
-        distrito1: String(col(row, 'distrito1') ?? ''),
-        provincia1: String(col(row, 'provincia1') ?? ''),
-        departamento1: String(col(row, 'departamento1') ?? ''),
+        nombres1: nombresV,
+        documento1: documentoV,
+        numDoc1: numDocV,
+        direccFiscal1: direccV,
+        distrito1: distV,
+        provincia1: provV,
+        departamento1: dptoV,
         codPred: String(col(row, 'codpred') ?? ''),
         anioPred: String(col(row, 'aniopred') ?? ''),
         fechaContrato: String(col(row, 'fecha_contrato') ?? ''),
