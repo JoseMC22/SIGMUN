@@ -8,7 +8,7 @@ import {
   type AlcabalaItem,
   type ContribuyenteItem,
 } from "@/actions/alcabala/determinar-alcabala";
-import AlcabalasTable from "./alcabalas-table";
+import AlcabalasModal from "./alcabalas-modal";
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -40,6 +40,7 @@ export default function DeterminarAlcabalaPage() {
   const [contribuyentes, setContribuyentes] = useState<ContribuyenteItem[]>([]);
   const [selectedContribuyente, setSelectedContribuyente] = useState<ContribuyenteItem | null>(null);
   const [alcabalas, setAlcabalas] = useState<AlcabalaItem[]>([]);
+  const [modalOpen, setModalOpen] = useState(false);
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [loadingAlcabalas, setLoadingAlcabalas] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -123,7 +124,7 @@ export default function DeterminarAlcabalaPage() {
 
   const handleSelectContribuyente = useCallback(async (contribuyente: ContribuyenteItem) => {
     setSelectedContribuyente(contribuyente);
-    resetAll();
+    setModalOpen(true);
     setLoadingAlcabalas(true);
     setError(null);
     try {
@@ -279,21 +280,6 @@ export default function DeterminarAlcabalaPage() {
         </div>
       </div>
 
-      {/* Selected contribuyente badge */}
-      {selectedContribuyente && (
-        <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 shadow-sm">
-          <span className="text-[10px] font-semibold text-slate-400 uppercase">
-            Seleccionado:
-          </span>
-          <span className="text-xs font-mono font-medium text-sat-navy">
-            {selectedContribuyente.codigo}
-          </span>
-          <span className="text-xs text-slate-600">
-            {selectedContribuyente.nombres} {selectedContribuyente.paterno} {selectedContribuyente.materno}
-          </span>
-        </div>
-      )}
-
       {/* Error state */}
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs font-medium text-red-600">
@@ -302,7 +288,7 @@ export default function DeterminarAlcabalaPage() {
       )}
 
       {/* Contribuyente search results */}
-      {!selectedContribuyente && searched && !loadingSearch && contribuyentes.length > 0 && (
+      {searched && !loadingSearch && contribuyentes.length > 0 && (
         <div className="overflow-hidden rounded-lg border border-slate-200 shadow-sm">
           <table className="w-full table-fixed border-collapse">
             <thead className="bg-gradient-to-r from-sat-navy to-[#1e3050]">
@@ -369,7 +355,7 @@ export default function DeterminarAlcabalaPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => console.log("Determinar impuesto", item.codigo)}
+                        onClick={() => handleSelectContribuyente(item)}
                         className="inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-1 text-[10px] font-medium text-emerald-700 transition hover:bg-emerald-100 active:scale-95"
                         title="Determinar impuesto"
                       >
@@ -385,13 +371,17 @@ export default function DeterminarAlcabalaPage() {
         </div>
       )}
 
-      {/* Alcabalas table */}
-      {selectedContribuyente && (
-        <AlcabalasTable data={alcabalas} loading={loadingAlcabalas} />
-      )}
+      {/* Alcabalas modal */}
+      <AlcabalasModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        contribuyente={selectedContribuyente}
+        alcabalas={alcabalas}
+        loading={loadingAlcabalas}
+      />
 
-      {/* Empty state when no contribuyente selected and no search */}
-      {!selectedContribuyente && !searched && !loadingSearch && (
+      {/* Empty state when no search */}
+      {!searched && !loadingSearch && (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-200 bg-white py-16">
           <div className="mb-3 rounded-full bg-slate-100 p-3">
             <Building2 size={24} className="text-slate-300" />
