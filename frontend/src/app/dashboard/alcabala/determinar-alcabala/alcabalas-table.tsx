@@ -8,6 +8,7 @@ import type { AlcabalaItem } from "@/actions/alcabala/determinar-alcabala";
 interface Props {
   data: AlcabalaItem[];
   loading: boolean;
+  onViewDetail?: (alcabala: AlcabalaItem) => void;
 }
 
 // ─── Helpers ───────────────────────────────────────────────
@@ -28,7 +29,7 @@ function mapEstado(estado: string): string {
 
 // ─── Component ─────────────────────────────────────────────
 
-export default function AlcabalasTable({ data, loading }: Props) {
+export default function AlcabalasTable({ data, loading, onViewDetail }: Props) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -128,10 +129,9 @@ export default function AlcabalasTable({ data, loading }: Props) {
                       <span className="group relative">
                         <button
                           type="button"
-                          disabled
-                          onClick={() => console.log("Ver detalle", item.idAlcabala)}
-                          className="inline-flex items-center justify-center rounded p-1 text-sky-600 transition hover:bg-sky-50 active:scale-95 disabled:text-slate-300 disabled:cursor-not-allowed"
-                          title="Por desarrollar"
+                          onClick={() => onViewDetail?.(item)}
+                          className="inline-flex items-center justify-center rounded p-1 text-sky-600 transition hover:bg-sky-50 active:scale-95"
+                          title="Ver Detalle"
                         >
                           <Eye size={13} />
                         </button>

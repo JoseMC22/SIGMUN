@@ -9,6 +9,7 @@ import {
   type ContribuyenteItem,
 } from "@/actions/alcabala/determinar-alcabala";
 import AlcabalasModal from "./alcabalas-modal";
+import DetalleAlcabala from "./detalle-alcabala";
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -41,6 +42,7 @@ export default function DeterminarAlcabalaPage() {
   const [selectedContribuyente, setSelectedContribuyente] = useState<ContribuyenteItem | null>(null);
   const [alcabalas, setAlcabalas] = useState<AlcabalaItem[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
+  const [detalleRow, setDetalleRow] = useState<AlcabalaItem | null>(null);
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [loadingAlcabalas, setLoadingAlcabalas] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -378,6 +380,14 @@ export default function DeterminarAlcabalaPage() {
         contribuyente={selectedContribuyente}
         alcabalas={alcabalas}
         loading={loadingAlcabalas}
+        onViewDetail={(a) => setDetalleRow(a)}
+      />
+
+      {/* Detalle alcabala modal */}
+      <DetalleAlcabala
+        open={detalleRow !== null}
+        onClose={() => setDetalleRow(null)}
+        alcabala={detalleRow}
       />
 
       {/* Empty state when no search */}

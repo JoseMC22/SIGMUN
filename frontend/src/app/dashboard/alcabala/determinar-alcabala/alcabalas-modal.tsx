@@ -16,6 +16,7 @@ interface AlcabalasModalProps {
   contribuyente: ContribuyenteItem | null;
   alcabalas: AlcabalaItem[];
   loading: boolean;
+  onViewDetail?: (alcabala: AlcabalaItem) => void;
 }
 
 // ── Component ──────────────────────────────────────────────
@@ -26,6 +27,7 @@ export default function AlcabalasModal({
   contribuyente,
   alcabalas,
   loading,
+  onViewDetail,
 }: AlcabalasModalProps) {
   // ── Escape key handler (stops propagation to parent) ──
   useEffect(() => {
@@ -69,7 +71,7 @@ export default function AlcabalasModal({
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-4">
-          <AlcabalasTable data={alcabalas} loading={loading} />
+          <AlcabalasTable data={alcabalas} loading={loading} onViewDetail={onViewDetail} />
         </div>
 
         {/* Footer */}
