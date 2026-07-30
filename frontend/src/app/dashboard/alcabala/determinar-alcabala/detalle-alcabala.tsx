@@ -179,7 +179,7 @@ export default function DetalleAlcabala({
                   <Field label="Documento" value={data.documento} />
                   <Field label="N° Doc" value={data.numDoc} mono />
                   <Field label="Año" value={data.anio} />
-                  <Field label="Dirección Fiscal" value={data.direccFiscal} span={2} />
+                  <Field label="Dirección Fiscal Comprador" value={data.direccFiscal} span={2} />
                   <Field label="Distrito" value={data.distrito} />
                   <Field label="Provincia" value={data.provincia} />
                   <Field label="Departamento" value={data.departamento} />
@@ -214,9 +214,9 @@ export default function DetalleAlcabala({
                 </div>
               </div>
 
-              {/* ── Operación ── */}
+              {/* ── Datos Relativos al Contrato ── */}
               <div>
-                <h3 className={sectionTitle}>Operación</h3>
+                <h3 className={sectionTitle}>Datos Relativos al Contrato</h3>
                 <div className="grid grid-cols-3 gap-3">
                   <Field label="Fecha Contrato" value={data.fechaContrato} />
                   <Field label="Contrato" value={data.contrato} />
@@ -234,19 +234,13 @@ export default function DetalleAlcabala({
                   <MoneyField label="Monto Inafecto" value={data.montoInafecto} />
                   <MoneyField label="Monto Afecto" value={data.montoAfecto} />
                   <Field label="Flag Inafecto" value={data.flagInafecto} />
-                  <Field label="Flag Check" value={data.flagCheck} />
-                  <Field label="Observación Flag" value={data.observacionFlag} span={2} />
                 </div>
               </div>
 
               {/* ── Registro ── */}
               <div>
                 <h3 className={sectionTitle}>Registro</h3>
-                <div className="grid grid-cols-4 gap-3">
-                  <Field label="Nombre" value={data.nombre} />
-                  <Field label="Dirección" value={data.direccion} span={2} />
-                  <Field label="DNI" value={data.dni} mono />
-                  <Field label="Tipo Doc" value={data.tipodoc} />
+                <div className="grid grid-cols-3 gap-3">
                   <Field label="Usuario" value={data.usuario} />
                   <Field label="Estación" value={data.estacion} />
                   <Field label="Fecha Ingreso" value={data.fechaIng} />
