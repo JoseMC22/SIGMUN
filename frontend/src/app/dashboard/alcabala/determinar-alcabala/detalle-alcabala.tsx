@@ -173,70 +173,76 @@ export default function DetalleAlcabala({
               {/* ── Comprador ── */}
               <div>
                 <h3 className={sectionTitle}>Comprador</h3>
-                <div className="grid grid-cols-3 gap-3">
-                  <Field label="Código Compra" value={data.codigoCompra} mono span={1} />
-                  <Field label="Nombres" value={data.nombres} span={2} />
-                  <Field label="Documento" value={data.documento} />
-                  <Field label="N° Doc" value={data.numDoc} mono />
-                  <Field label="Año" value={data.anio} />
-                  <Field label="Dirección Fiscal Comprador" value={data.direccFiscal} span={2} />
-                  <Field label="Distrito" value={data.distrito} />
-                  <Field label="Provincia" value={data.provincia} />
-                  <Field label="Departamento" value={data.departamento} />
+                <div className="grid grid-cols-[15fr_85fr] gap-x-3">
+                  <Field label="Código Compra" value={data.codigoCompra} mono />
+                  <Field label="Nombres" value={data.nombres} />
+                </div>
+                <div className="grid grid-cols-6 gap-x-3 mt-1">
+                  <Field label="Documento" value={data.documento} span={2} />
+                  <Field label="N° Doc" value={data.numDoc} mono span={2} />
+                  <Field label="Año" value={data.anio} span={2} />
+                </div>
+                <div className="grid grid-cols-6 gap-x-3 mt-1">
+                  <Field label="Departamento" value={data.departamento} span={2} />
+                  <Field label="Provincia" value={data.provincia} span={2} />
+                  <Field label="Distrito" value={data.distrito} span={2} />
+                </div>
+                <div className="mt-2">
+                  <Field label="Dirección Fiscal Comprador" value={data.direccFiscal} span={1} />
                 </div>
               </div>
 
               {/* ── Vendedor ── */}
               <div>
                 <h3 className={sectionTitle}>Vendedor</h3>
-                <div className="grid grid-cols-3 gap-3">
-                  <Field label="Código Venta" value={data.codigoVenta} mono span={1} />
-                  <Field label="Nombres" value={data.nombres1} span={2} />
-                  <Field label="Documento" value={data.documento1} />
-                  <Field label="N° Doc" value={data.numDoc1} mono />
-                  <Field label="Dirección Fiscal" value={data.direccFiscal1} span={2} />
-                  <Field label="Distrito" value={data.distrito1} />
-                  <Field label="Provincia" value={data.provincia1} />
-                  <Field label="Departamento" value={data.departamento1} />
+                <div className="grid grid-cols-[15fr_85fr] gap-x-3">
+                  <Field label="Código Venta" value={data.codigoVenta} mono />
+                  <Field label="Nombres" value={data.nombres1} />
+                </div>
+                <div className="grid grid-cols-6 gap-x-3 mt-1">
+                  <Field label="Documento" value={data.documento1} span={3} />
+                  <Field label="N° Doc" value={data.numDoc1} mono span={3} />
+                </div>
+                <div className="grid grid-cols-6 gap-x-3 mt-1">
+                  <Field label="Departamento" value={data.departamento1} span={2} />
+                  <Field label="Provincia" value={data.provincia1} span={2} />
+                  <Field label="Distrito" value={data.distrito1} span={2} />
+                </div>
+                <div className="mt-2">
+                  <Field label="Dirección Fiscal" value={data.direccFiscal1} span={1} />
                 </div>
               </div>
 
               {/* ── Predio ── */}
               <div>
                 <h3 className={sectionTitle}>Predio</h3>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-5 gap-3">
                   <Field label="Código Predio" value={data.codPred} mono />
-                  <Field label="Año Predio" value={data.anioPred} />
-                  <Field label="Tipo Predio" value={data.tipoPred} />
-                  <Field label="Dirección Predio" value={data.direccionPredio} span={2} />
                   <Field label="Anexo" value={data.anexo} />
                   <Field label="Sub Anexo" value={data.subAnexo} />
+                  <Field label="Año Predio" value={data.anioPred} />
+                  <Field label="Tipo Predio" value={data.tipoPred} />
                 </div>
-              </div>
-
+                <div className="mt-1">
+                  <Field label="Dirección Predio" value={data.direccionPredio} />
+                </div>
+              </div>              
               {/* ── Datos Relativos al Contrato ── */}
               <div>
                 <h3 className={sectionTitle}>Datos Relativos al Contrato</h3>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-7 gap-3">
                   <Field label="Fecha Contrato" value={data.fechaContrato} />
                   <Field label="Contrato" value={data.contrato} />
                   <Field label="Transferencia" value={data.transferencia} />
-                  <MoneyField label="Monto Alcabala" value={data.montoAlcabala} />
                   <MoneyField label="Autoavaluo" value={data.autoavaluo} />
-                  <Field label="Observación" value={data.observacion} span={2} />
-                </div>
-              </div>
-
-              {/* ── Montos ── */}
-              <div>
-                <h3 className={sectionTitle}>Montos</h3>
-                <div className="grid grid-cols-3 gap-3">
                   <MoneyField label="Monto Inafecto" value={data.montoInafecto} />
                   <MoneyField label="Monto Afecto" value={data.montoAfecto} />
-                  <Field label="Flag Inafecto" value={data.flagInafecto} />
+                  <MoneyField label="Monto Alcabala" value={data.montoAlcabala} />
                 </div>
               </div>
-
+              <div className="grid grid-cols-1 gap-3">
+                <Field label="Observación" value={data.observacion} span={1} />
+              </div>
               {/* ── Registro ── */}
               <div>
                 <h3 className={sectionTitle}>Registro</h3>
