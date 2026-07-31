@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 import { SearchContribuyenteDto } from './dto/search-contribuyente.dto';
+import { CrearAlcabalaDto } from './dto/crear-alcabala.dto';
 import {
   SpMContribuyenteRow,
   SpAlcabalasByContribuyenteRow,
@@ -11,6 +12,7 @@ import {
   ContribuyenteSearchResult,
   AlcabalasResult,
   DetalleAlcabalaResult,
+  CrearAlcabalaResult,
 } from './determinar-alcabala.types';
 
 // ── Case-insensitive column accessor (mssql v12+ preserves SP casing) ──
@@ -245,6 +247,58 @@ export class DeterminarAlcabalaService {
         data: null,
         error: 'Error al obtener detalle de alcabala',
       };
+    }
+  }
+
+  async crear(
+    dto: CrearAlcabalaDto,
+    usuario: string,
+    estacion: string,
+  ): Promise<CrearAlcabalaResult> {
+    const params: Record<string, any> = {
+      buscar: '4',
+      codigo_compra: dto.codigoCompra,
+      nombres: dto.nombres,
+      num_doc: dto.numDoc,
+      direcc_fiscal: dto.direccFiscal,
+      codigo_venta: dto.codigoVenta,
+      nombres1: dto.nombres1,
+      num_doc1: dto.numDoc1,
+      direcc_fiscal1: dto.direccFiscal1,
+      codpred: dto.codPred,
+      aniopred: dto.anioPred,
+      tipo_pred: dto.tipoPred,
+      direccion_predio: dto.direccionPredio,
+      fecha_contrato: dto.fechaContrato,
+      contrato: dto.contrato,
+      transferencia: dto.transferencia,
+      observacion: dto.observacion,
+      monto_inafecto: dto.montoInafecto,
+      monto_afecto: dto.montoAfecto,
+      monto_alcabala: dto.montoAlcabala,
+      autoavaluo: dto.autoavaluo,
+      anexo: dto.anexo,
+      sub_anexo: dto.subAnexo,
+      usuario,
+      estacion,
+    };
+
+    try {
+      const result = await this.db.executeProcedure<any>(
+        this.SP_DJALCABALA,
+        params,
+      );
+
+      const row = result.recordset?.[0];
+      if (row) {
+        const idAlcabala = Number(col(row, 'id_alcabala') ?? 0);
+        return { success: true, idAlcabala };
+      }
+
+      return { success: true, idAlcabala: 0 };
+    } catch (err) {
+      this.logger.error(`[DeterminarAlcabala] crear SP error: ${err}`);
+      return { success: false, error: 'Error al crear alcabala' };
     }
   }
 }

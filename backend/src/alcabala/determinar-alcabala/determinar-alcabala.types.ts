@@ -153,3 +153,9 @@ export interface DetalleAlcabalaResult {
   data: DetalleAlcabalaItem | null;
   error?: string;
 }
+
+export interface CrearAlcabalaResult {
+  success: boolean;
+  idAlcabala?: number;
+  error?: string;
+}
