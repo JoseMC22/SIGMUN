@@ -1,5 +1,6 @@
 /// <reference types="jest" />
 
+import { BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { DeterminarAlcabalaController } from './determinar-alcabala.controller';
 import { DeterminarAlcabalaService } from './determinar-alcabala.service';
 
@@ -11,6 +12,7 @@ describe('DeterminarAlcabalaController', () => {
     service = {
       searchContribuyente: jest.fn(),
       getAlcabalasByContribuyente: jest.fn(),
+      crear: jest.fn(),
     } as any;
     controller = new DeterminarAlcabalaController(service);
   });
@@ -37,6 +39,9 @@ describe('DeterminarAlcabalaController', () => {
       expect(service.searchContribuyente).toHaveBeenCalledWith({
         tipoBusqueda: 'C',
         busqueda: '12345',
+        paterno: '',
+        materno: '',
+        nombres: '',
         page: 1,
         pageSize: 15,
       });
@@ -69,6 +74,9 @@ describe('DeterminarAlcabalaController', () => {
       expect(service.searchContribuyente).toHaveBeenCalledWith({
         tipoBusqueda: 'C',
         busqueda: '',
+        paterno: '',
+        materno: '',
+        nombres: '',
         page: 1,
         pageSize: 15,
       });
@@ -110,6 +118,69 @@ describe('DeterminarAlcabalaController', () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toBe('SP error');
+    });
+  });
+
+  describe('POST crear', () => {
+    const validBody = {
+      codigoCompra: 'C001',
+      nombres: 'JUAN CARLOS',
+      numDoc: '12345678',
+      codPred: 'P001',
+      anioPred: '2026',
+      montoAfecto: 100000,
+      montoAlcabala: 3000,
+    };
+
+    it('should parse valid body, delegate to service with user/hostname, and return result', async () => {
+      const mockResult = { success: true, idAlcabala: 42 };
+      service.crear.mockResolvedValue(mockResult);
+
+      const req = { user: { username: 'admin' } } as any;
+      const result = await controller.crear(req, validBody);
+
+      expect(service.crear).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(mockResult);
+    });
+
+    it('should throw BadRequestException when DTO validation fails', async () => {
+      const req = { user: { username: 'admin' } } as any;
+
+      await expect(
+        controller.crear(req, { codigoCompra: '' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException on Zod parse error with field messages', async () => {
+      const req = { user: { username: 'admin' } } as any;
+      const invalidBody = { codigoCompra: 'C001' }; // missing required fields
+
+      await expect(
+        controller.crear(req, invalidBody),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw InternalServerErrorException when service returns error', async () => {
+      service.crear.mockResolvedValue({ success: false, error: 'SP error' });
+
+      const req = { user: { username: 'admin' } } as any;
+
+      await expect(
+        controller.crear(req, validBody),
+      ).rejects.toThrow(InternalServerErrorException);
+    });
+
+    it('should extract usuario from req.user.username', async () => {
+      service.crear.mockResolvedValue({ success: true, idAlcabala: 42 });
+
+      const req = { user: { username: 'admin' } } as any;
+      await controller.crear(req, validBody);
+
+      expect(service.crear).toHaveBeenCalledWith(
+        expect.anything(),
+        'admin',
+        expect.any(String),
+      );
     });
   });
 });
