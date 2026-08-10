@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { X, Plus } from "lucide-react";
+import { X } from "lucide-react";
 import AlcabalasTable from "./alcabalas-table";
 import type {
   ContribuyenteItem,
@@ -18,6 +18,11 @@ interface AlcabalasModalProps {
   loading: boolean;
   onViewDetail?: (alcabala: AlcabalaItem) => void;
   onCrearAlcabala?: () => void;
+  /**
+   * When true, Escape must not close this modal because a child layout
+   * (visualizar/nueva alcabala) is open on top and owns the Escape key.
+   */
+  blockEscapeClose?: boolean;
 }
 
 // ── Component ──────────────────────────────────────────────
@@ -30,19 +35,20 @@ export default function AlcabalasModal({
   loading,
   onViewDetail,
   onCrearAlcabala,
+  blockEscapeClose = false,
 }: AlcabalasModalProps) {
   // ── Escape key handler (stops propagation to parent) ──
   useEffect(() => {
     if (!open) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
+      if (e.key === "Escape" && !blockEscapeClose) {
         e.stopPropagation();
         onClose();
       }
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, onClose]);
+  }, [open, onClose, blockEscapeClose]);
 
   if (!open) return null;
 
@@ -73,28 +79,13 @@ export default function AlcabalasModal({
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-4">
-          <AlcabalasTable data={alcabalas} loading={loading} onViewDetail={onViewDetail} />
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-end gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3">
-          {contribuyente && onCrearAlcabala && (
-            <button
-              type="button"
-              onClick={onCrearAlcabala}
-              className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-3 py-1.5 text-[11px] font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
-            >
-              <Plus size={13} />
-              Nueva Alcabala
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300/40 active:scale-[0.98]"
-          >
-            Cerrar
-          </button>
+          <AlcabalasTable
+            data={alcabalas}
+            loading={loading}
+            onViewDetail={onViewDetail}
+            onCrearAlcabala={contribuyente ? onCrearAlcabala : undefined}
+            onClose={onClose}
+          />
         </div>
       </div>
     </div>

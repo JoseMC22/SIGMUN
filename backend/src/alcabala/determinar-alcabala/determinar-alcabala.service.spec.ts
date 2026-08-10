@@ -2,6 +2,7 @@
 
 import { DeterminarAlcabalaService } from './determinar-alcabala.service';
 import { DatabaseService } from '../../database/database.service';
+import { ConfigService } from '@nestjs/config';
 import { CrearAlcabalaDto } from './dto/crear-alcabala.dto';
 
 function mockSpResult<T>(rows: T[]): any {
@@ -17,7 +18,11 @@ describe('DeterminarAlcabalaService', () => {
 
   beforeEach(() => {
     db = { executeProcedure: jest.fn() };
-    service = new DeterminarAlcabalaService(db as unknown as DatabaseService);
+    const config = { get: jest.fn().mockReturnValue('test-token') } as unknown as ConfigService;
+    service = new DeterminarAlcabalaService(
+      db as unknown as DatabaseService,
+      config,
+    );
   });
 
   // Helper to create minimal SP row for contribuyente
@@ -355,6 +360,257 @@ describe('DeterminarAlcabalaService', () => {
     });
   });
 
+  describe('searchPredio', () => {
+    // Helper mirroring the REAL sp_DJAlcabala buscar=3 output columns
+    const predioRow = (overrides: Record<string, any> = {}) => ({
+      codigo: '0279126',
+      nombres: 'VAEZ CARDENAS MANUEL FERNANDO Y SRA',
+      cod_pred: '000172956',
+      anexo: '0001',
+      sub_anexo: '0001',
+      porcen_propiedad: 100.0,
+      predial:
+        'MZ LA RINCONADA DE HUACACHINA II ETAPA MZ B LTE 13 URB. LA RINCONADA DE HUACACHINA II ETAPA',
+      total_autoavaluo: 161019.04,
+      documento: 'DNI',
+      num_doc: '19082855',
+      direcc_fiscal:
+        'URB. LA RINCONADA DE HUACACHINA II ETAPA - MZ LA RINCONADA DE HUACACHINA II ETAPA MZ B LTE 13',
+      distrito: 'D',
+      provincia: 'P',
+      departamento: 'DW',
+      tipo_pred: 'Predio Urbano',
+      anno: '2021',
+      valor_uit: 4400.0,
+      valor_uit2: 44000.0,
+      tipo_pred1: '1',
+      Val_Terreno: 16976.4,
+      ROW: 1,
+      ...overrides,
+    });
+
+    it('should call sp_DJAlcabala with buscar=3 and mapped params', async () => {
+      db.executeProcedure.mockResolvedValueOnce(mockSpResult([predioRow()]));
+
+      await service.searchPredio({
+        codigo: '0279126',
+        codPred: '',
+        anio: '2020',
+        tipoBusqueda: 'c',
+        page: 1,
+        pageSize: 15,
+      });
+
+      expect(db.executeProcedure).toHaveBeenCalledWith(SP_DJALCABALA, {
+        buscar: '3',
+        codigo: '0279126',
+        codpred: '',
+        anio: '2020',
+        tipo_busqueda: 'c',
+      });
+    });
+
+    it('should map predial column to direccionPredio, not direcc_fiscal', async () => {
+      db.executeProcedure.mockResolvedValueOnce(mockSpResult([predioRow()]));
+
+      const result = await service.searchPredio({
+        codigo: '0279126',
+        codPred: '',
+        anio: '2020',
+        tipoBusqueda: 'c',
+        page: 1,
+        pageSize: 15,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.data[0]).toEqual(
+        expect.objectContaining({
+          codigo: '0279126',
+          nombres: 'VAEZ CARDENAS MANUEL FERNANDO Y SRA',
+          codPred: '000172956',
+          porcenPropiedad: 100,
+          numDoc: '19082855',
+          anexo: '0001',
+          subAnexo: '0001',
+          totalAutoavaluo: 161019.04,
+          tipoPred: 'Predio Urbano',
+          anno: '2021',
+          direccionPredio:
+            'MZ LA RINCONADA DE HUACACHINA II ETAPA MZ B LTE 13 URB. LA RINCONADA DE HUACACHINA II ETAPA',
+          direccFiscal:
+            'URB. LA RINCONADA DE HUACACHINA II ETAPA - MZ LA RINCONADA DE HUACACHINA II ETAPA MZ B LTE 13',
+        }),
+      );
+      // The predio address MUST NOT silently fall back to the fiscal address
+      expect(result.data[0].direccionPredio).not.toBe(
+        result.data[0].direccFiscal,
+      );
+    });
+
+    it('should NOT fall back to direcc_fiscal when predial column is absent', async () => {
+      const { predial, ...rowWithoutPredial } = predioRow();
+      db.executeProcedure.mockResolvedValueOnce(
+        mockSpResult([rowWithoutPredial]),
+      );
+
+      const result = await service.searchPredio({
+        codigo: '0279126',
+        codPred: '',
+        anio: '2020',
+        tipoBusqueda: 'c',
+        page: 1,
+        pageSize: 15,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.data[0].direccionPredio).toBe('');
+    });
+
+    it('should pass codpred to sp_DJAlcabala when tipo_busqueda=P', async () => {
+      db.executeProcedure.mockResolvedValueOnce(mockSpResult([predioRow()]));
+
+      await service.searchPredio({
+        codigo: '',
+        codPred: '010195288',
+        anio: '2026',
+        tipoBusqueda: 'P',
+        page: 1,
+        pageSize: 15,
+      });
+
+      expect(db.executeProcedure).toHaveBeenCalledWith(SP_DJALCABALA, {
+        buscar: '3',
+        codigo: '',
+        codpred: '010195288',
+        anio: '2026',
+        tipo_busqueda: 'P',
+      });
+    });
+  });
+
+  describe('getUit', () => {
+    it('should call sp_DJAlcabala with buscar=1 and anio, and return valor_uit', async () => {
+      db.executeProcedure.mockResolvedValueOnce(
+        mockSpResult([{ valor_uit: '5150' }]),
+      );
+
+      const result = await service.getUit('2026');
+
+      expect(db.executeProcedure).toHaveBeenCalledWith(SP_DJALCABALA, {
+        buscar: '1',
+        anio: '2026',
+      });
+      expect(result).toEqual({ success: true, uit: '5150' });
+    });
+
+    it('should fall back to the uit column when valor_uit is absent', async () => {
+      db.executeProcedure.mockResolvedValueOnce(mockSpResult([{ uit: '4400' }]));
+
+      const result = await service.getUit('2025');
+
+      expect(result).toEqual({ success: true, uit: '4400' });
+    });
+
+    it('should fall back to the first row value when the UIT column name is unknown', async () => {
+      // The SP column name for buscar=1 is unconfirmed — the service must read
+      // the value defensively from the first column of the row.
+      db.executeProcedure.mockResolvedValueOnce(mockSpResult([{ UTI: '5150' }]));
+
+      const result = await service.getUit('2026');
+
+      expect(result).toEqual({ success: true, uit: '5150' });
+    });
+
+    it('should handle SP error gracefully and return empty uit', async () => {
+      db.executeProcedure.mockRejectedValueOnce(new Error('SP timeout'));
+
+      const result = await service.getUit('2026');
+
+      expect(result.success).toBe(false);
+      expect(result.uit).toBe('');
+      expect(result.error).toBe('Error al obtener la UIT');
+    });
+  });
+
+  describe('getTipoCambio', () => {
+    const originalFetch = global.fetch;
+
+    afterEach(() => {
+      global.fetch = originalFetch;
+    });
+
+    it('should return the SUNAT venta value for the contract date', async () => {
+      // SUNAT returns an array; the service picks codTipo 'V' matching the date.
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        text: jest.fn().mockResolvedValue(
+          JSON.stringify([
+            { codTipo: 'V', fecPublica: '30/07/2026', valTipo: '3.75' },
+          ]),
+        ),
+      } as any);
+
+      const result = await service.getTipoCambio('2026-07-30');
+
+      expect(result).toEqual({ success: true, venta: '3.75' });
+    });
+
+    it("should fall back to the first 'V' entry when the exact date is missing", async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        text: jest.fn().mockResolvedValue(
+          JSON.stringify([
+            { codTipo: 'V', fecPublica: '29/07/2026', valTipo: '3.76' },
+          ]),
+        ),
+      } as any);
+
+      const result = await service.getTipoCambio('2026-07-30');
+
+      expect(result).toEqual({ success: true, venta: '3.76' });
+    });
+
+    it('should reject a malformed date', async () => {
+      const result = await service.getTipoCambio('30-07-2026');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Fecha debe ser aaaa-mm-dd');
+    });
+
+    it('should handle a non-OK SUNAT HTTP response', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 503,
+      } as any);
+
+      const result = await service.getTipoCambio('2026-07-30');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('503');
+    });
+
+    it('should handle an empty SUNAT dataset', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        text: jest.fn().mockResolvedValue(JSON.stringify([])),
+      } as any);
+
+      const result = await service.getTipoCambio('2026-07-30');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('No se encontraron');
+    });
+
+    it('should handle a fetch failure gracefully', async () => {
+      global.fetch = jest.fn().mockRejectedValue(new Error('network down'));
+
+      const result = await service.getTipoCambio('2026-07-30');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('network down');
+    });
+  });
+
   describe('crear', () => {
     const validDto: CrearAlcabalaDto = {
       codigoCompra: 'C001',
@@ -367,11 +623,11 @@ describe('DeterminarAlcabalaService', () => {
       direccFiscal1: 'Jr. Secundaria 456',
       codPred: 'P001',
       anioPred: '2026',
-      tipoPred: 'CASA',
+      tipoPred: 'Predio Urbano',
       direccionPredio: 'Av. Real 789',
       fechaContrato: '2026-07-30',
       contrato: 'C-001',
-      transferencia: 'COMPRA VENTA',
+      transferencia: 150000,
       observacion: '',
       montoInafecto: 0,
       montoAfecto: 100000,
@@ -391,20 +647,18 @@ describe('DeterminarAlcabalaService', () => {
       expect(db.executeProcedure).toHaveBeenCalledWith(SP_DJALCABALA, {
         buscar: '4',
         codigo_compra: 'C001',
-        nombres: 'JUAN CARLOS',
+        nombre: 'MARIA',
         num_doc: '12345678',
-        direcc_fiscal: 'Av. Principal 123',
         codigo_venta: 'V001',
-        nombres1: 'MARIA',
-        num_doc1: '87654321',
-        direcc_fiscal1: 'Jr. Secundaria 456',
+        dni: '87654321',
+        direccion: 'Jr. Secundaria 456',
         codpred: 'P001',
         aniopred: '2026',
-        tipo_pred: 'CASA',
+        tipo_pred: '1',
         direccion_predio: 'Av. Real 789',
         fecha_contrato: '2026-07-30',
         contrato: 'C-001',
-        transferencia: 'COMPRA VENTA',
+        transferencia: 150000,
         observacion: '',
         monto_inafecto: 0,
         monto_afecto: 100000,
@@ -430,6 +684,32 @@ describe('DeterminarAlcabalaService', () => {
           usuario: 'admin',
           estacion: 'PC-001',
         }),
+      );
+    });
+
+    it('should map tipoPred text to SP code (Urbano=1, Rústico=2)', async () => {
+      db.executeProcedure.mockResolvedValueOnce(
+        mockSpResult([{ id_alcabala: 42 }]),
+      );
+
+      await service.crear(
+        { ...validDto, tipoPred: 'Predio Urbano' },
+        'admin',
+        'PC-001',
+      );
+      expect(db.executeProcedure).toHaveBeenLastCalledWith(
+        SP_DJALCABALA,
+        expect.objectContaining({ tipo_pred: '1' }),
+      );
+
+      await service.crear(
+        { ...validDto, tipoPred: 'Predio Rústico' },
+        'admin',
+        'PC-001',
+      );
+      expect(db.executeProcedure).toHaveBeenLastCalledWith(
+        SP_DJALCABALA,
+        expect.objectContaining({ tipo_pred: '2' }),
       );
     });
 
@@ -465,16 +745,16 @@ describe('DeterminarAlcabalaService', () => {
         SP_DJALCABALA,
         expect.objectContaining({
           codigo_compra: 'C001',
-          direcc_fiscal: 'Av. Principal 123',
+          nombre: 'MARIA',
+          num_doc: '12345678',
           codigo_venta: 'V001',
-          nombres1: 'MARIA',
-          num_doc1: '87654321',
-          direcc_fiscal1: 'Jr. Secundaria 456',
-          tipo_pred: 'CASA',
+          dni: '87654321',
+          direccion: 'Jr. Secundaria 456',
+          tipo_pred: '1',
           direccion_predio: 'Av. Real 789',
           fecha_contrato: '2026-07-30',
           contrato: 'C-001',
-          transferencia: 'COMPRA VENTA',
+          transferencia: 150000,
           observacion: '',
           monto_inafecto: 0,
           autoavaluo: 80000,

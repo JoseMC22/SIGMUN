@@ -1,18 +1,25 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { DatabaseService } from '../../database/database.service';
 import { SearchContribuyenteDto } from './dto/search-contribuyente.dto';
+import { SearchPredioDto } from './dto/search-predio.dto';
 import { CrearAlcabalaDto } from './dto/crear-alcabala.dto';
 import {
   SpMContribuyenteRow,
   SpAlcabalasByContribuyenteRow,
   SpDetalleAlcabalaRow,
+  SpPredioRow,
   ContribuyenteItem,
+  PredioItem,
   AlcabalaItem,
   DetalleAlcabalaItem,
   ContribuyenteSearchResult,
+  PredioSearchResult,
   AlcabalasResult,
   DetalleAlcabalaResult,
   CrearAlcabalaResult,
+  UitResult,
+  TipoCambioResult,
 } from './determinar-alcabala.types';
 
 // ── Case-insensitive column accessor (mssql v12+ preserves SP casing) ──
@@ -24,13 +31,27 @@ function col(row: Record<string, any>, name: string): any {
   return key !== undefined ? row[key] : undefined;
 }
 
+// ── Tipo de predio text → SP code (1 Urbano, 2 Rústico) ──
+
+function mapTipoPredToCode(tipoPred: string): string {
+  if (!tipoPred) return '';
+  const normalized = tipoPred
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  return normalized.includes('rustic') ? '2' : '1';
+}
+
 @Injectable()
 export class DeterminarAlcabalaService {
   private readonly SP_MCONTRIBUYENTE = 'Rentas.sp_Mcontribuyente';
   private readonly SP_DJALCABALA = 'Alcabala.sp_DJAlcabala';
   private readonly logger = new Logger(DeterminarAlcabalaService.name);
 
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly config: ConfigService,
+  ) {}
 
   async searchContribuyente(
     dto: SearchContribuyenteDto,
@@ -250,6 +271,174 @@ export class DeterminarAlcabalaService {
     }
   }
 
+  async searchPredio(
+    dto: SearchPredioDto,
+  ): Promise<PredioSearchResult> {
+    const { codigo, codPred, anio, tipoBusqueda, page, pageSize } = dto;
+
+    try {
+      const result = await this.db.executeProcedure<SpPredioRow>(
+        this.SP_DJALCABALA,
+        {
+          buscar: '3',
+          codigo: codigo || '',
+          codpred: codPred || '',
+          anio: anio || '',
+          tipo_busqueda: tipoBusqueda || 'c',
+        },
+      );
+
+      const rows = result.recordset || [];
+
+      const data: PredioItem[] = rows.map((row: any) => ({
+        codigo: String(col(row, 'codigo') ?? ''),
+        nombres: String(col(row, 'nombres') ?? ''),
+        codPred: String(col(row, 'cod_pred') ?? ''),
+        porcenPropiedad: Number(col(row, 'porcen_propiedad') ?? 0),
+        numDoc: String(col(row, 'num_doc') ?? ''),
+        direccFiscal: String(col(row, 'direcc_fiscal') ?? ''),
+        direccionPredio: String(col(row, 'predial') ?? ''),
+        anexo: String(col(row, 'anexo') ?? ''),
+        subAnexo: String(col(row, 'sub_anexo') ?? ''),
+        totalAutoavaluo: Number(col(row, 'total_autoavaluo') ?? 0),
+        tipoPred: String(col(row, 'tipo_pred') ?? ''),
+        anno: String(col(row, 'anno') ?? ''),
+        row: Number(col(row, 'ROW') ?? 0),
+      }));
+
+      const total = data.length;
+      const totalPages = total > 0 ? Math.ceil(total / pageSize) : 0;
+
+      return {
+        success: true,
+        data,
+        total,
+        page,
+        pageSize,
+        totalPages,
+      };
+    } catch (err) {
+      this.logger.error(`[DeterminarAlcabala] searchPredio SP error: ${err}`);
+      return {
+        success: false,
+        data: [],
+        total: 0,
+        page,
+        pageSize,
+        totalPages: 0,
+        error: 'Error al buscar predios',
+      };
+    }
+  }
+
+  async getUit(anio: string): Promise<UitResult> {
+    try {
+      const result = await this.db.executeProcedure<any>(
+        this.SP_DJALCABALA,
+        {
+          buscar: '1',
+          anio,
+        },
+      );
+
+      const row = result.recordset?.[0];
+      // The SP column name for buscar='1' is not confirmed — read the UIT
+      // value defensively: valor_uit → uit → first column of the row.
+      const uit = row
+        ? String(
+            col(row, 'valor_uit') ??
+              col(row, 'uit') ??
+              Object.values(row)[0] ??
+              '',
+          )
+        : '';
+
+      return { success: true, uit };
+    } catch (err) {
+      this.logger.error(`[DeterminarAlcabala] getUit SP error: ${err}`);
+      return { success: false, uit: '', error: 'Error al obtener la UIT' };
+    }
+  }
+
+  async getTipoCambio(fecha: string): Promise<TipoCambioResult> {
+    try {
+      const partes = fecha.split('-');
+      if (partes.length !== 3 || !/^\d{4}$/.test(partes[0])) {
+        return { success: false, error: 'Fecha debe ser aaaa-mm-dd' };
+      }
+      const anio = partes[0];
+      const mes = String(parseInt(partes[1], 10) - 1); // SUNAT espera 0-11
+      const dia = partes[2];
+      const fechaLocal = `${dia}/${partes[1]}/${anio}`;
+
+      const url =
+        'https://e-consulta.sunat.gob.pe/cl-at-ittipcam/tcS01Alias/listarTipoCambio';
+      const reqBody = JSON.stringify({
+        anio,
+        mes,
+        token: this.config.get<string>('SUNAT_TOKEN') ?? '',
+      });
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: reqBody,
+        signal: controller.signal,
+      }).finally(() => clearTimeout(timeout));
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: `Error HTTP ${response.status} al consultar SUNAT`,
+        };
+      }
+
+      const text = await response.text();
+
+      let data: any;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        return {
+          success: false,
+          error: `Respuesta inválida de SUNAT: ${text.slice(0, 200)}`,
+        };
+      }
+
+      if (!Array.isArray(data) || data.length === 0) {
+        return {
+          success: false,
+          error: 'No se encontraron tipos de cambio para ese mes',
+        };
+      }
+
+      const item = data.find(
+        (r: any) =>
+          String(r.codTipo) === 'V' && String(r.fecPublica) === fechaLocal,
+      );
+
+      if (item && item.valTipo != null) {
+        return { success: true, venta: String(item.valTipo) };
+      }
+
+      const fallback = data.find((r: any) => String(r.codTipo) === 'V');
+      if (fallback && fallback.valTipo != null) {
+        return { success: true, venta: String(fallback.valTipo) };
+      }
+
+      return { success: false, error: 'No se encontró tipo de cambio venta' };
+    } catch (err) {
+      this.logger.error(`[DeterminarAlcabala] getTipoCambio SUNAT error: ${err}`);
+      return {
+        success: false,
+        error: `Error al consultar SUNAT: ${err instanceof Error ? err.message : 'desconocido'}`,
+      };
+    }
+  }
+
   async crear(
     dto: CrearAlcabalaDto,
     usuario: string,
@@ -258,16 +447,14 @@ export class DeterminarAlcabalaService {
     const params: Record<string, any> = {
       buscar: '4',
       codigo_compra: dto.codigoCompra,
-      nombres: dto.nombres,
+      nombre: dto.nombres1,
       num_doc: dto.numDoc,
-      direcc_fiscal: dto.direccFiscal,
       codigo_venta: dto.codigoVenta,
-      nombres1: dto.nombres1,
-      num_doc1: dto.numDoc1,
-      direcc_fiscal1: dto.direccFiscal1,
+      dni: dto.numDoc1,
+      direccion: dto.direccFiscal1,
       codpred: dto.codPred,
       aniopred: dto.anioPred,
-      tipo_pred: dto.tipoPred,
+      tipo_pred: mapTipoPredToCode(dto.tipoPred),
       direccion_predio: dto.direccionPredio,
       fecha_contrato: dto.fechaContrato,
       contrato: dto.contrato,

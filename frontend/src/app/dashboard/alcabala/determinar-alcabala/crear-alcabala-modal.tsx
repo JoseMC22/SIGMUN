@@ -5,7 +5,11 @@ import { X, ChevronDown, ChevronRight, Search, Loader2 } from "lucide-react";
 import { crearAlcabalaAction } from "@/actions/alcabala/crear-alcabala";
 import {
   searchContribuyenteAction,
+  searchPredioAction,
+  getUitAction,
+  getTipoCambioAction,
   type ContribuyenteItem,
+  type PredioItem,
 } from "@/actions/alcabala/determinar-alcabala";
 
 // ── Types ──────────────────────────────────────────────────
@@ -22,15 +26,15 @@ type SearchTarget = "comprador" | "vendedor";
 // ── Style tokens (matching project patterns) ───────────────
 
 const sectionBtn =
-  "flex w-full items-center justify-between rounded-md bg-slate-50 px-3 py-2 text-[11px] font-bold text-slate-700 uppercase tracking-wider border border-slate-200 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-sat-cyan/20";
+  "flex w-full items-center justify-between rounded-md bg-slate-50 px-3 py-1.5 text-[11px] font-bold text-slate-700 uppercase tracking-wider border border-slate-200 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-sat-cyan/20";
 
-const sectionContent = "px-1 pt-3 pb-2 space-y-3";
+const sectionContent = "px-1 pt-2 pb-1.5 space-y-1";
 
 const fieldLabel =
   "block text-[9px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5 leading-none";
 
 const inputClass =
-  "w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] text-slate-700 placeholder-slate-400 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none";
+  "w-full rounded-md border border-slate-300 bg-white px-2 py-1.0 text-[11px] text-slate-700 placeholder-slate-400 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none";
 
 const inputMono = `${inputClass} font-mono text-[10px]`;
 
@@ -48,20 +52,92 @@ const secondaryBtnClass =
 interface SearchPopupProps {
   target: SearchTarget;
   onSelect: (item: ContribuyenteItem, target: SearchTarget) => void;
+  onPredioSelect: (item: PredioItem, target: SearchTarget) => void;
   onClose: () => void;
+  /** Contract date (fechaContrato); its year is sent as @anio to sp_DJAlcabala */
+  fechaContrato: string;
+  /** Keeps the form's fechaContrato in sync while the popup is open */
+  onFechaContratoChange: (value: string) => void;
 }
 
-function ContribuyenteSearchPopup({ target, onSelect, onClose }: SearchPopupProps) {
-  const [query, setQuery] = useState("");
+function ContribuyenteSearchPopup({ target, onSelect, onPredioSelect, onClose, fechaContrato, onFechaContratoChange }: SearchPopupProps) {
+  // Contract year derived from the fechaContrato prop — feeds @anio to the SPs
+  const anio = fechaContrato.slice(0, 4);
+  // ── Tipo de búsqueda (unificado: Contribuyente + Predio) ──
+  type TipoBusqueda = "C" | "N" | "R" | "D" | "P";
+  const TIPO_BUSQUEDA_OPTIONS: { value: TipoBusqueda; label: string }[] = [
+    { value: "C", label: "Código" },
+    { value: "N", label: "Nombre" },
+    { value: "R", label: "Razón Social" },
+    { value: "D", label: "Documento" },
+    { value: "P", label: "Código Predio" },
+  ];
+  const [tipoBusqueda, setTipoBusqueda] = useState<TipoBusqueda>("C");
+
+  // ── Contribuyente state (N, R, D) ──
+  const [busqueda, setBusqueda] = useState("");
+  const [paterno, setPaterno] = useState("");
+  const [materno, setMaterno] = useState("");
+  const [nombres, setNombres] = useState("");
+
+  // ── Results ──
   const [results, setResults] = useState<ContribuyenteItem[]>([]);
+  const [predioResults, setPredioResults] = useState<PredioItem[]>([]);
+
+  // ── Shared state ──
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const isCodigo = tipoBusqueda === "C";
+  const isNombre = tipoBusqueda === "N";
+  // C (Código) and P (Código Predio) are both predio searches — same code
+  // input + predio results grid, different search term (7 vs 9 digits)
+  const isPredio = tipoBusqueda === "C" || tipoBusqueda === "P";
+  const isPredioCodigo = tipoBusqueda === "P";
+
+  const canSearch = isNombre
+    ? !!(paterno.trim() || materno.trim() || nombres.trim())
+    : !!busqueda.trim();
+
+  const formatCodigo = useCallback((val: string): string => {
+    return val.replace(/\D/g, "").padStart(7, "0");
+  }, []);
+
+  // Predio codes (cod_pred) are NINE digits — e.g. '010195288'
+  const formatCodPred = useCallback((val: string): string => {
+    return val.replace(/\D/g, "").padStart(9, "0");
+  }, []);
+
+  // Shared reset for the search area — stale results must not linger while
+  // the user edits the term (matches the date-change/dropdown handlers)
+  const resetSearchResults = useCallback(() => {
+    setSearched(false);
+    setResults([]);
+    setPredioResults([]);
+    setError(null);
+  }, []);
+
+  const handleBusquedaChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      let val = e.target.value;
+      if (isCodigo) {
+        val = val.replace(/\D/g, "").slice(0, 7);
+      } else if (isPredioCodigo) {
+        val = val.replace(/\D/g, "").slice(0, 9);
+      } else {
+        val = val.toUpperCase();
+      }
+      setBusqueda(val);
+      resetSearchResults();
+    },
+    [isCodigo, isPredioCodigo, resetSearchResults],
+  );
+
   useEffect(() => {
     inputRef.current?.focus();
-  }, []);
+  }, [tipoBusqueda]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -74,18 +150,31 @@ function ContribuyenteSearchPopup({ target, onSelect, onClose }: SearchPopupProp
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
-  const handleSearch = useCallback(async () => {
-    if (!query.trim()) return;
+  // ── Contribuyente search (C, N, R, D) ──
+  const handleContribuyenteSearch = useCallback(async () => {
+    if (!canSearch) return;
+    // Contract date must be entered first — its year feeds @anio to the SP
+    if (!anio) {
+      setSearched(false);
+      setResults([]);
+      setError("Debe ingresar primero la fecha del contrato");
+      return;
+    }
     setLoading(true);
     setError(null);
     setSearched(true);
     try {
-      const res = await searchContribuyenteAction("N", undefined, query, "", "");
+      const searchVal = isCodigo ? formatCodigo(busqueda) : busqueda;
+      const res = await searchContribuyenteAction(
+        tipoBusqueda,
+        isNombre ? undefined : searchVal,
+        isNombre ? paterno : undefined,
+        isNombre ? materno : undefined,
+        isNombre ? nombres : undefined,
+      );
       if (res.success) {
         setResults(res.data);
-        if (res.data.length === 0) {
-          setError("No se encontraron contribuyentes");
-        }
+        if (res.data.length === 0) setError("No se encontraron contribuyentes");
       } else {
         setResults([]);
         setError(res.error ?? "Error al buscar");
@@ -96,10 +185,54 @@ function ContribuyenteSearchPopup({ target, onSelect, onClose }: SearchPopupProp
     } finally {
       setLoading(false);
     }
-  }, [query]);
+  }, [tipoBusqueda, busqueda, isCodigo, isNombre, paterno, materno, nombres, canSearch, formatCodigo, anio]);
+
+  // ── Predio search (C = Código, P = Código Predio) ──
+  const handlePredioSearch = useCallback(async () => {
+    if (!busqueda.trim()) return;
+    // Contract date must be entered first — its year feeds @anio to the SP
+    if (!anio) {
+      setSearched(false);
+      setPredioResults([]);
+      setError("Debe ingresar primero la fecha del contrato");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    setSearched(true);
+    try {
+      const res = isPredioCodigo
+        ? await searchPredioAction(
+            undefined,
+            anio || undefined,
+            "P",
+            formatCodPred(busqueda) || undefined,
+          )
+        : await searchPredioAction(
+            formatCodigo(busqueda) || undefined,
+            anio || undefined,
+            "c",
+          );
+      if (res.success) {
+        setPredioResults(res.data);
+        if (res.data.length === 0) setError("No se encontraron predios");
+      } else {
+        setPredioResults([]);
+        setError(res.error ?? "Error al buscar");
+      }
+    } catch {
+      setPredioResults([]);
+      setError("Error de conexión");
+    } finally {
+      setLoading(false);
+    }
+  }, [busqueda, anio, isPredioCodigo, formatCodigo, formatCodPred]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") handleSearch();
+    if (e.key === "Enter") {
+      if (isPredio) handlePredioSearch();
+      else handleContribuyenteSearch();
+    }
   };
 
   return (
@@ -109,11 +242,16 @@ function ContribuyenteSearchPopup({ target, onSelect, onClose }: SearchPopupProp
         onClick={onClose}
         aria-hidden="true"
       />
-      <div className="relative z-10 w-full max-w-lg rounded-xl bg-white shadow-2xl">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={isPredio ? "Buscar Predio" : "Buscar Contribuyente"}
+        className="relative z-10 w-full max-w-4xl rounded-xl bg-white shadow-2xl"
+      >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
           <h3 className="text-sm font-bold text-slate-800">
-            Buscar Contribuyente
+            {isPredio ? "Buscar Predio" : "Buscar Contribuyente"}
           </h3>
           <button
             type="button"
@@ -125,73 +263,306 @@ function ContribuyenteSearchPopup({ target, onSelect, onClose }: SearchPopupProp
           </button>
         </div>
 
-        {/* Search input */}
-        <div className="p-4">
-          <div className="flex gap-2">
-            <input
-              ref={inputRef}
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value.toUpperCase())}
-              onKeyDown={handleKeyDown}
-              placeholder="Ingrese búsqueda"
-              className={inputClass}
-            />
-            <button
-              type="button"
-              onClick={handleSearch}
-              disabled={loading || !query.trim()}
-              className={primaryBtnClass}
-            >
-              {loading ? (
-                <Loader2 size={13} className="animate-spin" />
-              ) : (
-                <Search size={13} />
+{/* Search inputs - single row: dropdown left, inputs right */}
+          <div className="flex items-end gap-4 mb-2 px-4">
+            {/* Tipo búsqueda dropdown - fixed width */}
+            <div className="w-[150px] flex-shrink-0">
+              <label htmlFor="tipoBusqueda" className="block text-[9px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5 leading-none">
+                Tipo Búsqueda
+              </label>
+              <select
+                id="tipoBusqueda"
+                value={tipoBusqueda}
+                onChange={(e) => {
+                  setTipoBusqueda(e.target.value as TipoBusqueda);
+                  setBusqueda("");
+                  setPaterno("");
+                  setMaterno("");
+                  setNombres("");
+                  setSearched(false);
+                  setError(null);
+                  setResults([]);
+                  setPredioResults([]);
+                }}
+                className="h-[30px] w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-[11px] text-slate-700 placeholder-slate-400 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none"
+              >
+                {TIPO_BUSQUEDA_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Fecha Contrato - fixed width; its year feeds @anio to the SPs */}
+            <div className="w-[160px] flex-shrink-0">
+              <label htmlFor="fechaContratoSearch" className="block text-[9px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5 leading-none">
+                Fecha Contrato
+              </label>
+              <input
+                id="fechaContratoSearch"
+                type="date"
+                value={fechaContrato}
+                onChange={(e) => {
+                  onFechaContratoChange(e.target.value);
+                  setSearched(false);
+                  setResults([]);
+                  setPredioResults([]);
+                  setError(null);
+                }}
+                className="h-[30px] w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-[11px] text-slate-700 placeholder-slate-400 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none"
+              />
+            </div>
+
+            {/* Dynamic inputs - takes remaining space */}
+            <div className="flex-1 flex items-end gap-3 min-w-0">
+              {!isNombre && !isPredio && (
+                <div className="flex w-full items-end justify-between gap-3">
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    inputMode="text"
+                    value={busqueda}
+                    onChange={handleBusquedaChange}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Ingrese término de búsqueda"
+                    className={`${inputClass} h-[30px] px-3 flex-1`}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleContribuyenteSearch}
+                    disabled={loading || !canSearch || !anio}
+                    title={!anio ? "Ingrese primero la fecha del contrato" : undefined}
+                    className={`${primaryBtnClass} h-[30px] flex-shrink-0 whitespace-nowrap`}
+                  >
+                    {loading ? (
+                      <Loader2 size={13} className="animate-spin" />
+                    ) : (
+                      <Search size={13} />
+                    )}
+                    Buscar
+                  </button>
+                </div>
               )}
-              Buscar
-            </button>
+              {isNombre && (
+                <div className="flex w-full items-end gap-3">
+                  <div className="flex-1 min-w-0">
+                    <label htmlFor="paterno" className="block text-[9px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5 leading-none">
+                      Ap. Paterno
+                    </label>
+                    <input
+                      ref={inputRef}
+                      id="paterno"
+                      type="text"
+                      value={paterno}
+                      onChange={(e) => {
+                        setPaterno(e.target.value.toUpperCase());
+                        resetSearchResults();
+                      }}
+                      onKeyDown={handleKeyDown}
+                      placeholder="PATERNO"
+                      className={`${inputClass} h-[30px] px-3`}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <label htmlFor="materno" className="block text-[9px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5 leading-none">
+                      Ap. Materno
+                    </label>
+                    <input
+                      id="materno"
+                      type="text"
+                      value={materno}
+                      onChange={(e) => {
+                        setMaterno(e.target.value.toUpperCase());
+                        resetSearchResults();
+                      }}
+                      onKeyDown={handleKeyDown}
+                      placeholder="MATERNO"
+                      className={`${inputClass} h-[30px] px-3`}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <label htmlFor="nombres" className="block text-[9px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5 leading-none">
+                      Nombres
+                    </label>
+                    <input
+                      id="nombres"
+                      type="text"
+                      value={nombres}
+                      onChange={(e) => {
+                        setNombres(e.target.value.toUpperCase());
+                        resetSearchResults();
+                      }}
+                      onKeyDown={handleKeyDown}
+                      placeholder="NOMBRES"
+                      className={`${inputClass} h-[30px] px-3`}
+                    />
+                  </div>
+                  <div className="flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleContribuyenteSearch}
+                      disabled={loading || !canSearch || !anio}
+                      title={!anio ? "Ingrese primero la fecha del contrato" : undefined}
+                      className={`${primaryBtnClass} h-[30px] whitespace-nowrap`}
+                    >
+                      {loading ? (
+                        <Loader2 size={13} className="animate-spin" />
+                      ) : (
+                        <Search size={13} />
+                      )}
+                      Buscar
+                    </button>
+                  </div>
+                </div>
+              )}
+              {isPredio && (
+                <div className="flex w-full items-end justify-between gap-3">
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    inputMode="numeric"
+                    value={busqueda}
+                    onChange={handleBusquedaChange}
+                    onKeyDown={handleKeyDown}
+                    placeholder={isPredioCodigo ? "Ej: 010195288" : "Ej: 0279126"}
+                    className={`${inputMono} h-[30px] px-3 flex-1`}
+                  />
+                  <button
+                    type="button"
+                    onClick={handlePredioSearch}
+                    disabled={loading || !canSearch || !anio}
+                    title={!anio ? "Ingrese primero la fecha del contrato" : undefined}
+                    className={`${primaryBtnClass} h-[30px] flex-shrink-0 whitespace-nowrap`}
+                  >
+                    {loading ? (
+                      <Loader2 size={13} className="animate-spin" />
+                    ) : (
+                      <Search size={13} />
+                    )}
+                    Buscar
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* Results */}
-        <div className="max-h-64 overflow-y-auto border-t border-slate-100 px-4 pb-4">
-          {loading && (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 size={18} className="animate-spin text-sat-cyan" />
-            </div>
-          )}
+          {/* Results */}
+          <div className="max-h-72 overflow-y-auto border-t border-slate-100 px-4 pb-4 mt-4">
+            {loading && (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 size={18} className="animate-spin text-sat-cyan" />
+              </div>
+            )}
 
-          {error && !loading && (
-            <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-medium text-red-600">
-              {error}
-            </div>
-          )}
+            {error && !loading && (
+              <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-medium text-red-600">
+                {error}
+              </div>
+            )}
 
-          {!loading && searched && results.length > 0 && (
-            <div className="mt-3 space-y-1">
-              {results.map((item, idx) => (
-                <button
-                  key={`${item.codigo}-${idx}`}
-                  type="button"
-                  onClick={() => onSelect(item, target)}
-                  className="w-full rounded-md border border-slate-200 px-3 py-2 text-left text-[11px] text-slate-700 transition hover:bg-slate-50 hover:border-sat-cyan/30"
-                >
-                  <span className="font-mono font-medium">{item.codigo}</span>{" "}
-                  — {item.nombres} {item.paterno} {item.materno}
-                  <span className="ml-2 text-[10px] text-slate-400">
-                    ({item.numDoc})
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
+            {/* Contribuyente results (table matching page.tsx) */}
+            {!loading && !isPredio && searched && results.length > 0 && (
+              <div className="mt-3 overflow-hidden rounded-lg border border-slate-200 shadow-sm">
+                <table className="w-full table-fixed border-collapse">
+                  <thead className="bg-gradient-to-r from-sat-navy to-[#1e3050]">
+                    <tr>
+                      <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2 border-b border-white/5 w-[12%]">
+                        Código
+                      </th>
+                      <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2 border-b border-white/5 w-[18%]">
+                        Nombre
+                      </th>
+                      <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2 border-b border-white/5 w-[15%]">
+                        Ap. Paterno
+                      </th>
+                      <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2 border-b border-white/5 w-[15%]">
+                        Ap. Materno
+                      </th>
+                      <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2 border-b border-white/5 w-[12%]">
+                        N° Doc
+                      </th>
+                      <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2 border-b border-white/5 w-[22%]">
+                        Dirección
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {results.map((item, idx) => (
+                      <tr
+                        key={`contrib-${item.codigo}-${idx}`}
+                        onClick={() => onSelect(item, target)}
+                        className={`transition cursor-pointer hover:bg-slate-50 ${
+                          idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"
+                        }`}
+                      >
+                        <td className="px-3 py-2 text-[11px] font-mono text-slate-700 truncate">
+                          {item.codigo}
+                        </td>
+                        <td className="px-3 py-2 text-[11px] text-slate-700 truncate font-medium">
+                          {item.nombres}
+                        </td>
+                        <td className="px-3 py-2 text-[11px] text-slate-600 truncate">
+                          {item.paterno}
+                        </td>
+                        <td className="px-3 py-2 text-[11px] text-slate-600 truncate">
+                          {item.materno}
+                        </td>
+                        <td className="px-3 py-2 text-[11px] text-slate-600 truncate">
+                          {item.numDoc}
+                        </td>
+                        <td className="px-3 py-2 text-[11px] text-slate-600 truncate">
+                          {item.direccion}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
-          {!loading && !searched && (
-            <p className="mt-3 text-center text-[11px] text-slate-400">
-              Escriba un término y presione Buscar
-            </p>
-          )}
-        </div>
+            {/* Predio results (grid) */}
+            {!loading && isPredio && searched && predioResults.length > 0 && (
+              <div className="mt-3 overflow-x-auto">
+                <table className="w-full text-[11px] border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-50">
+                      <th className="px-2 py-1.5 text-left font-semibold text-slate-500 uppercase tracking-wider">Código</th>
+                      <th className="px-2 py-1.5 text-left font-semibold text-slate-500 uppercase tracking-wider">Nombres</th>
+                      <th className="px-2 py-1.5 text-left font-semibold text-slate-500 uppercase tracking-wider">Código Predio</th>
+                      <th className="px-2 py-1.5 text-right font-semibold text-slate-500 uppercase tracking-wider">% Prop</th>
+                      <th className="px-2 py-1.5 text-left font-semibold text-slate-500 uppercase tracking-wider">N° Documento</th>
+                      <th className="px-2 py-1.5 text-left font-semibold text-slate-500 uppercase tracking-wider">Dirección Predio</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {predioResults.map((item, idx) => (
+                      <tr
+                        key={`predio-${item.codigo}-${item.codPred}-${idx}`}
+                        onClick={() => onPredioSelect(item, target)}
+                        className="border-b border-slate-100 cursor-pointer transition hover:bg-sat-cyan/5 hover:border-sat-cyan/30"
+                      >
+                        <td className="px-2 py-1.5 font-mono font-medium text-slate-700">{item.codigo}</td>
+                        <td className="px-2 py-1.5 text-slate-700">{item.nombres}</td>
+                        <td className="px-2 py-1.5 font-mono text-slate-600">{item.codPred}</td>
+                        <td className="px-2 py-1.5 text-right text-slate-600">{item.porcenPropiedad}%</td>
+                        <td className="px-2 py-1.5 font-mono text-slate-600">{item.numDoc}</td>
+                        <td className="px-2 py-1.5 text-slate-600">{item.direccionPredio}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {!loading && !searched && !error && (
+              <p className="mt-3 text-center text-[11px] text-slate-400">
+                {!anio
+                  ? "Ingrese primero la fecha del contrato para realizar la búsqueda"
+                  : "Ingrese criterios y presione Buscar"}
+              </p>
+            )}
+          </div>
       </div>
     </div>
   );
@@ -221,7 +592,7 @@ export default function CrearAlcabalaModal({
   const [comprador, setComprador] = useState({
     codigoCompra: contribuyente?.codigo ?? "",
     nombres: contribuyente
-      ? `${contribuyente.nombres} ${contribuyente.paterno} ${contribuyente.materno}`
+      ? `${contribuyente.paterno} ${contribuyente.materno} ${contribuyente.nombres} `
       : "",
     numDoc: contribuyente?.numDoc ?? "",
     direccFiscal: contribuyente?.direccion ?? "",
@@ -254,6 +625,15 @@ export default function CrearAlcabalaModal({
     autoavaluo: 0,
   });
 
+  // Display-only currency helpers for the Montos section: dollar value typed by
+  // the user, SUNAT tipo de cambio fetched on demand, and the year's UIT auto-
+  // loaded from sp_DJAlcabala (buscar=1). None of these are persisted.
+  const [moneda, setMoneda] = useState({
+    valorDolares: "",
+    tipoCambio: "",
+    uit: "",
+  });
+
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -267,7 +647,7 @@ export default function CrearAlcabalaModal({
       setComprador({
         codigoCompra: contribuyente?.codigo ?? "",
         nombres: contribuyente
-          ? `${contribuyente.nombres} ${contribuyente.paterno} ${contribuyente.materno}`
+          ? `${contribuyente.paterno} ${contribuyente.materno} ${contribuyente.nombres} `
           : "",
         numDoc: contribuyente?.numDoc ?? "",
         direccFiscal: contribuyente?.direccion ?? "",
@@ -296,6 +676,11 @@ export default function CrearAlcabalaModal({
         montoAlcabala: 0,
         autoavaluo: 0,
       });
+      setMoneda({
+        valorDolares: "",
+        tipoCambio: "",
+        uit: "",
+      });
       setSubmitError(null);
       setSubmitting(false);
     }
@@ -310,6 +695,97 @@ export default function CrearAlcabalaModal({
     setMontos((prev) => ({ ...prev, montoAlcabala: Math.round(calc * 100) / 100 }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [montos.montoAfecto, montos.montoInafecto]);
+
+  // ── Auto-calc anioPred from fechaContrato ──
+  useEffect(() => {
+    if (predio.fechaContrato) {
+      const year = predio.fechaContrato.slice(0, 4);
+      setPredio((prev) => ({ ...prev, anioPred: year }));
+    } else {
+      setPredio((prev) => ({ ...prev, anioPred: "" }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [predio.fechaContrato]);
+
+  // ── Auto-load the year's UIT from sp_DJAlcabala (buscar=1) ──
+  useEffect(() => {
+    let cancelled = false;
+    if (/^\d{4}$/.test(predio.anioPred)) {
+      getUitAction(predio.anioPred).then((res) => {
+        if (!cancelled && res.success) {
+          setMoneda((prev) => ({ ...prev, uit: res.uit }));
+        }
+      });
+    } else {
+      setMoneda((prev) => ({ ...prev, uit: "" }));
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [predio.anioPred]);
+
+  // ── Auto-set Transferencia when TC is fetched and USD > 0 ──
+  const consultarTipoCambio = async () => {
+    if (!predio.fechaContrato) {
+      setSubmitError("Primero ingrese la fecha del contrato");
+      return;
+    }
+    if (!moneda.valorDolares || parseFloat(moneda.valorDolares) <= 0) {
+      setSubmitError("Ingrese un Valor en Dólares válido");
+      return;
+    }
+    setSubmitError(null);
+    const res = await getTipoCambioAction(predio.fechaContrato);
+    if (res.success && res.venta) {
+      const tc = parseFloat(res.venta);
+      const usd = parseFloat(moneda.valorDolares);
+      if (!isNaN(tc) && !isNaN(usd) && usd > 0) {
+        const transferenciaCalc = (usd * tc).toFixed(2);
+        setMoneda((prev) => ({ ...prev, tipoCambio: res.venta }));
+        setPredio((prev) => ({ ...prev, transferencia: transferenciaCalc }));
+      } else {
+        setMoneda((prev) => ({ ...prev, tipoCambio: res.venta }));
+      }
+    } else {
+      setSubmitError(res.error || "Error al obtener tipo de cambio");
+    }
+  };
+
+  // ── Reactive Montos chain: UIT → Inafecto → Afecto → Alcabala ──
+  useEffect(() => {
+    const uit = parseFloat(moneda.uit);
+    const transferencia = parseFloat(predio.transferencia);
+    const autoavaluo = parseFloat(montos.autoavaluo);
+
+    if (!isNaN(uit) && uit > 0) {
+      const inafecto = (uit * 10).toFixed(2);
+      setMontos((prev) => {
+        if (prev.montoInafecto === inafecto) return prev;
+        return { ...prev, montoInafecto: inafecto };
+      });
+    }
+
+    // Afecto = (Transferencia || Autoavaluo) - Inafecto
+    const base = !isNaN(transferencia) && transferencia > 0 ? transferencia : (!isNaN(autoavaluo) ? autoavaluo : 0);
+    const inafecto = parseFloat(montos.montoInafecto);
+    if (!isNaN(base) && !isNaN(inafecto)) {
+      const afecto = Math.max(0, base - inafecto).toFixed(2);
+      setMontos((prev) => {
+        if (prev.montoAfecto === afecto) return prev;
+        return { ...prev, montoAfecto: afecto };
+      });
+    }
+
+    // Alcabala = Afecto * 3%
+    const afecto = parseFloat(montos.montoAfecto);
+    if (!isNaN(afecto) && afecto > 0) {
+      const alcabala = (afecto * 0.03).toFixed(2);
+      setMontos((prev) => {
+        if (prev.montoAlcabala === alcabala) return prev;
+        return { ...prev, montoAlcabala: alcabala };
+      });
+    }
+  }, [moneda.uit, predio.transferencia, montos.autoavaluo, montos.montoInafecto, montos.montoAfecto]);
 
   // ── Escape key ──
   useEffect(() => {
@@ -334,18 +810,41 @@ export default function CrearAlcabalaModal({
     if (target === "comprador") {
       setComprador({
         codigoCompra: item.codigo,
-        nombres: `${item.nombres} ${item.paterno} ${item.materno}`,
+        nombres: `${item.paterno} ${item.materno} ${item.nombres} `,
         numDoc: item.numDoc,
         direccFiscal: item.direccion,
       });
     } else {
       setVendedor({
         codigoVenta: item.codigo,
-        nombres1: `${item.nombres} ${item.paterno} ${item.materno}`,
+        nombres1: `${item.paterno} ${item.materno} ${item.nombres} `,
         numDoc1: item.numDoc,
         direccFiscal1: item.direccion,
       });
     }
+    setSearchOpen(false);
+  };
+
+  const handlePredioSelect = (item: PredioItem, target: SearchTarget) => {
+    setVendedor({
+      codigoVenta: item.codigo,
+      nombres1: item.nombres,
+      numDoc1: item.numDoc,
+      direccFiscal1: item.direccFiscal,
+    });
+    setPredio((prev) => ({
+      ...prev,
+      codPred: item.codPred,
+      anioPred: item.anno,
+      tipoPred: item.tipoPred,
+      direccionPredio: item.direccionPredio,
+      anexo: item.anexo,
+      subAnexo: item.subAnexo,
+    }));
+    setMontos((prev) => ({
+      ...prev,
+      autoavaluo: item.totalAutoavaluo,
+    }));
     setSearchOpen(false);
   };
 
@@ -416,7 +915,7 @@ export default function CrearAlcabalaModal({
           </div>
 
           {/* Body */}
-          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+          <div className="flex-1 overflow-y-auto px-5 py-1 space-y-1">
             {/* ── Section: Comprador ── */}
             <div>
               <button
@@ -425,7 +924,7 @@ export default function CrearAlcabalaModal({
                 className={sectionBtn}
                 aria-label={openSections.comprador ? "Colapsar Comprador" : "Expandir Comprador"}
               >
-                Comprador
+                datos del Comprador
                 {openSections.comprador ? (
                   <ChevronDown size={14} />
                 ) : (
@@ -434,8 +933,8 @@ export default function CrearAlcabalaModal({
               </button>
               {openSections.comprador && (
                 <div className={sectionContent}>
-                  <div className="grid grid-cols-5 gap-3">
-                    <div className="col-span-2">
+                  <div className="grid grid-cols-[15fr_85fr] gap-3">
+                    <div>
                       <label htmlFor="codigoCompra" className={fieldLabel}>
                         Código Compra
                       </label>
@@ -444,18 +943,20 @@ export default function CrearAlcabalaModal({
                           id="codigoCompra"
                           type="text"
                           value={comprador.codigoCompra}
+                          readOnly
                           onChange={(e) =>
                             setComprador((prev) => ({
                               ...prev,
                               codigoCompra: e.target.value,
                             }))
                           }
-                          className={inputMono}
+                          className={`${inputMono} bg-slate-100`}
                         />
                         <button
                           type="button"
+                          disabled
                           onClick={() => openSearch("comprador")}
-                          className={searchBtnClass}
+                          className={`${searchBtnClass} disabled:cursor-not-allowed disabled:opacity-40`}
                           aria-label="Buscar contribuyente comprador"
                           title="Buscar contribuyente"
                         >
@@ -463,25 +964,26 @@ export default function CrearAlcabalaModal({
                         </button>
                       </div>
                     </div>
-                    <div className="col-span-3">
+                    <div>
                       <label htmlFor="nombres" className={fieldLabel}>
-                        Nombres
+                        Nombres del Comprador
                       </label>
                       <input
                         id="nombres"
                         type="text"
                         value={comprador.nombres}
+                        readOnly
                         onChange={(e) =>
                           setComprador((prev) => ({
                             ...prev,
                             nombres: e.target.value.toUpperCase(),
                           }))
                         }
-                        className={inputClass}
+                        className={`${inputClass} bg-slate-100`}
                       />
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-[15fr_85fr] gap-3">
                     <div>
                       <label htmlFor="numDoc" className={fieldLabel}>
                         N° Documento
@@ -490,30 +992,32 @@ export default function CrearAlcabalaModal({
                         id="numDoc"
                         type="text"
                         value={comprador.numDoc}
+                        readOnly
                         onChange={(e) =>
                           setComprador((prev) => ({
                             ...prev,
                             numDoc: e.target.value,
                           }))
                         }
-                        className={inputMono}
+                        className={`${inputMono} bg-slate-100`}
                       />
                     </div>
-                    <div className="col-span-2">
+                    <div>
                       <label htmlFor="direccFiscal" className={fieldLabel}>
-                        Dirección Fiscal
+                        Dirección Fiscal del comprador
                       </label>
                       <input
                         id="direccFiscal"
                         type="text"
                         value={comprador.direccFiscal}
+                        readOnly
                         onChange={(e) =>
                           setComprador((prev) => ({
                             ...prev,
                             direccFiscal: e.target.value.toUpperCase(),
                           }))
                         }
-                        className={inputClass}
+                        className={`${inputClass} bg-slate-100`}
                       />
                     </div>
                   </div>
@@ -529,7 +1033,7 @@ export default function CrearAlcabalaModal({
                 className={sectionBtn}
                 aria-label={openSections.vendedor ? "Colapsar Vendedor" : "Expandir Vendedor"}
               >
-                Vendedor
+                datos del Vendedor
                 {openSections.vendedor ? (
                   <ChevronDown size={14} />
                 ) : (
@@ -538,8 +1042,8 @@ export default function CrearAlcabalaModal({
               </button>
               {openSections.vendedor && (
                 <div className={sectionContent}>
-                  <div className="grid grid-cols-5 gap-3">
-                    <div className="col-span-2">
+                  <div className="grid grid-cols-[15fr_85fr] gap-3">
+                    <div>
                       <label htmlFor="codigoVenta" className={fieldLabel}>
                         Código Venta
                       </label>
@@ -548,13 +1052,14 @@ export default function CrearAlcabalaModal({
                           id="codigoVenta"
                           type="text"
                           value={vendedor.codigoVenta}
+                          readOnly
                           onChange={(e) =>
                             setVendedor((prev) => ({
                               ...prev,
                               codigoVenta: e.target.value,
                             }))
                           }
-                          className={inputMono}
+                          className={`${inputMono} bg-slate-100`}
                         />
                         <button
                           type="button"
@@ -567,25 +1072,26 @@ export default function CrearAlcabalaModal({
                         </button>
                       </div>
                     </div>
-                    <div className="col-span-3">
+                    <div>
                       <label htmlFor="nombres1" className={fieldLabel}>
-                        Nombres
+                        Nombres del vendedor
                       </label>
                       <input
                         id="nombres1"
                         type="text"
                         value={vendedor.nombres1}
+                        readOnly
                         onChange={(e) =>
                           setVendedor((prev) => ({
                             ...prev,
                             nombres1: e.target.value.toUpperCase(),
                           }))
                         }
-                        className={inputClass}
+                        className={`${inputClass} bg-slate-100`}
                       />
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-[15fr_85fr] gap-3">
                     <div>
                       <label htmlFor="numDoc1" className={fieldLabel}>
                         N° Documento
@@ -594,30 +1100,32 @@ export default function CrearAlcabalaModal({
                         id="numDoc1"
                         type="text"
                         value={vendedor.numDoc1}
+                        readOnly
                         onChange={(e) =>
                           setVendedor((prev) => ({
                             ...prev,
                             numDoc1: e.target.value,
                           }))
                         }
-                        className={inputMono}
+                        className={`${inputMono} bg-slate-100`}
                       />
                     </div>
-                    <div className="col-span-2">
+                    <div>
                       <label htmlFor="direccFiscal1" className={fieldLabel}>
-                        Dirección Fiscal
+                        Dirección Fiscal vendedor
                       </label>
                       <input
                         id="direccFiscal1"
                         type="text"
                         value={vendedor.direccFiscal1}
+                        readOnly
                         onChange={(e) =>
                           setVendedor((prev) => ({
                             ...prev,
                             direccFiscal1: e.target.value.toUpperCase(),
                           }))
                         }
-                        className={inputClass}
+                        className={`${inputClass} bg-slate-100`}
                       />
                     </div>
                   </div>
@@ -642,22 +1150,23 @@ export default function CrearAlcabalaModal({
               </button>
               {openSections.predio && (
                 <div className={sectionContent}>
-                  <div className="grid grid-cols-5 gap-3">
+                  <div className="grid grid-cols-6 gap-3">
                     <div>
-                      <label htmlFor="codPred" className={fieldLabel}>
-                        Código Predio
+                      <label htmlFor="fechaContrato" className={fieldLabel}>
+                        Fecha Contrato
                       </label>
                       <input
-                        id="codPred"
-                        type="text"
-                        value={predio.codPred}
+                        id="fechaContrato"
+                        type="date"
+                        value={predio.fechaContrato}
+                        readOnly
                         onChange={(e) =>
                           setPredio((prev) => ({
                             ...prev,
-                            codPred: e.target.value.toUpperCase(),
+                            fechaContrato: e.target.value,
                           }))
                         }
-                        className={inputMono}
+                        className={`${inputClass} bg-slate-100 cursor-not-allowed`}
                       />
                     </div>
                     <div>
@@ -668,14 +1177,27 @@ export default function CrearAlcabalaModal({
                         id="anioPred"
                         type="text"
                         value={predio.anioPred}
+                        readOnly
+                        placeholder="Auto"
+                        className={`${inputClass} bg-slate-100`}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="codPred" className={fieldLabel}>
+                        Código Predio
+                      </label>
+                      <input
+                        id="codPred"
+                        type="text"
+                        value={predio.codPred}
+                        readOnly
                         onChange={(e) =>
                           setPredio((prev) => ({
                             ...prev,
-                            anioPred: e.target.value.replace(/\D/g, "").slice(0, 4),
+                            codPred: e.target.value.toUpperCase(),
                           }))
                         }
-                        placeholder="2026"
-                        className={inputClass}
+                        className={`${inputMono} bg-slate-100`}
                       />
                     </div>
                     <div>
@@ -686,13 +1208,14 @@ export default function CrearAlcabalaModal({
                         id="tipoPred"
                         type="text"
                         value={predio.tipoPred}
+                        readOnly
                         onChange={(e) =>
                           setPredio((prev) => ({
                             ...prev,
                             tipoPred: e.target.value.toUpperCase(),
                           }))
                         }
-                        className={inputClass}
+                        className={`${inputClass} bg-slate-100`}
                       />
                     </div>
                     <div>
@@ -703,16 +1226,17 @@ export default function CrearAlcabalaModal({
                         id="anexo"
                         type="text"
                         value={predio.anexo}
+                        readOnly
                         onChange={(e) =>
                           setPredio((prev) => ({
                             ...prev,
                             anexo: e.target.value,
                           }))
                         }
-                        className={inputMono}
+                        className={`${inputMono} bg-slate-100`}
                       />
                     </div>
-                    <div>
+                   <div>
                       <label htmlFor="subAnexo" className={fieldLabel}>
                         Sub Anexo
                       </label>
@@ -720,13 +1244,14 @@ export default function CrearAlcabalaModal({
                         id="subAnexo"
                         type="text"
                         value={predio.subAnexo}
+                        readOnly
                         onChange={(e) =>
                           setPredio((prev) => ({
                             ...prev,
                             subAnexo: e.target.value,
                           }))
                         }
-                        className={inputMono}
+                        className={`${inputMono} bg-slate-100`}
                       />
                     </div>
                   </div>
@@ -739,34 +1264,18 @@ export default function CrearAlcabalaModal({
                         id="direccionPredio"
                         type="text"
                         value={predio.direccionPredio}
+                        readOnly
                         onChange={(e) =>
                           setPredio((prev) => ({
                             ...prev,
                             direccionPredio: e.target.value.toUpperCase(),
                           }))
                         }
-                        className={inputClass}
+                        className={`${inputClass} bg-slate-100`}
                       />
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <label htmlFor="fechaContrato" className={fieldLabel}>
-                        Fecha Contrato
-                      </label>
-                      <input
-                        id="fechaContrato"
-                        type="date"
-                        value={predio.fechaContrato}
-                        onChange={(e) =>
-                          setPredio((prev) => ({
-                            ...prev,
-                            fechaContrato: e.target.value,
-                          }))
-                        }
-                        className={inputClass}
-                      />
-                    </div>
+                  <div className="grid grid-cols-1">
                     <div>
                       <label htmlFor="contrato" className={fieldLabel}>
                         Contrato
@@ -779,23 +1288,6 @@ export default function CrearAlcabalaModal({
                           setPredio((prev) => ({
                             ...prev,
                             contrato: e.target.value.toUpperCase(),
-                          }))
-                        }
-                        className={inputClass}
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="transferencia" className={fieldLabel}>
-                        Transferencia
-                      </label>
-                      <input
-                        id="transferencia"
-                        type="text"
-                        value={predio.transferencia}
-                        onChange={(e) =>
-                          setPredio((prev) => ({
-                            ...prev,
-                            transferencia: e.target.value.toUpperCase(),
                           }))
                         }
                         className={inputClass}
@@ -845,7 +1337,43 @@ export default function CrearAlcabalaModal({
                   <p className="text-[10px] text-slate-400 italic">
                     Monto Alcabala se calcula automáticamente: (Monto Afecto - Monto Inafecto) × 3%
                   </p>
-                  <div className="grid grid-cols-4 gap-3">
+                  <div className="grid grid-cols-5 gap-3">
+                    <div>
+                      <label htmlFor="transferencia" className={fieldLabel}>
+                        Transferencia
+                      </label>
+                      <input
+                        id="transferencia"
+                        type="number"
+                        min={0}
+                        value={predio.transferencia}
+                        onChange={(e) =>
+                          setPredio((prev) => ({
+                            ...prev,
+                            transferencia: e.target.value,
+                          }))
+                        }
+                        className={inputMono}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="autoavaluo" className={fieldLabel}>
+                        Autoavaluo
+                      </label>
+                      <input
+                        id="autoavaluo"
+                        type="number"
+                        min={0}
+                        value={montos.autoavaluo}
+                        onChange={(e) =>
+                          setMontos((prev) => ({
+                            ...prev,
+                            autoavaluo: Math.max(0, Number(e.target.value)),
+                          }))
+                        }
+                        className={inputMono}
+                      />
+                    </div>
                     <div>
                       <label htmlFor="montoInafecto" className={fieldLabel}>
                         Monto Inafecto
@@ -894,22 +1422,67 @@ export default function CrearAlcabalaModal({
                         className={`${inputMono} bg-slate-100 text-emerald-700 font-bold`}
                       />
                     </div>
+                  </div>
+                  {/* Display-only currency helpers: dollar value + TC consult
+                      (SUNAT) and the year's UIT (sp_DJAlcabala buscar=1) */}
+                  <div className="grid grid-cols-3 gap-3">
                     <div>
-                      <label htmlFor="autoavaluo" className={fieldLabel}>
-                        Autoavaluo
+                      <label htmlFor="valorDolares" className={fieldLabel}>
+                        Valor en Dólares
+                      </label>
+                      <div className="flex gap-1">
+                        <input
+                          id="valorDolares"
+                          type="number"
+                          min={0}
+                          value={moneda.valorDolares}
+                          onChange={(e) =>
+                            setMoneda((prev) => ({
+                              ...prev,
+                              valorDolares: e.target.value,
+                            }))
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              consultarTipoCambio();
+                            }
+                          }}
+                          className={inputMono}
+                        />
+                        <button
+                          type="button"
+                          onClick={consultarTipoCambio}
+                          title="Consultar TC y convertir"
+                          className={searchBtnClass}
+                          aria-label="Consultar tipo de cambio"
+                        >
+                          ⇄
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label htmlFor="tipoCambio" className={fieldLabel}>
+                        Tipo de Cambio
                       </label>
                       <input
-                        id="autoavaluo"
-                        type="number"
-                        min={0}
-                        value={montos.autoavaluo}
-                        onChange={(e) =>
-                          setMontos((prev) => ({
-                            ...prev,
-                            autoavaluo: Math.max(0, Number(e.target.value)),
-                          }))
-                        }
-                        className={inputMono}
+                        id="tipoCambio"
+                        type="text"
+                        readOnly
+                        value={moneda.tipoCambio}
+                        className={`${inputMono} bg-slate-100`}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="uit" className={fieldLabel}>
+                        UIT
+                      </label>
+                      <input
+                        id="uit"
+                        type="text"
+                        readOnly
+                        value={moneda.uit}
+                        className={`${inputMono} bg-slate-100`}
                       />
                     </div>
                   </div>
@@ -959,7 +1532,12 @@ export default function CrearAlcabalaModal({
         <ContribuyenteSearchPopup
           target={searchTarget}
           onSelect={handleSearchSelect}
+          onPredioSelect={handlePredioSelect}
           onClose={() => setSearchOpen(false)}
+          fechaContrato={predio.fechaContrato}
+          onFechaContratoChange={(v) =>
+            setPredio((prev) => ({ ...prev, fechaContrato: v }))
+          }
         />
       )}
     </>
