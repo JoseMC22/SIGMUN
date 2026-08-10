@@ -19,11 +19,34 @@ import {
   BuscarContribuyenteResult,
   ValidarRepresentanteResult,
   GuardarContribuyenteResult,
+  GuardarRepresentanteResult,
+  VincularRepresentanteResult,
+  EditarContribuyenteResult,
+  EliminarContribuyenteResult,
+  ObtenerRepresentantesResult,
+  EditarRepresentanteResult,
+  EliminarRepresentanteResult,
 } from './dto/declaracion-jurada.types';
 import {
   GuardarContribuyenteSchema,
   GuardarContribuyenteDto,
 } from './dto/guardar-contribuyente.dto';
+import {
+  GuardarRepresentanteSchema,
+  GuardarRepresentanteDto,
+} from './dto/guardar-representante.dto';
+import {
+  VincularRepresentanteSchema,
+  VincularRepresentanteDto,
+} from './dto/vincular-representante.dto';
+import {
+  EliminarContribuyenteSchema,
+  EliminarContribuyenteDto,
+} from './dto/eliminar-contribuyente.dto';
+import {
+  EliminarRepresentanteSchema,
+  EliminarRepresentanteDto,
+} from './dto/eliminar-representante.dto';
 
 @Controller('declaracion-jurada')
 @UseGuards(JwtAuthGuard)
@@ -137,6 +160,23 @@ export class DeclaracionJuradaController {
     }
   }
 
+  // ── Obtener contribuyente por código (modal Editar Contribuyente) ──
+
+  @Get('buscar-por-codigo')
+  async buscarPorCodigo(
+    @Query('codigo') codigo: string,
+  ): Promise<{ success: true; data: EditarContribuyenteResult } | { success: false; error: string }> {
+    try {
+      const data = await this.service.buscarPorCodigo(codigo ?? '');
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error al obtener el contribuyente.',
+      };
+    }
+  }
+
   // ── Validar si requiere representante (modal Nuevo Contribuyente) ──
 
   @Get('validar-representante')
@@ -200,6 +240,172 @@ export class DeclaracionJuradaController {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Error al guardar contribuyente.',
+      };
+    }
+  }
+
+  // ── Guardar representante (modal Representante) ──
+
+  @Post('guardar-representante')
+  async guardarRepresentante(
+    @Body() dto: GuardarRepresentanteDto,
+  ): Promise<{ success: true; data: GuardarRepresentanteResult } | { success: false; error: string }> {
+    let parsed: GuardarRepresentanteDto;
+    try {
+      parsed = GuardarRepresentanteSchema.parse(dto);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const messages = error.issues.map((issue) => issue.message).join(', ');
+        throw new BadRequestException({
+          success: false,
+          error: messages || 'Datos de entrada inválidos.',
+        });
+      }
+      throw new BadRequestException({
+        success: false,
+        error: 'Datos de entrada inválidos.',
+      });
+    }
+    try {
+      const data = await this.service.guardarRepresentante(parsed);
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error al guardar representante.',
+      };
+    }
+  }
+
+  // ── Vincular representante con contribuyente ──
+
+  @Post('vincular-representante')
+  async vincularRepresentante(
+    @Body() dto: VincularRepresentanteDto,
+  ): Promise<{ success: true; data: VincularRepresentanteResult } | { success: false; error: string }> {
+    let parsed: VincularRepresentanteDto;
+    try {
+      parsed = VincularRepresentanteSchema.parse(dto);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const messages = error.issues.map((issue) => issue.message).join(', ');
+        throw new BadRequestException({
+          success: false,
+          error: messages || 'Datos de entrada inválidos.',
+        });
+      }
+      throw new BadRequestException({
+        success: false,
+        error: 'Datos de entrada inválidos.',
+      });
+    }
+    try {
+      const data = await this.service.vincularRepresentante(parsed);
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error al vincular representante.',
+      };
+    }
+  }
+
+  // ── Obtener datos + representantes (modal Representantes) ──
+
+  @Get('representantes')
+  async representantes(
+    @Query('codigo') codigo: string,
+  ): Promise<{ success: true; data: ObtenerRepresentantesResult } | { success: false; error: string }> {
+    try {
+      const data = await this.service.obtenerRepresentantes(codigo ?? '');
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error al obtener representantes.',
+      };
+    }
+  }
+
+  // ── Obtener representante por id (modal Editar Representante) ──
+
+  @Get('representante-por-id')
+  async representantePorId(
+    @Query('id') id: string,
+  ): Promise<{ success: true; data: EditarRepresentanteResult } | { success: false; error: string }> {
+    try {
+      const data = await this.service.obtenerRepresentante(id ?? '');
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error al obtener el representante.',
+      };
+    }
+  }
+
+  // ── Eliminar contribuyente (sp_Mcontribuyente @busc=3) ──
+
+  @Post('eliminar')
+  async eliminar(
+    @Body() dto: EliminarContribuyenteDto,
+  ): Promise<{ success: true; data: EliminarContribuyenteResult } | { success: false; error: string }> {
+    let parsed: EliminarContribuyenteDto;
+    try {
+      parsed = EliminarContribuyenteSchema.parse(dto);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const messages = error.issues.map((issue) => issue.message).join(', ');
+        throw new BadRequestException({
+          success: false,
+          error: messages || 'Datos de entrada inválidos.',
+        });
+      }
+      throw new BadRequestException({
+        success: false,
+        error: 'Datos de entrada inválidos.',
+      });
+    }
+    try {
+      const data = await this.service.eliminar(parsed);
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error al eliminar contribuyente.',
+      };
+    }
+  }
+
+  // ── Eliminar representante (sp_Mrepresentante @busc=7) ──
+
+  @Post('eliminar-representante')
+  async eliminarRepresentante(
+    @Body() dto: EliminarRepresentanteDto,
+  ): Promise<{ success: true; data: EliminarRepresentanteResult } | { success: false; error: string }> {
+    let parsed: EliminarRepresentanteDto;
+    try {
+      parsed = EliminarRepresentanteSchema.parse(dto);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const messages = error.issues.map((issue) => issue.message).join(', ');
+        throw new BadRequestException({
+          success: false,
+          error: messages || 'Datos de entrada inválidos.',
+        });
+      }
+      throw new BadRequestException({
+        success: false,
+        error: 'Datos de entrada inválidos.',
+      });
+    }
+    try {
+      const data = await this.service.eliminarRepresentante(parsed);
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error al eliminar representante.',
       };
     }
   }

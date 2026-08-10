@@ -183,3 +183,174 @@ export interface GuardarContribuyenteResult {
   codigo: string;
   mensaje: string;
 }
+
+// ── Guardar representante (sp_Mrepresentante + sp_Mcontribuyente) ──
+
+export interface GuardarRepresentanteResult {
+  id: string;
+}
+
+// ── Vincular representante con contribuyente (sp_Mrepresentante @busc=13) ──
+
+export interface VincularRepresentanteResult {
+  success: boolean;
+}
+
+// ── SP result for busc=3 (Eliminar contribuyente) ──
+
+export interface EliminarContribuyenteResult {
+  success: boolean;
+  mensaje: string;
+}
+
+// ── SP Rentas.sp_rentasmain @buscar=3 (Modal Representantes — Datos Contribuyente) ──
+
+export interface ContribuyenteResumenResult {
+  codigo: string;
+  nombres: string;
+  numDoc: string;
+  direccion: string;
+}
+
+// ── SP Rentas.sp_Mrepresentante @busc=4 (Modal Representantes — grid) ──
+// Mapeo posicional del legacy:
+// 0 lid, 1 codigo, 4+5+6 nombres, 25 documento (tipo doc), 31 descripcion (tipo relacion), 32 direccion
+
+export interface RepresentanteGridItem {
+  cod: string;
+  codigo: string;
+  tipoRelacion: string;
+  nombres: string;
+  tipoDocumento: string;
+  nroDocumento: string;
+  direccion: string;
+}
+
+export interface ObtenerRepresentantesResult {
+  datos: ContribuyenteResumenResult;
+  representantes: RepresentanteGridItem[];
+}
+
+// ── SP Rentas.sp_Mrepresentante @busc=6 (Editar representante — carga el form) ──
+// Mapeo posicional del legacy PHP:
+// 0 id, 1 codigo, 2 id_docu, 3 num_doc, 4 nombres, 5 paterno, 6 materno,
+// 7 id_dist, 8 tipourb, 9 des_urb, 10 tipovia, 11 des_via, 12 id_zona,
+// 13 id_urba, 14 id_via, 15 referencia, 16 manzana, 17 lote, 18 sub_lote,
+// 19 numero, 20 departam, 21 nestado, 22 operador, 23 estacion,
+// 27 nomzona, 28 nomurba, 30 nomvia, 31 id_tipo_relacion,
+// 33 letra1, 34 numero2, 35 letra2, 36 piso, 37 numero_interno,
+// 38 letra_interno, 39 tipo_interior_id, 40 tipo_edificio_id,
+// 41 tipo_ingreso_id, 42 tipo_agrupamiento_id,
+// 43 nombre_edificio, 44 nombre_ingreso, 45 nombre_agrupamiento
+
+export interface EditarRepresentanteResult {
+  id: string;
+  codigo: string;
+  idDocu: string;
+  numDoc: string;
+  nombres: string;
+  paterno: string;
+  materno: string;
+  idDist: string;
+  tipourb: string;
+  desUrb: string;
+  tipovia: string;
+  desVia: string;
+  idZona: string;
+  idUrba: string;
+  idVia: string;
+  referencia: string;
+  manzana: string;
+  lote: string;
+  subLote: string;
+  numero: string;
+  departam: string;
+  nestado: string;
+  operador: string;
+  estacion: string;
+  nomZona: string;
+  nomUrba: string;
+  nomVia: string;
+  idTipoRelacion: string;
+  letra1: string;
+  numero2: string;
+  letra2: string;
+  piso: string;
+  numeroInterno: string;
+  letraInterno: string;
+  tipoInteriorId: string;
+  tipoEdificacionId: string;
+  tipoIngresoId: string;
+  tipoAgrupamientoId: string;
+  nombreEdificio: string;
+  nombreIngreso: string;
+  nombreAgrupamiento: string;
+}
+
+// ── SP Rentas.sp_Mrepresentante @busc=7 (Eliminar representante) ──
+
+export interface EliminarRepresentanteResult {
+  success: boolean;
+  mensaje: string;
+}
+
+// ── SP result for busc=4 (Obtener contribuyente por código — edición) ──
+// Mapeo posicional igual al proyecto legacy. Columnas del SP:
+// 0 codigo, 1 id_pers, 2 id_docu, 3 num_doc, 4 nombres, 5 paterno,
+// 6 materno, 7 id_dist, 8 tipourb, 9 des_urb, 10 tipovia, 11 des_via,
+// 12 id_zona, 13 id_urba, 14 id_via, 15 referencia, 16 manzana, 17 lote,
+// 18 sub_lote, 19 numero, 20 departam, 21 nestado, 22 operador, 23 estacion,
+// 24 fech_ing, 31 id_tipocontri, 32 id_subtipocontri, ...
+export interface EditarContribuyenteResult {
+  codigo: string;
+  idPers: string;
+  idDocu: string;
+  numDoc: string;
+  nombres: string;
+  paterno: string;
+  materno: string;
+  idDist: string;
+  tipourb: string;
+  desUrb: string;
+  tipovia: string;
+  desVia: string;
+  idZona: string;
+  idUrba: string;
+  idVia: string;
+  referencia: string;
+  manzana: string;
+  lote: string;
+  subLote: string;
+  numero: string;
+  departam: string;
+  nestado: string;
+  operador: string;
+  estacion: string;
+  fechIng: string;
+  nomZona: string;
+  nomUrba: string;
+  nomVia: string;
+  tipoContri: string;
+  subTipoContri: string;
+  letra1: string;
+  numero2: string;
+  letra2: string;
+  tipoInteriorId: string;
+  tipoAgrupamientoId: string;
+  tipoIngresoId: string;
+  tipoEdificacionId: string;
+  nombreEdificio: string;
+  nombreIngreso: string;
+  nombreAgrupamiento: string;
+  piso: string;
+  letraInterno: string;
+  numeroInterno: string;
+  correo: string;
+  partidaDefuncion: string;
+  fechaDefuncion: string;
+  telefono1: string;
+  anexo1: string;
+  telefono2: string;
+  anexo2: string;
+  flagNotificar: string;
+}
