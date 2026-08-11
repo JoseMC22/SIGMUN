@@ -688,13 +688,19 @@ export default function CrearAlcabalaModal({
 
   // ── Auto-calc montoAlcabala ──
   useEffect(() => {
+    // montoAlcabala is only meaningful while the UIT-derived chain is active:
+    // without a valid UIT the derived amounts are reset to "0.00" by the UIT
+    // effect, and this effect must NOT overwrite those resets with a numeric 0
+    // (or anything derived from stale montos).
+    const uit = parseFloat(moneda.uit);
+    if (isNaN(uit) || uit <= 0) return;
     const calc = Math.max(
       0,
       (montos.montoAfecto - montos.montoInafecto) * 0.03,
     );
     setMontos((prev) => ({ ...prev, montoAlcabala: Math.round(calc * 100) / 100 }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [montos.montoAfecto, montos.montoInafecto]);
+  }, [moneda.uit, montos.montoAfecto, montos.montoInafecto]);
 
   // ── Auto-calc anioPred from fechaContrato ──
   useEffect(() => {
@@ -707,17 +713,49 @@ export default function CrearAlcabalaModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [predio.fechaContrato]);
 
+  // Reset the display-only UIT and every amount derived from it
+  // (Inafecto = 10 × UIT → Afecto → Alcabala) to the chain's "0.00" zero
+  // representation. Called whenever the UIT is unavailable — fetch failure or
+  // no valid 4-digit year. Both montos effects bail on an invalid UIT, so
+  // these resets are never recomputed from stale values.
+  const resetUitDerivedMontos = useCallback(() => {
+    setMoneda((prev) => ({ ...prev, uit: "" }));
+    setMontos((prev) => ({
+      ...prev,
+      montoInafecto: "0.00",
+      montoAfecto: "0.00",
+      montoAlcabala: "0.00",
+    }));
+  }, []);
+
   // ── Auto-load the year's UIT from sp_DJAlcabala (buscar=1) ──
   useEffect(() => {
     let cancelled = false;
     if (/^\d{4}$/.test(predio.anioPred)) {
       getUitAction(predio.anioPred).then((res) => {
-        if (!cancelled && res.success) {
+        if (cancelled) return;
+        if (res.success) {
           setMoneda((prev) => ({ ...prev, uit: res.uit }));
+          setSubmitError(null);
+        } else {
+          // A failed fetch must NOT keep the previous year's UIT: a stale UIT
+          // would feed montoInafecto (10 × UIT) from the wrong year and get
+          // persisted. Clear it, reset every derived amount ("0.00" is the
+          // chain's zero representation), and surface the error (submitError
+          // pattern).
+          resetUitDerivedMontos();
+          setSubmitError(
+            res.error ||
+              `No se pudo obtener la UIT del año ${predio.anioPred}`,
+          );
         }
       });
     } else {
-      setMoneda((prev) => ({ ...prev, uit: "" }));
+      // anioPred is not a valid 4-digit year (e.g. the contract date was
+      // cleared after a successful UIT load): the UIT and every amount derived
+      // from it must reset too — a stale montoInafecto (10 × UIT) would still
+      // be submitted and persisted.
+      resetUitDerivedMontos();
     }
     return () => {
       cancelled = true;
@@ -757,19 +795,30 @@ export default function CrearAlcabalaModal({
     const transferencia = parseFloat(predio.transferencia);
     const autoavaluo = parseFloat(montos.autoavaluo);
 
-    if (!isNaN(uit) && uit > 0) {
-      const inafecto = (uit * 10).toFixed(2);
-      setMontos((prev) => {
-        if (prev.montoInafecto === inafecto) return prev;
-        return { ...prev, montoInafecto: inafecto };
-      });
-    }
+    // Every derived amount starts from the UIT (Inafecto = 10 × UIT, then
+    // Afecto and Alcabala). Without a valid UIT the cascade is unknowable —
+    // bail out so the UIT effect's "0.00" failure resets are NOT recomputed
+    // from a stale or zeroed montoInafecto (which would turn Afecto into the
+    // full base and Alcabala into 3% of it, persisting wrong figures).
+    if (isNaN(uit) || uit <= 0) return;
+
+    // Inafecto = 10 × UIT
+    const inafectoStr = (uit * 10).toFixed(2);
+    setMontos((prev) => {
+      if (prev.montoInafecto === inafectoStr) return prev;
+      return { ...prev, montoInafecto: inafectoStr };
+    });
 
     // Afecto = (Transferencia || Autoavaluo) - Inafecto
-    const base = !isNaN(transferencia) && transferencia > 0 ? transferencia : (!isNaN(autoavaluo) ? autoavaluo : 0);
-    const inafecto = parseFloat(montos.montoInafecto);
-    if (!isNaN(base) && !isNaN(inafecto)) {
-      const afecto = Math.max(0, base - inafecto).toFixed(2);
+    const base =
+      !isNaN(transferencia) && transferencia > 0
+        ? transferencia
+        : !isNaN(autoavaluo)
+          ? autoavaluo
+          : 0;
+    const inafectoNum = parseFloat(montos.montoInafecto);
+    if (!isNaN(base) && !isNaN(inafectoNum)) {
+      const afecto = Math.max(0, base - inafectoNum).toFixed(2);
       setMontos((prev) => {
         if (prev.montoAfecto === afecto) return prev;
         return { ...prev, montoAfecto: afecto };
@@ -777,9 +826,12 @@ export default function CrearAlcabalaModal({
     }
 
     // Alcabala = Afecto * 3%
-    const afecto = parseFloat(montos.montoAfecto);
-    if (!isNaN(afecto) && afecto > 0) {
-      const alcabala = (afecto * 0.03).toFixed(2);
+    // Always update, mirroring the montoAfecto step above: when Afecto drops to
+    // 0 (e.g. transferencia == montoInafecto), the value must be "0.00" — not
+    // the last positive Alcabala, which would be persisted as monto_alcabala.
+    const afectoNum = parseFloat(montos.montoAfecto);
+    if (!isNaN(afectoNum)) {
+      const alcabala = (Math.max(0, afectoNum) * 0.03).toFixed(2);
       setMontos((prev) => {
         if (prev.montoAlcabala === alcabala) return prev;
         return { ...prev, montoAlcabala: alcabala };

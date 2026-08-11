@@ -342,18 +342,21 @@ export class DeterminarAlcabalaService {
       );
 
       const row = result.recordset?.[0];
-      // The SP column name for buscar='1' is not confirmed — read the UIT
-      // value defensively: valor_uit → uit → first column of the row.
-      const uit = row
-        ? String(
-            col(row, 'valor_uit') ??
-              col(row, 'uit') ??
-              Object.values(row)[0] ??
-              '',
-          )
-        : '';
+      // The SP returns the UIT under the confirmed column `valor_uit` (same
+      // contract as the buscar=3 predio rows and [Rentas].[sp_uit]); an
+      // explicit `uit` alias is also honored. If neither key is present we
+      // FAIL instead of guessing at the first column: a wrong UIT would
+      // silently corrupt montoInafecto (= 10 × UIT) and be persisted.
+      const raw = row ? col(row, 'valor_uit') ?? col(row, 'uit') : undefined;
+      if (raw === undefined) {
+        return {
+          success: false,
+          uit: '',
+          error: 'La consulta de UIT no devolvió el valor esperado',
+        };
+      }
 
-      return { success: true, uit };
+      return { success: true, uit: String(raw) };
     } catch (err) {
       this.logger.error(`[DeterminarAlcabala] getUit SP error: ${err}`);
       return { success: false, uit: '', error: 'Error al obtener la UIT' };

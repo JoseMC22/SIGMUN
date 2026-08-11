@@ -511,14 +511,37 @@ describe('DeterminarAlcabalaService', () => {
       expect(result).toEqual({ success: true, uit: '4400' });
     });
 
-    it('should fall back to the first row value when the UIT column name is unknown', async () => {
-      // The SP column name for buscar=1 is unconfirmed — the service must read
-      // the value defensively from the first column of the row.
-      db.executeProcedure.mockResolvedValueOnce(mockSpResult([{ UTI: '5150' }]));
+    it('should read the valor_uit column case-insensitively', async () => {
+      db.executeProcedure.mockResolvedValueOnce(
+        mockSpResult([{ VALOR_UIT: '5150' }]),
+      );
 
       const result = await service.getUit('2026');
 
       expect(result).toEqual({ success: true, uit: '5150' });
+    });
+
+    it('should fail cleanly when the UIT column is missing instead of guessing', async () => {
+      // No valor_uit / uit key — the old blind Object.values(row)[0] fallback
+      // could silently read the wrong column (e.g. UTI or an unrelated value)
+      // and persist a wrong montoInafecto. Missing key must fail, not guess.
+      db.executeProcedure.mockResolvedValueOnce(mockSpResult([{ UTI: '5150' }]));
+
+      const result = await service.getUit('2026');
+
+      expect(result.success).toBe(false);
+      expect(result.uit).toBe('');
+      expect(result.error).toBeDefined();
+    });
+
+    it('should fail cleanly when the SP returns no UIT row', async () => {
+      db.executeProcedure.mockResolvedValueOnce(mockSpResult([]));
+
+      const result = await service.getUit('2026');
+
+      expect(result.success).toBe(false);
+      expect(result.uit).toBe('');
+      expect(result.error).toBeDefined();
     });
 
     it('should handle SP error gracefully and return empty uit', async () => {

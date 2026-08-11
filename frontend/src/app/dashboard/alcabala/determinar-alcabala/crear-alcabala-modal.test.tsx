@@ -330,6 +330,78 @@ describe("CrearAlcabalaModal", () => {
     });
   });
 
+  it("resets Monto Alcabala to 0.00 when Afecto drops to 0 (Transferencia == Inafecto)", async () => {
+    // Regression: the chain's Alcabala step used to skip updates when Afecto
+    // was <= 0, keeping the last positive Alcabala persisted as
+    // monto_alcabala. It must behave like the Afecto step: always set the
+    // value ("0.00" when Afecto is 0).
+    mockedUit.mockResolvedValue({ success: true, uit: "4000" });
+    mockedTipoCambio.mockResolvedValue({ success: true, venta: "3.8" });
+    mockedPredioSearch.mockResolvedValue({
+      success: true,
+      data: [mockPredio],
+      total: 1,
+      page: 1,
+      pageSize: 15,
+      totalPages: 1,
+    });
+
+    const user = userEvent.setup();
+    render(<CrearAlcabalaModal {...defaultProps} />);
+
+    // Select predio → Autoavaluo 10000, anioPred 2025, UIT 4000 → Inafecto 40000
+    const vendedorSearch = screen.getByRole("button", {
+      name: /buscar contribuyente vendedor/i,
+    });
+    await user.click(vendedorSearch);
+    const dialog = await screen.findByRole("dialog", {
+      name: /buscar predio|buscar contribuyente/i,
+    });
+    fireEvent.change(within(dialog).getByLabelText("Fecha Contrato"), {
+      target: { value: "2025-06-30" },
+    });
+    await user.type(
+      within(dialog).getByPlaceholderText("Ej: 0279126"),
+      "0279126",
+    );
+    await user.click(within(dialog).getByRole("button", { name: "Buscar" }));
+    await waitFor(() => {
+      expect(screen.getByText("PRD001")).toBeInTheDocument();
+    });
+    await user.click(screen.getByText("PRD001"));
+
+    await waitFor(() => {
+      expect(
+        (screen.getByLabelText("Monto Inafecto") as HTMLInputElement).value,
+      ).toBe("40000.00");
+    });
+
+    // USD × TC → Transferencia 76000 → Afecto 36000 → Alcabala 1080.00
+    fireEvent.change(screen.getByLabelText("Fecha Contrato"), {
+      target: { value: "2025-06-30" },
+    });
+    await user.type(screen.getByLabelText("Valor en Dólares"), "20000");
+    await user.click(
+      screen.getByRole("button", { name: /consultar tipo de cambio/i }),
+    );
+    await waitFor(() => {
+      expect(
+        (screen.getByLabelText("Monto Alcabala") as HTMLInputElement).value,
+      ).toBe("1080.00");
+    });
+
+    // Drop Transferencia to exactly Inafecto (40000) → Afecto 0 → Alcabala
+    // must reset to 0.00 instead of keeping 1080.00
+    fireEvent.change(screen.getByLabelText("Transferencia"), {
+      target: { value: "40000" },
+    });
+    await waitFor(() => {
+      expect(
+        (screen.getByLabelText("Monto Alcabala") as HTMLInputElement).value,
+      ).toBe("0.00");
+    });
+  });
+
   // ── Submit flow ────────────────────────────────────────
 
   it.skip("calls crearAlcabalaAction with form data on Guardar click", async () => {
@@ -827,6 +899,182 @@ await user.click(screen.getByText("PRD001"));
       expect(
         (screen.getByLabelText("UIT") as HTMLInputElement).value,
       ).toBe("");
+    });
+  });
+
+  it("clears the UIT field and surfaces an error when the getUit fetch fails", async () => {
+    // Fetch failure — the UIT must NOT keep a stale value (it feeds
+    // montoInafecto = 10 × UIT), and the failure must surface like TC errors
+    mockedUit.mockResolvedValue({
+      success: false,
+      uit: "",
+      error: "Error al obtener la UIT",
+    });
+    const user = userEvent.setup();
+    render(<CrearAlcabalaModal {...defaultProps} />);
+
+    // Setting the contract date drives anioPred → triggers the UIT auto-load
+    const vendedorSearch = screen.getByRole("button", {
+      name: /buscar contribuyente vendedor/i,
+    });
+    await user.click(vendedorSearch);
+    const dialog = await screen.findByRole("dialog", {
+      name: /buscar predio|buscar contribuyente/i,
+    });
+    fireEvent.change(within(dialog).getByLabelText("Fecha Contrato"), {
+      target: { value: "2025-06-30" },
+    });
+
+    expect(mockedUit).toHaveBeenCalledWith("2025");
+    await waitFor(() => {
+      expect(
+        (screen.getByLabelText("UIT") as HTMLInputElement).value,
+      ).toBe("");
+    });
+    // The failure is surfaced through the modal's existing error banner
+    expect(
+      screen.getByText("Error al obtener la UIT"),
+    ).toBeInTheDocument();
+
+    // Without a UIT every derived amount is unknowable — all three must reset
+    // to the chain's "0.00" zero representation so no stale figure reaches
+    // the submit payload (montoInafecto = 10 × UIT feeds the cascade).
+    await waitFor(() => {
+      expect(
+        (screen.getByLabelText("Monto Inafecto") as HTMLInputElement).value,
+      ).toBe("0.00");
+      expect(
+        (screen.getByLabelText("Monto Afecto") as HTMLInputElement).value,
+      ).toBe("0.00");
+      expect(
+        (screen.getByLabelText("Monto Alcabala") as HTMLInputElement).value,
+      ).toBe("0.00");
+    });
+  });
+
+  it("clears the previous year's UIT when the year changes and the new fetch fails", async () => {
+    // First fetch (2025) succeeds → UIT 5150; the year then changes to 2026
+    // and that fetch fails → the stale 2025 UIT must NOT persist
+    mockedUit
+      .mockResolvedValueOnce({ success: true, uit: "5150" })
+      .mockResolvedValueOnce({
+        success: false,
+        uit: "",
+        error: "Error al obtener la UIT",
+      });
+    const user = userEvent.setup();
+    render(<CrearAlcabalaModal {...defaultProps} />);
+
+    // Contract date 2025 → anioPred 2025 → UIT auto-loads
+    const vendedorSearch = screen.getByRole("button", {
+      name: /buscar contribuyente vendedor/i,
+    });
+    await user.click(vendedorSearch);
+    const dialog = await screen.findByRole("dialog", {
+      name: /buscar predio|buscar contribuyente/i,
+    });
+    fireEvent.change(within(dialog).getByLabelText("Fecha Contrato"), {
+      target: { value: "2025-06-30" },
+    });
+    await waitFor(() => {
+      expect(
+        (screen.getByLabelText("UIT") as HTMLInputElement).value,
+      ).toBe("5150");
+    });
+    // The 2025 UIT feeds the derived chain: Inafecto = 10 × 5150
+    await waitFor(() => {
+      expect(
+        (screen.getByLabelText("Monto Inafecto") as HTMLInputElement).value,
+      ).toBe("51500.00");
+    });
+
+    // Close the popup, then move the contract date to 2026 in the main form
+    await user.click(within(dialog).getByRole("button", { name: "Cerrar" }));
+    fireEvent.change(screen.getByLabelText("Fecha Contrato"), {
+      target: { value: "2026-06-30" },
+    });
+
+    // The 2026 fetch failed → UIT must clear, not keep 2025's value
+    await waitFor(() => {
+      expect(
+        (screen.getByLabelText("UIT") as HTMLInputElement).value,
+      ).toBe("");
+    });
+    expect(mockedUit).toHaveBeenNthCalledWith(1, "2025");
+    expect(mockedUit).toHaveBeenNthCalledWith(2, "2026");
+    expect(
+      screen.getByText("Error al obtener la UIT"),
+    ).toBeInTheDocument();
+
+    // The 2026 fetch failed → the 2025-derived figures (Inafecto was
+    // 51500.00) must all reset to "0.00"; a stale montoInafecto would be
+    // recomputed into Afecto/Alcabala and persisted with the submit payload
+    await waitFor(() => {
+      expect(
+        (screen.getByLabelText("Monto Inafecto") as HTMLInputElement).value,
+      ).toBe("0.00");
+      expect(
+        (screen.getByLabelText("Monto Afecto") as HTMLInputElement).value,
+      ).toBe("0.00");
+      expect(
+        (screen.getByLabelText("Monto Alcabala") as HTMLInputElement).value,
+      ).toBe("0.00");
+    });
+  });
+
+  it("resets the UIT and derived montos to 0.00 when the contract date is cleared", async () => {
+    // After a successful UIT load (montos computed from it), clearing the
+    // contract date makes anioPred a non-year → the UIT effect's else branch
+    // must reset uit AND every derived amount, or a stale montoInafecto
+    // (10 × UIT) would still be submitted and persisted.
+    const user = userEvent.setup();
+    render(<CrearAlcabalaModal {...defaultProps} />);
+
+    // Contract date 2025 → anioPred 2025 → UIT auto-loads → montos compute
+    const vendedorSearch = screen.getByRole("button", {
+      name: /buscar contribuyente vendedor/i,
+    });
+    await user.click(vendedorSearch);
+    const dialog = await screen.findByRole("dialog", {
+      name: /buscar predio|buscar contribuyente/i,
+    });
+    fireEvent.change(within(dialog).getByLabelText("Fecha Contrato"), {
+      target: { value: "2025-06-30" },
+    });
+    await waitFor(() => {
+      expect(
+        (screen.getByLabelText("UIT") as HTMLInputElement).value,
+      ).toBe("5150");
+    });
+    // 2025 UIT → Inafecto = 10 × 5150 = 51500
+    await waitFor(() => {
+      expect(
+        (screen.getByLabelText("Monto Inafecto") as HTMLInputElement).value,
+      ).toBe("51500.00");
+    });
+
+    // Close the popup and clear the contract date in the main form →
+    // anioPred becomes "" → the UIT effect's else branch resets everything
+    await user.click(within(dialog).getByRole("button", { name: "Cerrar" }));
+    fireEvent.change(screen.getByLabelText("Fecha Contrato"), {
+      target: { value: "" },
+    });
+    await waitFor(() => {
+      expect(
+        (screen.getByLabelText("UIT") as HTMLInputElement).value,
+      ).toBe("");
+    });
+    // No stale 10 × UIT figure may survive in the submit payload
+    await waitFor(() => {
+      expect(
+        (screen.getByLabelText("Monto Inafecto") as HTMLInputElement).value,
+      ).toBe("0.00");
+      expect(
+        (screen.getByLabelText("Monto Afecto") as HTMLInputElement).value,
+      ).toBe("0.00");
+      expect(
+        (screen.getByLabelText("Monto Alcabala") as HTMLInputElement).value,
+      ).toBe("0.00");
     });
   });
 

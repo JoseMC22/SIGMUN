@@ -4,6 +4,7 @@ import {
   NotFoundException,
   ConflictException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { DatabaseService } from '../../database/database.service';
 import { SearchRegistroSolicitudDto } from './dto/search-registro-solicitud.dto';
 import { SaveRegistroSolicitudDto } from './dto/save-registro-solicitud.dto';
@@ -42,7 +43,10 @@ export function calculateContribuyentePaginationParams(page: number, pageSize: n
 export class RegistroSolicitudService {
   private readonly logger = new Logger(RegistroSolicitudService.name);
 
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly config: ConfigService,
+  ) {}
 
   async search(dto: SearchRegistroSolicitudDto): Promise<PaginatedResponse<ContribuyenteRow>> {
     const {
@@ -425,7 +429,7 @@ export class RegistroSolicitudService {
 
     let externalData: { nombres: string; paterno: string; materno: string } | undefined = undefined;
     try {
-      const token = 'apis-token-1.aTSI1U7KEuT-6bbbCguH-4Y8TI6KS73N';
+      const token = this.config.get<string>('API_NET_TOKEN') ?? '';
       const response = await fetch(`http://api.apis.net.pe/v1/dni?numero=${numDoc}`, {
         headers: {
           'Referer': 'https://apis.net.pe/consulta-dni-api',
@@ -1674,7 +1678,7 @@ export class RegistroSolicitudService {
       const reqBody = JSON.stringify({
         anio,
         mes,
-        token: 't9nmgfodzadqw3j0i4ylklupor0yzk8qssf0trur4l3xylq9kkdf',
+        token: this.config.get<string>('SUNAT_TOKEN') ?? '',
       });
 
 
