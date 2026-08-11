@@ -31,6 +31,7 @@ import { GuardarContribuyenteDto } from './dto/guardar-contribuyente.dto';
 import { GuardarRepresentanteDto } from './dto/guardar-representante.dto';
 import { VincularRepresentanteDto } from './dto/vincular-representante.dto';
 import { EliminarContribuyenteDto } from './dto/eliminar-contribuyente.dto';
+import { EliminarRepresentanteDto } from './dto/eliminar-representante.dto';
 
 @Injectable()
 export class DeclaracionJuradaService {
