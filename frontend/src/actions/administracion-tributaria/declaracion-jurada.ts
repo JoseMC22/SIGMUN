@@ -429,3 +429,353 @@ export async function guardarContribuyenteAction(
     return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
   }
 }
+
+// ─── Guardar representante (modal Representante) ──
+// Replica la lógica legacy: sp_Mrepresentante + sp_Mcontribuyente (tipo 01/01)
+// cuando cod_repre viene vacío. Devuelve el id del representante creado/actualizado.
+
+export interface GuardarRepresentantePayload {
+  tip?: string; // '1' = crear, '2' = actualizar
+  codigo?: string; // código del contribuyente principal (vacío en alta nueva)
+  id?: string; // id del representante (vacío en creación)
+  cod_repre?: string; // código del contribuyente que ya es representante
+  id_docu?: string;
+  num_doc?: string;
+  nombres?: string;
+  paterno?: string;
+  materno?: string;
+  id_dist?: string;
+  tipourb?: string;
+  des_urb?: string;
+  tipovia?: string;
+  des_via?: string;
+  id_zona?: string;
+  id_urba?: string;
+  id_via?: string;
+  referencia?: string;
+  manzana?: string;
+  lote?: string;
+  sub_lote?: string;
+  numero?: string;
+  departam?: string;
+  nestado?: string;
+  operador?: string;
+  estacion?: string;
+  id_tipo_relacion?: string;
+  letra1?: string;
+  numero2?: string;
+  letra2?: string;
+  piso?: string;
+  numero_interno?: string;
+  letra_interno?: string;
+  tipo_interior_id?: string;
+  tipo_edificio_id?: string;
+  tipo_ingreso_id?: string;
+  tipo_agrupamiento_id?: string;
+  nombre_edificio?: string;
+  nombre_ingreso?: string;
+  nombre_agrupamiento?: string;
+}
+
+export interface GuardarRepresentanteResultData {
+  id: string;
+}
+
+export async function guardarRepresentanteAction(
+  payload: GuardarRepresentantePayload,
+): Promise<
+  { success: true; data: GuardarRepresentanteResultData } | { success: false; error: string }
+> {
+  try {
+    const response = await authFetch('/declaracion-jurada/guardar-representante', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.message ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    return { success: true as const, ...result };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ─── Vincular representante con contribuyente recién creado ──
+// Llama a sp_Mrepresentante @busc=13 con @codigo (contribuyente) + @id (representante).
+
+export interface VincularRepresentantePayload {
+  codigo: string;
+  id: string;
+}
+
+export async function vincularRepresentanteAction(
+  payload: VincularRepresentantePayload,
+): Promise<{ success: true } | { success: false; error: string }> {
+  try {
+    const response = await authFetch('/declaracion-jurada/vincular-representante', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.message ?? `Error ${response.status}` };
+    }
+    return { success: true as const };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ─── Eliminar contribuyente ──
+// Llama a Rentas.sp_Mcontribuyente @busc=3 con @codigo, @motivo, @operador.
+
+export interface EliminarContribuyentePayload {
+  codigo: string;
+  motivo?: string;
+  operador?: string;
+}
+
+export interface EliminarContribuyenteResultData {
+  success: boolean;
+  mensaje: string;
+}
+
+export async function eliminarContribuyenteAction(
+  payload: EliminarContribuyentePayload,
+): Promise<
+  { success: true; data: EliminarContribuyenteResultData } | { success: false; error: string }
+> {
+  try {
+    const response = await authFetch('/declaracion-jurada/eliminar', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.message ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    return { success: true as const, ...result };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ─── Obtener contribuyente por código (modal Editar Contribuyente) ──
+// Llama a Rentas.sp_Mcontribuyente @busc=4, @codigo. Devuelve los datos para
+// precargar los tabs del modal.
+
+export interface EditarContribuyenteData {
+  codigo: string;
+  idPers: string;
+  idDocu: string;
+  numDoc: string;
+  nombres: string;
+  paterno: string;
+  materno: string;
+  idDist: string;
+  tipourb: string;
+  desUrb: string;
+  tipovia: string;
+  desVia: string;
+  idZona: string;
+  idUrba: string;
+  idVia: string;
+  referencia: string;
+  manzana: string;
+  lote: string;
+  subLote: string;
+  numero: string;
+  departam: string;
+  nestado: string;
+  operador: string;
+  estacion: string;
+  fechIng: string;
+  nomZona: string;
+  nomUrba: string;
+  nomVia: string;
+  tipoContri: string;
+  subTipoContri: string;
+  letra1: string;
+  numero2: string;
+  letra2: string;
+  tipoInteriorId: string;
+  tipoAgrupamientoId: string;
+  tipoIngresoId: string;
+  tipoEdificacionId: string;
+  nombreEdificio: string;
+  nombreIngreso: string;
+  nombreAgrupamiento: string;
+  piso: string;
+  letraInterno: string;
+  numeroInterno: string;
+  correo: string;
+  partidaDefuncion: string;
+  fechaDefuncion: string;
+  telefono1: string;
+  anexo1: string;
+  telefono2: string;
+  anexo2: string;
+  flagNotificar: string;
+}
+
+export async function obtenerContribuyentePorCodigoAction(
+  codigo: string,
+): Promise<{ success: true; data: EditarContribuyenteData } | { success: false; error: string }> {
+  try {
+    const params = new URLSearchParams({ codigo });
+    const response = await authFetch(`/declaracion-jurada/buscar-por-codigo?${params}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.message ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    return { success: true as const, ...result };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ─── Obtener datos + representantes (modal Representantes) ──
+// Datos: exec Rentas.sp_rentasmain @buscar=3, @codigo.
+// Grid: exec Rentas.sp_Mrepresentante @busc=4, @codigo.
+
+export interface ContribuyenteResumenData {
+  codigo: string;
+  nombres: string;
+  numDoc: string;
+  direccion: string;
+}
+
+export interface RepresentanteGridData {
+  cod: string;
+  codigo: string;
+  tipoRelacion: string;
+  nombres: string;
+  tipoDocumento: string;
+  nroDocumento: string;
+  direccion: string;
+}
+
+export interface ObtenerRepresentantesData {
+  datos: ContribuyenteResumenData;
+  representantes: RepresentanteGridData[];
+}
+
+export async function obtenerRepresentantesAction(
+  codigo: string,
+): Promise<{ success: true; data: ObtenerRepresentantesData } | { success: false; error: string }> {
+  try {
+    const params = new URLSearchParams({ codigo });
+    const response = await authFetch(`/declaracion-jurada/representantes?${params}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.message ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    return { success: true as const, ...result };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ─── Obtener representante por id (modal Editar Representante) ──
+// Llama a Rentas.sp_Mrepresentante @busc=6, @id. Devuelve los datos para
+// precargar el formulario del representante.
+
+export interface EditarRepresentanteData {
+  id: string;
+  codigo: string;
+  idDocu: string;
+  numDoc: string;
+  nombres: string;
+  paterno: string;
+  materno: string;
+  idDist: string;
+  tipourb: string;
+  desUrb: string;
+  tipovia: string;
+  desVia: string;
+  idZona: string;
+  idUrba: string;
+  idVia: string;
+  referencia: string;
+  manzana: string;
+  lote: string;
+  subLote: string;
+  numero: string;
+  departam: string;
+  nestado: string;
+  operador: string;
+  estacion: string;
+  nomZona: string;
+  nomUrba: string;
+  nomVia: string;
+  idTipoRelacion: string;
+  letra1: string;
+  numero2: string;
+  letra2: string;
+  piso: string;
+  numeroInterno: string;
+  letraInterno: string;
+  tipoInteriorId: string;
+  tipoEdificacionId: string;
+  tipoIngresoId: string;
+  tipoAgrupamientoId: string;
+  nombreEdificio: string;
+  nombreIngreso: string;
+  nombreAgrupamiento: string;
+}
+
+export async function obtenerRepresentantePorIdAction(
+  id: string,
+): Promise<{ success: true; data: EditarRepresentanteData } | { success: false; error: string }> {
+  try {
+    const params = new URLSearchParams({ id });
+    const response = await authFetch(`/declaracion-jurada/representante-por-id?${params}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.message ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    return { success: true as const, ...result };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ─── Eliminar representante ──
+// Llama a Rentas.sp_Mrepresentante @busc=7 con @codigo (contribuyente) + @id (representante).
+
+export interface EliminarRepresentantePayload {
+  codigo: string;
+  id: string;
+}
+
+export interface EliminarRepresentanteResultData {
+  success: boolean;
+  mensaje: string;
+}
+
+export async function eliminarRepresentanteAction(
+  payload: EliminarRepresentantePayload,
+): Promise<
+  { success: true; data: EliminarRepresentanteResultData } | { success: false; error: string }
+> {
+  try {
+    const response = await authFetch('/declaracion-jurada/eliminar-representante', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.message ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    return { success: true as const, ...result };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
