@@ -15,9 +15,22 @@ vi.mock("@/actions/alcabala/crear-alcabala", () => ({
 
 // Mock AlcabalasTable to avoid deep dependency chain
 vi.mock("./alcabalas-table", () => ({
-  default: ({ data, loading }: { data: unknown[]; loading: boolean }) => (
+  default: ({
+    data,
+    loading,
+    onCrearAlcabala: tableOnCrear,
+  }: {
+    data: unknown[];
+    loading: boolean;
+    onCrearAlcabala?: () => void;
+  }) => (
     <div data-testid="alcabalas-table">
       {loading ? "Cargando..." : `${data.length} registros`}
+      {tableOnCrear && (
+        <button type="button" onClick={tableOnCrear}>
+          Nueva Alcabala
+        </button>
+      )}
     </div>
   ),
 }));

@@ -12,5 +12,6 @@ export default defineConfig({
     globals: true,
     setupFiles: "./src/setupTests.ts",
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    forbidOnly: true,
   },
 });

@@ -92,6 +92,81 @@ export async function searchContribuyenteAction(
   }
 }
 
+// ─── Search Predio (buscar=3) ──────────────────────────────
+
+export interface PredioItem {
+  codigo: string;
+  nombres: string;
+  codPred: string;
+  porcenPropiedad: number;
+  numDoc: string;
+  direccFiscal: string;
+  direccionPredio: string;
+  anexo: string;
+  subAnexo: string;
+  totalAutoavaluo: number;
+  tipoPred: string;
+  anno: string;
+  row: number;
+}
+
+export interface PredioSearchResult {
+  success: boolean;
+  data: PredioItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  error?: string;
+}
+
+export async function searchPredioAction(
+  codigo?: string,
+  anio?: string,
+  tipoBusqueda: string = "c",
+  codPred?: string,
+  page: number = 1,
+  pageSize: number = 15,
+): Promise<PredioSearchResult> {
+  try {
+    const params = new URLSearchParams({
+      tipoBusqueda,
+      page: String(page),
+      pageSize: String(pageSize),
+    });
+    if (codigo) params.set("codigo", codigo);
+    if (anio) params.set("anio", anio);
+    if (codPred) params.set("codpred", codPred);
+    const response = await authFetch(`/alcabala/determinar-alcabala/buscar-predio?${params}`);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        data: [],
+        total: 0,
+        page,
+        pageSize,
+        totalPages: 0,
+        error: errorData.error ?? `Error ${response.status}`,
+      };
+    }
+
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    return {
+      success: false,
+      data: [],
+      total: 0,
+      page,
+      pageSize,
+      totalPages: 0,
+      error: error instanceof Error ? error.message : 'Error de conexión',
+    };
+  }
+}
+
 // ─── Get Alcabalas by Contribuyente ────────────────────────
 
 export interface AlcabalaItem {
@@ -209,6 +284,73 @@ export async function getDetalleAlcabalaAction(
     return {
       success: false,
       data: null,
+      error: error instanceof Error ? error.message : 'Error de conexión',
+    };
+  }
+}
+
+// ─── Get Tipo de Cambio (SUNAT) by contract date ──────────
+
+export interface TipoCambioResult {
+  success: boolean;
+  venta?: string;
+  error?: string;
+}
+
+export async function getTipoCambioAction(fecha: string): Promise<TipoCambioResult> {
+  try {
+    const response = await authFetch('/alcabala/determinar-alcabala/tipo-cambio', {
+      method: 'POST',
+      body: JSON.stringify({ fecha }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        error: errorData.error ?? `Error ${response.status}`,
+      };
+    }
+
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Error de conexión',
+    };
+  }
+}
+
+// ─── Get UIT by year (buscar=1) ───────────────────────────
+
+export interface UitResult {
+  success: boolean;
+  uit: string;
+  error?: string;
+}
+
+export async function getUitAction(anio: string): Promise<UitResult> {
+  try {
+    const response = await authFetch(
+      `/alcabala/determinar-alcabala/uit/${encodeURIComponent(anio)}`,
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        uit: '',
+        error: errorData.error ?? `Error ${response.status}`,
+      };
+    }
+
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    return {
+      success: false,
+      uit: '',
       error: error instanceof Error ? error.message : 'Error de conexión',
     };
   }

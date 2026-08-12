@@ -7,8 +7,12 @@ import {
   SearchContribuyenteSchema,
   SearchContribuyenteDto,
 } from './dto/search-contribuyente.dto';
+import {
+  SearchPredioSchema,
+  SearchPredioDto,
+} from './dto/search-predio.dto';
 import { CrearAlcabalaSchema, CrearAlcabalaDto } from './dto/crear-alcabala.dto';
-import { ContribuyenteSearchResult, AlcabalasResult, DetalleAlcabalaResult, CrearAlcabalaResult } from './determinar-alcabala.types';
+import { ContribuyenteSearchResult, PredioSearchResult, AlcabalasResult, DetalleAlcabalaResult, CrearAlcabalaResult, UitResult, TipoCambioResult } from './determinar-alcabala.types';
 import { z } from 'zod';
 
 @Controller('alcabala/determinar-alcabala')
@@ -46,6 +50,53 @@ export class DeterminarAlcabalaController {
       };
     }
     return this.service.searchContribuyente(dto);
+  }
+
+  @Get('buscar-predio')
+  async searchPredio(
+    @Query() query: Record<string, string>,
+  ): Promise<PredioSearchResult> {
+    let dto: SearchPredioDto;
+    try {
+      dto = SearchPredioSchema.parse(query);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return {
+          success: false,
+          data: [],
+          total: 0,
+          page: 1,
+          pageSize: 15,
+          totalPages: 0,
+          error: error.issues.map((i) => i.message).join(', ') || 'Parámetros inválidos',
+        };
+      }
+      return {
+        success: false,
+        data: [],
+        total: 0,
+        page: 1,
+        pageSize: 15,
+        totalPages: 0,
+        error: 'Parámetros inválidos',
+      };
+    }
+    return this.service.searchPredio(dto);
+  }
+
+  @Get('uit/:anio')
+  async getUit(@Param('anio') anio: string): Promise<UitResult> {
+    if (!/^\d{4}$/.test(anio)) {
+      return { success: false, uit: '', error: 'Año inválido' };
+    }
+    return this.service.getUit(anio);
+  }
+
+  @Post('tipo-cambio')
+  async getTipoCambio(
+    @Body() body: { fecha: string },
+  ): Promise<TipoCambioResult> {
+    return this.service.getTipoCambio(body?.fecha ?? '');
   }
 
   @Get('alcabalas/:codigo')

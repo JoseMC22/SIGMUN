@@ -6,9 +6,29 @@ import type { ContribuyenteItem, AlcabalaItem } from "@/actions/alcabala/determi
 
 // Mock AlcabalasTable to isolate modal behavior
 vi.mock("./alcabalas-table", () => ({
-  default: ({ data, loading }: { data: AlcabalaItem[]; loading: boolean }) => (
+  default: ({
+    data,
+    loading,
+    onCrearAlcabala: tableOnCrear,
+    onClose: tableOnClose,
+  }: {
+    data: AlcabalaItem[];
+    loading: boolean;
+    onCrearAlcabala?: () => void;
+    onClose?: () => void;
+  }) => (
     <div data-testid="alcabalas-table">
       {loading ? "Cargando..." : `${data.length} registros`}
+      {tableOnCrear && (
+        <button type="button" onClick={tableOnCrear}>
+          Nueva Alcabala
+        </button>
+      )}
+      {tableOnClose && (
+        <button type="button" onClick={tableOnClose}>
+          Cerrar
+        </button>
+      )}
     </div>
   ),
 }));
@@ -104,6 +124,23 @@ describe("AlcabalasModal", () => {
 
     fireEvent.keyDown(document, { key: "Escape" });
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not call onClose on Escape when blockEscapeClose is true (child layout open)", () => {
+    render(
+      <AlcabalasModal
+        open={true}
+        onClose={onClose}
+        contribuyente={mockContribuyente}
+        alcabalas={mockAlcabalas}
+        loading={false}
+        onCrearAlcabala={onCrearAlcabala}
+        blockEscapeClose={true}
+      />
+    );
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it("calls onClose when backdrop is clicked", () => {

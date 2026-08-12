@@ -403,6 +403,7 @@ export default function DeterminarAlcabalaPage() {
         loading={loadingAlcabalas}
         onViewDetail={(a) => setDetalleRow(a)}
         onCrearAlcabala={handleCrearAlcabala}
+        blockEscapeClose={detalleRow !== null || openCrearAlcabala}
       />
 
       {/* Crear alcabala modal */}

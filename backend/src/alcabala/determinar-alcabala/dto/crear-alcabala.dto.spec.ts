@@ -18,7 +18,7 @@ describe('CrearAlcabalaSchema', () => {
     direccionPredio: 'Av. Real 789',
     fechaContrato: '2026-07-30',
     contrato: 'C-001',
-    transferencia: 'COMPRA VENTA',
+    transferencia: 150000,
     observacion: '',
     montoInafecto: 0,
     montoAfecto: 100000,
@@ -132,7 +132,7 @@ describe('CrearAlcabalaSchema', () => {
       expect(result.direccionPredio).toBe('');
       expect(result.fechaContrato).toBe('');
       expect(result.contrato).toBe('');
-      expect(result.transferencia).toBe('');
+      expect(result.transferencia).toBe(0);
       expect(result.observacion).toBe('');
       expect(result.anexo).toBe('');
       expect(result.subAnexo).toBe('');

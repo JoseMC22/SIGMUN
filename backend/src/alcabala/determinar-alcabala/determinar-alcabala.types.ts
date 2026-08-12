@@ -154,8 +154,72 @@ export interface DetalleAlcabalaResult {
   error?: string;
 }
 
+// ── SP result for buscar=3 (Predio search) ──
+
+export interface SpPredioRow {
+  codigo: string;
+  nombres: string;
+  cod_pred: string;
+  anexo: string;
+  sub_anexo: string;
+  porcen_propiedad: number;
+  predial: string;
+  total_autoavaluo: number;
+  documento: string;
+  num_doc: string;
+  direcc_fiscal: string;
+  distrito: string;
+  provincia: string;
+  departamento: string;
+  tipo_pred: string;
+  anno: string;
+  valor_uit: number;
+  valor_uit2: number;
+  tipo_pred1: string;
+  Val_Terreno: number;
+  ROW: number;
+}
+
+export interface PredioItem {
+  codigo: string;
+  nombres: string;
+  codPred: string;
+  porcenPropiedad: number;
+  numDoc: string;
+  direccFiscal: string;
+  direccionPredio: string;
+  anexo: string;
+  subAnexo: string;
+  totalAutoavaluo: number;
+  tipoPred: string;
+  anno: string;
+  row: number;
+}
+
+export interface PredioSearchResult {
+  success: boolean;
+  data: PredioItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  error?: string;
+}
+
 export interface CrearAlcabalaResult {
   success: boolean;
   idAlcabala?: number;
+  error?: string;
+}
+
+export interface UitResult {
+  success: boolean;
+  uit: string;
+  error?: string;
+}
+
+export interface TipoCambioResult {
+  success: boolean;
+  venta?: string;
   error?: string;
 }
