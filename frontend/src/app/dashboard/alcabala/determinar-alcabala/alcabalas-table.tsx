@@ -9,6 +9,7 @@ interface Props {
   data: AlcabalaItem[];
   loading: boolean;
   onViewDetail?: (alcabala: AlcabalaItem) => void;
+  onNuevo?: () => void;
 }
 
 // ─── Helpers ───────────────────────────────────────────────
@@ -29,7 +30,7 @@ function mapEstado(estado: string): string {
 
 // ─── Component ─────────────────────────────────────────────
 
-export default function AlcabalasTable({ data, loading, onViewDetail }: Props) {
+export default function AlcabalasTable({ data, loading, onViewDetail, onNuevo }: Props) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -48,9 +49,9 @@ export default function AlcabalasTable({ data, loading, onViewDetail }: Props) {
         </span>
         <button
           type="button"
-          disabled
+          onClick={onNuevo}
           className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98] disabled:bg-slate-300 disabled:cursor-not-allowed"
-          title="Por desarrollar"
+          title="Nueva Alcabala"
         >
           <Plus size={14} />
           Nuevo

@@ -15,9 +15,22 @@ vi.mock("@/actions/alcabala/crear-alcabala", () => ({
 
 // Mock AlcabalasTable to avoid deep dependency chain
 vi.mock("./alcabalas-table", () => ({
-  default: ({ data, loading }: { data: unknown[]; loading: boolean }) => (
+  default: ({
+    data,
+    loading,
+    onNuevo,
+  }: {
+    data: unknown[];
+    loading: boolean;
+    onNuevo?: () => void;
+  }) => (
     <div data-testid="alcabalas-table">
       {loading ? "Cargando..." : `${data.length} registros`}
+      {onNuevo && (
+        <button type="button" onClick={onNuevo}>
+          Nuevo
+        </button>
+      )}
     </div>
   ),
 }));
@@ -155,8 +168,8 @@ describe("DeterminarAlcabalaPage — modal integration", () => {
       expect(screen.getByText(/Alcabalas — 0279126/)).toBeInTheDocument();
     });
 
-    // Click Nueva Alcabala
-    await user.click(screen.getByText("Nueva Alcabala"));
+    // Click Nueva Alcabala (always-active "Nuevo" button lives in the table toolbar, spec rev 2)
+    await user.click(screen.getByText("Nuevo"));
 
     // CrearAlcabalaModal should be visible (mock renders with data-testid)
     await waitFor(() => {
@@ -183,8 +196,8 @@ describe("DeterminarAlcabalaPage — modal integration", () => {
       expect(screen.getByText(/Alcabalas — 0279126/)).toBeInTheDocument();
     });
 
-    // Click Nueva Alcabala
-    await user.click(screen.getByText("Nueva Alcabala"));
+    // Click Nueva Alcabala (always-active "Nuevo" button lives in the table toolbar, spec rev 2)
+    await user.click(screen.getByText("Nuevo"));
 
     await waitFor(() => {
       expect(screen.getByTestId("crear-alcabala-modal")).toBeInTheDocument();
