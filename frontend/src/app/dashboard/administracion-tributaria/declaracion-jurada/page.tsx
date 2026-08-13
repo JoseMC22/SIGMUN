@@ -755,7 +755,7 @@ export default function DeclaracionJuradaPage() {
                       className="inline-flex items-center justify-center rounded p-1 text-amber-500 transition hover:bg-amber-50 active:scale-95">
                       <Mail size={13} />
                     </button>
-                    <span className="pointer-events-none absolute -top-7 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-1.5 py-0.5 text-[9px] font-medium text-white opacity-0 shadow-lg transition group-hover:opacity-100">Cargo de Notificación</span>
+                    <span className="pointer-events-none absolute -top-7 right-0 z-20 whitespace-nowrap rounded bg-slate-800 px-1.5 py-0.5 text-[9px] font-medium text-white opacity-0 shadow-lg transition group-hover:opacity-100">Cargo de Notificación</span>
                   </span>
                 </div>
               </td>
