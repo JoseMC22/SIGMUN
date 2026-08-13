@@ -171,4 +171,34 @@ describe('ImpresionDjAlcabalaService', () => {
       });
     });
   });
+
+  describe('mapOpPdfRow — SQL NULL tolerance (review fix)', () => {
+    it('should apply string defaults instead of throwing on SQL NULL columns', () => {
+      const row = opRow({
+        nombre: null,
+        Dirfiscal: null,
+        fvencimiento: null,
+      });
+
+      const mapped = mapOpPdfRow(row);
+
+      expect(mapped.nombre).toBe('');
+      expect(mapped.Dirfiscal).toBe('');
+      expect(mapped.fvencimiento).toBe('');
+    });
+
+    it('should keep numeric defaults when numeric columns are SQL NULL', () => {
+      const row = opRow({
+        base_imponible1: null,
+        imp_total: null,
+        costo_emis: null,
+      });
+
+      const mapped = mapOpPdfRow(row);
+
+      expect(mapped.base_imponible1).toBe(0);
+      expect(mapped.imp_total).toBe(0);
+      expect(mapped.costo_emis).toBe(0);
+    });
+  });
 });

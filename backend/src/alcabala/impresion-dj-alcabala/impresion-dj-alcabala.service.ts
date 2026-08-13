@@ -8,7 +8,9 @@ function col(row: Record<string, any>, name: string): any {
   const key = Object.keys(row).find(
     (k) => k.toLowerCase() === name.toLowerCase(),
   );
-  return key !== undefined ? row[key] : undefined;
+  // Normalize SQL NULL → undefined so zod defaults (z.string().default(''))
+  // apply instead of rejecting `null`.
+  return key !== undefined && row[key] !== null ? row[key] : undefined;
 }
 
 /**
