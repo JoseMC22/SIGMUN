@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Search,
   ChevronLeft,
@@ -122,6 +122,10 @@ export default function DeclaracionJuradaPage() {
   const [eliminarMotivo, setEliminarMotivo] = useState("");
   const [eliminarLoading, setEliminarLoading] = useState(false);
   const [eliminarMessage, setEliminarMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
+  const eliminarModalRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (eliminarCodigo) eliminarModalRef.current?.focus();
+  }, [eliminarCodigo]);
 
   // ── Representantes (modal) state ──
   const [representantesCodigo, setRepresentantesCodigo] = useState<string | null>(null);
@@ -744,14 +748,14 @@ export default function DeclaracionJuradaPage() {
                       className="inline-flex items-center justify-center rounded p-1 text-violet-600 transition hover:bg-violet-50 active:scale-95">
                       <Users size={13} />
                     </button>
-                    <span className="pointer-events-none absolute -top-7 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-1.5 py-0.5 text-[9px] font-medium text-white opacity-0 shadow-lg transition group-hover:opacity-100">Representante</span>
+                    <span className="pointer-events-none absolute -top-7 right-0 z-20 whitespace-nowrap rounded bg-slate-800 px-1.5 py-0.5 text-[9px] font-medium text-white opacity-0 shadow-lg transition group-hover:opacity-100">Representante</span>
                   </span>
                   <span className="group relative">
                     <button type="button" onClick={() => alert("Por desarrollar")}
                       className="inline-flex items-center justify-center rounded p-1 text-amber-500 transition hover:bg-amber-50 active:scale-95">
                       <Mail size={13} />
                     </button>
-                    <span className="pointer-events-none absolute -top-7 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-1.5 py-0.5 text-[9px] font-medium text-white opacity-0 shadow-lg transition group-hover:opacity-100">Cargo de Notificación</span>
+                    <span className="pointer-events-none absolute -top-7 right-0 z-20 whitespace-nowrap rounded bg-slate-800 px-1.5 py-0.5 text-[9px] font-medium text-white opacity-0 shadow-lg transition group-hover:opacity-100">Cargo de Notificación</span>
                   </span>
                 </div>
               </td>
@@ -984,6 +988,7 @@ export default function DeclaracionJuradaPage() {
       {/* Modal Confirmar Eliminación */}
       {eliminarCodigo && (
         <div
+          ref={eliminarModalRef}
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in p-4"
           onClick={(e) => {
             if (e.target === e.currentTarget && !eliminarLoading) {
@@ -991,6 +996,15 @@ export default function DeclaracionJuradaPage() {
               setEliminarMessage(null);
             }
           }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape" && !eliminarLoading) {
+              // Solo cerrar este modal activo; no propagar a otros modales padres.
+              e.stopPropagation();
+              setEliminarCodigo(null);
+              setEliminarMessage(null);
+            }
+          }}
+          tabIndex={-1}
         >
           <div className="relative w-full max-w-md rounded-xl border border-slate-200 bg-white shadow-2xl">
             {/* Header */}

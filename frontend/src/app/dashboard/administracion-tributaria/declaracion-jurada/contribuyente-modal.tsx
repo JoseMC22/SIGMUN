@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { X, Search, Loader2, User, UserPlus, MapPin, Monitor, Home } from "lucide-react";
 import {
   getTiposDocumentoAction,
@@ -363,10 +363,20 @@ export default function ContribuyenteModal({ isOpen, onClose, codigoInicial }: P
   // ── Keyboard ──
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        // Solo cerrar este modal activo; no propagar a modales padres (si existieran).
+        e.stopPropagation();
+        onClose();
+      }
     },
     [onClose],
   );
+
+  // ── Foco: al abrirse, este modal toma el foco para que Escape cierre SOLO este modal ──
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (isOpen) rootRef.current?.focus();
+  }, [isOpen]);
 
   const handleChange = (field: keyof FormData, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -603,6 +613,7 @@ export default function ContribuyenteModal({ isOpen, onClose, codigoInicial }: P
 
   return (
     <div
+      ref={rootRef}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
