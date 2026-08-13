@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { X, Loader2, Users, User, Printer, Plus, Pencil, Trash2 } from "lucide-react";
 import {
   obtenerRepresentantesAction,
@@ -107,10 +107,26 @@ export default function RepresentantesModal({ isOpen, onClose, codigo }: Props) 
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        // Solo cerrar este modal activo; no propagar a modales padres (si existieran).
+        e.stopPropagation();
+        onClose();
+      }
     },
     [onClose],
   );
+
+  // ── Foco: al abrirse, este modal toma el foco para que Escape cierre SOLO este modal ──
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (isOpen) rootRef.current?.focus();
+  }, [isOpen]);
+
+  // ── Foco del modal de confirmación de eliminación ──
+  const deleteRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (eliminandoRep) deleteRef.current?.focus();
+  }, [eliminandoRep]);
 
   if (!isOpen) return null;
 
@@ -120,6 +136,7 @@ export default function RepresentantesModal({ isOpen, onClose, codigo }: Props) 
 
   return (
     <div
+      ref={rootRef}
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget && !loading) onClose();
@@ -319,12 +336,17 @@ export default function RepresentantesModal({ isOpen, onClose, codigo }: Props) 
       {/* ══ Modal Confirmar Eliminación de Representante ══ */}
       {eliminandoRep && (
         <div
+          ref={deleteRef}
           className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in p-4"
           onClick={(e) => {
             if (e.target === e.currentTarget && !eliminarLoading) setEliminandoRep(null);
           }}
           onKeyDown={(e) => {
-            if (e.key === "Escape" && !eliminarLoading) setEliminandoRep(null);
+            if (e.key === "Escape" && !eliminarLoading) {
+              // Solo cerrar este modal; no propagar al modal de representantes.
+              e.stopPropagation();
+              setEliminandoRep(null);
+            }
           }}
           tabIndex={-1}
         >

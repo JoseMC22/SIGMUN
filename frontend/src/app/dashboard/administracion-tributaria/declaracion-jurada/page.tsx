@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Search,
   ChevronLeft,
@@ -122,6 +122,10 @@ export default function DeclaracionJuradaPage() {
   const [eliminarMotivo, setEliminarMotivo] = useState("");
   const [eliminarLoading, setEliminarLoading] = useState(false);
   const [eliminarMessage, setEliminarMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
+  const eliminarModalRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (eliminarCodigo) eliminarModalRef.current?.focus();
+  }, [eliminarCodigo]);
 
   // ── Representantes (modal) state ──
   const [representantesCodigo, setRepresentantesCodigo] = useState<string | null>(null);
@@ -984,6 +988,7 @@ export default function DeclaracionJuradaPage() {
       {/* Modal Confirmar Eliminación */}
       {eliminarCodigo && (
         <div
+          ref={eliminarModalRef}
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in p-4"
           onClick={(e) => {
             if (e.target === e.currentTarget && !eliminarLoading) {
@@ -991,6 +996,15 @@ export default function DeclaracionJuradaPage() {
               setEliminarMessage(null);
             }
           }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape" && !eliminarLoading) {
+              // Solo cerrar este modal activo; no propagar a otros modales padres.
+              e.stopPropagation();
+              setEliminarCodigo(null);
+              setEliminarMessage(null);
+            }
+          }}
+          tabIndex={-1}
         >
           <div className="relative w-full max-w-md rounded-xl border border-slate-200 bg-white shadow-2xl">
             {/* Header */}
