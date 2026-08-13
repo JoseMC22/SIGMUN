@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 import { OpPdfRow, OpPdfRowSchema } from './dto/op-pdf-row.dto';
 
@@ -57,7 +57,73 @@ export function mapOpPdfRow(row: Record<string, any>): OpPdfRow {
 
 @Injectable()
 export class ImpresionDjAlcabalaService {
+  private readonly SP_IMPRIME_OP = 'Rentas.sp_ImprimeOP';
+  private readonly ID_VALOR_ALCABALA = '08';
   private readonly logger = new Logger(ImpresionDjAlcabalaService.name);
 
   constructor(private readonly db: DatabaseService) {}
+
+  /**
+   * Resuelve el valor de la alcabala (idAlcabala → idrecibo → Dvalores '08')
+   * y ejecuta sp_ImprimeOP con los parámetros exactos.
+   */
+  async resolveOpPrintData(
+    idAlcabala: number,
+  ): Promise<{ numVal: string; anoVal: string; rows: OpPdfRow[] }> {
+    const alcabalaResult = await this.db.queryWithParams<{
+      idrecibo: string;
+    }>(
+      'SELECT idrecibo FROM Alcabala.DJAlcabala WHERE id_alcabala = @id',
+      { id: idAlcabala },
+    );
+    const idrecibo = alcabalaResult.recordset?.[0]
+      ? String(col(alcabalaResult.recordset[0] as Record<string, any>, 'idrecibo') ?? '')
+      : '';
+    if (!idrecibo) {
+      throw new NotFoundException({
+        success: false,
+        error: 'Alcabala no encontrada',
+      });
+    }
+
+    const valorResult = await this.db.queryWithParams<{
+      num_val: string;
+      ano_val: string;
+    }>(
+      "SELECT num_val, ano_val FROM Rentas.Dvalores WHERE id_valor = @id_valor AND nestado <> '9' AND idrecibo = @idrecibo",
+      { id_valor: this.ID_VALOR_ALCABALA, idrecibo },
+    );
+    const valorRow = valorResult.recordset?.[0];
+    if (!valorRow) {
+      throw new NotFoundException({
+        success: false,
+        error: 'No existe una orden de pago para la alcabala',
+      });
+    }
+    const numVal = String(col(valorRow, 'num_val') ?? '');
+    const anoVal = String(col(valorRow, 'ano_val') ?? '');
+
+    const spResult = await this.db.executeProcedure<any>(
+      this.SP_IMPRIME_OP,
+      {
+        buscar: 2,
+        id_valor: this.ID_VALOR_ALCABALA,
+        num_val: numVal,
+        ano_val: anoVal,
+      },
+    );
+    const rawRows: any[] = spResult.recordset ?? [];
+    if (rawRows.length === 0) {
+      throw new NotFoundException({
+        success: false,
+        error: 'No se encontraron datos para imprimir',
+      });
+    }
+
+    return {
+      numVal,
+      anoVal,
+      rows: rawRows.map((r) => mapOpPdfRow(r)),
+    };
+  }
 }
