@@ -186,40 +186,6 @@ export default function RepresentantesModal({ isOpen, onClose, codigo }: Props) 
                 </div>
               </FieldGroup>
 
-              {/* ══ Confirmación de eliminación ══ */}
-              {eliminandoRep && (
-                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-[11px] font-medium text-red-600">
-                      ¿Eliminar el representante{" "}
-                      <span className="font-semibold">{eliminandoRep.nombres || "(sin nombre)"}</span>?
-                    </p>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={confirmarEliminar}
-                        disabled={eliminarLoading}
-                        className="inline-flex items-center gap-1.5 rounded-md bg-red-600 px-3 py-1 text-[11px] font-medium text-white transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-300/40 disabled:opacity-60"
-                      >
-                        {eliminarLoading && <Loader2 size={11} className="animate-spin" />}
-                        Sí
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setEliminandoRep(null)}
-                        disabled={eliminarLoading}
-                        className="rounded-md border border-red-200 bg-white px-3 py-1 text-[11px] font-medium text-red-600 transition hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-300/40 disabled:opacity-60"
-                      >
-                        No
-                      </button>
-                    </div>
-                  </div>
-                  {eliminarError && (
-                    <p className="mt-1.5 text-[11px] font-medium text-red-700">{eliminarError}</p>
-                  )}
-                </div>
-              )}
-
               {/* ══ Datos Representante (grid) ══ */}
               <FieldGroup title="Datos Representante" icon={<Users size={13} />}>
                 <div className="overflow-x-auto rounded-md border border-slate-200">
@@ -349,6 +315,86 @@ export default function RepresentantesModal({ isOpen, onClose, codigo }: Props) 
           cargar();
         }}
       />
+
+      {/* ══ Modal Confirmar Eliminación de Representante ══ */}
+      {eliminandoRep && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !eliminarLoading) setEliminandoRep(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape" && !eliminarLoading) setEliminandoRep(null);
+          }}
+          tabIndex={-1}
+        >
+          <div className="relative w-full max-w-md rounded-xl border border-slate-200 bg-white shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between rounded-t-xl bg-gradient-to-r from-red-700 via-red-800 to-slate-800 px-4 py-2">
+              <div className="flex items-center gap-2">
+                <div className="h-3.5 w-0.5 rounded-full bg-red-300" />
+                <h2 className="font-outfit text-sm font-bold tracking-tight text-white">
+                  Eliminar Representante
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!eliminarLoading) setEliminandoRep(null);
+                }}
+                className="rounded-md p-1 text-white/60 transition hover:bg-white/10 hover:text-white"
+                aria-label="Cerrar"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="space-y-3 px-4 py-3.5">
+              <p className="text-xs text-slate-600">
+                ¿Desea eliminar el representante{" "}
+                <span className="font-semibold text-slate-800">
+                  {eliminandoRep.nombres || "(sin nombre)"}
+                </span>
+                ?
+              </p>
+
+              {eliminarError && (
+                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-[11px] font-medium text-red-600">
+                  {eliminarError}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-2 border-t border-slate-100 px-4 py-2.5">
+              <button
+                type="button"
+                onClick={() => setEliminandoRep(null)}
+                disabled={eliminarLoading}
+                className="rounded-md border border-slate-200 bg-white px-4 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-red-300/30"
+              >
+                No
+              </button>
+              <button
+                type="button"
+                onClick={confirmarEliminar}
+                disabled={eliminarLoading}
+                className="inline-flex items-center gap-1.5 rounded-md bg-red-600 px-4 py-1.5 text-xs font-medium text-white transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400/40 active:scale-[0.98] disabled:bg-slate-300 disabled:cursor-not-allowed"
+              >
+                {eliminarLoading ? (
+                  <>
+                    <Loader2 size={13} className="animate-spin" />
+                    Eliminando...
+                  </>
+                ) : (
+                  "Sí, Eliminar"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
