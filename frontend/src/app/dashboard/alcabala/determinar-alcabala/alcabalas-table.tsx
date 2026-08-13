@@ -9,8 +9,7 @@ interface Props {
   data: AlcabalaItem[];
   loading: boolean;
   onViewDetail?: (alcabala: AlcabalaItem) => void;
-  onCrearAlcabala?: () => void;
-  onClose?: () => void;
+  onNuevo?: () => void;
 }
 
 // ─── Helpers ───────────────────────────────────────────────
@@ -31,7 +30,7 @@ function mapEstado(estado: string): string {
 
 // ─── Component ─────────────────────────────────────────────
 
-export default function AlcabalasTable({ data, loading, onViewDetail, onCrearAlcabala, onClose }: Props) {
+export default function AlcabalasTable({ data, loading, onViewDetail, onNuevo }: Props) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -48,27 +47,15 @@ export default function AlcabalasTable({ data, loading, onViewDetail, onCrearAlc
         <span className="text-xs text-slate-500">
           {data.length} {data.length === 1 ? "registro" : "registros"}
         </span>
-        <div className="flex items-center gap-2">
-          {onCrearAlcabala && (
-            <button
-              type="button"
-              onClick={onCrearAlcabala}
-              className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-3 py-1.5 text-[11px] font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
-            >
-              <Plus size={13} />
-              Nueva Alcabala
-            </button>
-          )}
-          {onClose && (
-            <button
-              type="button"
-              onClick={onClose}
-              className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300/40 active:scale-[0.98]"
-            >
-              Cerrar
-            </button>
-          )}
-        </div>
+        <button
+          type="button"
+          onClick={onNuevo}
+          className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98] disabled:bg-slate-300 disabled:cursor-not-allowed"
+          title="Nueva Alcabala"
+        >
+          <Plus size={14} />
+          Nuevo
+        </button>
       </div>
 
       {/* ── Table ── */}

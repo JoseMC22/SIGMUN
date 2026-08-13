@@ -91,7 +91,7 @@ describe("AlcabalasModal", () => {
     );
 
     expect(
-      screen.getByText(/0279126.*MARIA.*GARCIA.*LOPEZ/)
+      screen.getByText(/0279126.*GARCIA.*LOPEZ.*MARIA/)
     ).toBeInTheDocument();
   });
 

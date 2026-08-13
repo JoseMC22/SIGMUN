@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { X } from "lucide-react";
+import { X, Plus } from "lucide-react";
 import AlcabalasTable from "./alcabalas-table";
 import type {
   ContribuyenteItem,
@@ -64,8 +64,7 @@ export default function AlcabalasModal({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
           <h2 className="text-sm font-bold text-slate-800">
-            Alcabalas — {contribuyente?.codigo} {contribuyente?.nombres}{" "}
-            {contribuyente?.paterno} {contribuyente?.materno}
+            Alcabalas — {contribuyente?.codigo} {contribuyente?.paterno} {contribuyente?.materno} {contribuyente?.nombres}{" "}            
           </h2>
           <button
             type="button"
@@ -79,13 +78,28 @@ export default function AlcabalasModal({
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-4">
-          <AlcabalasTable
-            data={alcabalas}
-            loading={loading}
-            onViewDetail={onViewDetail}
-            onCrearAlcabala={contribuyente ? onCrearAlcabala : undefined}
-            onClose={onClose}
-          />
+          <AlcabalasTable data={alcabalas} loading={loading} onViewDetail={onViewDetail} onNuevo={onCrearAlcabala} />
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3">
+          {contribuyente && onCrearAlcabala && (
+            <button
+              type="button"
+              onClick={onCrearAlcabala}
+              className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-3 py-1.5 text-[11px] font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
+            >
+              <Plus size={13} />
+              Nueva Alcabala
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300/40 active:scale-[0.98]"
+          >
+            Cerrar
+          </button>
         </div>
       </div>
     </div>
