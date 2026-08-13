@@ -211,9 +211,9 @@ describe("AlcabalasModal", () => {
     );
   });
 
-  // ── Nueva Alcabala button ──────────────────────────────
+  // ── Footer ──────────────────────────────────────────────
 
-  it("shows Nueva Alcabala button when contribuyente is provided", () => {
+  it("renders only the Cerrar button in the footer (Nueva Alcabala lives in the table toolbar)", () => {
     render(
       <AlcabalasModal
         open={true}
@@ -225,10 +225,14 @@ describe("AlcabalasModal", () => {
       />
     );
 
-    expect(screen.getByText("Nueva Alcabala")).toBeInTheDocument();
+    expect(screen.getByText("Cerrar")).toBeInTheDocument();
+    // The modal footer no longer renders a "Nueva Alcabala" button;
+    // the always-active "Nuevo" button lives in AlcabalasTable (covered
+    // by alcabalas-table tests). The footer must not duplicate it.
+    expect(screen.queryByText("Nueva Alcabala")).not.toBeInTheDocument();
   });
 
-  it("hides Nueva Alcabala button when contribuyente is null", () => {
+  it("renders the Cerrar button even when contribuyente is null (spec rev 2: no gating in modal)", () => {
     render(
       <AlcabalasModal
         open={true}
@@ -240,23 +244,7 @@ describe("AlcabalasModal", () => {
       />
     );
 
+    expect(screen.getByText("Cerrar")).toBeInTheDocument();
     expect(screen.queryByText("Nueva Alcabala")).not.toBeInTheDocument();
-  });
-
-  it("calls onCrearAlcabala when Nueva Alcabala button is clicked", async () => {
-    const user = userEvent.setup();
-    render(
-      <AlcabalasModal
-        open={true}
-        onClose={onClose}
-        contribuyente={mockContribuyente}
-        alcabalas={mockAlcabalas}
-        loading={false}
-        onCrearAlcabala={onCrearAlcabala}
-      />
-    );
-
-    await user.click(screen.getByText("Nueva Alcabala"));
-    expect(onCrearAlcabala).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { X, Plus } from "lucide-react";
+import { X } from "lucide-react";
 import AlcabalasTable from "./alcabalas-table";
 import type {
   ContribuyenteItem,
@@ -83,16 +83,6 @@ export default function AlcabalasModal({
 
         {/* Footer */}
         <div className="flex items-center justify-end gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3">
-          {contribuyente && onCrearAlcabala && (
-            <button
-              type="button"
-              onClick={onCrearAlcabala}
-              className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-3 py-1.5 text-[11px] font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
-            >
-              <Plus size={13} />
-              Nueva Alcabala
-            </button>
-          )}
           <button
             type="button"
             onClick={onClose}
