@@ -748,7 +748,7 @@ export default function DeclaracionJuradaPage() {
                       className="inline-flex items-center justify-center rounded p-1 text-violet-600 transition hover:bg-violet-50 active:scale-95">
                       <Users size={13} />
                     </button>
-                    <span className="pointer-events-none absolute -top-7 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-1.5 py-0.5 text-[9px] font-medium text-white opacity-0 shadow-lg transition group-hover:opacity-100">Representante</span>
+                    <span className="pointer-events-none absolute -top-7 right-0 z-20 whitespace-nowrap rounded bg-slate-800 px-1.5 py-0.5 text-[9px] font-medium text-white opacity-0 shadow-lg transition group-hover:opacity-100">Representante</span>
                   </span>
                   <span className="group relative">
                     <button type="button" onClick={() => alert("Por desarrollar")}
