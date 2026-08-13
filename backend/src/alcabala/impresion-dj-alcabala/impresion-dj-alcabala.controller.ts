@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Res, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Res, UseGuards, BadRequestException } from '@nestjs/common';
 import { Response } from 'express';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { ImpresionDjAlcabalaService } from './impresion-dj-alcabala.service';
@@ -16,10 +16,12 @@ export class ImpresionDjAlcabalaController {
     @Param('idAlcabala') idAlcabala: string,
     @Res() res: Response,
   ) {
+    const id = parseInt(idAlcabala, 10);
+    if (isNaN(id)) {
+      throw new BadRequestException({ success: false, error: 'ID de alcabala inválido' });
+    }
     const { numVal, anoVal, rows } =
-      await this.impresionDjAlcabalaService.resolveOpPrintData(
-        Number(idAlcabala),
-      );
+      await this.impresionDjAlcabalaService.resolveOpPrintData(id);
     const buffer = await generateOpPdf(rows);
     res.set({
       'Content-Type': 'application/pdf',

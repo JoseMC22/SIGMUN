@@ -61,5 +61,17 @@ describe('ImpresionDjAlcabalaController', () => {
       expect(res.set).not.toHaveBeenCalled();
       expect(res.end).not.toHaveBeenCalled();
     });
+
+    it('should reject with 400 BadRequest and not call the service when idAlcabala is not a number', async () => {
+      const res = mockRes();
+
+      await expect(controller.getOpPdf('NaN', res)).rejects.toMatchObject({
+        response: { success: false, error: 'ID de alcabala inválido' },
+      });
+      expect(service.resolveOpPrintData).not.toHaveBeenCalled();
+      expect(mockGenerateOpPdf).not.toHaveBeenCalled();
+      expect(res.set).not.toHaveBeenCalled();
+      expect(res.end).not.toHaveBeenCalled();
+    });
   });
 });
