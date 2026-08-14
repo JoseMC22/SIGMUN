@@ -1,9 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Eye, Printer, Trash2, Plus, Loader2 } from "lucide-react";
+import { Eye, Printer, Trash2, Plus, Loader2, FileText } from "lucide-react";
 import type { AlcabalaItem } from "@/actions/alcabala/determinar-alcabala";
-import { getOpPdfBase64Action } from "@/actions/alcabala/impresion-dj-alcabala";
+import {
+  getOpPdfBase64Action,
+  getDeclaracionPdfBase64Action,
+} from "@/actions/alcabala/impresion-dj-alcabala";
 
 // ─── Types ─────────────────────────────────────────────────
 
@@ -35,6 +38,11 @@ function mapEstado(estado: string): string {
 export default function AlcabalasTable({ data, loading, onViewDetail, onNuevo }: Props) {
   const [printingId, setPrintingId] = useState<number | null>(null);
   const [printError, setPrintError] = useState<string | null>(null);
+  const [declaracionPrintingId, setDeclaracionPrintingId] = useState<number | null>(null);
+  const [declaracionError, setDeclaracionError] = useState<string | null>(null);
+
+  const DECLARACION_ERROR =
+    "No se pudo generar el PDF de la Declaración de Alcabala. Intente nuevamente.";
 
   async function handlePrint(item: AlcabalaItem) {
     setPrintError(null);
@@ -59,6 +67,36 @@ export default function AlcabalasTable({ data, loading, onViewDetail, onNuevo }:
       setPrintError("Ocurrió un error al imprimir la Orden de Pago. Intente nuevamente.");
     } finally {
       setPrintingId(null);
+    }
+  }
+
+  async function handlePrintDeclaracion(item: AlcabalaItem) {
+    setDeclaracionError(null);
+    setDeclaracionPrintingId(item.idAlcabala);
+    try {
+      const base64 = await getDeclaracionPdfBase64Action(item.idAlcabala);
+      if (base64 == null) {
+        setDeclaracionError(DECLARACION_ERROR);
+        return;
+      }
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const newWindow = window.open(url, "_blank");
+      if (!newWindow) {
+        URL.revokeObjectURL(url);
+        setDeclaracionError(DECLARACION_ERROR);
+        return;
+      }
+      newWindow.addEventListener("load", () => URL.revokeObjectURL(url));
+    } catch {
+      setDeclaracionError(DECLARACION_ERROR);
+    } finally {
+      setDeclaracionPrintingId(null);
     }
   }
 
@@ -100,7 +138,7 @@ export default function AlcabalasTable({ data, loading, onViewDetail, onNuevo }:
               <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2 border-b border-white/5 w-[14%]">
                 Fecha Registro
               </th>
-              <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2 border-b border-white/5 w-[14%]">
+              <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2 border-b border-white/5 w-[12%]">
                 Monto Alcabala
               </th>
               <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2 border-b border-white/5 w-[12%]">
@@ -115,7 +153,7 @@ export default function AlcabalasTable({ data, loading, onViewDetail, onNuevo }:
               <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2 border-b border-white/5 w-[10%]">
                 Estado
               </th>
-              <th className="text-center text-[11px] font-semibold text-white/90 uppercase px-3 py-2 border-b border-white/5 w-[18%]">
+              <th className="text-center text-[11px] font-semibold text-white/90 uppercase px-3 py-2 border-b border-white/5 w-[20%]">
                 Acciones
               </th>
             </tr>
@@ -192,6 +230,24 @@ export default function AlcabalasTable({ data, loading, onViewDetail, onNuevo }:
                       <span className="group relative">
                         <button
                           type="button"
+                          onClick={() => handlePrintDeclaracion(item)}
+                          disabled={declaracionPrintingId === item.idAlcabala}
+                          className="inline-flex items-center justify-center rounded p-1 text-emerald-600 transition hover:bg-emerald-50 active:scale-95 disabled:text-slate-300 disabled:cursor-not-allowed"
+                          title="Imprimir Declaración"
+                        >
+                          {declaracionPrintingId === item.idAlcabala ? (
+                            <Loader2 size={13} className="animate-spin" />
+                          ) : (
+                            <FileText size={13} />
+                          )}
+                        </button>
+                        <span className="pointer-events-none absolute -top-7 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-1.5 py-0.5 text-[9px] font-medium text-white opacity-0 shadow-lg transition group-hover:opacity-100">
+                          Imprimir Declaración
+                        </span>
+                      </span>
+                      <span className="group relative">
+                        <button
+                          type="button"
                           disabled
                           onClick={() => console.log("Eliminar", item.idAlcabala)}
                           className="inline-flex items-center justify-center rounded p-1 text-red-500 transition hover:bg-red-50 active:scale-95 disabled:text-slate-300 disabled:cursor-not-allowed"
@@ -218,6 +274,15 @@ export default function AlcabalasTable({ data, loading, onViewDetail, onNuevo }:
           className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700"
         >
           {printError}
+        </div>
+      )}
+
+      {declaracionError && (
+        <div
+          role="alert"
+          className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700"
+        >
+          {declaracionError}
         </div>
       )}
     </div>
