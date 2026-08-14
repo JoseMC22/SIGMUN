@@ -1,6 +1,10 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 import { OpPdfRow, OpPdfRowSchema } from './dto/op-pdf-row.dto';
+import {
+  DeclaracionPdfRow,
+  DeclaracionPdfRowSchema,
+} from './dto/declaracion-pdf-row.dto';
 
 // ── Case-insensitive column accessor (mssql v12+ preserves SP casing) ──
 
@@ -57,9 +61,47 @@ export function mapOpPdfRow(row: Record<string, any>): OpPdfRow {
   });
 }
 
+/**
+ * Maps a raw `Alcabala.RptAlcabala` row (case-insensitive lookup) into the
+ * typed DeclaracionPdfRow, applying zod defaults for missing columns.
+ */
+export function mapDeclaracionPdfRow(
+  row: Record<string, any>,
+): DeclaracionPdfRow {
+  return DeclaracionPdfRowSchema.parse({
+    codigo_compra: col(row, 'codigo_compra'),
+    comprador: col(row, 'comprador'),
+    comprador_fiscal: col(row, 'comprador_fiscal'),
+    comprador_dni: col(row, 'comprador_dni'),
+    codigo_venta: col(row, 'codigo_venta'),
+    vendedor: col(row, 'vendedor'),
+    vendedor_fiscal: col(row, 'vendedor_fiscal'),
+    vendedor_dni: col(row, 'vendedor_dni'),
+    contrato: col(row, 'contrato'),
+    direccion_predio: col(row, 'direccion_predio'),
+    fecha_contrato: col(row, 'fecha_contrato'),
+    tipo_pred: col(row, 'tipo_pred'),
+    monto_letras: col(row, 'monto_letras'),
+    observacion: col(row, 'observacion'),
+    usuario_ing: col(row, 'usuario_ing'),
+    fecha_ing: col(row, 'fecha_ing'),
+    transferencia: col(row, 'transferencia'),
+    autoavaluo: col(row, 'autoavaluo'),
+    monto_inafecto: col(row, 'monto_inafecto'),
+    monto_afecto: col(row, 'monto_afecto'),
+    mora: col(row, 'mora'),
+    tasa_impuesto: col(row, 'tasa_impuesto'),
+    monto_alcabala: col(row, 'monto_alcabala'),
+    total_alcabala: col(row, 'total_alcabala'),
+    base_imponible: col(row, 'base_imponible'),
+  });
+}
+
 @Injectable()
 export class ImpresionDjAlcabalaService {
   private readonly SP_IMPRIME_OP = 'Rentas.sp_ImprimeOP';
+  private readonly SP_RPT_ALCABALA = 'Alcabala.RptAlcabala';
+  private readonly SP_DJ_ALCABALA = 'Alcabala.sp_DJAlcabala';
   private readonly ID_VALOR_ALCABALA = '08';
   private readonly logger = new Logger(ImpresionDjAlcabalaService.name);
 
@@ -127,5 +169,55 @@ export class ImpresionDjAlcabalaService {
       anoVal,
       rows: rawRows.map((r) => mapOpPdfRow(r)),
     };
+  }
+
+  /**
+   * Resuelve los datos de impresión de la Declaración de Alcabala ejecutando
+   * `Alcabala.RptAlcabala @id_alcabala`. Si el SP no devuelve el sello de
+   * auditoría (usuario_ing / fecha_ing), se complementa con
+   * `Alcabala.sp_DJAlcabala @buscar=8` (columnas `usuario` / `fecha_ing`).
+   */
+  async resolveDeclaracionPrintData(
+    idAlcabala: number,
+  ): Promise<DeclaracionPdfRow> {
+    const result = await this.db.executeProcedure<any>(this.SP_RPT_ALCABALA, {
+      id_alcabala: idAlcabala,
+    });
+    const recordset = result.recordset ?? [];
+    if (recordset.length === 0) {
+      throw new NotFoundException({
+        success: false,
+        error: 'No se encontraron datos para la declaración',
+      });
+    }
+
+    const firstRow = recordset[0];
+    // Diagnostic: log the real SP column casing (unverified contract).
+    this.logger.log(JSON.stringify(Object.keys(firstRow)));
+
+    const mapped = mapDeclaracionPdfRow(firstRow);
+
+    // Audit-stamp fallback: only when RptAlcabala omitted usuario_ing/fecha_ing.
+    if (!mapped.usuario_ing || !mapped.fecha_ing) {
+      try {
+        const fallback = await this.db.executeProcedure<any>(
+          this.SP_DJ_ALCABALA,
+          { buscar: '8', id_alcabala: idAlcabala },
+        );
+        const fbRow = fallback.recordset?.[0];
+        if (fbRow) {
+          const usuario = col(fbRow, 'usuario');
+          const fechaIng = col(fbRow, 'fecha_ing');
+          mapped.usuario_ing =
+            usuario === undefined ? mapped.usuario_ing : String(usuario);
+          mapped.fecha_ing =
+            fechaIng === undefined ? mapped.fecha_ing : String(fechaIng);
+        }
+      } catch {
+        // Fallback SP/parse errors → keep empty strings, no throw (A2/R10).
+      }
+    }
+
+    return mapped;
   }
 }
