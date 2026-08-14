@@ -164,6 +164,39 @@ describe('ImpresionDjAlcabalaController', () => {
       expect(res.set).not.toHaveBeenCalled();
     });
 
+    it('rejects with 400 when idAlcabala is a negative number', async () => {
+      const res = mockRes();
+
+      await expect(
+        controller.getDeclaracionPdf('-3', { user: { username: 'x' } } as any, res),
+      ).rejects.toMatchObject({
+        response: { success: false, error: 'ID de alcabala inválido' },
+      });
+      expect(service.resolveDeclaracionPrintData).not.toHaveBeenCalled();
+    });
+
+    it('rejects with 400 when idAlcabala is a non-integer', async () => {
+      const res = mockRes();
+
+      await expect(
+        controller.getDeclaracionPdf('1.5', { user: { username: 'x' } } as any, res),
+      ).rejects.toMatchObject({
+        response: { success: false, error: 'ID de alcabala inválido' },
+      });
+      expect(service.resolveDeclaracionPrintData).not.toHaveBeenCalled();
+    });
+
+    it('rejects with 400 when idAlcabala is Infinity', async () => {
+      const res = mockRes();
+
+      await expect(
+        controller.getDeclaracionPdf('Infinity', { user: { username: 'x' } } as any, res),
+      ).rejects.toMatchObject({
+        response: { success: false, error: 'ID de alcabala inválido' },
+      });
+      expect(service.resolveDeclaracionPrintData).not.toHaveBeenCalled();
+    });
+
     it('uses req.user.username as the audit usuario and SISTEMA when absent', async () => {
       const buffer = Buffer.from('x');
       service.resolveDeclaracionPrintData.mockResolvedValue({} as any);

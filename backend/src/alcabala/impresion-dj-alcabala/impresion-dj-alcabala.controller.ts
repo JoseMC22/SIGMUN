@@ -52,7 +52,7 @@ export class ImpresionDjAlcabalaController {
     @Res() res: Response,
   ) {
     const id = Number(idAlcabala);
-    if (Number.isNaN(id) || id <= 0) {
+    if (!Number.isInteger(id) || id <= 0) {
       throw new BadRequestException({
         success: false,
         error: 'ID de alcabala inválido',
