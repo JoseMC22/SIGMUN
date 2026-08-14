@@ -9,6 +9,7 @@ import {
   type ContribuyenteItem,
 } from "@/actions/alcabala/determinar-alcabala";
 import AlcabalasModal from "./alcabalas-modal";
+import CrearAlcabalaModal from "./crear-alcabala-modal";
 import DetalleAlcabala from "./detalle-alcabala";
 
 // ─── Types ────────────────────────────────────────────────
@@ -43,6 +44,7 @@ export default function DeterminarAlcabalaPage() {
   const [alcabalas, setAlcabalas] = useState<AlcabalaItem[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [detalleRow, setDetalleRow] = useState<AlcabalaItem | null>(null);
+  const [openCrearAlcabala, setOpenCrearAlcabala] = useState(false);
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [loadingAlcabalas, setLoadingAlcabalas] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -123,6 +125,25 @@ export default function DeterminarAlcabalaPage() {
     setAlcabalas([]);
     setError(null);
   }, []);
+
+  const handleCrearAlcabala = useCallback(() => {
+    setOpenCrearAlcabala(true);
+  }, []);
+
+  const handleCrearSuccess = useCallback(async () => {
+    if (!selectedContribuyente) return;
+    setLoadingAlcabalas(true);
+    try {
+      const res = await getAlcabalasAction(selectedContribuyente.codigo);
+      if (res.success) {
+        setAlcabalas(res.data);
+      }
+    } catch {
+      // Silently fail — list stays as-is
+    } finally {
+      setLoadingAlcabalas(false);
+    }
+  }, [selectedContribuyente]);
 
   const handleSelectContribuyente = useCallback(async (contribuyente: ContribuyenteItem) => {
     setSelectedContribuyente(contribuyente);
@@ -381,6 +402,15 @@ export default function DeterminarAlcabalaPage() {
         alcabalas={alcabalas}
         loading={loadingAlcabalas}
         onViewDetail={(a) => setDetalleRow(a)}
+        onCrearAlcabala={handleCrearAlcabala}
+      />
+
+      {/* Crear alcabala modal */}
+      <CrearAlcabalaModal
+        open={openCrearAlcabala}
+        onClose={() => setOpenCrearAlcabala(false)}
+        onSuccess={handleCrearSuccess}
+        contribuyente={selectedContribuyente}
       />
 
       {/* Detalle alcabala modal */}

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import AlcabalasModal from "./alcabalas-modal";
 import type { ContribuyenteItem, AlcabalaItem } from "@/actions/alcabala/determinar-alcabala";
 
@@ -10,6 +11,12 @@ vi.mock("./alcabalas-table", () => ({
       {loading ? "Cargando..." : `${data.length} registros`}
     </div>
   ),
+}));
+
+// Mock CrearAlcabalaModal to isolate AlcabalasModal behavior
+vi.mock("./crear-alcabala-modal", () => ({
+  default: ({ open }: { open: boolean }) =>
+    open ? <div data-testid="crear-alcabala-modal" /> : null,
 }));
 
 const mockContribuyente: ContribuyenteItem = {
@@ -45,6 +52,7 @@ const mockAlcabalas: AlcabalaItem[] = [
 
 describe("AlcabalasModal", () => {
   const onClose = vi.fn();
+  const onCrearAlcabala = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -58,6 +66,7 @@ describe("AlcabalasModal", () => {
         contribuyente={mockContribuyente}
         alcabalas={mockAlcabalas}
         loading={false}
+        onCrearAlcabala={onCrearAlcabala}
       />
     );
 
@@ -74,6 +83,7 @@ describe("AlcabalasModal", () => {
         contribuyente={mockContribuyente}
         alcabalas={mockAlcabalas}
         loading={false}
+        onCrearAlcabala={onCrearAlcabala}
       />
     );
 
@@ -88,6 +98,7 @@ describe("AlcabalasModal", () => {
         contribuyente={mockContribuyente}
         alcabalas={mockAlcabalas}
         loading={false}
+        onCrearAlcabala={onCrearAlcabala}
       />
     );
 
@@ -103,6 +114,7 @@ describe("AlcabalasModal", () => {
         contribuyente={mockContribuyente}
         alcabalas={mockAlcabalas}
         loading={false}
+        onCrearAlcabala={onCrearAlcabala}
       />
     );
 
@@ -120,6 +132,7 @@ describe("AlcabalasModal", () => {
         contribuyente={mockContribuyente}
         alcabalas={mockAlcabalas}
         loading={false}
+        onCrearAlcabala={onCrearAlcabala}
       />
     );
 
@@ -135,6 +148,7 @@ describe("AlcabalasModal", () => {
         contribuyente={mockContribuyente}
         alcabalas={mockAlcabalas}
         loading={false}
+        onCrearAlcabala={onCrearAlcabala}
       />
     );
 
@@ -151,11 +165,61 @@ describe("AlcabalasModal", () => {
         contribuyente={mockContribuyente}
         alcabalas={[]}
         loading={true}
+        onCrearAlcabala={onCrearAlcabala}
       />
     );
 
     expect(screen.getByTestId("alcabalas-table")).toHaveTextContent(
       "Cargando..."
     );
+  });
+
+  // ── Nueva Alcabala button ──────────────────────────────
+
+  it("shows Nueva Alcabala button when contribuyente is provided", () => {
+    render(
+      <AlcabalasModal
+        open={true}
+        onClose={onClose}
+        contribuyente={mockContribuyente}
+        alcabalas={mockAlcabalas}
+        loading={false}
+        onCrearAlcabala={onCrearAlcabala}
+      />
+    );
+
+    expect(screen.getByText("Nueva Alcabala")).toBeInTheDocument();
+  });
+
+  it("hides Nueva Alcabala button when contribuyente is null", () => {
+    render(
+      <AlcabalasModal
+        open={true}
+        onClose={onClose}
+        contribuyente={null}
+        alcabalas={mockAlcabalas}
+        loading={false}
+        onCrearAlcabala={onCrearAlcabala}
+      />
+    );
+
+    expect(screen.queryByText("Nueva Alcabala")).not.toBeInTheDocument();
+  });
+
+  it("calls onCrearAlcabala when Nueva Alcabala button is clicked", async () => {
+    const user = userEvent.setup();
+    render(
+      <AlcabalasModal
+        open={true}
+        onClose={onClose}
+        contribuyente={mockContribuyente}
+        alcabalas={mockAlcabalas}
+        loading={false}
+        onCrearAlcabala={onCrearAlcabala}
+      />
+    );
+
+    await user.click(screen.getByText("Nueva Alcabala"));
+    expect(onCrearAlcabala).toHaveBeenCalledTimes(1);
   });
 });
