@@ -182,8 +182,7 @@ describe("DetalleAlcabala", () => {
 
     expect(screen.getByText("Vendedor")).toBeDefined();
     expect(screen.getByText("Predio")).toBeDefined();
-    expect(screen.getByText("Operación")).toBeDefined();
-    expect(screen.getByText("Montos")).toBeDefined();
+    expect(screen.getByText("Datos Relativos al Contrato")).toBeDefined();
     expect(screen.getByText("Registro")).toBeDefined();
   });
 });
