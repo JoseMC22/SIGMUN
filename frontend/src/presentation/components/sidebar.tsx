@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { 
   ChevronDown, 
   ChevronRight, 
@@ -23,6 +23,7 @@ import {
   Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAccess } from "@/lib/access-context";
 import {
   fetchModulesAction,
   fetchSubmenusAction,
@@ -145,6 +146,10 @@ export function Sidebar() {
               <Link
                 key={submenu.id}
                 href={`/dashboard/${submenu.path}`}
+                onClick={async () => {
+                  const { loadPermissions } = useAccess();
+                  await loadPermissions(submenu.id);
+                }}
                 className={cn(
                   "block px-2 py-1.5 text-xs rounded-lg transition-colors relative",
                   pathname === `/dashboard/${submenu.path}`

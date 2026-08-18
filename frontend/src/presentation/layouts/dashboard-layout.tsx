@@ -1,9 +1,12 @@
+"use client";
+
 import React from "react";
 import { Sidebar } from "@/presentation/components/sidebar";
 import { Header } from "@/presentation/components/header";
 import { Footer } from "@/presentation/components/footer";
 import { SessionGuard } from "@/presentation/components/session-guard";
 import { IdleTimer } from "@/presentation/components/idle-timer";
+import { AccessProvider } from "@/lib/access-context";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -19,7 +22,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           <Header />
           <main className="flex-1 overflow-y-auto custom-scrollbar bg-slate-50/50">
             <div className="p-8 animate-in fade-in duration-700">
-              {children}
+              <AccessProvider>{children}</AccessProvider>
             </div>
           </main>
           <Footer />
