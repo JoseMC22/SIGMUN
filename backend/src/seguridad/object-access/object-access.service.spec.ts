@@ -75,6 +75,28 @@ describe('ObjectAccessService', () => {
       ]);
     });
 
+    it('should write flat keys for each permission on SP result', async () => {
+      (cache.get as jest.Mock).mockResolvedValue(null);
+      const spRows: SpObjectAccessRow[] = [
+        { id_objeto: 'btnGuardar', bacceso: 1 },
+        { id_objeto: 'btnEliminar', bacceso: 0 },
+      ];
+      (db.executeProcedure as jest.Mock).mockResolvedValue(mockSpResult(spRows));
+
+      await service.getPermissions(username, id_acceso);
+
+      expect(cache.set).toHaveBeenCalledWith(
+        'access:object:testuser:btnGuardar',
+        1,
+        1800000,
+      );
+      expect(cache.set).toHaveBeenCalledWith(
+        'access:object:testuser:btnEliminar',
+        0,
+        1800000,
+      );
+    });
+
     it('should return error without caching when SP fails', async () => {
       (cache.get as jest.Mock).mockResolvedValue(null);
       (db.executeProcedure as jest.Mock).mockRejectedValue(
@@ -153,6 +175,83 @@ describe('ObjectAccessService', () => {
         'access:changed:alice',
         JSON.stringify({ id_acceso: 42 }),
       );
+    });
+
+    it('should delete flat keys when submenu cache has permissions', async () => {
+      const mockRedis = { publish: jest.fn().mockResolvedValue(1) };
+      service = new ObjectAccessService(db as any, cache, mockRedis as any);
+
+      // Simulate submenu cache having permissions
+      (cache.get as jest.Mock)
+        .mockResolvedValueOnce([
+          { id_objeto: 'btnGuardar', bacceso: 1 },
+          { id_objeto: 'btnEliminar', bacceso: 0 },
+        ]);
+
+      await service.invalidateAndNotify(42, ['alice']);
+
+      // Submenu cache deleted
+      expect(cache.del).toHaveBeenCalledWith('access:objects:alice:42');
+      // Flat keys deleted
+      expect(cache.del).toHaveBeenCalledWith('access:object:alice:btnGuardar');
+      expect(cache.del).toHaveBeenCalledWith('access:object:alice:btnEliminar');
+    });
+  });
+
+  describe('checkObjectAccess', () => {
+    const username = 'testuser';
+    const id_objeto = 'btnGuardar';
+    const id_acceso = 42;
+    const flatKey = `access:object:${username}:${id_objeto}`;
+
+    it('should return bacceso from flat cache hit', async () => {
+      (cache.get as jest.Mock).mockResolvedValue(1);
+
+      const result = await service.checkObjectAccess(username, id_objeto, id_acceso);
+
+      expect(result).toBe(1);
+      expect(cache.get).toHaveBeenCalledWith(flatKey);
+      expect(db.executeProcedure).not.toHaveBeenCalled();
+    });
+
+    it('should return 0 from flat cache hit when bacceso is 0', async () => {
+      (cache.get as jest.Mock).mockResolvedValue(0);
+
+      const result = await service.checkObjectAccess(username, 'btnEliminar', id_acceso);
+
+      expect(result).toBe(0);
+    });
+
+    it('should fallback to getPermissions on flat cache miss', async () => {
+      // First call: flat key miss
+      // Second call: submenu cache miss (inside getPermissions)
+      (cache.get as jest.Mock)
+        .mockResolvedValueOnce(null)  // flat key miss
+        .mockResolvedValueOnce(null); // submenu cache miss
+      const spRows: SpObjectAccessRow[] = [
+        { id_objeto: 'btnGuardar', bacceso: 1 },
+        { id_objeto: 'btnEliminar', bacceso: 0 },
+      ];
+      (db.executeProcedure as jest.Mock).mockResolvedValue(mockSpResult(spRows));
+
+      const result = await service.checkObjectAccess(username, id_objeto, id_acceso);
+
+      expect(result).toBe(1);
+      expect(db.executeProcedure).toHaveBeenCalled();
+    });
+
+    it('should return 0 when SP returns no matching object', async () => {
+      (cache.get as jest.Mock)
+        .mockResolvedValueOnce(null)  // flat key miss
+        .mockResolvedValueOnce(null); // submenu cache miss
+      const spRows: SpObjectAccessRow[] = [
+        { id_objeto: 'btnOtro', bacceso: 1 },
+      ];
+      (db.executeProcedure as jest.Mock).mockResolvedValue(mockSpResult(spRows));
+
+      const result = await service.checkObjectAccess(username, id_objeto, id_acceso);
+
+      expect(result).toBe(0);
     });
   });
 });
