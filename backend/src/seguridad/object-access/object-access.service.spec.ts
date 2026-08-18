@@ -21,7 +21,8 @@ describe('ObjectAccessService', () => {
       set: jest.fn(),
       del: jest.fn(),
     } as any;
-    service = new ObjectAccessService(db as any, cache);
+    const mockRedis = { publish: jest.fn().mockResolvedValue(1) };
+    service = new ObjectAccessService(db as any, cache, mockRedis as any);
   });
 
   describe('getPermissions', () => {
@@ -95,6 +96,63 @@ describe('ObjectAccessService', () => {
 
       expect(result).toEqual([]);
       expect(cache.set).toHaveBeenCalledWith(cacheKey, [], 1800000);
+    });
+  });
+
+  describe('invalidateAndNotify', () => {
+    const id_acceso = 42;
+    const usernames = ['alice', 'bob'];
+
+    it('should delete cache keys for each username', async () => {
+      const mockRedis = { publish: jest.fn().mockResolvedValue(1) };
+      service = new ObjectAccessService(db as any, cache, mockRedis as any);
+
+      await service.invalidateAndNotify(id_acceso, usernames);
+
+      expect(cache.del).toHaveBeenCalledWith('access:objects:alice:42');
+      expect(cache.del).toHaveBeenCalledWith('access:objects:bob:42');
+      expect(cache.del).toHaveBeenCalledTimes(2);
+    });
+
+    it('should publish invalidation message to Redis for each username', async () => {
+      const mockRedis = { publish: jest.fn().mockResolvedValue(1) };
+      service = new ObjectAccessService(db as any, cache, mockRedis as any);
+
+      await service.invalidateAndNotify(id_acceso, usernames);
+
+      expect(mockRedis.publish).toHaveBeenCalledWith(
+        'access:changed:alice',
+        JSON.stringify({ id_acceso: 42 }),
+      );
+      expect(mockRedis.publish).toHaveBeenCalledWith(
+        'access:changed:bob',
+        JSON.stringify({ id_acceso: 42 }),
+      );
+      expect(mockRedis.publish).toHaveBeenCalledTimes(2);
+    });
+
+    it('should handle empty usernames list gracefully', async () => {
+      const mockRedis = { publish: jest.fn().mockResolvedValue(1) };
+      service = new ObjectAccessService(db as any, cache, mockRedis as any);
+
+      await service.invalidateAndNotify(id_acceso, []);
+
+      expect(cache.del).not.toHaveBeenCalled();
+      expect(mockRedis.publish).not.toHaveBeenCalled();
+    });
+
+    it('should still publish even if cache delete fails', async () => {
+      const mockRedis = { publish: jest.fn().mockResolvedValue(1) };
+      (cache.del as jest.Mock).mockRejectedValue(new Error('Redis down'));
+      service = new ObjectAccessService(db as any, cache, mockRedis as any);
+
+      // Should not throw — publish is independent of cache delete
+      await service.invalidateAndNotify(id_acceso, ['alice']);
+
+      expect(mockRedis.publish).toHaveBeenCalledWith(
+        'access:changed:alice',
+        JSON.stringify({ id_acceso: 42 }),
+      );
     });
   });
 });

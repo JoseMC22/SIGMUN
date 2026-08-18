@@ -1,6 +1,7 @@
 import { Injectable, Logger, InternalServerErrorException, Inject } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
+import Redis from 'ioredis';
 import { DatabaseService } from '../../database/database.service';
 import { ObjectPermission, SpObjectAccessRow } from './dto/object-access.types';
 
@@ -13,6 +14,7 @@ export class ObjectAccessService {
   constructor(
     private readonly db: DatabaseService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    @Inject('REDIS_PUB_CLIENT') private readonly redisPub: Redis,
   ) {}
 
   async getPermissions(
@@ -47,6 +49,34 @@ export class ObjectAccessService {
       throw new InternalServerErrorException(
         'Failed to fetch object permissions',
       );
+    }
+  }
+
+  async invalidateAndNotify(
+    id_acceso: number,
+    usernames: string[],
+  ): Promise<void> {
+    for (const username of usernames) {
+      const cacheKey = `access:objects:${username}:${id_acceso}`;
+      try {
+        await this.cacheManager.del(cacheKey);
+      } catch (err) {
+        this.logger.warn(
+          `Failed to delete cache key ${cacheKey}`,
+          err,
+        );
+      }
+
+      const channel = `access:changed:${username}`;
+      const payload = JSON.stringify({ id_acceso });
+      try {
+        await this.redisPub.publish(channel, payload);
+      } catch (err) {
+        this.logger.error(
+          `Failed to publish to ${channel}`,
+          err,
+        );
+      }
     }
   }
 }
