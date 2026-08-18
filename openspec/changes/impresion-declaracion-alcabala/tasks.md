@@ -28,15 +28,15 @@ Chain strategy: stacked-to-main
 
 ## Phase 1: Backend Data Layer (PR 1)
 
-- [x] 1.1 **RED** — Create `backend/src/alcabala/impresion-dj-alcabala/dto/declaracion-pdf-row.dto.ts`: Zod schema `DeclaracionPdfRowSchema` with 16 string fields (default `''`) and 9 numeric fields (`z.coerce.number().catch(0)`). Export `DeclaracionPdfRow` type. Write test asserting schema parses a full row, defaults NULL strings to `''`, `.catch(0)` on non-numeric garbage like `'N/A'`.
-- [x] 1.2 **GREEN** — Implement `mapDeclaracionPdfRow(row)` in `impresion-dj-alcabala.service.ts`: local `col()` case-insensitive helper (same pattern as existing `col`), maps all 25 fields via `col()` + schema parse. Export the function.
-- [x] 1.3 **RED** — Add service test cases to `impresion-dj-alcabala.service.spec.ts`: (a) `resolveDeclaracionPrintData` calls `Alcabala.RptAlcabala` with `{ id_alcabala }`, (b) 0 rows → `NotFoundException`, (c) NULL/mixed-case columns map via `col()`, (d) first-row-keys logged, (e) `.catch(0)` on `'N/A'` numeric → 0, no throw. Use `describe('resolveDeclaracionPrintData')`.
-- [x] 1.4 **GREEN** — Implement `resolveDeclaracionPrintData(idAlcabala)` in service: `db.executeProcedure('Alcabala.RptAlcabala', { id_alcabala })`, check `recordset[0]` exists, log `Object.keys(recordset[0])`, map via `mapDeclaracionPdfRow`, throw `NotFoundException` on zero rows.
-- [x] 1.5 **RED** — Add fallback test cases: (a) When `usuario_ing`/`fecha_ing` empty → fallback calls `Alcabala.sp_DJAlcabala` with `{ buscar: '8', id_alcabala }`, reads `usuario`/`fecha_ing`; (b) Fallback SKIPPED when RptAlcabala provides stamp; (c) Fallback SP error → empty strings, no throw.
-- [x] 1.6 **GREEN** — Implement fallback logic: only call `sp_DJAlcabala` when `usuario_ing` and `fecha_ing` are empty after mapping. Wrap fallback in try/catch, default to `''` on error.
-- [x] 1.7 **RED** — Create `backend/src/alcabala/impresion-dj-alcabala/declaracion-pdf-generator.spec.ts`: test `esc()` escapes `&<>"'`; test `fmt()` formats numbers as `S/. #,##0.00`; test `buildDeclaracionPdfHtml` contains all section labels + amounts; test logo embedded when provided, absent when null; test `loadLogoDataUri` returns null for missing file / non-image bytes / oversized file; mock `html-pdf-node` for `generateDeclaracionPdf`.
-- [x] 1.8 **GREEN** — Create `declaracion-pdf-generator.ts`: `esc(s)` HTML-escapes DB strings; `fmt(n)` formats as `S/. #,##0.00`; `buildDeclaracionPdfHtml(row, opts)` renders A4 HTML with title "IMPUESTO DE ALCABALA", RECEPCION box, sections 1–4, montos table, firmas, footer; `generateDeclaracionPdf(row, opts)` calls `generatePdf` with margins `{ top:'30px', right:'30px', bottom:'20px', left:'20px' }`; `loadLogoDataUri(path)` reads file, validates magic bytes (PNG/JPEG) + size ≤1 MB, returns data URI or null.
-- [x] 1.9 Run `pnpm --filter backend test` — all service + generator tests pass.
+- [ ] 1.1 **RED** — Create `backend/src/alcabala/impresion-dj-alcabala/dto/declaracion-pdf-row.dto.ts`: Zod schema `DeclaracionPdfRowSchema` with 16 string fields (default `''`) and 9 numeric fields (`z.coerce.number().catch(0)`). Export `DeclaracionPdfRow` type. Write test asserting schema parses a full row, defaults NULL strings to `''`, `.catch(0)` on non-numeric garbage like `'N/A'`.
+- [ ] 1.2 **GREEN** — Implement `mapDeclaracionPdfRow(row)` in `impresion-dj-alcabala.service.ts`: local `col()` case-insensitive helper (same pattern as existing `col`), maps all 25 fields via `col()` + schema parse. Export the function.
+- [ ] 1.3 **RED** — Add service test cases to `impresion-dj-alcabala.service.spec.ts`: (a) `resolveDeclaracionPrintData` calls `Alcabala.RptAlcabala` with `{ id_alcabala }`, (b) 0 rows → `NotFoundException`, (c) NULL/mixed-case columns map via `col()`, (d) first-row-keys logged, (e) `.catch(0)` on `'N/A'` numeric → 0, no throw. Use `describe('resolveDeclaracionPrintData')`.
+- [ ] 1.4 **GREEN** — Implement `resolveDeclaracionPrintData(idAlcabala)` in service: `db.executeProcedure('Alcabala.RptAlcabala', { id_alcabala })`, check `recordset[0]` exists, log `Object.keys(recordset[0])`, map via `mapDeclaracionPdfRow`, throw `NotFoundException` on zero rows.
+- [ ] 1.5 **RED** — Add fallback test cases: (a) When `usuario_ing`/`fecha_ing` empty → fallback calls `Alcabala.sp_DJAlcabala` with `{ buscar: '8', id_alcabala }`, reads `usuario`/`fecha_ing`; (b) Fallback SKIPPED when RptAlcabala provides stamp; (c) Fallback SP error → empty strings, no throw.
+- [ ] 1.6 **GREEN** — Implement fallback logic: only call `sp_DJAlcabala` when `usuario_ing` and `fecha_ing` are empty after mapping. Wrap fallback in try/catch, default to `''` on error.
+- [ ] 1.7 **RED** — Create `backend/src/alcabala/impresion-dj-alcabala/declaracion-pdf-generator.spec.ts`: test `esc()` escapes `&<>"'`; test `fmt()` formats numbers as `S/. #,##0.00`; test `buildDeclaracionPdfHtml` contains all section labels + amounts; test logo embedded when provided, absent when null; test `loadLogoDataUri` returns null for missing file / non-image bytes / oversized file; mock `html-pdf-node` for `generateDeclaracionPdf`.
+- [ ] 1.8 **GREEN** — Create `declaracion-pdf-generator.ts`: `esc(s)` HTML-escapes DB strings; `fmt(n)` formats as `S/. #,##0.00`; `buildDeclaracionPdfHtml(row, opts)` renders A4 HTML with title "IMPUESTO DE ALCABALA", RECEPCION box, sections 1–4, montos table, firmas, footer; `generateDeclaracionPdf(row, opts)` calls `generatePdf` with margins `{ top:'30px', right:'30px', bottom:'20px', left:'20px' }`; `loadLogoDataUri(path)` reads file, validates magic bytes (PNG/JPEG) + size ≤1 MB, returns data URI or null.
+- [ ] 1.9 Run `pnpm --filter backend test` — all service + generator tests pass.
 
 ### PR 1 Boundary
 
@@ -67,11 +67,11 @@ Chain strategy: stacked-to-main
 
 ## Phase 3: Frontend (PR 3)
 
-- [x] 3.1 **RED** — Add action test cases to `frontend/src/actions/alcabala/impresion-dj-alcabala.test.ts`: `getDeclaracionPdfBase64Action` — success returns base64, 404 returns null, fetch throws returns null.
-- [x] 3.2 **GREEN** — Add `getDeclaracionPdfBase64Action` to `impresion-dj-alcabala.ts`: mirror `getOpPdfBase64Action` pattern, path `alcabala/impresion-dj-alcabala/declaracion-pdf/${idAlcabala}`.
-- [x] 3.3 **RED** — Add table test cases to `alcabalas-table.test.tsx`: (a) "Imprimir Declaración" button renders next to "Imprimir Formato", (b) click opens new tab with blob URL, (c) popup blocked (`window.open` null) shows error, (d) loading disables button, (e) error message shown on failure.
-- [x] 3.4 **GREEN** — Extend `alcabalas-table.tsx`: add `declaracionPrintingId` + `declaracionError` state (independent from existing). Add `handlePrintDeclaracion(item)` — same UX as `handlePrint`. Add button with `FileText` icon, label "Imprimir Declaración", disabled while loading. Import `FileText` from lucide-react.
-- [x] 3.5 Run `pnpm --filter frontend test` — PR 3 slice green (13/13 alcabala tests pass). 16 pre-existing failures in unrelated modules (impuesto-vehicular, mantenimiento-tablas) reported separately — not introduced by this slice.
+- [ ] 3.1 **RED** — Add action test cases to `frontend/src/actions/alcabala/impresion-dj-alcabala.test.ts`: `getDeclaracionPdfBase64Action` — success returns base64, 404 returns null, fetch throws returns null.
+- [ ] 3.2 **GREEN** — Add `getDeclaracionPdfBase64Action` to `impresion-dj-alcabala.ts`: mirror `getOpPdfBase64Action` pattern, path `alcabala/impresion-dj-alcabala/declaracion-pdf/${idAlcabala}`.
+- [ ] 3.3 **RED** — Add table test cases to `alcabalas-table.test.tsx`: (a) "Imprimir Declaración" button renders next to "Imprimir Formato", (b) click opens new tab with blob URL, (c) popup blocked (`window.open` null) shows error, (d) loading disables button, (e) error message shown on failure.
+- [ ] 3.4 **GREEN** — Extend `alcabalas-table.tsx`: add `declaracionPrintingId` + `declaracionError` state (independent from existing). Add `handlePrintDeclaracion(item)` — same UX as `handlePrint`. Add button with `FileText` icon, label "Imprimir Declaración", disabled while loading. Import `FileText` from lucide-react.
+- [ ] 3.5 Run `pnpm --filter frontend test` — all frontend tests pass.
 
 ### PR 3 Boundary
 
@@ -86,19 +86,12 @@ Chain strategy: stacked-to-main
 ## Phase 4: Field-Count Reconciliation (after PR 1 merge)
 
 - [ ] 4.1 **Verify** — After PR 1 merges, run `resolveDeclaracionPrintData` against a real `idAlcabala` in dev. Log first-row keys. Compare against the 25 named fields in the DTO. If a 26th field exists in SP output, document it in the spec delta but do NOT add a placeholder name to the DTO — the real SP output is the source of truth.
-  > VERIFY NOTE: NOT-VERIFIED — manual/runtime check requiring merged PRs + real dev `idAlcabala` + first-row-keys log. Deferred to post-merge validation (see verify-report.md).
 
 ## Phase 5: Verification
 
-- [x] 5.1 Run full backend suite: `pnpm --filter backend test` — 0 failures.
-  > VERIFY NOTE: PASSED — backend suite 61/61 green, 0 failures, 5 alcabala/impresion suites (verify-report.md).
-- [x] 5.2 Run full frontend suite: `pnpm --filter frontend test` — 0 failures.
-  > VERIFY NOTE: PASSED (change-scoped) — alcabala frontend slice 13/13 green; the full suite shows 16 PRE-EXISTING unrelated failures (impuesto-vehicular, mantenimiento-tablas) excluded per verify duty #3 (verify-report.md).
+- [ ] 5.1 Run full backend suite: `pnpm --filter backend test` — 0 failures.
+- [ ] 5.2 Run full frontend suite: `pnpm --filter frontend test` — 0 failures.
 - [ ] 5.3 Manual: `GET /alcabala/impresion-dj-alcabala/declaracion-pdf/{valid-id}` returns inline PDF with correct headers.
-  > VERIFY NOTE: NOT-VERIFIED — manual/runtime validation; requires merged PRs + auth + real `idAlcabala`. Deferred (verify-report.md).
 - [ ] 5.4 Manual: "Imprimir Declaración" button in alcabalas-table opens PDF in new tab.
-  > VERIFY NOTE: NOT-VERIFIED — manual UI validation post-merge (button logic already unit-tested 7/7 in alcabalas-table.test.tsx). Deferred (verify-report.md).
 - [ ] 5.5 Manual: PDF layout matches JRXML — title, RECEPCION, 4 sections, montos table, firmas, footer.
-  > VERIFY NOTE: NOT-VERIFIED — manual; also covers the UNTESTED "one-page fit" scenario (R9). Deferred to post-merge (verify-report.md WARNING #1).
 - [ ] 5.6 Manual: Logo renders when `REPORT_IMG_RUTA` set; PDF renders without logo when unset.
-  > VERIFY NOTE: NOT-VERIFIED — manual; needs `REPORT_IMG_RUTA` config + real render. Deferred (verify-report.md).
