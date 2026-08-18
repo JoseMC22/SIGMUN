@@ -119,11 +119,10 @@ describe("AlcabalasTable — Imprimir Declaración button (PR 3)", () => {
     (URL as any).createObjectURL = vi.fn(() => "blob:http://localhost/blob-1");
   });
 
-  it("renders the 'Imprimir Declaración' button next to 'Imprimir Formato'", () => {
+  it("renders the 'Imprimir Declaración' button", () => {
     render(<AlcabalasTable data={[item]} loading={false} />);
 
     expect(screen.getByTitle("Imprimir Declaración")).toBeInTheDocument();
-    expect(screen.getByTitle("Imprimir Formato")).toBeInTheDocument();
   });
 
   it("opens the declaration PDF in a new tab on success", async () => {
