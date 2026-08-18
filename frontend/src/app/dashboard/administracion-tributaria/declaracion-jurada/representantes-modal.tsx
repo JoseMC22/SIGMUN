@@ -7,7 +7,16 @@ import {
   eliminarRepresentanteAction,
   type ObtenerRepresentantesData,
 } from "@/actions/administracion-tributaria/declaracion-jurada";
+import {
+  obtenerPlantillaReporteRepresentantesAction,
+} from "@/actions/administracion-tributaria/reporte-representantes";
+import {
+  construirHtmlReporteRepresentantes,
+  construirConfigPdfRepresentantes,
+} from "./reportes/Representante/reporte-representantes";
+import type { ReportePdfConfig } from "@/lib/reportes/reporte-service";
 import RepresentanteFormModal from "./representante-form-modal";
+import ReporteViewerModal from "@/components/reportes/reporte-viewer-modal";
 
 // ─── FieldGroup ────────────────────────────────────────────
 
@@ -52,6 +61,31 @@ export default function RepresentantesModal({ isOpen, onClose, codigo }: Props) 
   const [eliminandoRep, setEliminandoRep] = useState<{ id: string; nombres: string } | null>(null);
   const [eliminarLoading, setEliminarLoading] = useState(false);
   const [eliminarError, setEliminarError] = useState<string | null>(null);
+
+  // ── Reporte (vista previa + impresión + guardar PDF) ──
+  const [reporteHtml, setReporteHtml] = useState<string | null>(null);
+  const [reportePdf, setReportePdf] = useState<ReportePdfConfig | null>(null);
+  const [reporteLoading, setReporteLoading] = useState(false);
+  const [reporteError, setReporteError] = useState<string | null>(null);
+
+  const abrirReporte = async () => {
+    if (!data) return;
+    setReporteLoading(true);
+    setReporteError(null);
+    try {
+      const plantilla = await obtenerPlantillaReporteRepresentantesAction();
+      if (!plantilla.success) {
+        setReporteError(plantilla.error);
+        return;
+      }
+      setReporteHtml(construirHtmlReporteRepresentantes(data, plantilla.data));
+      setReportePdf(construirConfigPdfRepresentantes(data));
+    } catch {
+      setReporteError("Error al generar el reporte. Intente nuevamente.");
+    } finally {
+      setReporteLoading(false);
+    }
+  };
 
   const cargar = useCallback(async () => {
     if (!codigo.trim()) return;
@@ -181,6 +215,13 @@ export default function RepresentantesModal({ isOpen, onClose, codigo }: Props) 
 
           {!loading && !error && data && (
             <>
+              {/* ══ Error del reporte (al generar vista previa) ══ */}
+              {reporteError && (
+                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-medium text-red-600">
+                  {reporteError}
+                </div>
+              )}
+
               {/* ══ Datos Contribuyente ══ */}
               <FieldGroup title="Datos Contribuyente" icon={<User size={13} />}>
                 <div className="grid grid-cols-3 gap-3">
@@ -306,11 +347,21 @@ export default function RepresentantesModal({ isOpen, onClose, codigo }: Props) 
           </button>
           <button
             type="button"
-            onClick={() => alert("Por desarrollar")}
-            className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-4 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-sat-cyan/30"
+            onClick={abrirReporte}
+            disabled={!data || reporteLoading}
+            className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-4 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-sat-cyan/30 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <Printer size={13} />
-            Imprimir
+            {reporteLoading ? (
+              <>
+                <Loader2 size={13} className="animate-spin" />
+                Generando...
+              </>
+            ) : (
+              <>
+                <Printer size={13} />
+                Imprimir
+              </>
+            )}
           </button>
           <button
             type="button"
@@ -417,6 +468,17 @@ export default function RepresentantesModal({ isOpen, onClose, codigo }: Props) 
           </div>
         </div>
       )}
+
+      {/* ══ Modal Vista Previa del Reporte ══ */}
+      <ReporteViewerModal
+        isOpen={reporteHtml !== null}
+        onClose={() => {
+          setReporteHtml(null);
+          setReportePdf(null);
+        }}
+        html={reporteHtml ?? ""}
+        pdfConfig={reportePdf}
+      />
     </div>
   );
 }

@@ -67,11 +67,11 @@ Chain strategy: stacked-to-main
 
 ## Phase 3: Frontend (PR 3)
 
-- [x] 3.1 **RED** — Add action test cases to `frontend/src/actions/alcabala/impresion-dj-alcabala.test.ts`: `getDeclaracionPdfBase64Action` — success returns base64, 404 returns null, fetch throws returns null.
-- [x] 3.2 **GREEN** — Add `getDeclaracionPdfBase64Action` to `impresion-dj-alcabala.ts`: mirror `getOpPdfBase64Action` pattern, path `alcabala/impresion-dj-alcabala/declaracion-pdf/${idAlcabala}`.
-- [x] 3.3 **RED** — Add table test cases to `alcabalas-table.test.tsx`: (a) "Imprimir Declaración" button renders next to "Imprimir Formato", (b) click opens new tab with blob URL, (c) popup blocked (`window.open` null) shows error, (d) loading disables button, (e) error message shown on failure.
-- [x] 3.4 **GREEN** — Extend `alcabalas-table.tsx`: add `declaracionPrintingId` + `declaracionError` state (independent from existing). Add `handlePrintDeclaracion(item)` — same UX as `handlePrint`. Add button with `FileText` icon, label "Imprimir Declaración", disabled while loading. Import `FileText` from lucide-react.
-- [x] 3.5 Run `pnpm --filter frontend test` — PR 3 slice green (13/13 alcabala tests pass). 16 pre-existing failures in unrelated modules (impuesto-vehicular, mantenimiento-tablas) reported separately — not introduced by this slice.
+- [ ] 3.1 **RED** — Add action test cases to `frontend/src/actions/alcabala/impresion-dj-alcabala.test.ts`: `getDeclaracionPdfBase64Action` — success returns base64, 404 returns null, fetch throws returns null.
+- [ ] 3.2 **GREEN** — Add `getDeclaracionPdfBase64Action` to `impresion-dj-alcabala.ts`: mirror `getOpPdfBase64Action` pattern, path `alcabala/impresion-dj-alcabala/declaracion-pdf/${idAlcabala}`.
+- [ ] 3.3 **RED** — Add table test cases to `alcabalas-table.test.tsx`: (a) "Imprimir Declaración" button renders next to "Imprimir Formato", (b) click opens new tab with blob URL, (c) popup blocked (`window.open` null) shows error, (d) loading disables button, (e) error message shown on failure.
+- [ ] 3.4 **GREEN** — Extend `alcabalas-table.tsx`: add `declaracionPrintingId` + `declaracionError` state (independent from existing). Add `handlePrintDeclaracion(item)` — same UX as `handlePrint`. Add button with `FileText` icon, label "Imprimir Declaración", disabled while loading. Import `FileText` from lucide-react.
+- [ ] 3.5 Run `pnpm --filter frontend test` — all frontend tests pass.
 
 ### PR 3 Boundary
 
