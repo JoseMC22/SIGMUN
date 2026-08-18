@@ -2,8 +2,17 @@ import { z } from 'zod';
 
 /**
  * Schema for a row from `Rentas.sp_ImprimeOP @buscar=2` (35 columns).
- * Numeric columns default to 0; string columns default to ''.
+ *
+ * The SP may return `number` for columns we treat as strings, and SQL NULL
+ * (→ `undefined` after `col()`) for numeric columns.  We use `z.coerce` and
+ * `z.preprocess` so the schema tolerates both scenarios instead of throwing
+ * at parse time.
  */
+const num = z.preprocess(
+  (v) => (v == null ? 0 : v),
+  z.coerce.number(),
+);
+
 export const OpPdfRowSchema = z.object({
   id_valor: z.string().default(''),
   num_val: z.string().default(''),
@@ -17,19 +26,19 @@ export const OpPdfRowSchema = z.object({
   Dirfiscal: z.string().default(''),
   anno: z.string().default(''),
   cadenaUIT: z.string().default(''),
-  rtramo01: z.string().default(''),
-  rtramo02: z.string().default(''),
-  rtramo03: z.string().default(''),
-  base_imponible1: z.coerce.number().default(0),
-  imp_anual1: z.coerce.number().default(0),
+  rtramo01: z.coerce.string().default(''),
+  rtramo02: z.coerce.string().default(''),
+  rtramo03: z.coerce.string().default(''),
+  base_imponible1: num,
+  imp_anual1: num,
   cuotas: z.string().default(''),
-  imp_insol: z.coerce.number().default(0),
+  imp_insol: num,
   imp_insoltexto: z.string().default(''),
-  imp_reaj: z.coerce.number().default(0),
-  mora: z.coerce.number().default(0),
-  costo_emis: z.coerce.number().default(0),
+  imp_reaj: num,
+  mora: num,
+  costo_emis: num,
   costo_emistexto: z.string().default(''),
-  imp_total: z.coerce.number().default(0),
+  imp_total: num,
   imp_totaltexto: z.string().default(''),
   cuota_rej: z.string().default(''),
   cuota_mor: z.string().default(''),
