@@ -29,7 +29,7 @@ export class ObjectAccessService {
     try {
       const result = await this.db.executeProcedure<SpObjectAccessRow>(
         '[Acceso].[SP_MAcceso]',
-        { busc: 7, id_acceso, username },
+        { busc: 7, id_acceso },
       );
 
       const permissions: ObjectPermission[] = (result.recordset ?? []).map(

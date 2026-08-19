@@ -14,20 +14,22 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
-    <SessionGuard>
-      <IdleTimer />
-      <div className="flex h-screen bg-clean-white overflow-hidden">
-        <Sidebar />
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          <Header />
-          <main className="flex-1 overflow-y-auto custom-scrollbar bg-slate-50/50">
-            <div className="p-8 animate-in fade-in duration-700">
-              <AccessProvider>{children}</AccessProvider>
-            </div>
-          </main>
-          <Footer />
+    <AccessProvider>
+      <SessionGuard>
+        <IdleTimer />
+        <div className="flex h-screen bg-clean-white overflow-hidden">
+          <Sidebar />
+          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+            <Header />
+            <main className="flex-1 overflow-y-auto custom-scrollbar bg-slate-50/50">
+              <div className="p-8 animate-in fade-in duration-700">
+                {children}
+              </div>
+            </main>
+            <Footer />
+          </div>
         </div>
-      </div>
-    </SessionGuard>
+      </SessionGuard>
+    </AccessProvider>
   );
 }

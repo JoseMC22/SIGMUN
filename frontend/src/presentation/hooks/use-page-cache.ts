@@ -151,7 +151,7 @@ export function usePageCache<T>({
           return pageData;
         }
         setLoading(false);
-        throw new Error(res.error ?? "Error al cargar datos");
+        throw new Error(("error" in res ? (res as { error?: string }).error : undefined) ?? "Error al cargar datos");
       });
       entry.promise = promise;
       cache.current.set(page, entry);

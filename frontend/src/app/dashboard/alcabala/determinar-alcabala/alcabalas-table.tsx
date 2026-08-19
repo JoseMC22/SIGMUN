@@ -44,39 +44,6 @@ export default function AlcabalasTable({ data, loading, onViewDetail, onNuevo }:
   const DECLARACION_ERROR =
     "No se pudo generar el PDF de la Declaración de Alcabala. Intente nuevamente.";
 
-  const DECLARACION_ERROR =
-    "No se pudo generar el PDF de la Declaración de Alcabala. Intente nuevamente.";
-
-  async function handlePrintDeclaracion(item: AlcabalaItem) {
-    setDeclaracionError(null);
-    setDeclaracionPrintingId(item.idAlcabala);
-    try {
-      const base64 = await getDeclaracionPdfBase64Action(item.idAlcabala);
-      if (base64 == null) {
-        setDeclaracionError(DECLARACION_ERROR);
-        return;
-      }
-      const binary = atob(base64);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) {
-        bytes[i] = binary.charCodeAt(i);
-      }
-      const blob = new Blob([bytes], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
-      const newWindow = window.open(url, "_blank");
-      if (!newWindow) {
-        URL.revokeObjectURL(url);
-        setDeclaracionError(DECLARACION_ERROR);
-        return;
-      }
-      newWindow.addEventListener("load", () => URL.revokeObjectURL(url));
-    } catch {
-      setDeclaracionError(DECLARACION_ERROR);
-    } finally {
-      setDeclaracionPrintingId(null);
-    }
-  }
-
   async function handlePrintDeclaracion(item: AlcabalaItem) {
     setDeclaracionError(null);
     setDeclaracionPrintingId(item.idAlcabala);

@@ -62,6 +62,7 @@ function getModuleIcon(title: string) {
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { loadPermissions } = useAccess();
   const [modules, setModules] = useState<ModuleData[]>([]);
   const [openModules, setOpenModules] = useState<string[]>([]);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -146,10 +147,7 @@ export function Sidebar() {
               <Link
                 key={submenu.id}
                 href={`/dashboard/${submenu.path}`}
-                onClick={async () => {
-                  const { loadPermissions } = useAccess();
-                  await loadPermissions(submenu.id);
-                }}
+                onClick={() => loadPermissions(submenu.id)}
                 className={cn(
                   "block px-2 py-1.5 text-xs rounded-lg transition-colors relative",
                   pathname === `/dashboard/${submenu.path}`

@@ -54,7 +54,7 @@ export default function CajaModal({ isOpen, onClose, onSaved }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-60 flex items-center justify-center bg-black/30 backdrop-blur-[1px] animate-fade-in"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-[1px] animate-fade-in"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       onKeyDown={handleKeyDown}
       tabIndex={-1}
