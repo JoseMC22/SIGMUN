@@ -14,7 +14,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { ImpresionDjAlcabalaService } from './impresion-dj-alcabala.service';
 import { generateOpPdf } from './op-pdf-generator';
 import {
-  generateDeclaracionPdf,
+  buildDeclaracionPdfHtml,
   loadLogoDataUri,
 } from './declaracion-pdf-generator';
 
@@ -85,18 +85,16 @@ export class ImpresionDjAlcabalaController {
         await this.impresionDjAlcabalaService.resolveDeclaracionPrintData(id);
       const logoPath = this.configService.get<string>('REPORT_IMG_RUTA');
       const logoDataUri = await loadLogoDataUri(logoPath);
-      const buffer = await generateDeclaracionPdf(row, {
+      const html = buildDeclaracionPdfHtml(row, {
         usuario,
         fecha,
         logoDataUri,
       });
 
       res.set({
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `inline; filename="declaracion_${id}.pdf"`,
-        'Content-Length': buffer.length,
+        'Content-Type': 'text/html; charset=utf-8',
       });
-      res.end(buffer);
+      res.send(html);
     } catch (err: any) {
       this.logger.error(
         `declaracion-pdf failed for idAlcabala=${id}: ${err?.message ?? err}`,
@@ -105,7 +103,7 @@ export class ImpresionDjAlcabalaController {
       if (!res.headersSent) {
         res.status(500).json({
           success: false,
-          error: err?.message ?? 'Error al generar PDF de declaración',
+          error: err?.message ?? 'Error al generar declaración',
         });
       }
     }

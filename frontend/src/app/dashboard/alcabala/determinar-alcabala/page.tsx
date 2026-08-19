@@ -46,7 +46,7 @@ export default function DeterminarAlcabalaPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [detalleRow, setDetalleRow] = useState<AlcabalaItem | null>(null);
   const [declaracionPdf, setDeclaracionPdf] = useState<{
-    base64: string;
+    html: string;
     idAlcabala: number;
   } | null>(null);
   const [openCrearAlcabala, setOpenCrearAlcabala] = useState(false);
@@ -407,9 +407,9 @@ export default function DeterminarAlcabalaPage() {
         alcabalas={alcabalas}
         loading={loadingAlcabalas}
         onViewDetail={(a) => setDetalleRow(a)}
-        onImprimirDeclaracion={(base64, idAlcabala) =>
-          setDeclaracionPdf({ base64, idAlcabala })
-        }
+onImprimirDeclaracion={(html, idAlcabala) =>
+  setDeclaracionPdf({ html, idAlcabala })
+}
         blockEscapeClose={detalleRow !== null || declaracionPdf !== null}
         onCrearAlcabala={handleCrearAlcabala}
       />

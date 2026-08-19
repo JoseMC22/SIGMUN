@@ -17,7 +17,7 @@ interface AlcabalasModalProps {
   alcabalas: AlcabalaItem[];
   loading: boolean;
   onViewDetail?: (alcabala: AlcabalaItem) => void;
-  onImprimirDeclaracion?: (base64: string, idAlcabala: number) => void;
+  onImprimirDeclaracion?: (html: string, idAlcabala: number) => void;
   onCrearAlcabala?: () => void;
   /**
    * When true, Escape must not close this modal because a child layout

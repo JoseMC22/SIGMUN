@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Eye, Trash2, Plus, Loader2, FileText } from "lucide-react";
 import type { AlcabalaItem } from "@/actions/alcabala/determinar-alcabala";
-import { getDeclaracionPdfBase64Action } from "@/actions/alcabala/impresion-dj-alcabala";
+import { getDeclaracionHtmlAction } from "@/actions/alcabala/impresion-dj-alcabala";
 
 // ─── Types ─────────────────────────────────────────────────
 
@@ -11,7 +11,7 @@ interface Props {
   data: AlcabalaItem[];
   loading: boolean;
   onViewDetail?: (alcabala: AlcabalaItem) => void;
-  onImprimirDeclaracion?: (base64: string, idAlcabala: number) => void;
+  onImprimirDeclaracion?: (html: string, idAlcabala: number) => void;
   onNuevo?: () => void;
 }
 
@@ -44,12 +44,12 @@ export default function AlcabalasTable({ data, loading, onViewDetail, onImprimir
     setDeclaracionError(null);
     setDeclaracionPrintingId(item.idAlcabala);
     try {
-      const base64 = await getDeclaracionPdfBase64Action(item.idAlcabala);
-      if (base64 == null) {
+      const html = await getDeclaracionHtmlAction(item.idAlcabala);
+      if (html == null) {
         setDeclaracionError(DECLARACION_ERROR);
         return;
       }
-      onImprimirDeclaracion?.(base64, item.idAlcabala);
+      onImprimirDeclaracion?.(html, item.idAlcabala);
     } catch {
       setDeclaracionError(DECLARACION_ERROR);
     } finally {

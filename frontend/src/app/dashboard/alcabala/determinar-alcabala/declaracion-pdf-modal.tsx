@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, Loader2, FileText } from "lucide-react";
+import { X, Loader2, FileText, Printer } from "lucide-react";
 
 // ── Props ──────────────────────────────────────────────────
 
 interface DeclaracionPdfModalProps {
   open: boolean;
-  base64: string | null;
+  html: string | null;
   idAlcabala: number;
   onClose: () => void;
 }
@@ -16,38 +16,13 @@ interface DeclaracionPdfModalProps {
 
 export default function DeclaracionPdfModal({
   open,
-  base64,
+  html,
   idAlcabala,
   onClose,
 }: DeclaracionPdfModalProps) {
-  const [url, setUrl] = useState<string | null>(null);
+  const [showPrintButton, setShowPrintButton] = useState(false);
 
-  // Build a blob URL from the base64 PDF and revoke it on cleanup.
-  useEffect(() => {
-    if (!open || !base64) {
-      setUrl(null);
-      return;
-    }
-    try {
-      const binary = atob(base64);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) {
-        bytes[i] = binary.charCodeAt(i);
-      }
-      const blob = new Blob([bytes], { type: "application/pdf" });
-      const u = URL.createObjectURL(blob);
-      setUrl(u);
-      return () => {
-        URL.revokeObjectURL(u);
-        setUrl(null);
-      };
-    } catch {
-      setUrl(null);
-    }
-  }, [open, base64]);
-
-  // Escape closes only this modal (topmost layer). stopPropagation prevents
-  // the underlying AlcabalasModal from also closing.
+  // Escape closes only this modal (topmost layer).
   useEffect(() => {
     if (!open) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -96,18 +71,37 @@ export default function DeclaracionPdfModal({
 
         {/* Body */}
         <div className="flex-1 overflow-hidden bg-slate-100">
-          {url ? (
-            <iframe
-              src={url}
-              title="Declaración de Alcabala PDF"
-              className="h-[75vh] w-full border-0"
-            />
+          {html ? (
+            <>
+              <iframe
+                srcdoc={html}
+                title="Declaración de Alcabala"
+                className="h-[75vh] w-full border-0"
+                style={{ border: 'none' }}
+              />
+              <div className="flex items-center justify-between p-3 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-3 py-1.5 text-[11px] font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
+                  aria-label="Imprimir declaración"
+                >
+                  <Printer size={13} /> Imprimir
+                </button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300/40 active:scale-[0.98]"
+                  aria-label="Cerrar"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </>
           ) : (
             <div className="flex items-center justify-center py-16">
               <Loader2 size={20} className="animate-spin text-sat-cyan" />
-              <span className="ml-2 text-xs text-slate-500">
-                Cargando documento...
-              </span>
+              <span className="ml-2 text-xs text-slate-500">Cargando documento...</span>
             </div>
           )}
         </div>

@@ -36,17 +36,15 @@ export async function getOpPdfBase64Action(idAlcabala: number): Promise<string |
 }
 
 /**
- * Fetches the Declaración de Alcabala PDF as a base64 string.
+ * Fetches the Declaración de Alcabala HTML for in-browser display/printing.
  * Returns null when the backend responds with a non-OK status or the request throws.
- * Mirrors getOpPdfBase64Action (same fetch/base64/error pattern).
  */
-export async function getDeclaracionPdfBase64Action(idAlcabala: number): Promise<string | null> {
+export async function getDeclaracionHtmlAction(idAlcabala: number): Promise<string | null> {
   try {
     const response = await authFetch(
       `/alcabala/impresion-dj-alcabala/declaracion-pdf/${encodeURIComponent(String(idAlcabala))}`,
     );
     if (!response.ok) {
-      // Try to extract error message from JSON response
       try {
         const errBody = await response.json();
         console.error('[declaracion-pdf] Backend error:', errBody);
@@ -55,8 +53,7 @@ export async function getDeclaracionPdfBase64Action(idAlcabala: number): Promise
       }
       return null;
     }
-    const buffer = Buffer.from(await response.arrayBuffer());
-    return buffer.toString('base64');
+    return await response.text();
   } catch (err) {
     console.error('[declaracion-pdf] Fetch exception:', err);
     return null;
