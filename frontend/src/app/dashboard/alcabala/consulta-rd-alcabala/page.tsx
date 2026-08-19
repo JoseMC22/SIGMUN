@@ -154,90 +154,116 @@ function DetalleRDModal({
     });
   };
 
-  const handlePrint = () => {
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) return;
+  // Genera el HTML del formato de impresión (mismo diseño del antiguo popup,
+  // sin <html>/<head>/<body> porque se inyecta en un contenedor del modal).
+  const buildPrintHtml = () => {
     const groups = detail ? groupDetailRows(detail.data) : [];
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>RD ${row.nomb_val} ${row.num_val}-${row.ano_val}</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 20px; font-size: 12px; }
-          h2 { text-align: center; margin-bottom: 4px; }
-          .header { text-align: center; margin-bottom: 12px; }
-          .header p { margin: 2px 0; }
-          table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-          th, td { border: 1px solid #333; padding: 4px 8px; text-align: left; font-size: 11px; }
-          th { background: #1e3050; color: white; }
-          tr.header-row { background: #f1f5f9; font-weight: bold; }
-          .total { font-weight: bold; text-align: right; margin-top: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h2>Registro de Deuda - Alcabala</h2>
-          <p><strong>${row.nomb_val} ${row.num_val}-${row.ano_val}</strong></p>
-          <p>${detail?.nombre ?? row.nombre}</p>
-        </div>
-        ${groups.map((g) => `
-          <table>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>ID</th>
-                <th>Año / Período</th>
-                <th>Imp. Insoluto</th>
-                <th>Imp. Reajustado</th>
-                <th>Costo Emisión</th>
-                <th>Mora</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr class="header-row">
-                <td>${g.header.row_num}</td>
-                <td>${g.header.id}</td>
-                <td>${g.header.anio}</td>
-                <td>${formatCurrency(g.header.imp_insol)}</td>
-                <td>${formatCurrency(g.header.imp_reaj)}</td>
-                <td>${formatCurrency(g.header.costo_emis)}</td>
-                <td>${formatCurrency(g.header.mora)}</td>
-                <td>${formatCurrency(g.header.total)}</td>
-              </tr>
-              ${g.details.map((d) => `
-              <tr>
-                <td>${d.row_num}</td>
-                <td>${d.id}</td>
-                <td>${d.anno}</td>
-                <td>${formatCurrency(d.imp_insol)}</td>
-                <td>${formatCurrency(d.imp_reaj)}</td>
-                <td>${formatCurrency(d.costo_emis)}</td>
-                <td>${formatCurrency(d.mora)}</td>
-                <td>${formatCurrency(d.total)}</td>
-              </tr>
-              `).join("")}
-            </tbody>
-          </table>
-        `).join("")}
-        <p class="total">Monto Total: ${formatCurrency(row.MontoTotal)}</p>
-      </body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.print();
+    return `
+      <style>
+        h2 { text-align: center; margin-bottom: 4px; }
+        .header { text-align: center; margin-bottom: 12px; }
+        .header p { margin: 2px 0; }
+        table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+        th, td { border: 1px solid #333; padding: 4px 8px; text-align: left; font-size: 11px; }
+        th { background: #1e3050; color: white; }
+        tr.header-row { background: #f1f5f9; font-weight: bold; }
+        .total { font-weight: bold; text-align: right; margin-top: 12px; }
+      </style>
+      <div class="header">
+        <h2>Registro de Deuda - Alcabala</h2>
+        <p><strong>${row.nomb_val} ${row.num_val}-${row.ano_val}</strong></p>
+        <p>${detail?.nombre ?? row.nombre}</p>
+      </div>
+      ${groups.map((g) => `
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>ID</th>
+              <th>Año / Período</th>
+              <th>Imp. Insoluto</th>
+              <th>Imp. Reajustado</th>
+              <th>Costo Emisión</th>
+              <th>Mora</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="header-row">
+              <td>${g.header.row_num}</td>
+              <td>${g.header.id}</td>
+              <td>${g.header.anio}</td>
+              <td>${formatCurrency(g.header.imp_insol)}</td>
+              <td>${formatCurrency(g.header.imp_reaj)}</td>
+              <td>${formatCurrency(g.header.costo_emis)}</td>
+              <td>${formatCurrency(g.header.mora)}</td>
+              <td>${formatCurrency(g.header.total)}</td>
+            </tr>
+            ${g.details.map((d) => `
+            <tr>
+              <td>${d.row_num}</td>
+              <td>${d.id}</td>
+              <td>${d.anno}</td>
+              <td>${formatCurrency(d.imp_insol)}</td>
+              <td>${formatCurrency(d.imp_reaj)}</td>
+              <td>${formatCurrency(d.costo_emis)}</td>
+              <td>${formatCurrency(d.mora)}</td>
+              <td>${formatCurrency(d.total)}</td>
+            </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      `).join("")}
+      <p class="total">Monto Total: ${formatCurrency(row.MontoTotal)}</p>
+    `;
+  };
+
+  const handlePrint = () => {
+    // The @media print CSS isolates #rd-detalle-print via visibility, so
+    // window.print() needs no popup window nor any DOM manipulation.
+    window.print();
   };
 
   const groups = detail ? groupDetailRows(detail.data) : [];
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Detalle RD"
-    >
+    <>
+      {/* ── Print isolation (same pattern as reporte-viewer-modal) ── */}
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden !important;
+          }
+          #rd-detalle-print,
+          #rd-detalle-print * {
+            visibility: visible !important;
+          }
+          #rd-detalle-print {
+            display: block !important;
+            position: absolute !important;
+            inset: 0 !important;
+            width: 100% !important;
+            padding: 20px !important;
+            background: white !important;
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+          }
+        }
+      `}</style>
+
+      {/* ── Print-only content (hidden on screen) ── */}
+      <div
+        id="rd-detalle-print"
+        style={{ display: "none" }}
+        dangerouslySetInnerHTML={{ __html: buildPrintHtml() }}
+      />
+
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Detalle RD"
+      >
       <div className="relative mx-4 w-full max-w-4xl max-h-[85vh] flex flex-col rounded-xl border border-slate-200 bg-white shadow-2xl">
         {/* ── Header ──────────────────────────────────── */}
         <div className="flex items-center justify-between border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-5 py-3 rounded-t-xl">
@@ -395,6 +421,7 @@ function DetalleRDModal({
         </div>
       </div>
     </div>
+    </>
   );
 }
 
@@ -889,6 +916,7 @@ export default function ConsultaRDPage() {
               </button>
               <button
                 type="button"
+                onClick={() => setDetalleRow(row)}
                 className="rounded p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
                 aria-label="Imprimir"
                 title="Imprimir"
