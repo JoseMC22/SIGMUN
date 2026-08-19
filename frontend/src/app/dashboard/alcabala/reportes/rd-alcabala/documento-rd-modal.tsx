@@ -9,33 +9,9 @@ export function DocumentoRDModal({ data, onClose }: DocumentoRDModalProps) {
   const registro = data[0] || {};
 
   const handlePrint = () => {
-    const printContainer = document.getElementById('rd-print-container');
-    if (!printContainer) return;
-
-    // Remember original parent to restore later
-    const originalParent = printContainer.parentElement;
-    const originalNextSibling = printContainer.nextSibling;
-
-    // Move to body so it's the ONLY thing on the page
-    document.body.appendChild(printContainer);
-    printContainer.style.display = 'block';
-
-    const cleanup = () => {
-      printContainer.style.display = 'none';
-      // Move back to original position
-      if (originalNextSibling) {
-        originalParent?.insertBefore(printContainer, originalNextSibling);
-      } else {
-        originalParent?.appendChild(printContainer);
-      }
-    };
-
-    window.addEventListener('afterprint', cleanup, { once: true });
-
+    // The @media print CSS below isolates #rd-print-container via
+    // visibility, so window.print() needs no DOM manipulation at all.
     window.print();
-
-    // Fallback cleanup
-    setTimeout(cleanup, 2000);
   };
 
   // ── Helper: format currency ──
@@ -328,15 +304,21 @@ export function DocumentoRDModal({ data, onClose }: DocumentoRDModalProps) {
 
   return (
     <>
-      {/* ── Print-only styles ── */}
+      {/* ── Print-only styles (same isolation pattern as reporte-viewer-modal) ── */}
       <style>{`
         @media print {
-          body > *:not(#rd-print-container) {
-            display: none !important;
+          body * {
+            visibility: hidden !important;
+          }
+          #rd-print-container,
+          #rd-print-container * {
+            visibility: visible !important;
           }
           #rd-print-container {
-            display: block !important;
+            position: absolute !important;
+            inset: 0 !important;
             width: 100% !important;
+            display: block !important;
             background: white !important;
           }
           #rd-print-container .rd-copia {
