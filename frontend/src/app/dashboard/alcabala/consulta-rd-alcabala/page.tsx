@@ -94,14 +94,83 @@ function groupDetailRows(rows: DetalleRDRow[]): DetailGroup[] {
   return groups;
 }
 
+// ── RD print format (used by the row Imprimir button and the Detalle modal) ──
+function buildRdPrintHtml(
+  row: ConsultaRDRow | null,
+  detail: DetalleRDResult | null,
+): string {
+  if (!row) return "";
+  const groups = detail ? groupDetailRows(detail.data) : [];
+  return `
+    <style>
+      h2 { text-align: center; margin-bottom: 4px; }
+      .header { text-align: center; margin-bottom: 12px; }
+      .header p { margin: 2px 0; }
+      table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+      th, td { border: 1px solid #333; padding: 4px 8px; text-align: left; font-size: 11px; }
+      th { background: #1e3050; color: white; }
+      tr.header-row { background: #f1f5f9; font-weight: bold; }
+      .total { font-weight: bold; text-align: right; margin-top: 12px; }
+    </style>
+    <div class="header">
+      <h2>Registro de Deuda - Alcabala</h2>
+      <p><strong>${row.nomb_val} ${row.num_val}-${row.ano_val}</strong></p>
+      <p>${detail?.nombre ?? row.nombre}</p>
+    </div>
+    ${groups.map((g) => `
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>ID</th>
+            <th>Año / Período</th>
+            <th>Imp. Insoluto</th>
+            <th>Imp. Reajustado</th>
+            <th>Costo Emisión</th>
+            <th>Mora</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="header-row">
+            <td>${g.header.row_num}</td>
+            <td>${g.header.id}</td>
+            <td>${g.header.anio}</td>
+            <td>${formatCurrency(g.header.imp_insol)}</td>
+            <td>${formatCurrency(g.header.imp_reaj)}</td>
+            <td>${formatCurrency(g.header.costo_emis)}</td>
+            <td>${formatCurrency(g.header.mora)}</td>
+            <td>${formatCurrency(g.header.total)}</td>
+          </tr>
+          ${g.details.map((d) => `
+          <tr>
+            <td>${d.row_num}</td>
+            <td>${d.id}</td>
+            <td>${d.anno}</td>
+            <td>${formatCurrency(d.imp_insol)}</td>
+            <td>${formatCurrency(d.imp_reaj)}</td>
+            <td>${formatCurrency(d.costo_emis)}</td>
+            <td>${formatCurrency(d.mora)}</td>
+            <td>${formatCurrency(d.total)}</td>
+          </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    `).join("")}
+    <p class="total">Monto Total: ${formatCurrency(row.MontoTotal)}</p>
+  `;
+}
+
 // ── Detalle RD Modal ──────────────────────────────────────
 
 function DetalleRDModal({
   row,
   onClose,
+  onPrint,
 }: {
   row: ConsultaRDRow;
   onClose: () => void;
+  onPrint?: (row: ConsultaRDRow) => void;
 }) {
   const [detail, setDetail] = useState<DetalleRDResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -154,116 +223,21 @@ function DetalleRDModal({
     });
   };
 
-  // Genera el HTML del formato de impresión (mismo diseño del antiguo popup,
-  // sin <html>/<head>/<body> porque se inyecta en un contenedor del modal).
-  const buildPrintHtml = () => {
-    const groups = detail ? groupDetailRows(detail.data) : [];
-    return `
-      <style>
-        h2 { text-align: center; margin-bottom: 4px; }
-        .header { text-align: center; margin-bottom: 12px; }
-        .header p { margin: 2px 0; }
-        table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-        th, td { border: 1px solid #333; padding: 4px 8px; text-align: left; font-size: 11px; }
-        th { background: #1e3050; color: white; }
-        tr.header-row { background: #f1f5f9; font-weight: bold; }
-        .total { font-weight: bold; text-align: right; margin-top: 12px; }
-      </style>
-      <div class="header">
-        <h2>Registro de Deuda - Alcabala</h2>
-        <p><strong>${row.nomb_val} ${row.num_val}-${row.ano_val}</strong></p>
-        <p>${detail?.nombre ?? row.nombre}</p>
-      </div>
-      ${groups.map((g) => `
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>ID</th>
-              <th>Año / Período</th>
-              <th>Imp. Insoluto</th>
-              <th>Imp. Reajustado</th>
-              <th>Costo Emisión</th>
-              <th>Mora</th>
-              <th>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr class="header-row">
-              <td>${g.header.row_num}</td>
-              <td>${g.header.id}</td>
-              <td>${g.header.anio}</td>
-              <td>${formatCurrency(g.header.imp_insol)}</td>
-              <td>${formatCurrency(g.header.imp_reaj)}</td>
-              <td>${formatCurrency(g.header.costo_emis)}</td>
-              <td>${formatCurrency(g.header.mora)}</td>
-              <td>${formatCurrency(g.header.total)}</td>
-            </tr>
-            ${g.details.map((d) => `
-            <tr>
-              <td>${d.row_num}</td>
-              <td>${d.id}</td>
-              <td>${d.anno}</td>
-              <td>${formatCurrency(d.imp_insol)}</td>
-              <td>${formatCurrency(d.imp_reaj)}</td>
-              <td>${formatCurrency(d.costo_emis)}</td>
-              <td>${formatCurrency(d.mora)}</td>
-              <td>${formatCurrency(d.total)}</td>
-            </tr>
-            `).join("")}
-          </tbody>
-        </table>
-      `).join("")}
-      <p class="total">Monto Total: ${formatCurrency(row.MontoTotal)}</p>
-    `;
-  };
-
+  // The Detalle modal reuses the page-level print pipeline (onPrint) so there
+  // is a single #rd-detalle-print container owned by the page.
   const handlePrint = () => {
-    // The @media print CSS isolates #rd-detalle-print via visibility, so
-    // window.print() needs no popup window nor any DOM manipulation.
-    window.print();
+    onPrint?.(row);
   };
 
   const groups = detail ? groupDetailRows(detail.data) : [];
 
-  return (
-    <>
-      {/* ── Print isolation (same pattern as reporte-viewer-modal) ── */}
-      <style>{`
-        @media print {
-          body * {
-            visibility: hidden !important;
-          }
-          #rd-detalle-print,
-          #rd-detalle-print * {
-            visibility: visible !important;
-          }
-          #rd-detalle-print {
-            display: block !important;
-            position: absolute !important;
-            inset: 0 !important;
-            width: 100% !important;
-            padding: 20px !important;
-            background: white !important;
-            font-family: Arial, sans-serif;
-            font-size: 12px;
-          }
-        }
-      `}</style>
-
-      {/* ── Print-only content (hidden on screen) ── */}
-      <div
-        id="rd-detalle-print"
-        style={{ display: "none" }}
-        dangerouslySetInnerHTML={{ __html: buildPrintHtml() }}
-      />
-
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Detalle RD"
-      >
+return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Detalle RD"
+    >
       <div className="relative mx-4 w-full max-w-4xl max-h-[85vh] flex flex-col rounded-xl border border-slate-200 bg-white shadow-2xl">
         {/* ── Header ──────────────────────────────────── */}
         <div className="flex items-center justify-between border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-5 py-3 rounded-t-xl">
@@ -421,7 +395,6 @@ function DetalleRDModal({
         </div>
       </div>
     </div>
-    </>
   );
 }
 
@@ -683,6 +656,34 @@ export default function ConsultaRDPage() {
   // ── Ruta modal ─────────────────────────────────────────
   const [rutaRow, setRutaRow] = useState<ConsultaRDRow | null>(null);
 
+  // ── RD print (single source of truth: owned by the page) ──
+  const [printRow, setPrintRow] = useState<ConsultaRDRow | null>(null);
+  const [printDetail, setPrintDetail] = useState<DetalleRDResult | null>(null);
+
+  const handlePrintRow = useCallback(async (row: ConsultaRDRow) => {
+    try {
+      const result = await getDetailConsultaRDAction({
+        num_val: row.num_val,
+        ano_val: String(row.ano_val),
+        nombre: row.nombre,
+        nomb_val: row.nomb_val,
+      });
+      if (result.success) {
+        setPrintRow(row);
+        setPrintDetail(result);
+        // Wait two frames so the #rd-detalle-print container re-renders
+        // with the fetched detail before the print dialog opens.
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => window.print()),
+        );
+      } else {
+        alert(result.error ?? "Error al cargar el detalle para imprimir");
+      }
+    } catch {
+      alert("Error de conexión al imprimir");
+    }
+  }, []);
+
   // ── Helpers ──────────────────────────────────────────────
 
 
@@ -916,8 +917,8 @@ export default function ConsultaRDPage() {
               </button>
               <button
                 type="button"
-                onClick={() => setDetalleRow(row)}
-                className="rounded p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                onClick={() => handlePrintRow(row)}
+                className="rounded p-1 text-slate-400 transition hover:bg-sat-cyan/10 hover:text-sat-cyan"
                 aria-label="Imprimir"
                 title="Imprimir"
               >
@@ -1199,6 +1200,7 @@ export default function ConsultaRDPage() {
         <DetalleRDModal
           row={detalleRow}
           onClose={() => setDetalleRow(null)}
+          onPrint={handlePrintRow}
         />
       )}
 
@@ -1209,6 +1211,34 @@ export default function ConsultaRDPage() {
           onClose={() => setRutaRow(null)}
         />
       )}
+
+      {/* ── RD print container (hidden on screen, isolated on print) ── */}
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden !important;
+          }
+          #rd-detalle-print,
+          #rd-detalle-print * {
+            visibility: visible !important;
+          }
+          #rd-detalle-print {
+            display: block !important;
+            position: absolute !important;
+            inset: 0 !important;
+            width: 100% !important;
+            padding: 20px !important;
+            background: white !important;
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+          }
+        }
+      `}</style>
+      <div
+        id="rd-detalle-print"
+        style={{ display: "none" }}
+        dangerouslySetInnerHTML={{ __html: buildRdPrintHtml(printRow, printDetail) }}
+      />
     </div>
   );
 }
