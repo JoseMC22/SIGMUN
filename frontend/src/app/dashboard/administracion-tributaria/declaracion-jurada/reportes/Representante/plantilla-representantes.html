@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Reporte de Representantes</title>
+    <link rel="stylesheet" href="./estilos-representantes.css">
+</head>
+<body>
+    <div class="titulo">
+        <h4>Reporte de Representantes</h4>
+        <p>Fecha: <span>{{fecha}}</span></p>
+    </div>
+
+    <div class="datos-contribuyente">
+        <h5>Datos Contribuyente:</h5>
+        <div class="info-contribuyente">
+            <span class="label">CÓDIGO:</span> <span class="value">{{codigo}}</span>
+            <span class="label">NOMBRE:</span> <span class="value">{{nombre}}</span>
+            <span class="label">N° DOCUMENTO:</span> <span class="value">{{numDoc}}</span>
+            <span class="label">DIRECCIÓN:</span> <span class="value">{{direccion}}</span>
+        </div>
+    </div>
+
+    <div class="tabla-representantes">
+        <h5>Datos Representante</h5>
+        <table>
+            <thead>
+                <tr>
+                    <th>Tipo Repre</th>
+                    <th>Nombre</th>
+                    <th>Tipo Doc.</th>
+                    <th>N° Doc.</th>
+                    <th>Dirección</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{filas}}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

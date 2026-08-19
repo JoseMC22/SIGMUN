@@ -21,7 +21,7 @@ interface Props {
   onSuccess: () => void;
 }
 
-function formatInput(n: number | null): string {
+function formatInput(n: number | null | undefined): string {
   if (n === null || n === undefined) return "";
   return n.toString();
 }

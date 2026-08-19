@@ -85,6 +85,13 @@ export async function searchPrediosUsoAction(
 
 // ── Detalle de predio por uso (@BUSC=9) ─────────────────────
 
+export interface DetallePredioUsoParams {
+  codigo?: string;
+  anno: number;
+  id_uso: string;
+  flag: string;
+}
+
 export async function getDetallePredioUsoAction(params: DetallePredioUsoParams) {
   try {
     const response = await authFetch('/reportes-gerenciales/predios-uso/detail', {
@@ -105,6 +112,11 @@ export async function getDetallePredioUsoAction(params: DetallePredioUsoParams) 
 }
 
 // ── Opciones de Uso (combo) ─────────────────────────────────
+
+export interface UsoOption {
+  id_uso: string;
+  descripcion: string;
+}
 
 export async function getUsoOptionsAction() {
   try {

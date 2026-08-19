@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { X, Search, Loader2, User, UserPlus, MapPin, Monitor, Home } from "lucide-react";
 import {
   getTiposDocumentoAction,
@@ -11,9 +11,11 @@ import {
   getTiposEdificacionAction,
   getTiposIngresoAction,
   getTiposAgrupamientoAction,
-  buscarContribuyentePorDocAction,
   validarRepresentanteAction,
+  validarRepresentantePorCodigoAction,
   guardarContribuyenteAction,
+  obtenerContribuyentePorCodigoAction,
+  vincularRepresentanteAction,
   type TipoDocumentoOption,
   type TipoContribuyenteOption,
   type SubTipoContribuyenteOption,
@@ -22,6 +24,7 @@ import {
 import { getStoredUser } from "@/lib/api";
 import { checkSessionAction } from "@/actions/auth/auth";
 import ViaBusquedaModal from "./via-busqueda-modal";
+import RepresentanteFormModal from "./representante-form-modal";
 import type { MviaItem } from "@/actions/administracion-tributaria/declaracion-jurada";
 
 // ─── Types ─────────────────────────────────────────────────
@@ -29,86 +32,17 @@ import type { MviaItem } from "@/actions/administracion-tributaria/declaracion-j
 interface Props {
   isOpen: boolean;
   onClose: () => void;
+  /** Código del contribuyente a editar (sp_Mcontribuyente @busc=4). Si viene, el modal se precarga. */
+  codigoInicial?: string;
 }
 
 type TabKey = "contribuyente" | "domicilio-fiscal";
 
-interface RepresentanteForm {
-  nombreRazon: string;
-  paterno: string;
-  materno: string;
-  documento: string;
-  numero: string;
-  codigoRepresentante: string;
-  tipoRepresentante: string;
-  // Domicilio fiscal
-  distrito: string;
-  zonaCod: string;
-  zonaNom: string;
-  urbCod: string;
-  urbNom: string;
-  viaCod: string;
-  viaNom: string;
-  mz: string;
-  lote: string;
-  subLote: string;
-  numDomicilio: string;
-  dpto: string;
-  letra1: string;
-  numero2: string;
-  letra2: string;
-  piso: string;
-  tipoInterior: string;
-  numInterior: string;
-  letraInterior: string;
-  tipoEdificacion: string;
-  nombreEdificacion: string;
-  tipoIngreso: string;
-  nombreIngreso: string;
-  tipoAgrupamiento: string;
-  nombreAgrupamiento: string;
-  referencia: string;
-}
-
-const emptyRepresentante: RepresentanteForm = {
-  nombreRazon: "",
-  paterno: "",
-  materno: "",
-  documento: "",
-  numero: "",
-  codigoRepresentante: "",
-  tipoRepresentante: "",
-  distrito: "",
-  zonaCod: "",
-  zonaNom: "",
-  urbCod: "",
-  urbNom: "",
-  viaCod: "",
-  viaNom: "",
-  mz: "",
-  lote: "",
-  subLote: "",
-  numDomicilio: "",
-  dpto: "",
-  letra1: "",
-  numero2: "",
-  letra2: "",
-  piso: "",
-  tipoInterior: "",
-  numInterior: "",
-  letraInterior: "",
-  tipoEdificacion: "",
-  nombreEdificacion: "",
-  tipoIngreso: "",
-  nombreIngreso: "",
-  tipoAgrupamiento: "",
-  nombreAgrupamiento: "",
-  referencia: "",
-};
-
 interface FormData {
   // ── Datos personales ──
   codigo: string;
+  // Estado del contribuyente (1 activo). En modo edición se conserva el valor del SP.
+  nestado: string;
   nombreRazon: string;
   paterno: string;
   materno: string;
@@ -157,6 +91,7 @@ interface FormData {
 
 const emptyForm: FormData = {
   codigo: "",
+  nestado: "1",
   nombreRazon: "",
   paterno: "",
   materno: "",
@@ -200,6 +135,15 @@ const emptyForm: FormData = {
   fechaOperacion: "",
 };
 
+// ─── Helpers ──────────────────────────────────────────────
+// El SP devuelve las fechas como DD/MM/YYYY; los input type="date" requieren YYYY-MM-DD.
+const toInputDate = (value: string | undefined): string => {
+  if (!value || !value.trim()) return "";
+  const match = value.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!match) return value;
+  return `${match[3]}-${match[2]}-${match[1]}`;
+};
+
 // ─── Style tokens ──────────────────────────────────────────
 
 const inputClass =
@@ -230,411 +174,10 @@ function FieldGroup({
   );
 }
 
-// ─── Representante Modal ───────────────────────────────────
-
-function RepresentanteModal({
-  isOpen,
-  onClose,
-  form,
-  onChange,
-  tiposDoc,
-  tiposContri,
-  distritos,
-  tiposInterior,
-  tiposEdificacion,
-  tiposIngreso,
-  tiposAgrupamiento,
-  combosLoading,
-  onGrabar,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  form: RepresentanteForm;
-  onChange: (field: keyof RepresentanteForm, value: string) => void;
-  tiposDoc: TipoDocumentoOption[];
-  tiposContri: TipoContribuyenteOption[];
-  distritos: DistritoOption[];
-  tiposInterior: { value: string; label: string }[];
-  tiposEdificacion: { value: string; label: string }[];
-  tiposIngreso: { value: string; label: string }[];
-  tiposAgrupamiento: { value: string; label: string }[];
-  combosLoading: boolean;
-  onGrabar: () => void;
-}) {
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [searchMessage, setSearchMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
-  const [viaModalOpen, setViaModalOpen] = useState(false);
-
-  const handleViaSelect = (via: MviaItem) => {
-    onChange("viaCod", via.codVia);
-    onChange("viaNom", via.via);
-    onChange("zonaCod", via.idZona);
-    onChange("zonaNom", via.zona);
-    onChange("urbCod", via.idUrba);
-    onChange("urbNom", via.urbanizacion);
-  };
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    },
-    [onClose],
-  );
-
-  const buscarContribuyente = async () => {
-    const numero = form.numero.trim();
-    if (!numero) {
-      setSearchMessage({ type: "error", text: "Ingrese un número de documento." });
-      return;
-    }
-
-    setSearchLoading(true);
-    setSearchMessage(null);
-
-    try {
-      const res = await buscarContribuyentePorDocAction(numero);
-      if (!res.success) {
-        setSearchMessage({ type: "error", text: res.error });
-        return;
-      }
-      if (res.data.encontrado) {
-        onChange("codigoRepresentante", res.data.codigo);
-        onChange("nombreRazon", res.data.nombres.toUpperCase());
-        onChange("paterno", res.data.paterno.toUpperCase());
-        onChange("materno", res.data.materno.toUpperCase());
-        if (res.data.codigo) onChange("numero", res.data.num_doc);
-        setSearchMessage({ type: "success", text: "Contribuyente encontrado correctamente." });
-      } else {
-        setSearchMessage({ type: "error", text: "El Dni no se encuentra registrado en nuestra base de datos." });
-      }
-    } catch {
-      setSearchMessage({ type: "error", text: "Error al consultar el servicio. Intente nuevamente." });
-    } finally {
-      setSearchLoading(false);
-    }
-  };
-
-  if (!isOpen) return null;
-
-  const repInputClass =
-    "w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] text-slate-700 placeholder-slate-400 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none disabled:bg-slate-50 disabled:text-slate-400";
-  const repLabelClass =
-    "block text-[9px] font-semibold text-slate-400 uppercase tracking-wider mb-px leading-none";
-
-  return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-      onKeyDown={handleKeyDown}
-      tabIndex={-1}
-    >
-      <div className="relative flex max-h-[85vh] w-full max-w-xl flex-col rounded-xl border border-slate-200 bg-white shadow-2xl">
-        {/* ── Header ── */}
-        <div className="flex items-center justify-between rounded-t-xl bg-gradient-to-r from-sat-navy via-[#1b2b4a] to-slate-800 px-4 py-2 shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="h-3.5 w-0.5 rounded-full bg-sat-cyan" />
-            <h2 className="font-outfit text-sm font-bold tracking-tight text-white">
-              Agregar Representante
-            </h2>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md p-1 text-white/60 transition hover:bg-white/10 hover:text-white"
-            aria-label="Cerrar"
-          >
-            <X size={16} />
-          </button>
-        </div>
-
-        {/* ── Body ── */}
-        <div className="overflow-y-auto px-4 py-2.5 space-y-2.5">
-          {/* ══ Datos personales ══ */}
-          <FieldGroup title="Datos personales" icon={<User size={13} />}>
-              {/* Tipo de Representante */}
-              <div>
-                <label htmlFor="r-tipo" className={repLabelClass}>
-                  Tipo de Representante
-                </label>
-                <select
-                  id="r-tipo"
-                  value={form.tipoRepresentante}
-                  onChange={(e) => onChange("tipoRepresentante", e.target.value)}
-                  className={repInputClass}
-                  disabled={combosLoading}
-                >
-                  <option value="">Seleccionar...</option>
-                  {tiposContri.map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Código del representante (hidden) — se llena con la lupa "Buscar Contribuyente" */}
-              <input
-                type="hidden"
-                name="txtcodrepre"
-                id="txtcodrepre"
-                value={form.codigoRepresentante}
-              />
-          </FieldGroup>
-
-          {/* ══ Domicilio fiscal ══ */}
-          <FieldGroup title="Domicilio fiscal" icon={<MapPin size={13} />}>
-              {/* Distrito */}
-              <div>
-                <label htmlFor="r-distrito" className={repLabelClass}>
-                  Distrito
-                </label>
-                <div className="flex items-center gap-1.5">
-                  <select
-                    id="r-distrito"
-                    value={form.distrito}
-                    onChange={(e) => onChange("distrito", e.target.value)}
-                    className={repInputClass}
-                    disabled={combosLoading}
-                  >
-                    <option value="">Seleccionar...</option>
-                    {distritos.map((d) => (
-                      <option key={d.value} value={d.value}>
-                        {d.label}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => setViaModalOpen(true)}
-                    className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-sat-amber bg-white px-3 py-1.5 text-xs font-medium text-sat-amber transition hover:bg-sat-amber/5 focus:outline-none focus:ring-2 focus:ring-sat-amber/40 active:scale-[0.98]"
-                  >
-                    <Search size={13} />
-                    Búsqueda
-                  </button>
-                </div>
-              </div>
-
-              {/* Zona */}
-              <div>
-                <label className={repLabelClass}>Zona</label>
-                <div className="grid grid-cols-[110px_1fr] gap-1.5">
-                  <input
-                    type="text"
-                    value={form.zonaCod}
-                    readOnly
-                    placeholder="Código"
-                    className={`${repInputClass} bg-slate-100 cursor-not-allowed`}
-                  />
-                  <input
-                    type="text"
-                    value={form.zonaNom}
-                    readOnly
-                    placeholder="Nombre"
-                    className={`${repInputClass} bg-slate-100 cursor-not-allowed`}
-                  />
-                </div>
-              </div>
-
-              {/* Urbanización */}
-              <div>
-                <label className={repLabelClass}>Urbanización</label>
-                <div className="grid grid-cols-[110px_1fr] gap-1.5">
-                  <input
-                    type="text"
-                    value={form.urbCod}
-                    readOnly
-                    placeholder="Código"
-                    className={`${repInputClass} bg-slate-100 cursor-not-allowed`}
-                  />
-                  <input
-                    type="text"
-                    value={form.urbNom}
-                    readOnly
-                    placeholder="Nombre"
-                    className={`${repInputClass} bg-slate-100 cursor-not-allowed`}
-                  />
-                </div>
-              </div>
-
-              {/* Vía */}
-              <div>
-                <label className={repLabelClass}>Vía</label>
-                <div className="grid grid-cols-[110px_1fr] gap-1.5">
-                  <input
-                    type="text"
-                    value={form.viaCod}
-                    readOnly
-                    placeholder="Código"
-                    className={`${repInputClass} bg-slate-100 cursor-not-allowed`}
-                  />
-                  <input
-                    type="text"
-                    value={form.viaNom}
-                    readOnly
-                    placeholder="Nombre"
-                    className={`${repInputClass} bg-slate-100 cursor-not-allowed`}
-                  />
-                </div>
-              </div>
-
-              {/* Mz + Lote + Sub Lote + Número + Dpto */}
-              <div className="grid grid-cols-5 gap-1.5">
-                <div>
-                  <label className={repLabelClass}>Mz</label>
-                  <input type="text" value={form.mz} onChange={(e) => onChange("mz", e.target.value.toUpperCase())} maxLength={12} placeholder="Mz" className={repInputClass} />
-                </div>
-                <div>
-                  <label className={repLabelClass}>Lote</label>
-                  <input type="text" value={form.lote} onChange={(e) => onChange("lote", e.target.value.toUpperCase())} maxLength={12} placeholder="Lote" className={repInputClass} />
-                </div>
-                <div>
-                  <label className={repLabelClass}>Sub Lote</label>
-                  <input type="text" value={form.subLote} onChange={(e) => onChange("subLote", e.target.value.toUpperCase())} maxLength={12} placeholder="Sub Lote" className={repInputClass} />
-                </div>
-                <div>
-                  <label className={repLabelClass}>Número</label>
-                  <input type="text" value={form.numDomicilio} onChange={(e) => onChange("numDomicilio", e.target.value.toUpperCase())} maxLength={12} placeholder="Número" className={repInputClass} />
-                </div>
-                <div>
-                  <label className={repLabelClass}>Dpto</label>
-                  <input type="text" value={form.dpto} onChange={(e) => onChange("dpto", e.target.value.toUpperCase())} maxLength={12} placeholder="Dpto" className={repInputClass} />
-                </div>
-              </div>
-
-              {/* Letra 1 + Num 2 + Letra 2 + Piso */}
-              <div className="grid grid-cols-4 gap-1.5">
-                <div>
-                  <label className={repLabelClass}>Letra 1</label>
-                  <input type="text" value={form.letra1} onChange={(e) => onChange("letra1", e.target.value.toUpperCase())} maxLength={10} placeholder="Letra 1" className={repInputClass} />
-                </div>
-                <div>
-                  <label className={repLabelClass}>Num 2</label>
-                  <input type="text" value={form.numero2} onChange={(e) => onChange("numero2", e.target.value.toUpperCase())} maxLength={10} placeholder="Num 2" className={repInputClass} />
-                </div>
-                <div>
-                  <label className={repLabelClass}>Letra 2</label>
-                  <input type="text" value={form.letra2} onChange={(e) => onChange("letra2", e.target.value.toUpperCase())} maxLength={10} placeholder="Letra 2" className={repInputClass} />
-                </div>
-                <div>
-                  <label className={repLabelClass}>Piso</label>
-                  <input type="text" value={form.piso} onChange={(e) => onChange("piso", e.target.value.toUpperCase())} maxLength={10} placeholder="Piso" className={repInputClass} />
-                </div>
-              </div>
-
-              {/* Tipo Interior + Num + Letra */}
-              <div className="grid grid-cols-[1fr_1fr_1fr] gap-1.5">
-                <div>
-                  <label className={repLabelClass}>Tipo de Interior</label>
-                  <select value={form.tipoInterior} onChange={(e) => onChange("tipoInterior", e.target.value)} className={repInputClass}>
-                    <option value="">Seleccionar...</option>
-                    {tiposInterior.map((t) => (
-                      <option key={t.value} value={t.value}>{t.label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className={repLabelClass}>Num Interior</label>
-                  <input type="text" value={form.numInterior} onChange={(e) => onChange("numInterior", e.target.value.toUpperCase())} maxLength={10} placeholder="Num" className={repInputClass} />
-                </div>
-                <div>
-                  <label className={repLabelClass}>Letra Interior</label>
-                  <input type="text" value={form.letraInterior} onChange={(e) => onChange("letraInterior", e.target.value.toUpperCase())} maxLength={10} placeholder="Letra" className={repInputClass} />
-                </div>
-              </div>
-
-              {/* Tipo Edificación + Nombre Edificación */}
-              <div className="grid grid-cols-[1fr_2fr] gap-1.5">
-                <div>
-                  <label className={repLabelClass}>Tipo de Edificación</label>
-                  <select value={form.tipoEdificacion} onChange={(e) => onChange("tipoEdificacion", e.target.value)} className={repInputClass}>
-                    <option value="">Seleccionar...</option>
-                    {tiposEdificacion.map((t) => (
-                      <option key={t.value} value={t.value}>{t.label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className={repLabelClass}>Nombre de Edificación</label>
-                  <input type="text" value={form.nombreEdificacion} onChange={(e) => onChange("nombreEdificacion", e.target.value.toUpperCase())} placeholder="Nombre de edificación" className={repInputClass} />
-                </div>
-              </div>
-
-              {/* Tipo Ingreso + Nombre Ingreso */}
-              <div className="grid grid-cols-[1fr_2fr] gap-1.5">
-                <div>
-                  <label className={repLabelClass}>Tipo de Ingreso</label>
-                  <select value={form.tipoIngreso} onChange={(e) => onChange("tipoIngreso", e.target.value)} className={repInputClass}>
-                    <option value="">Seleccionar...</option>
-                    {tiposIngreso.map((t) => (
-                      <option key={t.value} value={t.value}>{t.label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className={repLabelClass}>Nombre de Ingreso</label>
-                  <input type="text" value={form.nombreIngreso} onChange={(e) => onChange("nombreIngreso", e.target.value.toUpperCase())} placeholder="Nombre de ingreso" className={repInputClass} />
-                </div>
-              </div>
-
-              {/* Tipo Agrupamiento + Nombre Agrupamiento */}
-              <div className="grid grid-cols-[1fr_2fr] gap-1.5">
-                <div>
-                  <label className={repLabelClass}>Tipo de Agrupamiento</label>
-                  <select value={form.tipoAgrupamiento} onChange={(e) => onChange("tipoAgrupamiento", e.target.value)} className={repInputClass}>
-                    <option value="">Seleccionar...</option>
-                    {tiposAgrupamiento.map((t) => (
-                      <option key={t.value} value={t.value}>{t.label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className={repLabelClass}>Nombre de Agrupamiento</label>
-                  <input type="text" value={form.nombreAgrupamiento} onChange={(e) => onChange("nombreAgrupamiento", e.target.value.toUpperCase())} placeholder="Nombre de agrupamiento" className={repInputClass} />
-                </div>
-              </div>
-
-              {/* Referencia */}
-              <div>
-                <label className={repLabelClass}>Referencia</label>
-                <input type="text" value={form.referencia} onChange={(e) => onChange("referencia", e.target.value.toUpperCase())} maxLength={400} placeholder="Referencia" className={repInputClass} />
-              </div>
-          </FieldGroup>
-        </div>
-
-        {/* ── Footer ── */}
-        <div className="flex items-center justify-end gap-2 border-t border-slate-100 px-4 py-2 shrink-0">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md border border-slate-200 bg-white px-4 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-sat-cyan/30"
-          >
-            Cerrar Formulario
-          </button>
-          <button
-            type="button"
-            onClick={onGrabar}
-            className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-4 py-1.5 text-xs font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
-          >
-            Grabar Datos
-          </button>
-        </div>
-      </div>
-
-      {/* ── Modal de búsqueda de vías (Representante) ── */}
-      <ViaBusquedaModal
-        isOpen={viaModalOpen}
-        onClose={() => setViaModalOpen(false)}
-        onSelect={handleViaSelect}
-      />
-    </div>
-  );
-}
-
 // ─── Component ─────────────────────────────────────────────
 
-export default function ContribuyenteModal({ isOpen, onClose }: Props) {
+export default function ContribuyenteModal({ isOpen, onClose, codigoInicial }: Props) {
+  const esModoEdicion = !!codigoInicial && codigoInicial.trim().length > 0;
   const [tab, setTab] = useState<TabKey>("contribuyente");
   const [form, setForm] = useState<FormData>(emptyForm);
 
@@ -661,7 +204,11 @@ export default function ContribuyenteModal({ isOpen, onClose }: Props) {
 
   // ── Representante modal state ──
   const [representanteModalOpen, setRepresentanteModalOpen] = useState(false);
-  const [representante, setRepresentante] = useState<RepresentanteForm>(emptyRepresentante);
+  // Id del representante creado antes de grabar el contribuyente (flujo obligatorio).
+  const [idRepresentante, setIdRepresentante] = useState<string | null>(null);
+
+  // ── Modo edición state ──
+  const [edicionCargando, setEdicionCargando] = useState(false);
 
   // ── Guardar contribuyente state ──
   const [guardando, setGuardando] = useState(false);
@@ -678,9 +225,67 @@ export default function ContribuyenteModal({ isOpen, onClose }: Props) {
     setSearchMessage(null);
     setSearchLoading(false);
     setRepresentanteModalOpen(false);
-    setRepresentante(emptyRepresentante);
+    setIdRepresentante(null);
 
     let cancelled = false;
+
+    // ── Modo edición: precargar datos del contribuyente (sp_Mcontribuyente @busc=4) ──
+    if (esModoEdicion && codigoInicial) {
+      setEdicionCargando(true);
+      obtenerContribuyentePorCodigoAction(codigoInicial.trim()).then((res) => {
+        if (cancelled) return;
+        setEdicionCargando(false);
+        if (!res.success) {
+          setGuardarError(res.error);
+          return;
+        }
+        const c = res.data;
+        setForm((prev) => ({
+          ...prev,
+          codigo: c.codigo,
+          nestado: c.nestado,
+          nombreRazon: c.nombres,
+          paterno: c.paterno,
+          materno: c.materno,
+          documento: c.idDocu,
+          numero: c.numDoc,
+          tipoContri: c.tipoContri,
+          subTipoContri: c.subTipoContri,
+          partidaDefuncion: c.partidaDefuncion,
+          fechaDefuncion: toInputDate(c.fechaDefuncion),
+          correo: c.correo,
+          telefono: c.telefono1,
+          anexo: c.anexo1,
+          distrito: c.idDist,
+          zonaCod: c.idZona,
+          zonaNom: c.nomZona,
+          urbCod: c.idUrba,
+          urbNom: c.nomUrba,
+          viaCod: c.idVia,
+          viaNom: c.nomVia,
+          mz: c.manzana,
+          lote: c.lote,
+          subLote: c.subLote,
+          numDomicilio: c.numero,
+          dpto: c.departam,
+          letra1: c.letra1,
+          numero2: c.numero2,
+          letra2: c.letra2,
+          piso: c.piso,
+          tipoInterior: c.tipoInteriorId,
+          numInterior: c.numeroInterno,
+          letraInterior: c.letraInterno,
+          tipoEdificacion: c.tipoEdificacionId,
+          nombreEdificacion: c.nombreEdificio,
+          tipoIngreso: c.tipoIngresoId,
+          nombreIngreso: c.nombreIngreso,
+          tipoAgrupamiento: c.tipoAgrupamientoId,
+          nombreAgrupamiento: c.nombreAgrupamiento,
+          referencia: c.referencia,
+        }));
+      });
+    }
+
     setCombosLoading(true);
 
     Promise.all([
@@ -697,9 +302,11 @@ export default function ContribuyenteModal({ isOpen, onClose }: Props) {
       if (contriRes.success) setTiposContri(contriRes.data);
       if (distRes.success) {
         setDistritos(distRes.data);
-        // Seleccionar ICA por defecto
-        const icaOption = distRes.data.find((d) => d.label.toUpperCase() === "ICA");
-        if (icaOption) setForm((prev) => ({ ...prev, distrito: icaOption.value }));
+        // Seleccionar ICA por defecto solo en modo nuevo (no pisar el distrito del SP en edición)
+        if (!esModoEdicion) {
+          const icaOption = distRes.data.find((d) => d.label.toUpperCase() === "ICA");
+          if (icaOption) setForm((prev) => ({ ...prev, distrito: icaOption.value }));
+        }
       }
       if (interiorRes.success) setTiposInterior(interiorRes.data);
       if (edifRes.success) setTiposEdificacion(edifRes.data);
@@ -756,10 +363,20 @@ export default function ContribuyenteModal({ isOpen, onClose }: Props) {
   // ── Keyboard ──
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        // Solo cerrar este modal activo; no propagar a modales padres (si existieran).
+        e.stopPropagation();
+        onClose();
+      }
     },
     [onClose],
   );
+
+  // ── Foco: al abrirse, este modal toma el foco para que Escape cierre SOLO este modal ──
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (isOpen) rootRef.current?.focus();
+  }, [isOpen]);
 
   const handleChange = (field: keyof FormData, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -834,89 +451,6 @@ export default function ContribuyenteModal({ isOpen, onClose }: Props) {
   // ── Mostrar campos de defunción: tipo=01 y subtipo=02 ──
   const showDefuncion = form.tipoContri === "01" && form.subTipoContri === "02";
 
-  // ── Handlers del representante ──
-  const handleRepresentanteChange = (field: keyof RepresentanteForm, value: string) => {
-    setRepresentante((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const grabarRepresentante = async () => {
-    const r = representante;
-    const esEdicion = !!r.codigoRepresentante && r.codigoRepresentante.trim().length > 0;
-    const motivo = `Acción - ${esEdicion ? "Actualización" : "Ingreso"} Representante - Operador ${form.operador} - Estación : ${form.estacion}`;
-
-    const esICA = r.distrito === "012";
-    const cvia = esICA ? r.viaCod : "";
-    const nvia = r.viaNom;
-    const tvia = esICA ? "" : r.viaCod;
-    const curba = esICA ? r.urbCod : "";
-    const nurba = r.urbNom;
-    const turba = esICA ? "" : r.urbCod;
-
-    const payload = {
-      codigo: r.codigoRepresentante ?? "",
-      id_docu: r.documento ?? "",
-      num_doc: r.numero ?? "",
-      nombres: r.nombreRazon ?? "",
-      paterno: r.paterno ?? "",
-      materno: r.materno ?? "",
-      id_dist: r.distrito ?? "",
-      tipourb: turba,
-      des_urb: nurba,
-      tipovia: tvia,
-      des_via: nvia,
-      id_zona: r.zonaCod ?? "",
-      id_urba: curba,
-      id_via: cvia,
-      referencia: r.referencia ?? "",
-      manzana: r.mz ?? "",
-      lote: r.lote ?? "",
-      sub_lote: r.subLote ?? "",
-      numero: r.numDomicilio ?? "",
-      departam: r.dpto ?? "",
-      nestado: "",
-      motivo,
-      operador: form.operador ?? "",
-      estacion: form.estacion ?? "",
-      id_tipocontri: r.tipoRepresentante ?? "",
-      id_subtipocontri: "",
-      id_motivo_actualizacion: "",
-      tipo_interior_id: r.tipoInterior ?? "",
-      tipo_edificio_id: r.tipoEdificacion ?? "",
-      tipo_ingreso_id: r.tipoIngreso ?? "",
-      tipo_agrupamiento_id: r.tipoAgrupamiento ?? "",
-      letra1: r.letra1 ?? "",
-      letra2: r.letra2 ?? "",
-      numero2: r.numero2 ?? "",
-      nombre_ingreso: r.nombreIngreso ?? "",
-      nombre_agrupamiento: r.nombreAgrupamiento ?? "",
-      nombre_edificio: r.nombreEdificacion ?? "",
-      piso: r.piso ?? "",
-      numero_interno: r.numInterior ?? "",
-      letra_interno: r.letraInterior ?? "",
-      correo_e: "",
-      partida_defuncion: "",
-      fecha_defuncion: "",
-      telefono1: "",
-      anexo1: "",
-      telefono2: "",
-      anexo2: "",
-      flag_notificar: "",
-      idperfil: "",
-    };
-
-    try {
-      const res = await guardarContribuyenteAction(payload);
-      if (!res.success) {
-        alert(res.error);
-        return;
-      }
-      alert(res.data.mensaje || "Representante guardado correctamente.");
-      setRepresentanteModalOpen(false);
-    } catch {
-      alert("Error al guardar el representante. Intente nuevamente.");
-    }
-  };
-
   // ── Guardar contribuyente (botón Grabar) ──
   const handleGrabar = async () => {
     setGuardarError(null);
@@ -942,6 +476,16 @@ export default function ContribuyenteModal({ isOpen, onClose }: Props) {
 
     setCamposInvalidos(new Set());
 
+    // 1b) Requisito de negocio: tipo de contribuyente distinto de "01" requiere
+    // representante. Para un contribuyente NUEVO sin representante creado en esta
+    // sesión, se obliga a crear el representante primero (flujo legacy: crea el
+    // representante con sp_Mrepresentante @busc=1 y luego vincula con @busc=13).
+    if (form.tipoContri !== "01" && !esModoEdicion && !idRepresentante) {
+      setRepresentanteModalOpen(true);
+      setGuardarError("Debe registrar un representante antes de grabar el contribuyente.");
+      return;
+    }
+
     // 2) Validar si requiere representante — exec @busc=25
     setGuardando(true);
     try {
@@ -953,6 +497,19 @@ export default function ContribuyenteModal({ isOpen, onClose }: Props) {
       if (validacion.data.debeAgregarRepresentante) {
         setGuardarError("Debe Agregar un Representate");
         return;
+      }
+
+      // 2b) Validar representante por código (tipo !== "01") — exec @busc=25, @codigo
+      if (form.tipoContri !== "01" && form.codigo && form.codigo.trim()) {
+        const valCodigo = await validarRepresentantePorCodigoAction(form.codigo.trim());
+        if (!valCodigo.success) {
+          setGuardarError(valCodigo.error);
+          return;
+        }
+        if (valCodigo.data.debeAgregarRepresentante) {
+          setGuardarError("El contribuyente no tiene representante. Debe agregar un representante antes de guardar.");
+          return;
+        }
       }
 
       // 3) Guardar — exec @busc=1 (nuevo => tip=1)
@@ -993,7 +550,7 @@ export default function ContribuyenteModal({ isOpen, onClose }: Props) {
         sub_lote: form.subLote ?? "",
         numero: form.numDomicilio ?? "",
         departam: form.dpto ?? "",
-        nestado: "1",
+        nestado: form.nestado ?? "1",
         motivo,
         operador: form.operador ?? "",
         estacion: form.estacion ?? "",
@@ -1029,6 +586,20 @@ export default function ContribuyenteModal({ isOpen, onClose }: Props) {
         setGuardarError(res.error);
         return;
       }
+
+      // 3b) Vincular representante creado con el contribuyente recién guardado.
+      // El backend ya extrae el código del mensaje "SE CREO EL CONTRIBUYENTE N°:<codigo>".
+      if (idRepresentante) {
+        const codigoNuevo = res.data.codigo || form.codigo;
+        if (codigoNuevo) {
+          const vinculo = await vincularRepresentanteAction({ codigo: codigoNuevo, id: idRepresentante });
+          if (!vinculo.success) {
+            setGuardarError(vinculo.error);
+            return;
+          }
+        }
+      }
+
       alert(res.data.mensaje || "Contribuyente guardado correctamente.");
       onClose();
     } catch {
@@ -1042,6 +613,7 @@ export default function ContribuyenteModal({ isOpen, onClose }: Props) {
 
   return (
     <div
+      ref={rootRef}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
@@ -1058,7 +630,7 @@ export default function ContribuyenteModal({ isOpen, onClose }: Props) {
           <div className="flex items-center gap-2">
             <div className="h-3.5 w-0.5 rounded-full bg-sat-cyan" />
             <h2 className="font-outfit text-sm font-bold tracking-tight text-white">
-              Nuevo Contribuyente
+              {esModoEdicion ? `Editar Contribuyente — ${codigoInicial}` : "Nuevo Contribuyente"}
             </h2>
           </div>
           <button
@@ -1716,6 +1288,15 @@ export default function ContribuyenteModal({ isOpen, onClose }: Props) {
             </div>
           </div>
         )}
+
+        {edicionCargando && (
+          <div className="pointer-events-none absolute inset-0 top-[92px] flex items-start justify-center pt-4">
+            <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 shadow-lg">
+              <Loader2 size={14} className="animate-spin text-sat-cyan" />
+              <span className="text-xs font-medium text-slate-500">Cargando datos del contribuyente...</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Modal de búsqueda de vías ── */}
@@ -1725,21 +1306,15 @@ export default function ContribuyenteModal({ isOpen, onClose }: Props) {
         onSelect={handleViaSelect}
       />
 
-      {/* ── Modal de representante ── */}
-      <RepresentanteModal
+      {/* ── Modal de representante (crear representante obligatorio) ── */}
+      <RepresentanteFormModal
         isOpen={representanteModalOpen}
         onClose={() => setRepresentanteModalOpen(false)}
-        form={representante}
-        onChange={handleRepresentanteChange}
-        tiposDoc={tiposDoc}
-        tiposContri={tiposContri}
-        distritos={distritos}
-        tiposInterior={tiposInterior}
-        tiposEdificacion={tiposEdificacion}
-        tiposIngreso={tiposIngreso}
-        tiposAgrupamiento={tiposAgrupamiento}
-        combosLoading={combosLoading}
-        onGrabar={grabarRepresentante}
+        codigoContribuyente={esModoEdicion ? codigoInicial : ""}
+        onSaved={(id) => {
+          setIdRepresentante(id);
+          setRepresentanteModalOpen(false);
+        }}
       />
     </div>
   );

@@ -19,12 +19,25 @@ import {
   BuscarContribuyenteResult,
   ValidarRepresentanteResult,
   GuardarContribuyenteResult,
+  GuardarRepresentanteResult,
+  VincularRepresentanteResult,
+  EditarContribuyenteResult,
+  EliminarContribuyenteResult,
+  ObtenerRepresentantesResult,
+  EditarRepresentanteResult,
+  EliminarRepresentanteResult,
 } from './dto/declaracion-jurada.types';
 import { GuardarContribuyenteDto } from './dto/guardar-contribuyente.dto';
+import { GuardarRepresentanteDto } from './dto/guardar-representante.dto';
+import { VincularRepresentanteDto } from './dto/vincular-representante.dto';
+import { EliminarContribuyenteDto } from './dto/eliminar-contribuyente.dto';
+import { EliminarRepresentanteDto } from './dto/eliminar-representante.dto';
 
 @Injectable()
 export class DeclaracionJuradaService {
   private readonly SP_MCONTRIBUYENTE = 'Rentas.sp_Mcontribuyente';
+  private readonly SP_MREPRESENTANTE = 'Rentas.sp_Mrepresentante';
+  private readonly SP_RENTASMAIN = 'Rentas.sp_rentasmain';
   private readonly SP_MRECEPCION = 'Coactivo.SP_Mrecepcion';
   private readonly SP_TBLDISTRITO = 'Contenedor.SP_TblDistrito';
   private readonly SP_VW_MVIAS = 'Rentas.SP_vw_Mvias';
@@ -418,6 +431,32 @@ export class DeclaracionJuradaService {
   }
 
   /**
+   * Validar si el contribuyente tiene representante por código — exec Rentas.sp_Mcontribuyente @busc=25, @codigo
+   * La primera columna del result set viene como string 'true'/'false'.
+   *   'true'  -> tiene representante (NO debe agregar representante)
+   *   'false' -> no tiene representante (debeAgregarRepresentante = true)
+   */
+  async validarRepresentantePorCodigo(codigo: string): Promise<ValidarRepresentanteResult> {
+    if (!codigo || !codigo.trim()) {
+      return { debeAgregarRepresentante: false };
+    }
+
+    const result = await this.db.executeProcedure<any>(this.SP_MCONTRIBUYENTE, {
+      busc: 25,
+      codigo: codigo.trim(),
+    });
+
+    const row = result.recordset?.[0] as { [key: string]: unknown } | undefined;
+    if (!row) return { debeAgregarRepresentante: false };
+
+    const firstValue = Object.values(row)[0];
+    const firstStr = String(firstValue ?? '').trim().toLowerCase();
+    const debeAgregar = firstStr === 'false';
+
+    return { debeAgregarRepresentante: debeAgregar };
+  }
+
+  /**
    * Guardar contribuyente (nuevo o actualización) — exec Rentas.sp_Mcontribuyente @busc=1
    * Mapea 1:1 los parámetros del SP. Devuelve el código generado / mensaje.
    */
@@ -478,6 +517,409 @@ export class DeclaracionJuradaService {
 
     const row = result.recordset?.[0] as { [key: string]: unknown } | undefined;
     const mensaje = row ? String(Object.values(row)[0] ?? '').trim() : '';
-    return { codigo: mensaje, mensaje };
+    let codigo = '';
+    if (mensaje.includes(':')) {
+      const afterColon = mensaje.split(':').slice(1).join(':').trim();
+      const digitsMatch = afterColon.match(/\d+/);
+      if (digitsMatch) {
+        codigo = digitsMatch[0];
+      }
+    }
+    return { codigo, mensaje };
+  }
+
+  /**
+   * Obtener contribuyente por código para edición — exec Rentas.sp_Mcontribuyente @busc=4, @codigo
+   * Mapeo posicional idéntico al proyecto legacy (índices del SELECT del SP).
+   */
+  async buscarPorCodigo(codigo: string): Promise<EditarContribuyenteResult> {
+    if (!codigo || !codigo.trim()) {
+      throw new Error('Código de contribuyente no válido.');
+    }
+
+    const result = await this.db.executeProcedure<any>(this.SP_MCONTRIBUYENTE, {
+      busc: 4,
+      codigo: codigo.trim(),
+    });
+
+    const row = result.recordset?.[0] as { [key: string]: unknown } | undefined;
+    if (!row) {
+      throw new Error('Contribuyente no encontrado.');
+    }
+
+    const v = Object.values(row).map((x) => String(x ?? '').trim());
+    const get = (i: number) => v[i] ?? '';
+
+    return {
+      codigo: get(0),
+      idPers: get(1),
+      idDocu: get(2),
+      numDoc: get(3),
+      nombres: get(4),
+      paterno: get(5),
+      materno: get(6),
+      idDist: get(7),
+      tipourb: get(8),
+      desUrb: get(9),
+      tipovia: get(10),
+      desVia: get(11),
+      idZona: get(12),
+      idUrba: get(13),
+      idVia: get(14),
+      referencia: get(15),
+      manzana: get(16),
+      lote: get(17),
+      subLote: get(18),
+      numero: get(19),
+      departam: get(20),
+      nestado: get(21),
+      operador: get(22),
+      estacion: get(23),
+      fechIng: get(24),
+      nomZona: get(27),
+      // legacy: nomurba = nombabr + " " + nombre_urba
+      nomUrba: [get(28), get(29)].filter(Boolean).join(' '),
+      nomVia: get(30),
+      tipoContri: get(31),
+      subTipoContri: get(32),
+      letra1: get(39),
+      numero2: get(40),
+      letra2: get(41),
+      tipoInteriorId: get(42),
+      tipoAgrupamientoId: get(43),
+      tipoIngresoId: get(44),
+      tipoEdificacionId: get(45),
+      nombreEdificio: get(46),
+      nombreIngreso: get(47),
+      nombreAgrupamiento: get(48),
+      piso: get(49),
+      letraInterno: get(50),
+      numeroInterno: get(51),
+      correo: get(52),
+      partidaDefuncion: get(53),
+      fechaDefuncion: get(54),
+      telefono1: get(55),
+      anexo1: get(56),
+      telefono2: get(57),
+      anexo2: get(58),
+      flagNotificar: get(59),
+    };
+  }
+
+  // ── Obtener datos del contribuyente + sus representantes (modal Representantes) ──
+
+  /**
+   * Datos del contribuyente — exec Rentas.sp_rentasmain @buscar=3, @codigo.
+   * Devuelve: codigo, nombres, num_doc, direccion.
+   */
+  async obtenerRepresentantes(codigo: string): Promise<ObtenerRepresentantesResult> {
+    if (!codigo || !codigo.trim()) {
+      throw new Error('Código de contribuyente no válido.');
+    }
+
+    // ── Datos Contribuyente (sp_rentasmain @buscar=3) ──
+    const mainResult = await this.db.executeProcedure<any>(this.SP_RENTASMAIN, {
+      buscar: 3,
+      codigo: codigo.trim(),
+    });
+
+    const mainRow = mainResult.recordset?.[0] as { [key: string]: unknown } | undefined;
+    if (!mainRow) {
+      throw new Error('Contribuyente no encontrado.');
+    }
+    const mv = Object.values(mainRow).map((x) => String(x ?? '').trim());
+    const datos = {
+      codigo: mv[0] ?? '',
+      nombres: mv[1] ?? '',
+      numDoc: mv[2] ?? '',
+      direccion: mv[3] ?? '',
+    };
+
+    // ── Representantes (sp_Mrepresentante @busc=4) ──
+    const repResult = await this.db.executeProcedure<any>(this.SP_MREPRESENTANTE, {
+      busc: 4,
+      codigo: codigo.trim(),
+    });
+
+    // Soportar tanto recordset como recordsets (primer set)
+    let rows: any[] = [];
+    if (repResult.recordset && repResult.recordset.length > 0) {
+      rows = repResult.recordset;
+    } else if (
+      repResult.recordsets &&
+      (repResult.recordsets as any[]).length > 0 &&
+      (repResult.recordsets as any[])[0].length > 0
+    ) {
+      rows = (repResult.recordsets as any[])[0];
+    }
+
+    const representantes: ObtenerRepresentantesResult['representantes'] = rows.map((row: any) => {
+      const v = Object.values(row).map((x) => String(x ?? '').trim());
+      const get = (i: number) => v[i] ?? '';
+      // Mapeo posicional del legacy:
+      // 0 lid, 1 codigo, 4+5+6 nombres, 16 nro_documento (legacy),
+      // 25 documento (tipo doc), 31 descripcion (tipo relacion), 32 direccion
+      return {
+        cod: get(0),
+        codigo: get(1),
+        tipoRelacion: get(31),
+        nombres: [get(4), get(5), get(6)].filter(Boolean).join(' '),
+        tipoDocumento: get(25),
+        nroDocumento: get(3),
+        direccion: get(32),
+      };
+    });
+
+    return { datos, representantes };
+  }
+
+  // ── Eliminar contribuyente (sp_Mcontribuyente @busc=3) ──
+
+  /**
+   * Ejecuta Rentas.sp_Mcontribuyente @busc=3 con @codigo, @motivo, @operador.
+   * El SP devuelve una o más filas; tomamos el primer mensaje de la primera columna.
+   */
+  async eliminar(dto: EliminarContribuyenteDto): Promise<EliminarContribuyenteResult> {
+    if (!dto.codigo || !dto.codigo.trim()) {
+      throw new Error('Código de contribuyente no válido.');
+    }
+
+    const result = await this.db.executeProcedure<any>(this.SP_MCONTRIBUYENTE, {
+      busc: 3,
+      codigo: dto.codigo.trim(),
+      motivo: dto.motivo ?? '',
+      operador: dto.operador ?? '',
+    });
+
+    const row = result.recordset?.[0] as { [key: string]: unknown } | undefined;
+    const mensaje = row ? String(Object.values(row)[0] ?? '').trim() : '';
+
+    // Mensajes típicos del SP: "SE ELIMINO EL CONTRIBUYENTE N°: ..." o mensajes de error.
+    const esError = /no se pudo|error|no existe|no encontrad|duplicad/i.test(mensaje);
+
+    return { success: !esError, mensaje };
+  }
+
+  // ── Guardar representante (replica la lógica legacy del PHP) ──
+  // Ejecuta sp_Mrepresentante con @busc=tip y, si cod_repre viene vacío,
+  // adicionalmente ejecuta sp_Mcontribuyente @busc=1 con tipo 01/01 + datos
+  // forzados para crear al representante como contribuyente natural.
+  async guardarRepresentante(dto: GuardarRepresentanteDto): Promise<GuardarRepresentanteResult> {
+    const tipNum = String(dto.tip ?? '1');
+
+    const result = await this.db.executeProcedure<any>(this.SP_MREPRESENTANTE, {
+      busc: tipNum,
+      codigo: dto.codigo ?? '',
+      id: dto.id ?? '',
+      id_docu: dto.id_docu ?? '',
+      num_doc: dto.num_doc ?? '',
+      nombres: dto.nombres ?? '',
+      paterno: dto.paterno ?? '',
+      materno: dto.materno ?? '',
+      id_dist: dto.id_dist ?? '',
+      tipourb: dto.tipourb ?? '',
+      des_urb: dto.des_urb ?? '',
+      tipovia: dto.tipovia ?? '',
+      des_via: dto.des_via ?? '',
+      id_zona: dto.id_zona ?? '',
+      id_urba: dto.id_urba ?? '',
+      id_via: dto.id_via ?? '',
+      referencia: dto.referencia ?? '',
+      manzana: dto.manzana ?? '',
+      lote: dto.lote ?? '',
+      sub_lote: dto.sub_lote ?? '',
+      numero: dto.numero ?? '',
+      departam: dto.departam ?? '',
+      nestado: dto.nestado ?? '',
+      operador: dto.operador ?? '',
+      estacion: dto.estacion ?? '',
+      id_tipo_relacion: dto.id_tipo_relacion ?? '',
+      letra1: dto.letra1 ?? '',
+      numero2: dto.numero2 ?? '',
+      letra2: dto.letra2 ?? '',
+      piso: dto.piso ?? '',
+      numero_interno: dto.numero_interno ?? '',
+      letra_interno: dto.letra_interno ?? '',
+      tipo_interior_id: dto.tipo_interior_id ?? '',
+      tipo_edificio_id: dto.tipo_edificio_id ?? '',
+      tipo_ingreso_id: dto.tipo_ingreso_id ?? '',
+      tipo_agrupamiento_id: dto.tipo_agrupamiento_id ?? '',
+      nombre_edificio: dto.nombre_edificio ?? '',
+      nombre_ingreso: dto.nombre_ingreso ?? '',
+      nombre_agrupamiento: dto.nombre_agrupamiento ?? '',
+      cod_repre: dto.cod_repre ?? '',
+    });
+
+    // Obtener id_representante de forma segura (mismo patrón que registro-solicitud.service.ts)
+    let idRepresentante = '';
+    if (result.recordset && result.recordset.length > 0) {
+      const firstRow = result.recordset[0];
+      if (firstRow) {
+        idRepresentante = firstRow.id_representante ?? firstRow[0] ?? '';
+      }
+    } else if (result.recordsets && (result.recordsets as any[]).length > 0 && (result.recordsets as any[])[0].length > 0) {
+      const firstRow = (result.recordsets as any[])[0][0];
+      if (firstRow) {
+        idRepresentante = firstRow.id_representante ?? firstRow[0] ?? '';
+      }
+    }
+    idRepresentante = String(idRepresentante ?? '').trim();
+
+    // Si cod_repre está vacío, crear al representante como contribuyente (tipo 01/01) — sp_Mcontribuyente @busc=1
+    const codRepre = String(dto.cod_repre ?? '').trim();
+    if (codRepre.length <= 0) {
+      await this.db.executeProcedure<any>(this.SP_MCONTRIBUYENTE, {
+        busc: '1',
+        codigo: '',
+        id_pers: '',
+        id_docu: dto.id_docu ?? '',
+        num_doc: dto.num_doc ?? '',
+        nombres: dto.nombres ?? '',
+        paterno: dto.paterno ?? '',
+        materno: dto.materno ?? '',
+        id_dist: dto.id_dist ?? '',
+        tipourb: dto.tipourb ?? '',
+        des_urb: dto.des_urb ?? '',
+        tipovia: dto.tipovia ?? '',
+        des_via: dto.des_via ?? '',
+        id_zona: dto.id_zona ?? '',
+        id_urba: dto.id_urba ?? '',
+        id_via: dto.id_via ?? '',
+        referencia: dto.referencia ?? '',
+        manzana: dto.manzana ?? '',
+        lote: dto.lote ?? '',
+        sub_lote: dto.sub_lote ?? '',
+        numero: dto.numero ?? '',
+        departam: dto.departam ?? '',
+        nestado: dto.nestado ?? '',
+        motivo: '',
+        operador: dto.operador ?? '',
+        estacion: dto.estacion ?? '',
+        id_tipocontri: '01',
+        id_subtipocontri: '01',
+        id_motivo_actualizacion: '99',
+        tipo_interior_id: dto.tipo_interior_id ?? '',
+        tipo_edificio_id: dto.tipo_edificio_id ?? '',
+        tipo_ingreso_id: dto.tipo_ingreso_id ?? '',
+        tipo_agrupamiento_id: dto.tipo_agrupamiento_id ?? '',
+        letra1: dto.letra1 ?? '',
+        letra2: dto.letra2 ?? '',
+        numero2: dto.numero2 ?? '',
+        nombre_ingreso: dto.nombre_ingreso ?? '',
+        nombre_agrupamiento: dto.nombre_agrupamiento ?? '',
+        nombre_edificio: dto.nombre_edificio ?? '',
+        piso: dto.piso ?? '',
+        numero_interno: dto.numero_interno ?? '',
+        letra_interno: dto.letra_interno ?? '',
+        correo_e: 'representante_update@gmail.com',
+        partida_defuncion: 'representante_update',
+        fecha_defuncion: '01/01/1999',
+        telefono1: '999999999',
+        anexo1: '9999',
+        telefono2: '999999992',
+        anexo2: '9992',
+        flag_notificar: '1',
+        idperfil: '',
+      });
+    }
+
+    return { id: idRepresentante };
+  }
+
+  // ── Obtener representante por id (sp_Mrepresentante @busc=6, modal Editar Representante) ──
+  // Mapeo posicional del legacy PHP (ver EditarRepresentanteResult).
+  async obtenerRepresentante(id: string): Promise<EditarRepresentanteResult> {
+    if (!id || !id.trim()) {
+      throw new Error('Id de representante no válido.');
+    }
+
+    const result = await this.db.executeProcedure<any>(this.SP_MREPRESENTANTE, {
+      busc: 6,
+      id: id.trim(),
+    });
+
+    const row = result.recordset?.[0] as { [key: string]: unknown } | undefined;
+    if (!row) {
+      throw new Error('Representante no encontrado.');
+    }
+
+    const v = Object.values(row).map((x) => String(x ?? '').trim());
+    const get = (i: number) => v[i] ?? '';
+
+    return {
+      id: get(0),
+      codigo: get(1),
+      idDocu: get(2),
+      numDoc: get(3),
+      nombres: get(4),
+      paterno: get(5),
+      materno: get(6),
+      idDist: get(7),
+      tipourb: get(8),
+      desUrb: get(9),
+      tipovia: get(10),
+      desVia: get(11),
+      idZona: get(12),
+      idUrba: get(13),
+      idVia: get(14),
+      referencia: get(15),
+      manzana: get(16),
+      lote: get(17),
+      subLote: get(18),
+      numero: get(19),
+      departam: get(20),
+      nestado: get(21),
+      operador: get(22),
+      estacion: get(23),
+      nomZona: get(27),
+      nomUrba: get(28),
+      nomVia: get(30),
+      idTipoRelacion: get(31),
+      letra1: get(33),
+      numero2: get(34),
+      letra2: get(35),
+      piso: get(36),
+      numeroInterno: get(37),
+      letraInterno: get(38),
+      tipoInteriorId: get(39),
+      tipoEdificacionId: get(40),
+      tipoIngresoId: get(41),
+      tipoAgrupamientoId: get(42),
+      nombreEdificio: get(43),
+      nombreIngreso: get(44),
+      nombreAgrupamiento: get(45),
+    };
+  }
+
+  // ── Eliminar representante (sp_Mrepresentante @busc=7) ──
+  // Ejecuta el SP con @codigo (contribuyente) + @id (representante).
+  async eliminarRepresentante(dto: EliminarRepresentanteDto): Promise<EliminarRepresentanteResult> {
+    if (!dto.codigo || !dto.codigo.trim() || !dto.id || !dto.id.trim()) {
+      throw new Error('Código e id del representante son obligatorios.');
+    }
+
+    const result = await this.db.executeProcedure<any>(this.SP_MREPRESENTANTE, {
+      busc: 7,
+      codigo: dto.codigo.trim(),
+      id: dto.id.trim(),
+    });
+
+    const row = result.recordset?.[0] as { [key: string]: unknown } | undefined;
+    const mensaje = row ? String(Object.values(row)[0] ?? '').trim() : '';
+
+    const esError = /no se pudo|error|no existe|no encontrad|duplicad/i.test(mensaje);
+
+    return { success: !esError, mensaje };
+  }
+
+  // ── Vincular representante con contribuyente recién creado (sp_Mrepresentante @busc=13) ──
+  // Ejecuta el SP con @busc=13 pasando @codigo (contribuyente) + @id (representante).
+  async vincularRepresentante(dto: VincularRepresentanteDto): Promise<VincularRepresentanteResult> {
+    await this.db.executeProcedure<any>(this.SP_MREPRESENTANTE, {
+      busc: '13',
+      codigo: dto.codigo,
+      id: dto.id,
+    });
+    return { success: true };
   }
 }

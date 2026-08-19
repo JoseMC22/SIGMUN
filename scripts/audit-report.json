@@ -1,0 +1,8 @@
+{
+  "totalSpObjects": 11,
+  "totalTsxIds": 3,
+  "matched": ["btnGuardar"],
+  "missingInSP": ["btnEliminar", "unknown-id"],
+  "missingInTSX": ["btnNuevoPu", "btnInscripcion", "txtNombre", "txtApellido", "cmbTipox", "lblTitulo", "icoError", "btnCancelar", "tabGeneral", "pnlPrincipal"],
+  "coveragePercentage": 27
+}

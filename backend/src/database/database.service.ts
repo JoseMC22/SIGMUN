@@ -112,28 +112,70 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     return request.execute<T>(procedureName);
   }
 
+  // /**
+  //  * Ejecuta un SP con parámetros OUTPUT.
+  //  * @param procedureName Nombre del SP
+  //  * @param inputParams Parámetros de entrada
+  //  * @param outputParams Definiciones de OUTPUT: { nombre: mssql.Type }
+  //  * @param timeout Timeout opcional
+  //  */
+  // async executeProcedureWithOutput<T>(
+  //   procedureName: string,
+  //   inputParams: Record<string, any> = {},
+  //   outputParams: Record<string, mssql.ISqlTypeFactoryWithNoParams> = {},
+  //   timeout?: number,
+  // ): Promise<mssql.IProcedureResult<T>> {
+  //   const request = this.pool.request();
+
+  //   for (const [key, value] of Object.entries(inputParams)) {
+  //     request.input(key, value);
+  //   }
+
+  //   for (const [key, typeFactory] of Object.entries(outputParams)) {
+  //     request.output(key, typeFactory);
+  //   }
+
+  //   if (timeout !== undefined && timeout !== null && timeout > 0) {
+  //     return this.executeWithTimeout(
+  //       request.execute<T>(procedureName),
+  //       timeout,
+  //     );
+  //   }
+
+  //   return request.execute<T>(procedureName);
+  // }
+
   /**
-   * Executes a stored procedure using raw SQL batch (matching PHP mssql_query behavior).
-   * PHP calls: mssql_query("exec sp_name @param1='val1', @param2='val2'")
-   * This avoids RPC protocol differences that may cause plan cache misses.
+   * Ejecuta un SP con parámetros OUTPUT.
+   * @param procedureName Nombre del SP
+   * @param inputParams Parámetros de entrada
+   * @param outputParams Definiciones de OUTPUT: { nombre: mssql.Type }
+   * @param timeout Timeout opcional
    */
-  async executeProcedureRaw<T>(
+  async executeProcedureWithOutput<T>(
     procedureName: string,
-    params: Record<string, any> = {},
-  ): Promise<mssql.IResult<T>> {
-    const paramParts: string[] = [];
-    for (const [key, value] of Object.entries(params)) {
-      if (typeof value === 'number') {
-        paramParts.push(`@${key}=${value}`);
-      } else if (typeof value === 'boolean') {
-        paramParts.push(`@${key}=${value ? 1 : 0}`);
-      } else {
-        const safe = String(value ?? '').replace(/'/g, "''");
-        paramParts.push(`@${key}='${safe}'`);
-      }
+    inputParams: Record<string, any> = {},
+    outputParams: Record<string, mssql.ISqlTypeFactoryWithNoParams> = {},
+    timeout?: number,
+  ): Promise<mssql.IProcedureResult<T>> {
+    const request = this.pool.request();
+
+    for (const [key, value] of Object.entries(inputParams)) {
+      request.input(key, value);
     }
-    const sql = `SET NOCOUNT ON; EXEC ${procedureName} ${paramParts.join(', ')}`;
-    return this.pool.request().query<T>(sql);
+
+    for (const [key, typeFactory] of Object.entries(outputParams)) {
+      request.output(key, typeFactory);
+    }
+
+    if (timeout !== undefined && timeout !== null && timeout > 0) {
+      return this.executeWithTimeout(
+        request.execute<T>(procedureName),
+        timeout,
+      );
+    }
+
+    return request.execute<T>(procedureName);
   }
 
   /**
