@@ -16,6 +16,7 @@ import { DeclaracionJuradaModule } from './administracion-tributaria/declaracion
 import { ReportesModule } from './reportes-gerenciales/reportes-gerenciales.module';
 import { MantenimientoUitModule } from './mantenimiento-tablas/mantenimiento-uit/mantenimiento-uit.module';
 import { ConvenioEstadoModule } from './mantenimiento-tablas/mantenimiento-estado-convenios/convenio-estado.module';
+import { PapeletaTransitoModule } from './papeleta-transito/papeleta-transito.module';
 
 @Module({
   imports: [
@@ -69,6 +70,8 @@ import { ConvenioEstadoModule } from './mantenimiento-tablas/mantenimiento-estad
     MantenimientoUitModule,
     // Módulo de mantenimiento - estados de convenio
     ConvenioEstadoModule,
+    // Módulo de papeleta tránsito
+    PapeletaTransitoModule,
   ],
   controllers: [AppController],
   providers: [AppService],

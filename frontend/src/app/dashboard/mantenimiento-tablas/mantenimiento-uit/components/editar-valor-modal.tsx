@@ -27,11 +27,11 @@ function formatInput(n: number | null | undefined): string {
 }
 
 export default function EditarValorModal({ isOpen, row, onClose, onSuccess }: Props) {
-  const [valorUit, setValorUit] = useState(formatInput(row?.valor_uit));
-  const [impMinimo, setImpMinimo] = useState(formatInput(row?.imp_minimo));
-  const [impMaximo, setImpMaximo] = useState(formatInput(row?.imp_maximo));
-  const [costoEmis, setCostoEmis] = useState(formatInput(row?.costo_emis));
-  const [costoAdic, setCostoAdic] = useState(formatInput(row?.costo_adic));
+  const [valorUit, setValorUit] = useState(formatInput(row?.valor_uit ?? null));
+  const [impMinimo, setImpMinimo] = useState(formatInput(row?.imp_minimo ?? null));
+  const [impMaximo, setImpMaximo] = useState(formatInput(row?.imp_maximo ?? null));
+  const [costoEmis, setCostoEmis] = useState(formatInput(row?.costo_emis ?? null));
+  const [costoAdic, setCostoAdic] = useState(formatInput(row?.costo_adic ?? null));
   const [estado, setEstado] = useState(row?.estado === "1");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
