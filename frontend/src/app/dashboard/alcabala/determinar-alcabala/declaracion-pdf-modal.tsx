@@ -115,8 +115,10 @@ export default function DeclaracionPdfModal({
                   </button>
                 </>
               ) : (
-                <Loader2 size={20} className="animate-spin text-sat-cyan" />
-                <span className="ml-2 text-xs text-slate-500">Cargando documento...</span>
+                <>
+                  <Loader2 size={20} className="animate-spin text-sat-cyan" />
+                  <span className="ml-2 text-xs text-slate-500">Cargando documento...</span>
+                </>
               )}
             </div>
           ) : (

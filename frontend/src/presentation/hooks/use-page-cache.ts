@@ -16,7 +16,7 @@ interface CacheEntry<T> {
 }
 
 interface UsePageCacheOptions<T> {
-  fetchFn: (page: number) => Promise<{ success: boolean; data: T[]; total: number; totalPages: number }>;
+  fetchFn: (page: number) => Promise<{ success: boolean; data: T[]; total: number; totalPages: number; error?: string }>;
   prefetchDelta?: number; // prefetch N pages ahead (default: 1)
 }
 

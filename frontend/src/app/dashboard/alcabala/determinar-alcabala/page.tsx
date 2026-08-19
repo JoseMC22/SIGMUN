@@ -432,7 +432,7 @@ onImprimirDeclaracion={(html, idAlcabala) =>
       {/* Declaración PDF modal */}
       <DeclaracionPdfModal
         open={declaracionPdf !== null}
-        base64={declaracionPdf?.base64 ?? null}
+        html={declaracionPdf?.html ?? null}
         idAlcabala={declaracionPdf?.idAlcabala ?? 0}
         onClose={() => setDeclaracionPdf(null)}
       />
