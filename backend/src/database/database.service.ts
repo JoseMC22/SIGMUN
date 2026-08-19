@@ -20,13 +20,14 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     options: {
       encrypt: process.env.DB_ENCRYPT === 'true',
       trustServerCertificate: true,
+      enableArithAbort: true,
     },
     pool: {
       max: 20,
       min: 5,
       idleTimeoutMillis: 30000,
     },
-    requestTimeout: 30000,
+    requestTimeout: 60000,
     connectionTimeout: parseInt(
       process.env.DB_CONNECTION_TIMEOUT || '15000',
       10,
@@ -53,21 +54,52 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Maps a JS value to the appropriate SQL type for parameter binding.
+   * Uses VarChar (not NVarChar) by default to match PHP sqlsrv behavior
+   * and avoid implicit conversions that kill index usage.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private inferSqlType(value: any): any {
+    if (value === null || value === undefined) {
+      return mssql.VarChar(25);
+    }
+    if (typeof value === 'number') {
+      return Number.isInteger(value) ? mssql.Int : mssql.Float;
+    }
+    if (typeof value === 'boolean') {
+      return mssql.Bit;
+    }
+    if (value instanceof Date) {
+      return mssql.DateTime2;
+    }
+    // Use VarChar to match PHP mssql_query behavior — NVarChar causes
+    // implicit conversions on VARCHAR columns and kills index usage.
+    // Use a reasonable default length instead of String(value).length
+    // to avoid VarChar(1) on empty strings which forces implicit conversion.
+    const len = String(value).length || 25;
+    return mssql.VarChar(Math.max(len, 25));
+  }
+
+  /**
    * Ejecuta un Stored Procedure de manera asíncrona.
    * @param procedureName Nombre del SP
    * @param params Parámetros de entrada
-   * @param timeout Timeout específico para esta ejecución (opcional). Si se especifica,
-   *                se crea un timer que rechaza la promesa si se excede el tiempo.
+   * @param types Mapa opcional de tipos SQL explícitos por nombre de parámetro.
+   *              Ej: { criterio1: mssql.VarChar(50), inicio: mssql.Int }
+   * @param timeout Timeout específico para esta ejecución (opcional).
    */
   async executeProcedure<T>(
     procedureName: string,
     params: Record<string, any> = {},
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    types?: Record<string, any>,
     timeout?: number,
   ): Promise<mssql.IProcedureResult<T>> {
     const request = this.pool.request();
 
     for (const [key, value] of Object.entries(params)) {
-      request.input(key, value);
+      const sqlType = types?.[key] ?? this.inferSqlType(value);
+      request.input(key, sqlType, value);
     }
 
     if (timeout !== undefined && timeout !== null && timeout > 0) {
@@ -78,6 +110,30 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     }
 
     return request.execute<T>(procedureName);
+  }
+
+  /**
+   * Executes a stored procedure using raw SQL batch (matching PHP mssql_query behavior).
+   * PHP calls: mssql_query("exec sp_name @param1='val1', @param2='val2'")
+   * This avoids RPC protocol differences that may cause plan cache misses.
+   */
+  async executeProcedureRaw<T>(
+    procedureName: string,
+    params: Record<string, any> = {},
+  ): Promise<mssql.IResult<T>> {
+    const paramParts: string[] = [];
+    for (const [key, value] of Object.entries(params)) {
+      if (typeof value === 'number') {
+        paramParts.push(`@${key}=${value}`);
+      } else if (typeof value === 'boolean') {
+        paramParts.push(`@${key}=${value ? 1 : 0}`);
+      } else {
+        const safe = String(value ?? '').replace(/'/g, "''");
+        paramParts.push(`@${key}='${safe}'`);
+      }
+    }
+    const sql = `SET NOCOUNT ON; EXEC ${procedureName} ${paramParts.join(', ')}`;
+    return this.pool.request().query<T>(sql);
   }
 
   /**
@@ -95,7 +151,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
 
     if (params) {
       for (const [key, value] of Object.entries(params)) {
-        request.input(key, value);
+        request.input(key, this.inferSqlType(value), value);
       }
     }
 
@@ -114,7 +170,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     const request = this.pool.request();
 
     for (const [key, value] of Object.entries(params)) {
-      request.input(key, value);
+      request.input(key, this.inferSqlType(value), value);
     }
 
     if (timeout !== undefined && timeout !== null && timeout > 0) {

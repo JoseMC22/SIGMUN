@@ -49,3 +49,9 @@ coverage/
 *.spec.tsx
 *.test.ts
 *.test.tsx
+
+# Auto-generated / workspace
+pnpm-lock.yaml
+frontend/pnpm-lock.yaml
+frontend/pnpm-workspace.yaml
+frontend/next-env.d.ts
