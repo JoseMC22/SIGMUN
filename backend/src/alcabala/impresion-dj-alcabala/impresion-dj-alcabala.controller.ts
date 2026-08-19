@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Logger,
   Param,
   Req,
   Res,
@@ -20,6 +21,8 @@ import {
 @Controller('alcabala/impresion-dj-alcabala')
 @UseGuards(JwtAuthGuard)
 export class ImpresionDjAlcabalaController {
+  private readonly logger = new Logger(ImpresionDjAlcabalaController.name);
+
   constructor(
     private readonly impresionDjAlcabalaService: ImpresionDjAlcabalaService,
     private readonly configService: ConfigService,
@@ -34,15 +37,29 @@ export class ImpresionDjAlcabalaController {
     if (isNaN(id)) {
       throw new BadRequestException({ success: false, error: 'ID de alcabala inválido' });
     }
-    const { numVal, anoVal, rows } =
-      await this.impresionDjAlcabalaService.resolveOpPrintData(id);
-    const buffer = await generateOpPdf(rows);
-    res.set({
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `inline; filename="op_${numVal}_${anoVal}.pdf"`,
-      'Content-Length': buffer.length,
-    });
-    res.end(buffer);
+
+    try {
+      const { numVal, anoVal, rows } =
+        await this.impresionDjAlcabalaService.resolveOpPrintData(id);
+      const buffer = await generateOpPdf(rows);
+      res.set({
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `inline; filename="op_${numVal}_${anoVal}.pdf"`,
+        'Content-Length': buffer.length,
+      });
+      res.end(buffer);
+    } catch (err: any) {
+      this.logger.error(
+        `op-pdf failed for idAlcabala=${id}: ${err?.message ?? err}`,
+        err?.stack,
+      );
+      if (!res.headersSent) {
+        res.status(500).json({
+          success: false,
+          error: err?.message ?? 'Error al generar PDF de OP',
+        });
+      }
+    }
   }
 
   @Get('declaracion-pdf/:idAlcabala')
@@ -59,26 +76,39 @@ export class ImpresionDjAlcabalaController {
       });
     }
 
-    const user = req.user as { username?: string } | undefined;
-    const usuario = user?.username ?? 'SISTEMA';
-    const fecha = formatNow();
+    try {
+      const user = req.user as { username?: string } | undefined;
+      const usuario = user?.username ?? 'SISTEMA';
+      const fecha = formatNow();
 
-    const row =
-      await this.impresionDjAlcabalaService.resolveDeclaracionPrintData(id);
-    const logoPath = this.configService.get<string>('REPORT_IMG_RUTA');
-    const logoDataUri = await loadLogoDataUri(logoPath);
-    const buffer = await generateDeclaracionPdf(row, {
-      usuario,
-      fecha,
-      logoDataUri,
-    });
+      const row =
+        await this.impresionDjAlcabalaService.resolveDeclaracionPrintData(id);
+      const logoPath = this.configService.get<string>('REPORT_IMG_RUTA');
+      const logoDataUri = await loadLogoDataUri(logoPath);
+      const buffer = await generateDeclaracionPdf(row, {
+        usuario,
+        fecha,
+        logoDataUri,
+      });
 
-    res.set({
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `inline; filename="declaracion_${id}.pdf"`,
-      'Content-Length': buffer.length,
-    });
-    res.end(buffer);
+      res.set({
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `inline; filename="declaracion_${id}.pdf"`,
+        'Content-Length': buffer.length,
+      });
+      res.end(buffer);
+    } catch (err: any) {
+      this.logger.error(
+        `declaracion-pdf failed for idAlcabala=${id}: ${err?.message ?? err}`,
+        err?.stack,
+      );
+      if (!res.headersSent) {
+        res.status(500).json({
+          success: false,
+          error: err?.message ?? 'Error al generar PDF de declaración',
+        });
+      }
+    }
   }
 }
 

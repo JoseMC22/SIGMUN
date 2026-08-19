@@ -45,10 +45,20 @@ export async function getDeclaracionPdfBase64Action(idAlcabala: number): Promise
     const response = await authFetch(
       `/alcabala/impresion-dj-alcabala/declaracion-pdf/${encodeURIComponent(String(idAlcabala))}`,
     );
-    if (!response.ok) return null;
+    if (!response.ok) {
+      // Try to extract error message from JSON response
+      try {
+        const errBody = await response.json();
+        console.error('[declaracion-pdf] Backend error:', errBody);
+      } catch {
+        console.error('[declaracion-pdf] HTTP', response.status, response.statusText);
+      }
+      return null;
+    }
     const buffer = Buffer.from(await response.arrayBuffer());
     return buffer.toString('base64');
-  } catch {
+  } catch (err) {
+    console.error('[declaracion-pdf] Fetch exception:', err);
     return null;
   }
 }

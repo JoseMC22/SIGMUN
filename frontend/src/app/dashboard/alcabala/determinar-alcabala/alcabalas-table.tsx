@@ -11,6 +11,7 @@ interface Props {
   data: AlcabalaItem[];
   loading: boolean;
   onViewDetail?: (alcabala: AlcabalaItem) => void;
+  onImprimirDeclaracion?: (base64: string, idAlcabala: number) => void;
   onNuevo?: () => void;
 }
 
@@ -32,7 +33,7 @@ function mapEstado(estado: string): string {
 
 // ─── Component ─────────────────────────────────────────────
 
-export default function AlcabalasTable({ data, loading, onViewDetail, onNuevo }: Props) {
+export default function AlcabalasTable({ data, loading, onViewDetail, onImprimirDeclaracion, onNuevo }: Props) {
   const [declaracionPrintingId, setDeclaracionPrintingId] = useState<number | null>(null);
   const [declaracionError, setDeclaracionError] = useState<string | null>(null);
 
@@ -48,20 +49,7 @@ export default function AlcabalasTable({ data, loading, onViewDetail, onNuevo }:
         setDeclaracionError(DECLARACION_ERROR);
         return;
       }
-      const binary = atob(base64);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) {
-        bytes[i] = binary.charCodeAt(i);
-      }
-      const blob = new Blob([bytes], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
-      const newWindow = window.open(url, "_blank");
-      if (!newWindow) {
-        URL.revokeObjectURL(url);
-        setDeclaracionError(DECLARACION_ERROR);
-        return;
-      }
-      newWindow.addEventListener("load", () => URL.revokeObjectURL(url));
+      onImprimirDeclaracion?.(base64, item.idAlcabala);
     } catch {
       setDeclaracionError(DECLARACION_ERROR);
     } finally {
