@@ -106,6 +106,11 @@ export async function getDetallePredioUsoAction(params: { codigo?: string; anno:
 
 // ── Opciones de Uso (combo) ─────────────────────────────────
 
+export interface UsoOption {
+  id_uso: string;
+  descripcion: string;
+}
+
 export async function getUsoOptionsAction() {
   try {
     const response = await authFetch('/reportes-gerenciales/predios-uso/uso-options');

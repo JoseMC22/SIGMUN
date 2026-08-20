@@ -6,9 +6,10 @@ import { PerfilesController } from './perfiles/perfiles.controller';
 import { PerfilesService } from './perfiles/perfiles.service';
 import { AccesosController } from './accesos/accesos.controller';
 import { AccesosService } from './accesos/accesos.service';
+import { ObjectAccessModule } from './object-access/object-access.module';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, ObjectAccessModule],
   controllers: [UsuariosController, PerfilesController, AccesosController],
   providers: [UsuariosService, PerfilesService, AccesosService],
 })
