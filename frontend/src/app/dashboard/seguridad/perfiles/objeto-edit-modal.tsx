@@ -76,6 +76,7 @@ export default function ObjetoEditModal({
       id_perfil: idPerfil,
       id_acceso: objetoId,
       bacceso: nuevoChecked ? "1" : "0",
+      id_acceso_parent: idAcceso,
     });
 
     if (!res.success) {

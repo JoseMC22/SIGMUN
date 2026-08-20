@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
+import { ObjectAccessService } from '../object-access/object-access.service';
+import { UsuariosService } from '../usuarios/usuarios.service';
 import { SearchPerfilDto } from './dto/search-perfil.dto';
 import { SavePerfilDto } from './dto/save-perfil.dto';
 import {
@@ -22,7 +24,11 @@ export function calculatePaginationParams(page: number, pageSize: number) {
 
 @Injectable()
 export class PerfilesService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly objectAccessService: ObjectAccessService,
+    private readonly usuariosService: UsuariosService,
+  ) {}
 
   async search(dto: SearchPerfilDto): Promise<PaginatedResponse<PerfilRow>> {
     const { codigo, nombre, estado, page, pageSize } = dto;
@@ -230,6 +236,7 @@ export class PerfilesService {
     id_perfil: string,
     id_acceso: string,
     bacceso: string,
+    id_acceso_parent: string,
   ): Promise<void> {
     await this.db.executeProcedure<any>('[Acceso].[sp_TblPerfil]', {
       busc: 9,
@@ -237,6 +244,12 @@ export class PerfilesService {
       id_acceso,
       bacceso,
     });
+
+    const logins = await this.usuariosService.getLoginsByPerfil(id_perfil);
+    await this.objectAccessService.invalidateAndNotify(
+      id_acceso_parent,
+      logins,
+    );
   }
 
   // ── Save / Update (@busc='2') ─────────────────────────

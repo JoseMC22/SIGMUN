@@ -77,12 +77,19 @@ export class PerfilesController {
 
   @Post('toggle-acceso')
   async toggleAcceso(
-    @Body() body: { id_perfil: string; id_acceso: string; bacceso: string },
+    @Body()
+    body: {
+      id_perfil: string;
+      id_acceso: string;
+      bacceso: string;
+      id_acceso_parent: string;
+    },
   ): Promise<{ success: boolean }> {
     await this.perfilesService.toggleAccesoPermiso(
       body.id_perfil,
       body.id_acceso,
       body.bacceso,
+      body.id_acceso_parent,
     );
     return { success: true };
   }

@@ -4,11 +4,15 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import { fetchObjectPermissionsAction } from "./access-actions";
+
+const PERMISSIONS_STORAGE_KEY = "sigmun:lastIdAcceso";
 
 export interface AccessContextValue {
   permissions: Map<string, boolean>;
@@ -25,6 +29,7 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
     () => new Map(),
   );
   const [loading, setLoading] = useState(false);
+  const loadedRef = useRef(false);
 
   // ── Load permissions for a given id_acceso ──
   const loadPermissions = useCallback(async (idAcceso: string) => {
@@ -35,18 +40,34 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
       if (result.success && result.data) {
         const map = new Map<string, boolean>();
         for (const p of result.data) {
-          map.set(p.id_objeto, p.bacceso === 1);
+          map.set(p.id_objeto, p.bacceso === 1 || p.bacceso === true);
         }
         setPermissions(map);
       } else {
         setPermissions(new Map());
       }
+      // Persist for page refreshes / server restarts
+      try {
+        sessionStorage.setItem(PERMISSIONS_STORAGE_KEY, idAcceso);
+      } catch {}
     } catch {
       setPermissions(new Map());
     } finally {
       setLoading(false);
     }
   }, []);
+
+  // ── Auto-load permissions on mount (survives page refresh) ──
+  useEffect(() => {
+    if (loadedRef.current) return;
+    loadedRef.current = true;
+    try {
+      const saved = sessionStorage.getItem(PERMISSIONS_STORAGE_KEY);
+      if (saved) {
+        loadPermissions(saved);
+      }
+    } catch {}
+  }, [loadPermissions]);
 
   const hasAccess = useCallback(
     (idObjeto: string) => permissions.get(idObjeto) === true,
@@ -55,6 +76,9 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
 
   const invalidatePermissions = useCallback(() => {
     setPermissions(new Map());
+    try {
+      sessionStorage.removeItem(PERMISSIONS_STORAGE_KEY);
+    } catch {}
   }, []);
 
   const value = useMemo<AccessContextValue>(

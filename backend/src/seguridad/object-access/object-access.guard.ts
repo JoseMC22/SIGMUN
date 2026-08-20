@@ -34,7 +34,7 @@ export class ObjectAccessGuard implements CanActivate {
       return true;
     }
 
-    let idAcceso = this.reflector.getAllAndOverride<number>(
+    let idAcceso = this.reflector.getAllAndOverride<string>(
       ACCESS_GUARD_ACCESO,
       [context.getHandler(), context.getClass()],
     );

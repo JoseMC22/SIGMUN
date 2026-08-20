@@ -19,7 +19,7 @@ export class ObjectAccessService {
 
   async getPermissions(
     username: string,
-    id_acceso: number,
+    id_acceso: string,
   ): Promise<ObjectPermission[]> {
     const cacheKey = `access:objects:${username}:${id_acceso}`;
 
@@ -29,13 +29,13 @@ export class ObjectAccessService {
     try {
       const result = await this.db.executeProcedure<SpObjectAccessRow>(
         '[Acceso].[SP_MAcceso]',
-        { busc: 7, id_acceso },
+        { busc: 7, id_acceso, operador: username },
       );
 
       const permissions: ObjectPermission[] = (result.recordset ?? []).map(
         (row) => ({
           id_objeto: row.id_objeto,
-          bacceso: row.bacceso as 0 | 1,
+          bacceso: (row.bacceso ? 1 : 0) as 0 | 1,
         }),
       );
 
@@ -57,7 +57,7 @@ export class ObjectAccessService {
   }
 
   async invalidateAndNotify(
-    id_acceso: number,
+    id_acceso: string,
     usernames: string[],
   ): Promise<void> {
     for (const username of usernames) {
@@ -98,7 +98,7 @@ export class ObjectAccessService {
   async checkObjectAccess(
     username: string,
     id_objeto: string,
-    id_acceso: number,
+    id_acceso: string,
   ): Promise<0 | 1> {
     const flatKey = `access:object:${username}:${id_objeto}`;
     const cached = await this.cacheManager.get<0 | 1>(flatKey);

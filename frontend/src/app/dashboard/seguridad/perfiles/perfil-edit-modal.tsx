@@ -198,9 +198,10 @@ export default function PerfilEditModal({
       prev.map((a) => (a.id_acceso === id_acceso ? { ...a, checked: nuevoChecked } : a)),
     );
 
-    const res = await toggleAccesoPermisoAction({
+const res = await toggleAccesoPermisoAction({
       id_perfil: perfilId,
       id_acceso,
+      id_acceso_parent: id_acceso,
       bacceso: nuevoChecked ? '1' : '0',
     });
 

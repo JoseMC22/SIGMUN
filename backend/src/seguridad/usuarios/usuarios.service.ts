@@ -48,6 +48,14 @@ export class UsuariosService {
 
   constructor(private readonly db: DatabaseService) {}
 
+  async getLoginsByPerfil(id_perfil: string): Promise<string[]> {
+    const result = await this.db.query<{ vlogin: string }>(
+      `SELECT vlogin FROM [Acceso].[TblUsuarios] WHERE id_perfil = @id_perfil AND nestado = 1`,
+      { id_perfil },
+    );
+    return (result.recordset ?? []).map((r) => r.vlogin);
+  }
+
   async search(dto: SearchUsuarioDto): Promise<PaginatedResponse<UsuarioRow>> {
     const { codigo, nombre, usuario, area, perfil, estado, page, pageSize } =
       dto;
