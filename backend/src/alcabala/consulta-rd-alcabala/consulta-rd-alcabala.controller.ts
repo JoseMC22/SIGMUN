@@ -13,7 +13,7 @@ import {
   RutaRdAlcabalaSchema,
   RutaRdAlcabalaDto,
 } from './dto/ruta-rd-alcabala.dto';
-import { ConsultaRDResult, DetalleRDResult, RutaRDResult } from './consulta-rd-alcabala.types';
+import { ConsultaRDResult, DetalleRDResult, RutaRDResult, ImprimirRDResult } from './consulta-rd-alcabala.types';
 import { z } from 'zod';
 
 @Controller('alcabala/consulta-rd')
@@ -107,5 +107,20 @@ export class ConsultaRdAlcabalaController {
       };
     }
     return this.service.getRuta(dto);
+  }
+
+  @Get('imprimir')
+  async imprimir(
+    @Query() query: Record<string, string>,
+  ): Promise<ImprimirRDResult> {
+    const num_val = query.num_val ?? '';
+    const ano_val = query.ano_val ?? '';
+    if (!num_val || !ano_val) {
+      return {
+        success: false,
+        error: 'num_val y ano_val son requeridos',
+      };
+    }
+    return this.service.imprimir(num_val, ano_val);
   }
 }

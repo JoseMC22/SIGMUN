@@ -10,6 +10,8 @@ import {
   DetalleRDResult,
   RutaRDRow,
   RutaRDResult,
+  ImprimirRDRow,
+  ImprimirRDResult,
 } from './consulta-rd-alcabala.types';
 
 @Injectable()
@@ -233,6 +235,76 @@ export class ConsultaRdAlcabalaService {
     } catch (err) {
       this.logger.error(`[ConsultaRdAlcabala] getRuta SP error: ${err}`);
       return emptyResult;
+    }
+  }
+
+  /**
+   * Generates the OFFICIAL RD document for an existing RD (num_val/ano_val)
+   * by calling Rentas.sp_Imprime_alcabala (buscar=1, id_valor=08). This is
+   * the same print data consumed by DocumentoRDModal in the rd-alcabala
+   * module, but queried directly (no sp_Genera_RD_ALCABALA re-generation).
+   */
+  async imprimir(
+    num_val: string,
+    ano_val: string,
+  ): Promise<ImprimirRDResult> {
+    if (!num_val || !ano_val) {
+      return {
+        success: false,
+        error: 'num_val y ano_val son requeridos para imprimir el RD',
+      };
+    }
+    try {
+      const result = await this.db.executeProcedure<any>(
+        'Rentas.sp_Imprime_alcabala',
+        {
+          buscar: 1,
+          id_valor: this.ID_VALOR_ALCABALA,
+          num_val,
+          ano_val,
+        },
+      );
+      const row = result.recordset?.[0];
+      if (!row) {
+        return {
+          success: false,
+          error:
+            'No se encontró el documento RD para los parámetros indicados.',
+        };
+      }
+      const data: ImprimirRDRow[] = [
+        {
+          id_valor: row.id_valor ?? '',
+          num_val: row.num_val ?? '',
+          ano_val: row.ano_val ?? '',
+          tributo: row.tributo ?? '',
+          numerOP: row.numerOP ?? '',
+          fec_val: row.fec_val ?? '',
+          fecvaln: row.fecvaln ?? '',
+          fec_valn: row.fec_valn ?? '',
+          codigo: row.codigo ?? '',
+          nombre: row.nombre ?? '',
+          num_doc: row.num_doc ?? '',
+          dirfiscal: row.dirfiscal ?? '',
+          idrecibo: Number(row.idrecibo ?? 0),
+          anio_fiscal: row.anio_fiscal ?? '',
+          valortotal: Number(row.valortotal ?? 0),
+          monto_afecto: Number(row.monto_afecto ?? 0),
+          monto_inafecto: Number(row.monto_inafecto ?? 0),
+          tasa: row.tasa ?? '',
+          monto_alcabala: Number(row.monto_alcabala ?? 0),
+          mora: Number(row.mora ?? 0),
+          total: Number(row.total ?? 0),
+          codpred: row.codpred ?? '',
+          direccion_predio: row.direccion_predio ?? '',
+          fechacontrato: row.fechacontrato ?? '',
+          fono: row.fono ?? '',
+        },
+      ];
+      return { success: true, message: 'Documento RD generado', data };
+    } catch (err) {
+      this.logger.error(`[ConsultaRdAlcabala] imprimir SP error: ${err}`);
+      return { success: false, error: 'Error al generar el documento RD' };
     }
   }
 }

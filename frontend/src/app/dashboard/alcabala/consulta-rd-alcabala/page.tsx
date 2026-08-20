@@ -21,6 +21,7 @@ import {
   searchConsultaRDAction,
   getDetailConsultaRDAction,
   getRutaConsultaRDAction,
+  getImprimirRDAlcabalaAction,
 } from "@/actions/alcabala/consulta-rd";
 import type {
   ConsultaRDRow,
@@ -30,6 +31,7 @@ import type {
   RutaRDResult,
 } from "@/actions/alcabala/consulta-rd";
 import { formatCodigo, useConsultaRdExport } from "@/app/dashboard/alcabala/reportes/consulta-rd/export-utils";
+import { DocumentoRDModal } from "@/app/dashboard/alcabala/reportes/rd-alcabala/documento-rd-modal";
 
 // ── Status badge ─────────────────────────────────────────
 
@@ -94,83 +96,17 @@ function groupDetailRows(rows: DetalleRDRow[]): DetailGroup[] {
   return groups;
 }
 
-// ── RD print format (used by the row Imprimir button and the Detalle modal) ──
-function buildRdPrintHtml(
-  row: ConsultaRDRow | null,
-  detail: DetalleRDResult | null,
-): string {
-  if (!row) return "";
-  const groups = detail ? groupDetailRows(detail.data) : [];
-  return `
-    <style>
-      h2 { text-align: center; margin-bottom: 4px; }
-      .header { text-align: center; margin-bottom: 12px; }
-      .header p { margin: 2px 0; }
-      table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-      th, td { border: 1px solid #333; padding: 4px 8px; text-align: left; font-size: 11px; }
-      th { background: #1e3050; color: white; }
-      tr.header-row { background: #f1f5f9; font-weight: bold; }
-      .total { font-weight: bold; text-align: right; margin-top: 12px; }
-    </style>
-    <div class="header">
-      <h2>Registro de Deuda - Alcabala</h2>
-      <p><strong>${row.nomb_val} ${row.num_val}-${row.ano_val}</strong></p>
-      <p>${detail?.nombre ?? row.nombre}</p>
-    </div>
-    ${groups.map((g) => `
-      <table>
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>ID</th>
-            <th>Año / Período</th>
-            <th>Imp. Insoluto</th>
-            <th>Imp. Reajustado</th>
-            <th>Costo Emisión</th>
-            <th>Mora</th>
-            <th>Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr class="header-row">
-            <td>${g.header.row_num}</td>
-            <td>${g.header.id}</td>
-            <td>${g.header.anio}</td>
-            <td>${formatCurrency(g.header.imp_insol)}</td>
-            <td>${formatCurrency(g.header.imp_reaj)}</td>
-            <td>${formatCurrency(g.header.costo_emis)}</td>
-            <td>${formatCurrency(g.header.mora)}</td>
-            <td>${formatCurrency(g.header.total)}</td>
-          </tr>
-          ${g.details.map((d) => `
-          <tr>
-            <td>${d.row_num}</td>
-            <td>${d.id}</td>
-            <td>${d.anno}</td>
-            <td>${formatCurrency(d.imp_insol)}</td>
-            <td>${formatCurrency(d.imp_reaj)}</td>
-            <td>${formatCurrency(d.costo_emis)}</td>
-            <td>${formatCurrency(d.mora)}</td>
-            <td>${formatCurrency(d.total)}</td>
-          </tr>
-          `).join("")}
-        </tbody>
-      </table>
-    `).join("")}
-    <p class="total">Monto Total: ${formatCurrency(row.MontoTotal)}</p>
-  `;
-}
+// Impresión del documento oficial de RD delegada a DocumentoRDModal
+// (mismo componente y formato que el módulo rd-alcabala / Generar RD).
 
 // ── Detalle RD Modal ──────────────────────────────────────
 
 function DetalleRDModal({
   row,
   onClose,
-  onPrint,
 }: {
   row: ConsultaRDRow;
   onClose: () => void;
-  onPrint?: (row: ConsultaRDRow) => void;
 }) {
   const [detail, setDetail] = useState<DetalleRDResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -223,11 +159,8 @@ function DetalleRDModal({
     });
   };
 
-  // The Detalle modal reuses the page-level print pipeline (onPrint) so there
-  // is a single #rd-detalle-print container owned by the page.
-  const handlePrint = () => {
-    onPrint?.(row);
-  };
+  // The Detalle modal is view-only; the official RD document is printed from
+  // the row-level Imprimir button (which opens DocumentoRDModal).
 
   const groups = detail ? groupDetailRows(detail.data) : [];
 
@@ -379,19 +312,6 @@ return (
               </tbody>
             </table>
           )}
-        </div>
-
-        {/* ── Bottom section: Print button ────────────── */}
-        <div className="flex items-center justify-end border-t border-slate-200 bg-slate-50/50 px-5 py-3 rounded-b-xl">
-          <button
-            type="button"
-            onClick={handlePrint}
-            disabled={loading || !!error || !detail || detail.data.length === 0}
-            className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-4 py-1.5 text-[11px] font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <Printer size={13} />
-            Imprimir
-          </button>
         </div>
       </div>
     </div>
@@ -656,28 +576,19 @@ export default function ConsultaRDPage() {
   // ── Ruta modal ─────────────────────────────────────────
   const [rutaRow, setRutaRow] = useState<ConsultaRDRow | null>(null);
 
-  // ── RD print (single source of truth: owned by the page) ──
-  const [printRow, setPrintRow] = useState<ConsultaRDRow | null>(null);
-  const [printDetail, setPrintDetail] = useState<DetalleRDResult | null>(null);
+  // ── Official RD document (DocumentoRDModal) ──
+  const [docData, setDocData] = useState<any[] | null>(null);
 
   const handlePrintRow = useCallback(async (row: ConsultaRDRow) => {
     try {
-      const result = await getDetailConsultaRDAction({
-        num_val: row.num_val,
-        ano_val: String(row.ano_val),
-        nombre: row.nombre,
-        nomb_val: row.nomb_val,
-      });
-      if (result.success) {
-        setPrintRow(row);
-        setPrintDetail(result);
-        // Wait two frames so the #rd-detalle-print container re-renders
-        // with the fetched detail before the print dialog opens.
-        requestAnimationFrame(() =>
-          requestAnimationFrame(() => window.print()),
-        );
+      const result = await getImprimirRDAlcabalaAction(
+        row.num_val,
+        String(row.ano_val),
+      );
+      if (result.success && result.data && result.data.length > 0) {
+        setDocData(result.data);
       } else {
-        alert(result.error ?? "Error al cargar el detalle para imprimir");
+        alert(result.error ?? "No se pudo generar el documento RD");
       }
     } catch {
       alert("Error de conexión al imprimir");
@@ -1200,7 +1111,6 @@ export default function ConsultaRDPage() {
         <DetalleRDModal
           row={detalleRow}
           onClose={() => setDetalleRow(null)}
-          onPrint={handlePrintRow}
         />
       )}
 
@@ -1212,33 +1122,13 @@ export default function ConsultaRDPage() {
         />
       )}
 
-      {/* ── RD print container (hidden on screen, isolated on print) ── */}
-      <style>{`
-        @media print {
-          body * {
-            visibility: hidden !important;
-          }
-          #rd-detalle-print,
-          #rd-detalle-print * {
-            visibility: visible !important;
-          }
-          #rd-detalle-print {
-            display: block !important;
-            position: absolute !important;
-            inset: 0 !important;
-            width: 100% !important;
-            padding: 20px !important;
-            background: white !important;
-            font-family: Arial, sans-serif;
-            font-size: 12px;
-          }
-        }
-      `}</style>
-      <div
-        id="rd-detalle-print"
-        style={{ display: "none" }}
-        dangerouslySetInnerHTML={{ __html: buildRdPrintHtml(printRow, printDetail) }}
-      />
+      {/* Documento oficial RD (formato con membrete SAT) */}
+      {docData && (
+        <DocumentoRDModal
+          data={docData}
+          onClose={() => setDocData(null)}
+        />
+      )}
     </div>
   );
 }

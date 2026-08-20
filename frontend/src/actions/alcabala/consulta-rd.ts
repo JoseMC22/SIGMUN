@@ -245,3 +245,51 @@ export async function getRutaConsultaRDAction(params: {
     };
   }
 }
+
+export interface ImprimirRDResult {
+  success: boolean;
+  message?: string;
+  data?: any[];
+  error?: string;
+}
+
+/**
+ * Fetches the OFFICIAL RD document (DocumentoRDModal format) for an existing
+ * RD, via GET /alcabala/consulta-rd/imprimir?num_val=&ano_val=.
+ */
+export async function getImprimirRDAlcabalaAction(
+  num_val: string,
+  ano_val: string,
+): Promise<ImprimirRDResult> {
+  try {
+    const query = new URLSearchParams();
+    query.set("num_val", num_val);
+    query.set("ano_val", ano_val);
+
+    const response = await authFetch(
+      `/alcabala/consulta-rd/imprimir?${query.toString()}`,
+      { cache: "no-store" },
+    );
+
+    if (!response.ok) {
+      const text = await response.text();
+      return {
+        success: false,
+        error: text || "Error al generar el documento RD",
+      };
+    }
+
+    const json = await response.json();
+    return {
+      success: json.success ?? false,
+      message: json.message,
+      data: json.data ?? [],
+      error: json.error,
+    };
+  } catch {
+    return {
+      success: false,
+      error: "Error de conexión con el servidor",
+    };
+  }
+}
