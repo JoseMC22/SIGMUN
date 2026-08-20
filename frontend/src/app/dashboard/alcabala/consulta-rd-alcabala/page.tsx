@@ -21,6 +21,7 @@ import {
   searchConsultaRDAction,
   getDetailConsultaRDAction,
   getRutaConsultaRDAction,
+  getImprimirRDAlcabalaAction,
 } from "@/actions/alcabala/consulta-rd";
 import type {
   ConsultaRDRow,
@@ -29,6 +30,8 @@ import type {
   RutaRDRow,
   RutaRDResult,
 } from "@/actions/alcabala/consulta-rd";
+import { formatCodigo, useConsultaRdExport } from "@/app/dashboard/alcabala/reportes/consulta-rd/export-utils";
+import { DocumentoRDModal } from "@/app/dashboard/alcabala/reportes/rd-alcabala/documento-rd-modal";
 
 // ── Status badge ─────────────────────────────────────────
 
@@ -93,6 +96,9 @@ function groupDetailRows(rows: DetalleRDRow[]): DetailGroup[] {
   return groups;
 }
 
+// Impresión del documento oficial de RD delegada a DocumentoRDModal
+// (mismo componente y formato que el módulo rd-alcabala / Generar RD).
+
 // ── Detalle RD Modal ──────────────────────────────────────
 
 function DetalleRDModal({
@@ -153,84 +159,12 @@ function DetalleRDModal({
     });
   };
 
-  const handlePrint = () => {
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) return;
-    const groups = detail ? groupDetailRows(detail.data) : [];
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>RD ${row.nomb_val} ${row.num_val}-${row.ano_val}</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 20px; font-size: 12px; }
-          h2 { text-align: center; margin-bottom: 4px; }
-          .header { text-align: center; margin-bottom: 12px; }
-          .header p { margin: 2px 0; }
-          table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-          th, td { border: 1px solid #333; padding: 4px 8px; text-align: left; font-size: 11px; }
-          th { background: #1e3050; color: white; }
-          tr.header-row { background: #f1f5f9; font-weight: bold; }
-          .total { font-weight: bold; text-align: right; margin-top: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h2>Registro de Deuda - Alcabala</h2>
-          <p><strong>${row.nomb_val} ${row.num_val}-${row.ano_val}</strong></p>
-          <p>${detail?.nombre ?? row.nombre}</p>
-        </div>
-        ${groups.map((g) => `
-          <table>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>ID</th>
-                <th>Año / Período</th>
-                <th>Imp. Insoluto</th>
-                <th>Imp. Reajustado</th>
-                <th>Costo Emisión</th>
-                <th>Mora</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr class="header-row">
-                <td>${g.header.row_num}</td>
-                <td>${g.header.id}</td>
-                <td>${g.header.anio}</td>
-                <td>${formatCurrency(g.header.imp_insol)}</td>
-                <td>${formatCurrency(g.header.imp_reaj)}</td>
-                <td>${formatCurrency(g.header.costo_emis)}</td>
-                <td>${formatCurrency(g.header.mora)}</td>
-                <td>${formatCurrency(g.header.total)}</td>
-              </tr>
-              ${g.details.map((d) => `
-              <tr>
-                <td>${d.row_num}</td>
-                <td>${d.id}</td>
-                <td>${d.anno}</td>
-                <td>${formatCurrency(d.imp_insol)}</td>
-                <td>${formatCurrency(d.imp_reaj)}</td>
-                <td>${formatCurrency(d.costo_emis)}</td>
-                <td>${formatCurrency(d.mora)}</td>
-                <td>${formatCurrency(d.total)}</td>
-              </tr>
-              `).join("")}
-            </tbody>
-          </table>
-        `).join("")}
-        <p class="total">Monto Total: ${formatCurrency(row.MontoTotal)}</p>
-      </body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.print();
-  };
+  // The Detalle modal is view-only; the official RD document is printed from
+  // the row-level Imprimir button (which opens DocumentoRDModal).
 
   const groups = detail ? groupDetailRows(detail.data) : [];
 
-  return (
+return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in"
       role="dialog"
@@ -378,19 +312,6 @@ function DetalleRDModal({
               </tbody>
             </table>
           )}
-        </div>
-
-        {/* ── Bottom section: Print button ────────────── */}
-        <div className="flex items-center justify-end border-t border-slate-200 bg-slate-50/50 px-5 py-3 rounded-b-xl">
-          <button
-            type="button"
-            onClick={handlePrint}
-            disabled={loading || !!error || !detail || detail.data.length === 0}
-            className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-4 py-1.5 text-[11px] font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <Printer size={13} />
-            Imprimir
-          </button>
         </div>
       </div>
     </div>
@@ -655,13 +576,28 @@ export default function ConsultaRDPage() {
   // ── Ruta modal ─────────────────────────────────────────
   const [rutaRow, setRutaRow] = useState<ConsultaRDRow | null>(null);
 
+  // ── Official RD document (DocumentoRDModal) ──
+  const [docData, setDocData] = useState<any[] | null>(null);
+
+  const handlePrintRow = useCallback(async (row: ConsultaRDRow) => {
+    try {
+      const result = await getImprimirRDAlcabalaAction(
+        row.num_val,
+        String(row.ano_val),
+      );
+      if (result.success && result.data && result.data.length > 0) {
+        setDocData(result.data);
+      } else {
+        alert(result.error ?? "No se pudo generar el documento RD");
+      }
+    } catch {
+      alert("Error de conexión al imprimir");
+    }
+  }, []);
+
   // ── Helpers ──────────────────────────────────────────────
 
-  /** Formatea código a 7 dígitos con ceros a la izquierda */
-  const formatCodigo = (value: string): string => {
-    const digits = value.replace(/\D/g, "").slice(0, 7);
-    return digits.padStart(7, "0");
-  };
+
 
   // ── executeSearch ────────────────────────────────────────
 
@@ -726,94 +662,9 @@ export default function ConsultaRDPage() {
     executeSearch(newPage);
   };
 
-  // ── Export helpers ───────────────────────────────────────
+  // Export helpers (extracted to export-utils)
 
-  const fetchAllRecords = useCallback(async (): Promise<ConsultaRDRow[]> => {
-    const result = await searchConsultaRDAction(
-      {
-        codigo: filters.codigo ? formatCodigo(filters.codigo) : undefined,
-        contribuyente: filters.contribuyente || undefined,
-        estado: filters.estado || undefined,
-      },
-      1,
-      99999,
-    );
-    if (result.success) return result.data;
-    throw new Error(result.error);
-  }, [filters]);
-
-  const exportToExcel = useCallback(async () => {
-    setExporting(true);
-    try {
-      const allData = await fetchAllRecords();
-      const XLSX = await import("xlsx");
-      const ws = XLSX.utils.json_to_sheet(
-        allData.map((r) => ({
-          "#": r.ROW,
-          Código: r.codigo,
-          Nombre: r.nombre,
-          RD: `${r.nomb_val} ${r.num_val}-${r.ano_val}`,
-          "Monto S/.": r.MontoTotal,
-          "Fec. Emisión": r.fec_val,
-          Estado: r.estado,
-          "F. Pago": r.fpago,
-          Recibo: r.recibo,
-        })),
-      );
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Consulta RD");
-      XLSX.writeFile(wb, `consulta-rd-alcabala.xlsx`);
-    } catch {
-      setError("Error al exportar Excel");
-    } finally {
-      setExporting(false);
-    }
-  }, [fetchAllRecords]);
-
-  const exportToPdf = useCallback(async () => {
-    setExporting(true);
-    try {
-      const allData = await fetchAllRecords();
-      const { default: jsPDF } = await import("jspdf");
-      const { default: autoTable } = await import("jspdf-autotable");
-      const doc = new jsPDF({ orientation: "landscape" });
-      doc.text("Consulta RD - Alcabala", 14, 10);
-      autoTable(doc, {
-        startY: 16,
-        head: [
-          [
-            "#",
-            "Código",
-            "Nombre",
-            "RD",
-            "Monto S/.",
-            "Fec. Emisión",
-            "Estado",
-            "F. Pago",
-            "Recibo",
-          ],
-        ],
-        body: allData.map((r) => [
-          String(r.ROW),
-          r.codigo,
-          r.nombre,
-          `${r.nomb_val} ${r.num_val}-${r.ano_val}`,
-          String(r.MontoTotal.toFixed(2)),
-          r.fec_val,
-          r.estado,
-          r.fpago,
-          r.recibo,
-        ]),
-        styles: { fontSize: 7 },
-        headStyles: { fillColor: [30, 48, 80] },
-      });
-      doc.save("consulta-rd-alcabala.pdf");
-    } catch {
-      setError("Error al exportar PDF");
-    } finally {
-      setExporting(false);
-    }
-  }, [fetchAllRecords]);
+  const { exportToExcel, exportToPdf } = useConsultaRdExport({ filters, setExporting, setError });
 
   // ── Search Form ──────────────────────────────────────────
 
@@ -977,7 +828,8 @@ export default function ConsultaRDPage() {
               </button>
               <button
                 type="button"
-                className="rounded p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                onClick={() => handlePrintRow(row)}
+                className="rounded p-1 text-slate-400 transition hover:bg-sat-cyan/10 hover:text-sat-cyan"
                 aria-label="Imprimir"
                 title="Imprimir"
               >
@@ -1267,6 +1119,14 @@ export default function ConsultaRDPage() {
         <RutaRDModal
           row={rutaRow}
           onClose={() => setRutaRow(null)}
+        />
+      )}
+
+      {/* Documento oficial RD (formato con membrete SAT) */}
+      {docData && (
+        <DocumentoRDModal
+          data={docData}
+          onClose={() => setDocData(null)}
         />
       )}
     </div>

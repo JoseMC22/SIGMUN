@@ -1,5 +1,6 @@
 import { generatePdf } from 'html-pdf-node';
 import { readFileSync, statSync } from 'fs';
+import { join } from 'path';
 import { DeclaracionPdfRow } from './dto/declaracion-pdf-row.dto';
 
 export interface DeclaracionPdfOptions {
@@ -9,6 +10,27 @@ export interface DeclaracionPdfOptions {
 }
 
 const MAX_LOGO_BYTES = 1024 * 1024; // 1 MB
+
+// ── Template cache (loaded once from disk) ──────────────────
+
+let _templateCache: string | null = null;
+
+function loadTemplate(): string {
+  if (_templateCache) return _templateCache;
+  // __dirname may be dist/ (compiled) or src/ (ts-node), so resolve
+  // relative to cwd() which is always the backend root.
+  const templatePath = join(
+    process.cwd(),
+    'src',
+    'alcabala',
+    'impresion-dj-alcabala',
+    'declaracion-dj-template.html',
+  );
+  _templateCache = readFileSync(templatePath, 'utf-8');
+  return _templateCache;
+}
+
+// ── Helpers ─────────────────────────────────────────────────
 
 /**
  * HTML-escape every DB-derived string before interpolation so a value such as
@@ -45,77 +67,57 @@ function amtCell(label: string, value: number): string {
   return `<td class="lbl">${esc(label)}</td><td>${esc(fmt(value))}</td>`;
 }
 
+// ── Build row HTML fragments ────────────────────────────────
+
+function buildRows(row: DeclaracionPdfRow, opts: DeclaracionPdfOptions) {
+  const logo = opts.logoDataUri
+    ? `<img class="logo" src="${esc(opts.logoDataUri)}" alt="logo" />`
+    : '';
+
+  return {
+    logo,
+    // RECEPCIÓN
+    row_recepcion_1: `<tr>${cell('CÓDIGO COMPRA', row.codigo_compra)}${cell('COMPRADOR', row.comprador)}</tr>`,
+    row_recepcion_2: `<tr>${cell('DIRECCIÓN FISCAL', row.comprador_fiscal)}${cell('DNI', row.comprador_dni)}</tr>`,
+    row_recepcion_3: `<tr>${cell('CÓDIGO VENTA', row.codigo_venta)}${cell('VENDEDOR', row.vendedor)}</tr>`,
+    row_recepcion_4: `<tr>${cell('DIRECCIÓN FISCAL', row.vendedor_fiscal)}${cell('DNI', row.vendedor_dni)}</tr>`,
+    // DATOS GENERALES
+    row_datos_1: `<tr>${cell('CONTRATO', row.contrato)}${cell('FECHA CONTRATO', row.fecha_contrato)}</tr>`,
+    row_datos_2: `<tr>${cell('DIRECCIÓN PREDIO', row.direccion_predio)}${cell('TIPO DE PREDIO', row.tipo_pred)}</tr>`,
+    // VALOR DE LA TRANSFERENCIA
+    row_valor: `<tr>${amtCell('TRANSFERENCIA', row.transferencia)}${amtCell('AUTOAVALÚO', row.autoavaluo)}</tr>`,
+    // CÁLCULO DEL IMPUESTO
+    row_calculo_1: `<tr>${amtCell('MONTO INAFECTO', row.monto_inafecto)}${amtCell('MONTO AFECTO', row.monto_afecto)}</tr>`,
+    row_calculo_2: `<tr>${amtCell('MORA', row.mora)}${amtCell('TASA IMPUESTO %', row.tasa_impuesto)}</tr>`,
+    row_calculo_3: `<tr>${amtCell('BASE IMPONIBLE', row.base_imponible)}</tr>`,
+    // MONTO DE LA ALCABALA
+    row_monto: `<tr>${amtCell('MONTO ALCABALA', row.monto_alcabala)}${amtCell('TOTAL ALCABALA', row.total_alcabala)}</tr>`,
+    // Plain text fields
+    monto_letras: esc(row.monto_letras),
+    observacion: esc(row.observacion),
+    // Footer
+    usuario: esc(opts.usuario),
+    fecha: esc(opts.fecha),
+  };
+}
+
+// ── Main build function ─────────────────────────────────────
+
 /**
- * Builds the A4 HTML replicating the `rptalcabala` Jasper bands:
- * title, RECEPCIÓN box, sections 1–4, montos, firmas and footer.
- * Margins are NOT set in CSS — they come from the pdf options in
- * `generateDeclaracionPdf` (puppeteer overrides @page margins).
+ * Builds the A4 HTML by loading the external template and replacing
+ * {{placeholder}} tokens with rendered cell fragments.
+ * Design is identical to the original inline-template version.
  */
 export function buildDeclaracionPdfHtml(
   row: DeclaracionPdfRow,
   opts: DeclaracionPdfOptions,
 ): string {
-  const logo = opts.logoDataUri
-    ? `<img class="logo" src="${esc(opts.logoDataUri)}" alt="logo" />`
-    : '';
+  const template = loadTemplate();
+  const values = buildRows(row, opts);
 
-  return `<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="utf-8" />
-<title>Declaración de Alcabala</title>
-<style>
-  @page { size: A4; margin: 0; }
-  html, body { margin: 0; padding: 0; }
-  body { font-family: 'Courier New', monospace; font-size: 9px; color: #000; }
-  table { border-collapse: collapse; width: 100%; }
-  td, th { border: 1px solid #000; padding: 2px 4px; vertical-align: top; }
-  td.lbl { font-weight: bold; width: 22%; background: #eee; }
-  .title { text-align: center; font-weight: bold; font-size: 14px; letter-spacing: 1px; }
-  .logo { max-height: 40px; }
-  .section { font-weight: bold; background: #ddd; padding: 2px 4px; }
-  .footer td { border: none; }
-</style>
-</head>
-<body>
-  <table>
-    <tr><td class="title" colspan="4">IMPUESTO DE ALCABALA ${logo}</td></tr>
-    <tr><td class="section" colspan="4">RECEPCIÓN</td></tr>
-    <tr>${cell('CÓDIGO COMPRA', row.codigo_compra)}${cell('COMPRADOR', row.comprador)}</tr>
-    <tr>${cell('DIRECCIÓN FISCAL', row.comprador_fiscal)}${cell('DNI', row.comprador_dni)}</tr>
-    <tr>${cell('CÓDIGO VENTA', row.codigo_venta)}${cell('VENDEDOR', row.vendedor)}</tr>
-    <tr>${cell('DIRECCIÓN FISCAL', row.vendedor_fiscal)}${cell('DNI', row.vendedor_dni)}</tr>
-
-    <tr><td class="section" colspan="4">DATOS GENERALES</td></tr>
-    <tr>${cell('CONTRATO', row.contrato)}${cell('FECHA CONTRATO', row.fecha_contrato)}</tr>
-    <tr>${cell('DIRECCIÓN PREDIO', row.direccion_predio)}${cell('TIPO DE PREDIO', row.tipo_pred)}</tr>
-
-    <tr><td class="section" colspan="4">VALOR DE LA TRANSFERENCIA</td></tr>
-    <tr>${amtCell('TRANSFERENCIA', row.transferencia)}${amtCell('AUTOAVALÚO', row.autoavaluo)}</tr>
-
-    <tr><td class="section" colspan="4">CÁLCULO DEL IMPUESTO</td></tr>
-    <tr>${amtCell('MONTO INAFECTO', row.monto_inafecto)}${amtCell('MONTO AFECTO', row.monto_afecto)}</tr>
-    <tr>${amtCell('MORA', row.mora)}${amtCell('TASA IMPUESTO %', row.tasa_impuesto)}</tr>
-    <tr>${amtCell('BASE IMPONIBLE', row.base_imponible)}</tr>
-
-    <tr><td class="section" colspan="4">MONTO DE LA ALCABALA</td></tr>
-    <tr>${amtCell('MONTO ALCABALA', row.monto_alcabala)}${amtCell('TOTAL ALCABALA', row.total_alcabala)}</tr>
-
-    <tr><td class="section" colspan="4">MONTO EN LETRAS</td></tr>
-    <tr><td colspan="4">${esc(row.monto_letras)}</td></tr>
-
-    <tr><td class="section" colspan="4">OBSERVACIONES</td></tr>
-    <tr><td colspan="4">${esc(row.observacion)}</td></tr>
-
-    <tr><td class="section" colspan="4">FIRMAS</td></tr>
-    <tr><td colspan="2">El Contribuyente</td><td colspan="2">La Municipalidad</td></tr>
-  </table>
-
-  <table class="footer">
-    <tr><td>USUARIO: ${esc(opts.usuario)}</td><td>FECHA: ${esc(opts.fecha)}</td></tr>
-  </table>
-</body>
-</html>`;
+  return template.replace(/\{\{(\w+)\}\}/g, (_match, key: string) => {
+    return key in values ? (values as Record<string, string>)[key] : '';
+  });
 }
 
 /**

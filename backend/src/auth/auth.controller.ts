@@ -54,8 +54,11 @@ function getAuthCookieOptions() {
   return {
     httpOnly: true,
     secure: isProduction,
-    
+
     sameSite: isProduction ? ('strict' as const) : ('lax' as const),
+    // Dev: share the cookie across ports (frontend :3000 / backend :3001) so
+    // Next.js server actions can forward it. Prod keeps host-only scope.
+    domain: isProduction ? undefined : 'localhost',
     path: '/',
     maxAge: SESSION_COOKIE_MAX_AGE_MS,
   };

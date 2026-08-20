@@ -71,3 +71,41 @@ export interface RutaRDResult {
   data: RutaRDRow[];
   error?: string;
 }
+
+// ── Imprimir RD (official document via Rentas.sp_Imprime_alcabala) ──
+
+/** Official RD document row — same shape consumed by DocumentoRDModal. */
+export interface ImprimirRDRow {
+  id_valor: string;
+  num_val: string;
+  ano_val: string;
+  tributo: string;
+  numerOP: string;
+  fec_val: string;
+  fecvaln: string;
+  fec_valn: string;
+  codigo: string;
+  nombre: string;
+  num_doc: string;
+  dirfiscal: string;
+  idrecibo: number;
+  anio_fiscal: string;
+  valortotal: number;
+  monto_afecto: number;
+  monto_inafecto: number;
+  tasa: string;
+  monto_alcabala: number;
+  mora: number;
+  total: number;
+  codpred: string;
+  direccion_predio: string;
+  fechacontrato: string;
+  fono: string;
+}
+
+export interface ImprimirRDResult {
+  success: boolean;
+  message?: string;
+  data?: ImprimirRDRow[];
+  error?: string;
+}

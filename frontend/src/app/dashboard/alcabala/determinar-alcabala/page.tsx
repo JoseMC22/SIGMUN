@@ -11,6 +11,7 @@ import {
 import AlcabalasModal from "./alcabalas-modal";
 import CrearAlcabalaModal from "./crear-alcabala-modal";
 import DetalleAlcabala from "./detalle-alcabala";
+import DeclaracionPdfModal from "./declaracion-pdf-modal";
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -44,6 +45,10 @@ export default function DeterminarAlcabalaPage() {
   const [alcabalas, setAlcabalas] = useState<AlcabalaItem[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [detalleRow, setDetalleRow] = useState<AlcabalaItem | null>(null);
+  const [declaracionPdf, setDeclaracionPdf] = useState<{
+    html: string;
+    idAlcabala: number;
+  } | null>(null);
   const [openCrearAlcabala, setOpenCrearAlcabala] = useState(false);
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [loadingAlcabalas, setLoadingAlcabalas] = useState(false);
@@ -402,6 +407,10 @@ export default function DeterminarAlcabalaPage() {
         alcabalas={alcabalas}
         loading={loadingAlcabalas}
         onViewDetail={(a) => setDetalleRow(a)}
+onImprimirDeclaracion={(html, idAlcabala) =>
+  setDeclaracionPdf({ html, idAlcabala })
+}
+        blockEscapeClose={detalleRow !== null || declaracionPdf !== null}
         onCrearAlcabala={handleCrearAlcabala}
       />
 
@@ -418,6 +427,14 @@ export default function DeterminarAlcabalaPage() {
         open={detalleRow !== null}
         onClose={() => setDetalleRow(null)}
         idAlcabala={detalleRow?.idAlcabala ?? null}
+      />
+
+      {/* Declaración PDF modal */}
+      <DeclaracionPdfModal
+        open={declaracionPdf !== null}
+        html={declaracionPdf?.html ?? null}
+        idAlcabala={declaracionPdf?.idAlcabala ?? 0}
+        onClose={() => setDeclaracionPdf(null)}
       />
 
       {/* Empty state when no search */}

@@ -17,6 +17,7 @@ interface AlcabalasModalProps {
   alcabalas: AlcabalaItem[];
   loading: boolean;
   onViewDetail?: (alcabala: AlcabalaItem) => void;
+  onImprimirDeclaracion?: (html: string, idAlcabala: number) => void;
   onCrearAlcabala?: () => void;
   /**
    * When true, Escape must not close this modal because a child layout
@@ -34,6 +35,7 @@ export default function AlcabalasModal({
   alcabalas,
   loading,
   onViewDetail,
+  onImprimirDeclaracion,
   onCrearAlcabala,
   blockEscapeClose = false,
 }: AlcabalasModalProps) {
@@ -41,9 +43,11 @@ export default function AlcabalasModal({
   useEffect(() => {
     if (!open) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !blockEscapeClose) {
+      if (e.key === "Escape") {
         e.stopPropagation();
-        onClose();
+        if (!blockEscapeClose) {
+          onClose();
+        }
       }
     };
     document.addEventListener("keydown", handleKeyDown);
@@ -78,7 +82,7 @@ export default function AlcabalasModal({
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-4">
-          <AlcabalasTable data={alcabalas} loading={loading} onViewDetail={onViewDetail} onNuevo={onCrearAlcabala} />
+          <AlcabalasTable data={alcabalas} loading={loading} onViewDetail={onViewDetail} onImprimirDeclaracion={onImprimirDeclaracion} onNuevo={onCrearAlcabala} />
         </div>
 
         {/* Footer */}

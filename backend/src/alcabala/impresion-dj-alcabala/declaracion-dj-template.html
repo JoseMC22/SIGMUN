@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Declaración de Alcabala</title>
+<style>
+  @page { size: A4; margin: 0; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'Courier New', monospace; font-size: 9px; color: #000; }
+  table { border-collapse: collapse; width: 100%; }
+  td, th { border: 1px solid #000; padding: 2px 4px; vertical-align: top; }
+  td.lbl { font-weight: bold; width: 22%; background: #eee; }
+  .title { text-align: center; font-weight: bold; font-size: 14px; letter-spacing: 1px; }
+  .logo { max-height: 40px; }
+  .section { font-weight: bold; background: #ddd; padding: 2px 4px; }
+  .footer td { border: none; }
+</style>
+</head>
+<body>
+  <table>
+    <tr><td class="title" colspan="4">IMPUESTO DE ALCABALA {{logo}}</td></tr>
+    <tr><td class="section" colspan="4">RECEPCIÓN</td></tr>
+    {{row_recepcion_1}}
+    {{row_recepcion_2}}
+    {{row_recepcion_3}}
+    {{row_recepcion_4}}
+
+    <tr><td class="section" colspan="4">DATOS GENERALES</td></tr>
+    {{row_datos_1}}
+    {{row_datos_2}}
+
+    <tr><td class="section" colspan="4">VALOR DE LA TRANSFERENCIA</td></tr>
+    {{row_valor}}
+
+    <tr><td class="section" colspan="4">CÁLCULO DEL IMPUESTO</td></tr>
+    {{row_calculo_1}}
+    {{row_calculo_2}}
+    {{row_calculo_3}}
+
+    <tr><td class="section" colspan="4">MONTO DE LA ALCABALA</td></tr>
+    {{row_monto}}
+
+    <tr><td class="section" colspan="4">MONTO EN LETRAS</td></tr>
+    <tr><td colspan="4">{{monto_letras}}</td></tr>
+
+    <tr><td class="section" colspan="4">OBSERVACIONES</td></tr>
+    <tr><td colspan="4">{{observacion}}</td></tr>
+
+    <tr><td class="section" colspan="4">FIRMAS</td></tr>
+    <tr><td colspan="2">El Contribuyente</td><td colspan="2">La Municipalidad</td></tr>
+  </table>
+
+  <table class="footer">
+    <tr><td>USUARIO: {{usuario}}</td><td>FECHA: {{fecha}}</td></tr>
+  </table>
+</body>
+</html>
