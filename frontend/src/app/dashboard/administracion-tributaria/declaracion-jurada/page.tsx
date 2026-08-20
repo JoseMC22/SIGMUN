@@ -25,6 +25,7 @@ import {
 } from "@/actions/administracion-tributaria/declaracion-jurada";
 import type { ContribuyenteAnyItem } from "@/actions/administracion-tributaria/declaracion-jurada";
 import { getStoredUser } from "@/lib/api";
+import { useAccess } from "@/lib/access-context";
 import ContribuyenteModal from "./contribuyente-modal";
 import RepresentantesModal from "./representantes-modal";
 
@@ -84,6 +85,7 @@ function TableSkeleton() {
 // ─── Main Page ────────────────────────────────────────────
 
 export default function DeclaracionJuradaPage() {
+  const { hasAccess } = useAccess();
   const [tipoBusqueda, setTipoBusqueda] = useState<TipoBusqueda>("C");
   const [filters, setFilters] = useState({
     codigo: "",
@@ -705,8 +707,10 @@ export default function DeclaracionJuradaPage() {
                 )}
                 <td className="px-2 py-2">
                 <div className="flex items-center justify-center gap-0.5">
+                  {hasAccess("iconEditContri") && (
                   <span className="group relative">
                     <button
+                      id="iconEditContri"
                       type="button"
                       onClick={() => setEditarCodigo((item as any).codigo)}
                       className="inline-flex items-center justify-center rounded p-1 text-sky-600 transition hover:bg-sky-50 active:scale-95"
@@ -715,6 +719,7 @@ export default function DeclaracionJuradaPage() {
                     </button>
                     <span className="pointer-events-none absolute -top-7 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-1.5 py-0.5 text-[9px] font-medium text-white opacity-0 shadow-lg transition group-hover:opacity-100">Editar</span>
                   </span>
+                  )}
                   <span className="group relative">
                     <button
                       type="button"
