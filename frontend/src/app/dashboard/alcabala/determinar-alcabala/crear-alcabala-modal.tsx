@@ -252,6 +252,7 @@ export default function CrearAlcabalaModal({
     montoAfecto: 0,
     montoAlcabala: 0,
     autoavaluo: 0,
+    porcTransferencia: '',
   });
 
   const [submitting, setSubmitting] = useState(false);
@@ -295,6 +296,7 @@ export default function CrearAlcabalaModal({
         montoAfecto: 0,
         montoAlcabala: 0,
         autoavaluo: 0,
+        porcTransferencia: '',
       });
       setSubmitError(null);
       setSubmitting(false);
@@ -354,6 +356,14 @@ export default function CrearAlcabalaModal({
     setSubmitting(true);
     setSubmitError(null);
 
+    // Convert the raw string to a number only here; empty/invalid -> omit
+    // so the backend DTO default (0) applies. No clamping on the input.
+    const porcRaw = montos.porcTransferencia.trim();
+    const porcTransferencia =
+      porcRaw !== '' && !Number.isNaN(Number(porcRaw))
+        ? Number(porcRaw)
+        : undefined;
+
     const result = await crearAlcabalaAction({
       codigoCompra: comprador.codigoCompra,
       nombres: comprador.nombres,
@@ -375,6 +385,7 @@ export default function CrearAlcabalaModal({
       montoAfecto: montos.montoAfecto,
       montoAlcabala: montos.montoAlcabala,
       autoavaluo: montos.autoavaluo,
+      porcTransferencia: porcTransferencia,
       anexo: predio.anexo,
       subAnexo: predio.subAnexo,
     });
@@ -907,6 +918,26 @@ export default function CrearAlcabalaModal({
                           setMontos((prev) => ({
                             ...prev,
                             autoavaluo: Math.max(0, Number(e.target.value)),
+                          }))
+                        }
+                        className={inputMono}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-4 gap-3 mt-3">
+                    <div>
+                      <label htmlFor="porcTransferencia" className={fieldLabel}>
+                        Porcentaje de Transferencia (%)
+                      </label>
+                      <input
+                        id="porcTransferencia"
+                        type="text"
+                        inputMode="decimal"
+                        value={montos.porcTransferencia}
+                        onChange={(e) =>
+                          setMontos((prev) => ({
+                            ...prev,
+                            porcTransferencia: e.target.value,
                           }))
                         }
                         className={inputMono}

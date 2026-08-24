@@ -203,6 +203,7 @@ export interface DetalleAlcabalaItem {
   anioPred: string;
   fechaContrato: string;
   transferencia: string;
+  porcTransferencia: number;
   observacion: string;
   contrato: string;
   montoAlcabala: number;

@@ -383,6 +383,7 @@ describe('DeterminarAlcabalaService', () => {
       autoavaluo: 80000,
       anexo: '',
       subAnexo: '',
+      porcTransferencia: 10,
     };
 
     it('should call sp_DJAlcabala with buscar=4 and mapped DTO params', async () => {
@@ -416,6 +417,7 @@ describe('DeterminarAlcabalaService', () => {
         autoavaluo: 80000,
         anexo: '',
         sub_anexo: '',
+        porc_transferencia: 10,
         usuario: 'admin',
         estacion: 'PC-001',
       });
@@ -496,6 +498,36 @@ describe('DeterminarAlcabalaService', () => {
       expect(result.success).toBe(true);
       // When no recordset returned, idAlcabala should be 0
       expect(result.idAlcabala).toBe(0);
+    });
+
+    it('should include porc_transferencia in SP params with the sent value', async () => {
+      db.executeProcedure.mockResolvedValueOnce(
+        mockSpResult([{ id_alcabala: 42 }]),
+      );
+
+      await service.crear(
+        { ...validDto, porcTransferencia: 75 },
+        'admin',
+        'PC-001',
+      );
+
+      expect(db.executeProcedure).toHaveBeenCalledWith(
+        SP_DJALCABALA,
+        expect.objectContaining({ porc_transferencia: 75 }),
+      );
+    });
+  });
+
+  describe('getDetalleAlcabala', () => {
+    it('should map porc_transferencia from the SP row to porcTransferencia', async () => {
+      db.executeProcedure.mockResolvedValueOnce(
+        mockSpResult([{ id_alcabala: 1001, porc_transferencia: 25 }]),
+      );
+
+      const result = await service.getDetalleAlcabala(1001);
+
+      expect(result.success).toBe(true);
+      expect(result.data?.porcTransferencia).toBe(25);
     });
   });
 

@@ -44,6 +44,7 @@ export interface SpDetalleAlcabalaRow {
   aniopred: string;
   fecha_contrato: string;
   transferencia: string;
+  porc_transferencia: number;
   observacion: string;
   contrato: string;
   monto_alcabala: number;
@@ -112,6 +113,7 @@ export interface DetalleAlcabalaItem {
   anioPred: string;
   fechaContrato: string;
   transferencia: string;
+  porcTransferencia: number;
   observacion: string;
   contrato: string;
   montoAlcabala: number;

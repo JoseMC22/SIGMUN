@@ -367,4 +367,88 @@ describe("CrearAlcabalaModal", () => {
 
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  // ── Porcentaje de Transferencia ───────────────────────
+
+  it("renders the Porcentaje de Transferencia input", () => {
+    render(<CrearAlcabalaModal {...defaultProps} />);
+
+    expect(
+      screen.getByLabelText(/Porcentaje de Transferencia/i),
+    ).toBeInTheDocument();
+  });
+
+  it("flows porcTransferencia into the crear action payload", async () => {
+    const user = userEvent.setup();
+    render(<CrearAlcabalaModal {...defaultProps} />);
+
+    await user.type(
+      screen.getByLabelText(/Porcentaje de Transferencia/i),
+      "75",
+    );
+
+    // Required fields to allow a successful submit
+    await user.type(screen.getByLabelText("Código Predio"), "P001");
+    await user.type(screen.getByLabelText("Año Predio"), "2026");
+    await user.type(screen.getByLabelText("Monto Afecto"), "100000");
+
+    await user.click(screen.getByText("Guardar"));
+
+    await waitFor(() => {
+      expect(mockedCrear).toHaveBeenCalledTimes(1);
+    });
+
+    const calledDto = mockedCrear.mock.calls[0][0];
+    expect(calledDto.porcTransferencia).toBe(75);
+  });
+
+  it("keeps decimal value '7.5' in the input (no Math.max/Number corruption) and sends 7.5", async () => {
+    const user = userEvent.setup();
+    render(<CrearAlcabalaModal {...defaultProps} />);
+
+    const input = screen.getByLabelText(
+      /Porcentaje de Transferencia/i,
+    ) as HTMLInputElement;
+
+    await user.type(input, "7.5");
+
+    // Raw string preserved while typing ("7." -> "7.5"), not coerced to 7/75
+    expect(input.value).toBe("7.5");
+
+    await user.type(screen.getByLabelText("Código Predio"), "P001");
+    await user.type(screen.getByLabelText("Año Predio"), "2026");
+    await user.type(screen.getByLabelText("Monto Afecto"), "100000");
+
+    await user.click(screen.getByText("Guardar"));
+
+    await waitFor(() => {
+      expect(mockedCrear).toHaveBeenCalledTimes(1);
+    });
+
+    expect(mockedCrear.mock.calls[0][0].porcTransferencia).toBe(7.5);
+  });
+
+  it("sends no bogus porcTransferencia when the field is typed then cleared", async () => {
+    const user = userEvent.setup();
+    render(<CrearAlcabalaModal {...defaultProps} />);
+
+    const input = screen.getByLabelText(
+      /Porcentaje de Transferencia/i,
+    ) as HTMLInputElement;
+
+    await user.type(input, "5");
+    await user.clear(input);
+
+    await user.type(screen.getByLabelText("Código Predio"), "P001");
+    await user.type(screen.getByLabelText("Año Predio"), "2026");
+    await user.type(screen.getByLabelText("Monto Afecto"), "100000");
+
+    await user.click(screen.getByText("Guardar"));
+
+    await waitFor(() => {
+      expect(mockedCrear).toHaveBeenCalledTimes(1);
+    });
+
+    expect(mockedCrear.mock.calls[0][0].porcTransferencia).toBeUndefined();
+  });
 });
