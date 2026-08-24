@@ -13,7 +13,9 @@ import {
   AlcabalasResult,
   DetalleAlcabalaResult,
   CrearAlcabalaResult,
+  BajaAlcabalaResult,
 } from './determinar-alcabala.types';
+import { BajaAlcabalaDto } from './dto/baja-alcabala.dto';
 
 // ── Case-insensitive column accessor (mssql v12+ preserves SP casing) ──
 
@@ -28,6 +30,7 @@ function col(row: Record<string, any>, name: string): any {
 export class DeterminarAlcabalaService {
   private readonly SP_MCONTRIBUYENTE = 'Rentas.sp_Mcontribuyente';
   private readonly SP_DJALCABALA = 'Alcabala.sp_DJAlcabala';
+  private readonly BUSCAR_BAJA = '9';
   private readonly logger = new Logger(DeterminarAlcabalaService.name);
 
   constructor(private readonly db: DatabaseService) {}
@@ -141,6 +144,7 @@ export class DeterminarAlcabalaService {
         anioPred: String(col(row, 'aniopred') ?? ''),
         codigoVenta: String(col(row, 'codigo_venta') ?? ''),
         estado: String(col(row, 'estado') ?? ''),
+        idRecibo: String(col(row, 'idrecibo') ?? ''),
       }));
 
       return {
@@ -299,6 +303,74 @@ export class DeterminarAlcabalaService {
     } catch (err) {
       this.logger.error(`[DeterminarAlcabala] crear SP error: ${err}`);
       return { success: false, error: 'Error al crear alcabala' };
+    }
+  }
+
+  async darDeBaja(
+    dto: BajaAlcabalaDto,
+    usuario: string,
+    estacion: string,
+  ): Promise<BajaAlcabalaResult> {
+    let idrecibo = dto.idrecibo;
+
+    // When no receipt id was supplied, resolve it (and its estado) from the DJAlcabala row.
+    if (!idrecibo) {
+      try {
+        const res = await this.db.queryWithParams<{ idrecibo: string; estado?: string }>(
+          'SELECT idrecibo, estado FROM Alcabala.DJAlcabala WHERE id_alcabala = @id',
+          { id: dto.idAlcabala },
+        );
+        const row = res.recordset?.[0];
+        if (!row) {
+          return {
+            success: false,
+            error: 'No se pudo resolver el idrecibo de la alcabala para la baja',
+          };
+        }
+        idrecibo = Number(col(row, 'idrecibo') ?? 0);
+
+        // Business rule: only ACTIVO (estado = '1') alcabalas can be deregistered.
+        const estado = col(row, 'estado');
+        if (Number(estado) !== 1) {
+          return {
+            success: false,
+            error: 'Solo se puede dar de baja una alcabala en estado Activo.',
+          };
+        }
+      } catch (err) {
+        this.logger.error(
+          `[DeterminarAlcabala] darDeBaja lookup error: ${err}`,
+        );
+        return {
+          success: false,
+          error: 'Error al resolver el recibo de la alcabala',
+        };
+      }
+
+      if (!idrecibo) {
+        return {
+          success: false,
+          error: 'No se pudo resolver el idrecibo de la alcabala para la baja',
+        };
+      }
+    }
+
+    const params: Record<string, any> = {
+      buscar: this.BUSCAR_BAJA,
+      codigo: dto.codigo,
+      id_alcabala: dto.idAlcabala,
+      idrecibo,
+      observacion: dto.observacion,
+      usuario,
+      estacion,
+    };
+
+    try {
+      await this.db.executeProcedure(this.SP_DJALCABALA, params);
+      return { success: true };
+    } catch (err) {
+      this.logger.error(`[DeterminarAlcabala] darDeBaja SP error: ${err}`);
+      return { success: false, error: 'Error al dar de baja la alcabala' };
     }
   }
 }

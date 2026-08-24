@@ -3,6 +3,7 @@
 import { DeterminarAlcabalaService } from './determinar-alcabala.service';
 import { DatabaseService } from '../../database/database.service';
 import { CrearAlcabalaDto } from './dto/crear-alcabala.dto';
+import { BajaAlcabalaSchema } from './dto/baja-alcabala.dto';
 
 function mockSpResult<T>(rows: T[]): any {
   return { recordset: rows };
@@ -10,13 +11,13 @@ function mockSpResult<T>(rows: T[]): any {
 
 describe('DeterminarAlcabalaService', () => {
   let service: DeterminarAlcabalaService;
-  let db: jest.Mocked<Pick<DatabaseService, 'executeProcedure'>>;
+  let db: jest.Mocked<Pick<DatabaseService, 'executeProcedure' | 'queryWithParams'>>;
 
   const SP_MCONTRIBUYENTE = 'Rentas.sp_Mcontribuyente';
   const SP_DJALCABALA = 'Alcabala.sp_DJAlcabala';
 
   beforeEach(() => {
-    db = { executeProcedure: jest.fn() };
+    db = { executeProcedure: jest.fn(), queryWithParams: jest.fn() };
     service = new DeterminarAlcabalaService(db as unknown as DatabaseService);
   });
 
@@ -283,7 +284,7 @@ describe('DeterminarAlcabalaService', () => {
       });
     });
 
-    it('should map SP rows to AlcabalaItem[] hiding codigo_compra and idrecibo', async () => {
+    it('should map SP rows to AlcabalaItem[] exposing idRecibo and hiding codigo_compra', async () => {
       const row = alcabalaRow({
         codigo_compra: 'HIDDEN',
         id_alcabala: 1001,
@@ -310,10 +311,11 @@ describe('DeterminarAlcabalaService', () => {
         anioPred: '2026',
         codigoVenta: 'V001',
         estado: '1',
+        idRecibo: 'HIDDEN',
       });
-      // Ensure hidden fields are not included
+      // codigo_compra remains hidden; idRecibo is now exposed for the baja flow
       expect(result.data[0]).not.toHaveProperty('codigo_compra');
-      expect(result.data[0]).not.toHaveProperty('idrecibo');
+      expect(result.data[0]).toHaveProperty('idRecibo', 'HIDDEN');
     });
 
     it('should return empty data when contribuyente has no alcabalas', async () => {
@@ -352,6 +354,8 @@ describe('DeterminarAlcabalaService', () => {
       expect(result.success).toBe(true);
       expect(result.data[0].idAlcabala).toBe(2001);
       expect(result.data[0].estado).toBe('2');
+      // idrecibo column absent in this row → mapped to empty string
+      expect(result.data[0].idRecibo).toBe('');
     });
   });
 
@@ -492,6 +496,130 @@ describe('DeterminarAlcabalaService', () => {
       expect(result.success).toBe(true);
       // When no recordset returned, idAlcabala should be 0
       expect(result.idAlcabala).toBe(0);
+    });
+  });
+
+  describe('darDeBaja', () => {
+    const baseDto = (overrides: Record<string, any> = {}) =>
+      BajaAlcabalaSchema.parse({
+        codigo: '0279126',
+        idAlcabala: 5296,
+        idrecibo: 58612727,
+        observacion: 'motivo de prueba',
+        ...overrides,
+      });
+
+    it('should call sp_DJAlcabala with buscar=9 and mapped params when idrecibo provided', async () => {
+      db.executeProcedure.mockResolvedValueOnce(mockSpResult([]));
+
+      const result = await service.darDeBaja(baseDto(), 'mvaez', 'PC-001');
+
+      expect(db.executeProcedure).toHaveBeenCalledWith(SP_DJALCABALA, {
+        buscar: '9',
+        codigo: '0279126',
+        id_alcabala: 5296,
+        idrecibo: 58612727,
+        observacion: 'motivo de prueba',
+        usuario: 'mvaez',
+        estacion: 'PC-001',
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('should resolve idrecibo AND estado via ONE SELECT when not provided, then call buscar=9 with resolved value', async () => {
+      db.queryWithParams.mockResolvedValueOnce(
+        mockSpResult([{ idrecibo: '58612727', estado: '1' }]),
+      );
+      db.executeProcedure.mockResolvedValueOnce(mockSpResult([]));
+
+      const result = await service.darDeBaja(baseDto({ idrecibo: 0 }), 'mvaez', 'PC-001');
+
+      expect(db.queryWithParams).toHaveBeenCalledWith(
+        'SELECT idrecibo, estado FROM Alcabala.DJAlcabala WHERE id_alcabala = @id',
+        { id: 5296 },
+      );
+      expect(db.executeProcedure).toHaveBeenCalledWith(
+        SP_DJALCABALA,
+        expect.objectContaining({
+          buscar: '9',
+          id_alcabala: 5296,
+          idrecibo: 58612727,
+        }),
+      );
+      expect(result.success).toBe(true);
+    });
+
+    it('should return failure without calling the SP when idrecibo cannot be resolved', async () => {
+      db.queryWithParams.mockResolvedValueOnce(mockSpResult([]));
+
+      const result = await service.darDeBaja(baseDto({ idrecibo: 0 }), 'mvaez', 'PC-001');
+
+      expect(db.executeProcedure).not.toHaveBeenCalled();
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('No se pudo resolver el idrecibo de la alcabala para la baja');
+    });
+
+    it('should NOT call the SP for estado 0 (Inactivo) and return the exact Activo error', async () => {
+      db.queryWithParams.mockResolvedValueOnce(
+        mockSpResult([{ idrecibo: '58612727', estado: '0' }]),
+      );
+
+      const result = await service.darDeBaja(baseDto({ idrecibo: 0 }), 'mvaez', 'PC-001');
+
+      expect(db.queryWithParams).toHaveBeenCalled();
+      expect(db.executeProcedure).not.toHaveBeenCalled();
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Solo se puede dar de baja una alcabala en estado Activo.');
+    });
+
+    it('should NOT call the SP for estado 2 (Anulado) and return the exact Activo error', async () => {
+      db.queryWithParams.mockResolvedValueOnce(
+        mockSpResult([{ idrecibo: '58612727', estado: '2' }]),
+      );
+
+      const result = await service.darDeBaja(baseDto({ idrecibo: 0 }), 'mvaez', 'PC-001');
+
+      expect(db.executeProcedure).not.toHaveBeenCalled();
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Solo se puede dar de baja una alcabala en estado Activo.');
+    });
+
+    it('should NOT call the SP when estado column is undefined and return the exact Activo error', async () => {
+      db.queryWithParams.mockResolvedValueOnce(mockSpResult([{ idrecibo: '58612727' }]));
+
+      const result = await service.darDeBaja(baseDto({ idrecibo: 0 }), 'mvaez', 'PC-001');
+
+      expect(db.executeProcedure).not.toHaveBeenCalled();
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Solo se puede dar de baja una alcabala en estado Activo.');
+    });
+
+    it('should call the SP exactly once for estado 1 with numeric params (buscar string, id_alcabala number, idrecibo number)', async () => {
+      db.queryWithParams.mockResolvedValueOnce(
+        mockSpResult([{ idrecibo: '58612727', estado: '1' }]),
+      );
+      db.executeProcedure.mockResolvedValueOnce(mockSpResult([]));
+
+      await service.darDeBaja(baseDto({ idrecibo: 0 }), 'mvaez', 'PC-001');
+
+      expect(db.executeProcedure).toHaveBeenCalledTimes(1);
+      expect(db.executeProcedure).toHaveBeenCalledWith(
+        SP_DJALCABALA,
+        expect.objectContaining({
+          buscar: '9', // string
+          id_alcabala: 5296, // number
+          idrecibo: 58612727, // number
+        }),
+      );
+    });
+
+    it('should propagate executeProcedure error as failure with error message', async () => {
+      db.executeProcedure.mockRejectedValueOnce(new Error('SP timeout'));
+
+      const result = await service.darDeBaja(baseDto(), 'mvaez', 'PC-001');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Error al dar de baja la alcabala');
     });
   });
 });

@@ -13,6 +13,7 @@ interface Props {
   onViewDetail?: (alcabala: AlcabalaItem) => void;
   onImprimirDeclaracion?: (html: string, idAlcabala: number) => void;
   onNuevo?: () => void;
+  onEliminar?: (alcabala: AlcabalaItem) => void;
 }
 
 // ─── Helpers ───────────────────────────────────────────────
@@ -31,11 +32,27 @@ function mapEstado(estado: string): string {
   }
 }
 
+// Active estado — the only estado from which a baja is permitted.
+const ESTADO_ACTIVO = 1;
+
 // ─── Component ─────────────────────────────────────────────
 
-export default function AlcabalasTable({ data, loading, onViewDetail, onImprimirDeclaracion, onNuevo }: Props) {
+export default function AlcabalasTable({ data, loading, onViewDetail, onImprimirDeclaracion, onNuevo, onEliminar }: Props) {
   const [declaracionPrintingId, setDeclaracionPrintingId] = useState<number | null>(null);
   const [declaracionError, setDeclaracionError] = useState<string | null>(null);
+  const [eliminarWarning, setEliminarWarning] = useState<string | null>(null);
+
+  const ELIMINAR_WARNING =
+    "Solo se puede dar de baja una alcabala en estado Activo.";
+
+  function handleEliminar(item: AlcabalaItem) {
+    if (Number(item.estado) !== ESTADO_ACTIVO) {
+      setEliminarWarning(ELIMINAR_WARNING);
+      return;
+    }
+    setEliminarWarning(null);
+    onEliminar?.(item);
+  }
 
   const DECLARACION_ERROR =
     "No se pudo generar el PDF de la Declaración de Alcabala. Intente nuevamente.";
@@ -187,10 +204,10 @@ export default function AlcabalasTable({ data, loading, onViewDetail, onImprimir
                       <span className="group relative">
                         <button
                           type="button"
-                          disabled
-                          onClick={() => console.log("Eliminar", item.idAlcabala)}
-                          className="inline-flex items-center justify-center rounded p-1 text-red-500 transition hover:bg-red-50 active:scale-95 disabled:text-slate-300 disabled:cursor-not-allowed"
-                          title="Por desarrollar"
+                          onClick={() => handleEliminar(item)}
+                          className="inline-flex items-center justify-center rounded p-1 text-red-500 transition hover:bg-red-50 active:scale-95"
+                          title="Eliminar"
+                          aria-label="Eliminar"
                         >
                           <Trash2 size={13} />
                         </button>
@@ -213,6 +230,15 @@ export default function AlcabalasTable({ data, loading, onViewDetail, onImprimir
           className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700"
         >
           {declaracionError}
+        </div>
+      )}
+
+      {eliminarWarning && (
+        <div
+          role="alert"
+          className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700"
+        >
+          {eliminarWarning}
         </div>
       )}
     </div>

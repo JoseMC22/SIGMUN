@@ -5,13 +5,16 @@ import { Building2, Search, Loader2, FileText, Calculator } from "lucide-react";
 import {
   searchContribuyenteAction,
   getAlcabalasAction,
+  bajaAlcabalaAction,
   type AlcabalaItem,
   type ContribuyenteItem,
+  type BajaAlcabalaResult,
 } from "@/actions/alcabala/determinar-alcabala";
 import AlcabalasModal from "./alcabalas-modal";
 import CrearAlcabalaModal from "./crear-alcabala-modal";
 import DetalleAlcabala from "./detalle-alcabala";
 import DeclaracionPdfModal from "./declaracion-pdf-modal";
+import BajaAlcabalaModal from "./baja-alcabala-modal";
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -50,6 +53,8 @@ export default function DeterminarAlcabalaPage() {
     idAlcabala: number;
   } | null>(null);
   const [openCrearAlcabala, setOpenCrearAlcabala] = useState(false);
+  const [bajaAlcabala, setBajaAlcabala] = useState<AlcabalaItem | null>(null);
+  const [bajaModalOpen, setBajaModalOpen] = useState(false);
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [loadingAlcabalas, setLoadingAlcabalas] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -135,20 +140,50 @@ export default function DeterminarAlcabalaPage() {
     setOpenCrearAlcabala(true);
   }, []);
 
-  const handleCrearSuccess = useCallback(async () => {
-    if (!selectedContribuyente) return;
+  const handleEliminar = useCallback((alcabala: AlcabalaItem) => {
+    setBajaAlcabala(alcabala);
+    setBajaModalOpen(true);
+  }, []);
+
+  const refreshAlcabalas = useCallback(async (codigo: string) => {
     setLoadingAlcabalas(true);
     try {
-      const res = await getAlcabalasAction(selectedContribuyente.codigo);
-      if (res.success) {
-        setAlcabalas(res.data);
+      const r = await getAlcabalasAction(codigo);
+      if (r.success) {
+        setAlcabalas(r.data);
       }
     } catch {
       // Silently fail — list stays as-is
     } finally {
       setLoadingAlcabalas(false);
     }
-  }, [selectedContribuyente]);
+  }, []);
+
+  const handleBajaConfirm = useCallback(
+    async (motivo: string): Promise<BajaAlcabalaResult> => {
+      if (!selectedContribuyente || !bajaAlcabala) {
+        return { success: false, error: "No hay alcabala seleccionada para la baja" };
+      }
+      const res = await bajaAlcabalaAction({
+        codigo: selectedContribuyente.codigo,
+        idAlcabala: bajaAlcabala.idAlcabala,
+        idrecibo: Number(bajaAlcabala.idRecibo ?? 0),
+        observacion: motivo,
+      });
+      if (res.success) {
+        setBajaModalOpen(false);
+        setBajaAlcabala(null);
+        await refreshAlcabalas(selectedContribuyente.codigo);
+      }
+      return res;
+    },
+    [selectedContribuyente, bajaAlcabala, refreshAlcabalas],
+  );
+
+  const handleCrearSuccess = useCallback(async () => {
+    if (!selectedContribuyente) return;
+    await refreshAlcabalas(selectedContribuyente.codigo);
+  }, [selectedContribuyente, refreshAlcabalas]);
 
   const handleSelectContribuyente = useCallback(async (contribuyente: ContribuyenteItem) => {
     setSelectedContribuyente(contribuyente);
@@ -410,8 +445,11 @@ export default function DeterminarAlcabalaPage() {
 onImprimirDeclaracion={(html, idAlcabala) =>
   setDeclaracionPdf({ html, idAlcabala })
 }
-        blockEscapeClose={detalleRow !== null || declaracionPdf !== null}
+        blockEscapeClose={
+          bajaModalOpen || openCrearAlcabala || detalleRow !== null || declaracionPdf !== null
+        }
         onCrearAlcabala={handleCrearAlcabala}
+        onEliminar={handleEliminar}
       />
 
       {/* Crear alcabala modal */}
@@ -435,6 +473,17 @@ onImprimirDeclaracion={(html, idAlcabala) =>
         html={declaracionPdf?.html ?? null}
         idAlcabala={declaracionPdf?.idAlcabala ?? 0}
         onClose={() => setDeclaracionPdf(null)}
+      />
+
+      {/* Baja (dar de baja) alcabala modal */}
+      <BajaAlcabalaModal
+        open={bajaModalOpen}
+        onClose={() => {
+          setBajaModalOpen(false);
+          setBajaAlcabala(null);
+        }}
+        onConfirm={handleBajaConfirm}
+        alcabala={bajaAlcabala}
       />
 
       {/* Empty state when no search */}

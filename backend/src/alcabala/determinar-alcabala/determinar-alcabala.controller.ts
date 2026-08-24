@@ -8,7 +8,8 @@ import {
   SearchContribuyenteDto,
 } from './dto/search-contribuyente.dto';
 import { CrearAlcabalaSchema, CrearAlcabalaDto } from './dto/crear-alcabala.dto';
-import { ContribuyenteSearchResult, AlcabalasResult, DetalleAlcabalaResult, CrearAlcabalaResult } from './determinar-alcabala.types';
+import { BajaAlcabalaSchema, BajaAlcabalaDto } from './dto/baja-alcabala.dto';
+import { ContribuyenteSearchResult, AlcabalasResult, DetalleAlcabalaResult, CrearAlcabalaResult, BajaAlcabalaResult } from './determinar-alcabala.types';
 import { z } from 'zod';
 
 @Controller('alcabala/determinar-alcabala')
@@ -96,6 +97,38 @@ export class DeterminarAlcabalaController {
     const estacion = os.hostname();
 
     const result = await this.service.crear(dto, usuario, estacion);
+    if (!result.success) {
+      throw new InternalServerErrorException(result);
+    }
+    return result;
+  }
+
+  @Post('baja')
+  @HttpCode(HttpStatus.OK)
+  async baja(
+    @Req() req: Request,
+    @Body() body: unknown,
+  ): Promise<BajaAlcabalaResult> {
+    let dto: BajaAlcabalaDto;
+    try {
+      dto = BajaAlcabalaSchema.parse(body);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        throw new BadRequestException({
+          success: false,
+          error: error.issues.map((i) => i.message).join(', '),
+        });
+      }
+      throw new BadRequestException({
+        success: false,
+        error: 'Parámetros inválidos',
+      });
+    }
+
+    const usuario = (req.user as any)?.username || '';
+    const estacion = os.hostname();
+
+    const result = await this.service.darDeBaja(dto, usuario, estacion);
     if (!result.success) {
       throw new InternalServerErrorException(result);
     }
