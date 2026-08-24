@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import AlcabalasTable from "./alcabalas-table";
-import { getDeclaracionPdfBase64Action } from "@/actions/alcabala/impresion-dj-alcabala";
+import { getDeclaracionHtmlAction } from "@/actions/alcabala/impresion-dj-alcabala";
 
 vi.mock("@/actions/alcabala/impresion-dj-alcabala", () => ({
-  getDeclaracionPdfBase64Action: vi.fn(),
+  getDeclaracionHtmlAction: vi.fn(),
 }));
 
 const item = {
@@ -17,7 +17,7 @@ const item = {
   estado: "1",
 };
 
-const mockBase64 = Buffer.from("%PDF-1.4 fake pdf stream").toString("base64");
+const mockHtml = "<html><body>fake declaracion</body></html>";
 
 describe("AlcabalasTable — Imprimir Declaración button", () => {
   let onImprimirDeclaracion: ReturnType<typeof vi.fn>;
@@ -39,8 +39,8 @@ describe("AlcabalasTable — Imprimir Declaración button", () => {
     expect(screen.getByTitle("Imprimir Declaración")).toBeInTheDocument();
   });
 
-  it("invokes onImprimirDeclaracion with base64 + id on success", async () => {
-    (getDeclaracionPdfBase64Action as any).mockResolvedValue(mockBase64);
+  it("invokes onImprimirDeclaracion with html + id on success", async () => {
+    (getDeclaracionHtmlAction as any).mockResolvedValue(mockHtml);
 
     render(
       <AlcabalasTable
@@ -59,16 +59,16 @@ describe("AlcabalasTable — Imprimir Declaración button", () => {
     expect(screen.getByTitle("Imprimir Declaración")).toBeDisabled();
 
     await waitFor(() => {
-      expect(onImprimirDeclaracion).toHaveBeenCalledWith(mockBase64, 11772);
+      expect(onImprimirDeclaracion).toHaveBeenCalledWith(mockHtml, 11772);
     });
 
     expect(screen.getByTitle("Imprimir Declaración")).not.toBeDisabled();
-    expect(getDeclaracionPdfBase64Action).toHaveBeenCalledWith(11772);
+    expect(getDeclaracionHtmlAction).toHaveBeenCalledWith(11772);
   });
 
   it("shows a loading state while the request is in flight", async () => {
     let resolve!: (value: string) => void;
-    (getDeclaracionPdfBase64Action as any).mockReturnValue(
+    (getDeclaracionHtmlAction as any).mockReturnValue(
       new Promise<string>((r) => {
         resolve = r;
       }),
@@ -86,12 +86,12 @@ describe("AlcabalasTable — Imprimir Declaración button", () => {
     fireEvent.click(button);
     expect(button).toBeDisabled();
 
-    resolve(mockBase64);
+    resolve(mockHtml);
     await waitFor(() => expect(button).not.toBeDisabled());
   });
 
   it("shows an inline error when the action returns null", async () => {
-    (getDeclaracionPdfBase64Action as any).mockResolvedValue(null);
+    (getDeclaracionHtmlAction as any).mockResolvedValue(null);
 
     render(
       <AlcabalasTable
@@ -113,13 +113,58 @@ describe("AlcabalasTable — Imprimir Declaración button", () => {
   });
 
   it("does not call onImprimirDeclaracion when no callback provided", async () => {
-    (getDeclaracionPdfBase64Action as any).mockResolvedValue(mockBase64);
+    (getDeclaracionHtmlAction as any).mockResolvedValue(mockHtml);
 
     render(<AlcabalasTable data={[item]} loading={false} />);
 
     fireEvent.click(screen.getByTitle("Imprimir Declaración"));
 
-    await waitFor(() => expect(getDeclaracionPdfBase64Action).toHaveBeenCalled());
+    await waitFor(() => expect(getDeclaracionHtmlAction).toHaveBeenCalled());
     expect(onImprimirDeclaracion).not.toHaveBeenCalled();
+  });
+});
+
+describe("AlcabalasTable — Eliminar (baja) button", () => {
+  let onEliminar: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    onEliminar = vi.fn();
+  });
+
+  it("renders an enabled Eliminar button with title 'Eliminar'", () => {
+    render(<AlcabalasTable data={[item]} loading={false} onEliminar={onEliminar} />);
+    const btn = screen.getByTitle("Eliminar");
+    expect(btn).toBeInTheDocument();
+    expect(btn).not.toBeDisabled();
+  });
+
+  it("shows an inline warning and does NOT call onEliminar when estado is not Activo", () => {
+    const anulado = { ...item, estado: "2" };
+    render(<AlcabalasTable data={[anulado]} loading={false} onEliminar={onEliminar} />);
+
+    fireEvent.click(screen.getByTitle("Eliminar"));
+
+    expect(
+      screen.getByText(/Solo se puede dar de baja una alcabala en estado Activo\./i),
+    ).toBeInTheDocument();
+    expect(onEliminar).not.toHaveBeenCalled();
+  });
+
+  it("calls onEliminar with the item when estado is Activo", () => {
+    render(<AlcabalasTable data={[item]} loading={false} onEliminar={onEliminar} />);
+
+    fireEvent.click(screen.getByTitle("Eliminar"));
+
+    expect(onEliminar).toHaveBeenCalledWith(item);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("does not call onEliminar when no callback is provided", () => {
+    render(<AlcabalasTable data={[item]} loading={false} />);
+
+    fireEvent.click(screen.getByTitle("Eliminar"));
+
+    expect(onEliminar).not.toHaveBeenCalled();
   });
 });

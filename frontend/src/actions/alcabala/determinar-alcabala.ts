@@ -102,6 +102,8 @@ export interface AlcabalaItem {
   anioPred: string;
   codigoVenta: string;
   estado: string;
+  /** Receipt id used by the baja (dar de baja) flow. */
+  idRecibo?: string;
 }
 
 export interface AlcabalasResult {
@@ -132,6 +134,47 @@ export async function getAlcabalasAction(
       success: false,
       data: [],
       error: error instanceof Error ? error.message : 'Error de conexión',
+    };
+  }
+}
+
+// ─── Dar de baja (Baja) Alcabala ─────────────────────────
+
+export interface BajaAlcabalaDto {
+  codigo: string;
+  idAlcabala: number;
+  idrecibo: number;
+  observacion: string;
+}
+
+export interface BajaAlcabalaResult {
+  success: boolean;
+  error?: string;
+}
+
+export async function bajaAlcabalaAction(
+  dto: BajaAlcabalaDto,
+): Promise<BajaAlcabalaResult> {
+  try {
+    const response = await authFetch("/alcabala/determinar-alcabala/baja", {
+      method: "POST",
+      body: JSON.stringify(dto),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      return {
+        success: false,
+        error: result.error ?? `Error ${response.status}`,
+      };
+    }
+
+    return result;
+  } catch {
+    return {
+      success: false,
+      error: "Error de conexión",
     };
   }
 }

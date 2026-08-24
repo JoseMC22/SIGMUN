@@ -86,6 +86,8 @@ export interface AlcabalaItem {
   anioPred: string;
   codigoVenta: string;
   estado: string;
+  /** Receipt id used by the baja (dar de baja) flow; resolved from the SP row. */
+  idRecibo?: string;
 }
 
 export interface DetalleAlcabalaItem {
@@ -157,5 +159,10 @@ export interface DetalleAlcabalaResult {
 export interface CrearAlcabalaResult {
   success: boolean;
   idAlcabala?: number;
+  error?: string;
+}
+
+export interface BajaAlcabalaResult {
+  success: boolean;
   error?: string;
 }

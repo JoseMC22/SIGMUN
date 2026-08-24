@@ -19,6 +19,7 @@ interface AlcabalasModalProps {
   onViewDetail?: (alcabala: AlcabalaItem) => void;
   onImprimirDeclaracion?: (html: string, idAlcabala: number) => void;
   onCrearAlcabala?: () => void;
+  onEliminar?: (alcabala: AlcabalaItem) => void;
   /**
    * When true, Escape must not close this modal because a child layout
    * (visualizar/nueva alcabala) is open on top and owns the Escape key.
@@ -37,6 +38,7 @@ export default function AlcabalasModal({
   onViewDetail,
   onImprimirDeclaracion,
   onCrearAlcabala,
+  onEliminar,
   blockEscapeClose = false,
 }: AlcabalasModalProps) {
   // ── Escape key handler (stops propagation to parent) ──
@@ -82,7 +84,7 @@ export default function AlcabalasModal({
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-4">
-          <AlcabalasTable data={alcabalas} loading={loading} onViewDetail={onViewDetail} onImprimirDeclaracion={onImprimirDeclaracion} onNuevo={onCrearAlcabala} />
+          <AlcabalasTable data={alcabalas} loading={loading} onViewDetail={onViewDetail} onImprimirDeclaracion={onImprimirDeclaracion} onNuevo={onCrearAlcabala} onEliminar={onEliminar} />
         </div>
 
         {/* Footer */}
