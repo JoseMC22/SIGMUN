@@ -52,12 +52,18 @@ interface SearchPopupProps {
 }
 
 function ContribuyenteSearchPopup({ target, onSelect, onClose }: SearchPopupProps) {
-  const [query, setQuery] = useState("");
+  // tipoBusqueda='N' expects three separate fields (sp_Mcontribuyente contract).
+  const [paterno, setPaterno] = useState("");
+  const [materno, setMaterno] = useState("");
+  const [nombres, setNombres] = useState("");
   const [results, setResults] = useState<ContribuyenteItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const hasCriteria =
+    paterno.trim() !== "" || materno.trim() !== "" || nombres.trim() !== "";
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -75,12 +81,18 @@ function ContribuyenteSearchPopup({ target, onSelect, onClose }: SearchPopupProp
   }, [onClose]);
 
   const handleSearch = useCallback(async () => {
-    if (!query.trim()) return;
+    if (!hasCriteria) return;
     setLoading(true);
     setError(null);
     setSearched(true);
     try {
-      const res = await searchContribuyenteAction("N", undefined, query, "", "");
+      const res = await searchContribuyenteAction(
+        "N",
+        undefined,
+        paterno.trim(),
+        materno.trim(),
+        nombres.trim(),
+      );
       if (res.success) {
         setResults(res.data);
         if (res.data.length === 0) {
@@ -96,7 +108,7 @@ function ContribuyenteSearchPopup({ target, onSelect, onClose }: SearchPopupProp
     } finally {
       setLoading(false);
     }
-  }, [query]);
+  }, [hasCriteria, paterno, materno, nombres]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") handleSearch();
@@ -125,32 +137,66 @@ function ContribuyenteSearchPopup({ target, onSelect, onClose }: SearchPopupProp
           </button>
         </div>
 
-        {/* Search input */}
+        {/* Search criteria — tipoBusqueda='N' takes paterno/materno/nombres */}
         <div className="p-4">
-          <div className="flex gap-2">
-            <input
-              ref={inputRef}
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value.toUpperCase())}
-              onKeyDown={handleKeyDown}
-              placeholder="Ingrese búsqueda"
-              className={inputClass}
-            />
-            <button
-              type="button"
-              onClick={handleSearch}
-              disabled={loading || !query.trim()}
-              className={primaryBtnClass}
-            >
-              {loading ? (
-                <Loader2 size={13} className="animate-spin" />
-              ) : (
-                <Search size={13} />
-              )}
-              Buscar
-            </button>
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label htmlFor="search-paterno" className={fieldLabel}>
+                A. Paterno
+              </label>
+              <input
+                ref={inputRef}
+                id="search-paterno"
+                type="text"
+                value={paterno}
+                onChange={(e) => setPaterno(e.target.value.toUpperCase())}
+                onKeyDown={handleKeyDown}
+                aria-label="A. Paterno"
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label htmlFor="search-materno" className={fieldLabel}>
+                A. Materno
+              </label>
+              <input
+                id="search-materno"
+                type="text"
+                value={materno}
+                onChange={(e) => setMaterno(e.target.value.toUpperCase())}
+                onKeyDown={handleKeyDown}
+                aria-label="A. Materno"
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label htmlFor="search-nombres" className={fieldLabel}>
+                Nombres
+              </label>
+              <input
+                id="search-nombres"
+                type="text"
+                value={nombres}
+                onChange={(e) => setNombres(e.target.value.toUpperCase())}
+                onKeyDown={handleKeyDown}
+                aria-label="Nombres del contribuyente a buscar"
+                className={inputClass}
+              />
+            </div>
           </div>
+          <button
+            type="button"
+            onClick={handleSearch}
+            disabled={loading || !hasCriteria}
+            className={`${primaryBtnClass} mt-3 w-full justify-center`}
+          >
+            {loading ? (
+              <Loader2 size={13} className="animate-spin" />
+            ) : (
+              <Search size={13} />
+            )}
+            Buscar
+          </button>
         </div>
 
         {/* Results */}
@@ -188,7 +234,7 @@ function ContribuyenteSearchPopup({ target, onSelect, onClose }: SearchPopupProp
 
           {!loading && !searched && (
             <p className="mt-3 text-center text-[11px] text-slate-400">
-              Escriba un término y presione Buscar
+              Complete al menos un criterio y presione Buscar
             </p>
           )}
         </div>
@@ -466,9 +512,14 @@ export default function CrearAlcabalaModal({
                         <button
                           type="button"
                           onClick={() => openSearch("comprador")}
-                          className={searchBtnClass}
+                          disabled={comprador.codigoCompra !== ""}
+                          className={`${searchBtnClass} disabled:text-slate-300 disabled:cursor-not-allowed`}
                           aria-label="Buscar contribuyente comprador"
-                          title="Buscar contribuyente"
+                          title={
+                            comprador.codigoCompra !== ""
+                              ? "El comprador proviene del contribuyente seleccionado"
+                              : "Buscar contribuyente"
+                          }
                         >
                           <Search size={13} />
                         </button>
@@ -821,6 +872,7 @@ export default function CrearAlcabalaModal({
                         type="text"
                         inputMode="decimal"
                         value={montos.porcTransferencia}
+                        onFocus={(e) => e.target.select()}
                         onChange={(e) =>
                           setMontos((prev) => ({
                             ...prev,

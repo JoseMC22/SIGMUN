@@ -274,37 +274,46 @@ describe("CrearAlcabalaModal", () => {
     });
   });
 
-  // ── Contribuyente search popup ─────────────────────────
+  // ── Contribuyente search ───────────────────────────────
 
-  it("opens search popup for Comprador when search button is clicked", async () => {
+  it("disables the Comprador search button because data comes from the selected contribuyente", () => {
+    render(<CrearAlcabalaModal {...defaultProps} />);
+
+    const btn = screen.getByLabelText("Buscar contribuyente comprador");
+    expect(btn).toBeDisabled();
+  });
+
+  it("opens search popup for Vendedor when its search button is clicked", async () => {
     const user = userEvent.setup();
     render(<CrearAlcabalaModal {...defaultProps} />);
 
-    const searchButtons = screen.getAllByRole("button", {
-      name: /buscar contribuyente/i,
-    });
-    await user.click(searchButtons[0]);
+    await user.click(screen.getByLabelText("Buscar contribuyente vendedor"));
 
     await waitFor(() => {
       expect(screen.getByText("Buscar Contribuyente")).toBeInTheDocument();
     });
   });
 
-  it("fills Comprador fields when search result is selected", async () => {
+  it("keeps Buscar disabled until at least one criteria field is filled", async () => {
     const user = userEvent.setup();
     render(<CrearAlcabalaModal {...defaultProps} />);
 
-    // Open search popup for Comprador
-    const searchButtons = screen.getAllByRole("button", {
-      name: /buscar contribuyente comprador/i,
-    });
-    await user.click(searchButtons[0]);
+    await user.click(screen.getByLabelText("Buscar contribuyente vendedor"));
 
-    // Type search query
-    const searchInput = screen.getByPlaceholderText("Ingrese búsqueda");
-    await user.type(searchInput, "PEREZ");
+    const buscarBtn = await screen.findByText("Buscar");
+    expect(buscarBtn).toBeDisabled();
 
-    // Set up mock result BEFORE clicking search
+    await user.type(screen.getByLabelText("A. Paterno"), "PEREZ");
+    expect(buscarBtn).not.toBeDisabled();
+  });
+
+  it("fills Vendedor fields when search result is selected", async () => {
+    const user = userEvent.setup();
+    render(<CrearAlcabalaModal {...defaultProps} />);
+
+    // Open search popup for Vendedor
+    await user.click(screen.getByLabelText("Buscar contribuyente vendedor"));
+
     mockedSearch.mockResolvedValueOnce({
       success: true,
       data: [
@@ -324,15 +333,16 @@ describe("CrearAlcabalaModal", () => {
       totalPages: 1,
     });
 
-    // Click search button in popup
+    await user.type(screen.getByLabelText("A. Paterno"), "PEREZ");
     await user.click(screen.getByText("Buscar"));
 
-    // Wait for result to appear
+    // tipoBusqueda='N' maps query to paterno/materno/nombres separately
+    expect(mockedSearch).toHaveBeenCalledWith("N", undefined, "PEREZ", "", "");
+
     await waitFor(() => {
       expect(screen.getByText(/0654321/)).toBeInTheDocument();
     });
 
-    // Click on the result
     await user.click(screen.getByText(/0654321/));
 
     // Popup should close and fields should be filled
