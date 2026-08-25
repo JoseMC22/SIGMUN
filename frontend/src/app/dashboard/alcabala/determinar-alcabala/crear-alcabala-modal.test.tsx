@@ -374,7 +374,7 @@ describe("CrearAlcabalaModal", () => {
     render(<CrearAlcabalaModal {...defaultProps} />);
 
     expect(
-      screen.getByLabelText(/Porcentaje de Transferencia/i),
+      screen.getByLabelText(/Porc\. de Transf\./i),
     ).toBeInTheDocument();
   });
 
@@ -383,7 +383,7 @@ describe("CrearAlcabalaModal", () => {
     render(<CrearAlcabalaModal {...defaultProps} />);
 
     await user.type(
-      screen.getByLabelText(/Porcentaje de Transferencia/i),
+      screen.getByLabelText(/Porc\. de Transf\./i),
       "75",
     );
 
@@ -407,7 +407,7 @@ describe("CrearAlcabalaModal", () => {
     render(<CrearAlcabalaModal {...defaultProps} />);
 
     const input = screen.getByLabelText(
-      /Porcentaje de Transferencia/i,
+      /Porc\. de Transf\./i,
     ) as HTMLInputElement;
 
     await user.type(input, "7.5");
@@ -433,7 +433,7 @@ describe("CrearAlcabalaModal", () => {
     render(<CrearAlcabalaModal {...defaultProps} />);
 
     const input = screen.getByLabelText(
-      /Porcentaje de Transferencia/i,
+      /Porc\. de Transf\./i,
     ) as HTMLInputElement;
 
     await user.type(input, "5");

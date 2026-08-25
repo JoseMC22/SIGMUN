@@ -252,7 +252,7 @@ export default function CrearAlcabalaModal({
     montoAfecto: 0,
     montoAlcabala: 0,
     autoavaluo: 0,
-    porcTransferencia: '',
+    porcTransferencia: '100',
   });
 
   const [submitting, setSubmitting] = useState(false);
@@ -296,7 +296,7 @@ export default function CrearAlcabalaModal({
         montoAfecto: 0,
         montoAlcabala: 0,
         autoavaluo: 0,
-        porcTransferencia: '',
+        porcTransferencia: '100',
       });
       setSubmitError(null);
       setSubmitting(false);
@@ -760,7 +760,7 @@ export default function CrearAlcabalaModal({
                       />
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-4 gap-3">
                     <div>
                       <label htmlFor="fechaContrato" className={fieldLabel}>
                         Fecha Contrato
@@ -810,6 +810,24 @@ export default function CrearAlcabalaModal({
                           }))
                         }
                         className={inputClass}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="porcTransferencia" className={fieldLabel}>
+                        Porc. de Transf. (%)
+                      </label>
+                      <input
+                        id="porcTransferencia"
+                        type="text"
+                        inputMode="decimal"
+                        value={montos.porcTransferencia}
+                        onChange={(e) =>
+                          setMontos((prev) => ({
+                            ...prev,
+                            porcTransferencia: e.target.value,
+                          }))
+                        }
+                        className={inputMono}
                       />
                     </div>
                   </div>
@@ -918,26 +936,6 @@ export default function CrearAlcabalaModal({
                           setMontos((prev) => ({
                             ...prev,
                             autoavaluo: Math.max(0, Number(e.target.value)),
-                          }))
-                        }
-                        className={inputMono}
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-4 gap-3 mt-3">
-                    <div>
-                      <label htmlFor="porcTransferencia" className={fieldLabel}>
-                        Porcentaje de Transferencia (%)
-                      </label>
-                      <input
-                        id="porcTransferencia"
-                        type="text"
-                        inputMode="decimal"
-                        value={montos.porcTransferencia}
-                        onChange={(e) =>
-                          setMontos((prev) => ({
-                            ...prev,
-                            porcTransferencia: e.target.value,
                           }))
                         }
                         className={inputMono}
