@@ -521,7 +521,7 @@ describe('DeterminarAlcabalaService', () => {
   describe('getDetalleAlcabala', () => {
     it('should map porc_transferencia from the SP row to porcTransferencia', async () => {
       db.executeProcedure.mockResolvedValueOnce(
-        mockSpResult([{ id_alcabala: 1001, porc_transferencia: 25 }]),
+        mockSpResult([{ id_alcabala: 1001, porc_transfiere: 25 }]),
       );
 
       const result = await service.getDetalleAlcabala(1001);

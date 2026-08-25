@@ -218,7 +218,7 @@ export class DeterminarAlcabalaService {
         anioPred: String(col(row, 'aniopred') ?? ''),
         fechaContrato: String(col(row, 'fecha_contrato') ?? ''),
         transferencia: String(col(row, 'transferencia') ?? ''),
-        porcTransferencia: Number(col(row, 'porc_transferencia') ?? 0),
+        porcTransferencia: Number(col(row, 'porc_transfiere') ?? 0),
         observacion: String(col(row, 'observacion') ?? ''),
         contrato: String(col(row, 'contrato') ?? ''),
         montoAlcabala: Number(col(row, 'monto_alcabala') ?? 0),

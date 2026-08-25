@@ -44,7 +44,7 @@ export interface SpDetalleAlcabalaRow {
   aniopred: string;
   fecha_contrato: string;
   transferencia: string;
-  porc_transferencia: number;
+  porc_transfiere: number;
   observacion: string;
   contrato: string;
   monto_alcabala: number;
