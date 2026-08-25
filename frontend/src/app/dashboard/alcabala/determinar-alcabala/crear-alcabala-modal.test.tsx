@@ -294,7 +294,24 @@ describe("CrearAlcabalaModal", () => {
     });
   });
 
-  it("keeps Buscar disabled until at least one criteria field is filled", async () => {
+  it("mirrors the main search bar distribution with a Tipo Búsqueda select", async () => {
+    const user = userEvent.setup();
+    render(<CrearAlcabalaModal {...defaultProps} />);
+
+    await user.click(screen.getByLabelText("Buscar contribuyente vendedor"));
+
+    expect(await screen.findByText("Buscar Contribuyente")).toBeInTheDocument();
+    expect(screen.getByLabelText("Tipo Búsqueda")).toHaveValue("C");
+    expect(screen.getByLabelText("Código (7 dígitos)")).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText("Tipo Búsqueda"), "N");
+
+    expect(screen.getByPlaceholderText("PATERNO")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("MATERNO")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("NOMBRES")).toBeInTheDocument();
+  });
+
+  it("keeps Buscar disabled until a criteria is entered", async () => {
     const user = userEvent.setup();
     render(<CrearAlcabalaModal {...defaultProps} />);
 
@@ -303,8 +320,11 @@ describe("CrearAlcabalaModal", () => {
     const buscarBtn = await screen.findByText("Buscar");
     expect(buscarBtn).toBeDisabled();
 
-    await user.type(screen.getByLabelText("A. Paterno"), "PEREZ");
+    await user.type(screen.getByLabelText("Código (7 dígitos)"), "279126");
     expect(buscarBtn).not.toBeDisabled();
+
+    await user.selectOptions(screen.getByLabelText("Tipo Búsqueda"), "R");
+    expect(buscarBtn).toBeDisabled();
   });
 
   it("fills Vendedor fields when search result is selected", async () => {
@@ -333,11 +353,19 @@ describe("CrearAlcabalaModal", () => {
       totalPages: 1,
     });
 
-    await user.type(screen.getByLabelText("A. Paterno"), "PEREZ");
+    // Switch to name search like the main interface, then fill Ap. Paterno
+    await user.selectOptions(screen.getByLabelText("Tipo Búsqueda"), "N");
+    await user.type(screen.getByLabelText("Ap. Paterno"), "PEREZ");
     await user.click(screen.getByText("Buscar"));
 
-    // tipoBusqueda='N' maps query to paterno/materno/nombres separately
-    expect(mockedSearch).toHaveBeenCalledWith("N", undefined, "PEREZ", "", "");
+    // Same call shape as the main page for tipoBusqueda='N' (blank fields go as "")
+    expect(mockedSearch).toHaveBeenCalledWith(
+      "N",
+      undefined,
+      "PEREZ",
+      "",
+      "",
+    );
 
     await waitFor(() => {
       expect(screen.getByText(/0654321/)).toBeInTheDocument();

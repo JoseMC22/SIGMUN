@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { X, ChevronDown, ChevronRight, Search, Loader2 } from "lucide-react";
 import { crearAlcabalaAction } from "@/actions/alcabala/crear-alcabala";
 import {
@@ -51,8 +51,21 @@ interface SearchPopupProps {
   onClose: () => void;
 }
 
+// Same search-criteria options as the main Determinar Alcabala page.
+type PopupTipoBusqueda = "C" | "N" | "R" | "D";
+
+const TIPO_BUSQUEDA_OPTIONS: { value: PopupTipoBusqueda; label: string }[] = [
+  { value: "C", label: "Código" },
+  { value: "N", label: "Nombre" },
+  { value: "R", label: "Razón Social" },
+  { value: "D", label: "Documento" },
+];
+
 function ContribuyenteSearchPopup({ target, onSelect, onClose }: SearchPopupProps) {
-  // tipoBusqueda='N' expects three separate fields (sp_Mcontribuyente contract).
+  // Mirrors the main page's search bar distribution: a Tipo Búsqueda select,
+  // then either a single field (C/R/D) or the three name fields (N).
+  const [tipoBusqueda, setTipoBusqueda] = useState<PopupTipoBusqueda>("C");
+  const [busqueda, setBusqueda] = useState("");
   const [paterno, setPaterno] = useState("");
   const [materno, setMaterno] = useState("");
   const [nombres, setNombres] = useState("");
@@ -60,13 +73,39 @@ function ContribuyenteSearchPopup({ target, onSelect, onClose }: SearchPopupProp
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
 
-  const hasCriteria =
-    paterno.trim() !== "" || materno.trim() !== "" || nombres.trim() !== "";
+  const isCodigo = tipoBusqueda === "C";
+  const isNombre = tipoBusqueda === "N";
 
-  useEffect(() => {
-    inputRef.current?.focus();
+  const hasCriteria = isNombre
+    ? !!(paterno.trim() || materno.trim() || nombres.trim())
+    : !!busqueda.trim();
+
+  const handleBusquedaChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      let val = e.target.value;
+      if (isCodigo) {
+        val = val.replace(/\D/g, "").slice(0, 7);
+      } else {
+        val = val.toUpperCase();
+      }
+      setBusqueda(val);
+    },
+    [isCodigo],
+  );
+
+  const formatCodigo = useCallback((val: string): string => {
+    return val.replace(/\D/g, "").padStart(7, "0");
+  }, []);
+
+  const resetCriteria = useCallback(() => {
+    setBusqueda("");
+    setPaterno("");
+    setMaterno("");
+    setNombres("");
+    setResults([]);
+    setError(null);
+    setSearched(false);
   }, []);
 
   useEffect(() => {
@@ -86,12 +125,13 @@ function ContribuyenteSearchPopup({ target, onSelect, onClose }: SearchPopupProp
     setError(null);
     setSearched(true);
     try {
+      const searchVal = isCodigo ? formatCodigo(busqueda) : busqueda;
       const res = await searchContribuyenteAction(
-        "N",
-        undefined,
-        paterno.trim(),
-        materno.trim(),
-        nombres.trim(),
+        tipoBusqueda,
+        isNombre ? undefined : searchVal,
+        isNombre ? paterno : undefined,
+        isNombre ? materno : undefined,
+        isNombre ? nombres : undefined,
       );
       if (res.success) {
         setResults(res.data);
@@ -108,7 +148,7 @@ function ContribuyenteSearchPopup({ target, onSelect, onClose }: SearchPopupProp
     } finally {
       setLoading(false);
     }
-  }, [hasCriteria, paterno, materno, nombres]);
+  }, [tipoBusqueda, busqueda, isCodigo, isNombre, paterno, materno, nombres, hasCriteria, formatCodigo]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") handleSearch();
@@ -137,66 +177,110 @@ function ContribuyenteSearchPopup({ target, onSelect, onClose }: SearchPopupProp
           </button>
         </div>
 
-        {/* Search criteria — tipoBusqueda='N' takes paterno/materno/nombres */}
+        {/* Same distribution as the main Determinar Alcabala search bar */}
         <div className="p-4">
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <label htmlFor="search-paterno" className={fieldLabel}>
-                A. Paterno
+          <div className="flex items-end gap-2">
+            <div className="w-[160px] shrink-0">
+              <label htmlFor="search-tipoBusqueda" className={fieldLabel}>
+                Tipo Búsqueda
               </label>
-              <input
-                ref={inputRef}
-                id="search-paterno"
-                type="text"
-                value={paterno}
-                onChange={(e) => setPaterno(e.target.value.toUpperCase())}
-                onKeyDown={handleKeyDown}
-                aria-label="A. Paterno"
+              <select
+                id="search-tipoBusqueda"
+                value={tipoBusqueda}
+                onChange={(e) => {
+                  setTipoBusqueda(e.target.value as PopupTipoBusqueda);
+                  resetCriteria();
+                }}
                 className={inputClass}
-              />
+              >
+                {TIPO_BUSQUEDA_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
             </div>
-            <div>
-              <label htmlFor="search-materno" className={fieldLabel}>
-                A. Materno
-              </label>
-              <input
-                id="search-materno"
-                type="text"
-                value={materno}
-                onChange={(e) => setMaterno(e.target.value.toUpperCase())}
-                onKeyDown={handleKeyDown}
-                aria-label="A. Materno"
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label htmlFor="search-nombres" className={fieldLabel}>
-                Nombres
-              </label>
-              <input
-                id="search-nombres"
-                type="text"
-                value={nombres}
-                onChange={(e) => setNombres(e.target.value.toUpperCase())}
-                onKeyDown={handleKeyDown}
-                aria-label="Nombres del contribuyente a buscar"
-                className={inputClass}
-              />
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={handleSearch}
-            disabled={loading || !hasCriteria}
-            className={`${primaryBtnClass} mt-3 w-full justify-center`}
-          >
-            {loading ? (
-              <Loader2 size={13} className="animate-spin" />
-            ) : (
-              <Search size={13} />
+            {/* Single input for C, R, D */}
+            {!isNombre && (
+              <div className="flex-1">
+                <label htmlFor="search-busqueda" className={fieldLabel}>
+                  {isCodigo ? "Código (7 dígitos)" : "Búsqueda"}
+                </label>
+                <input
+                  id="search-busqueda"
+                  type="text"
+                  inputMode={isCodigo ? "numeric" : "text"}
+                  value={busqueda}
+                  onChange={handleBusquedaChange}
+                  onKeyDown={handleKeyDown}
+                  placeholder={isCodigo ? "Ej: 0279126" : "Ingrese término de búsqueda"}
+                  className={`${inputClass} ${isCodigo ? "font-mono" : ""}`}
+                  autoFocus
+                />
+              </div>
             )}
-            Buscar
-          </button>
+            {/* Three name fields for N */}
+            {isNombre && (
+              <>
+                <div className="flex-1">
+                  <label htmlFor="search-paterno" className={fieldLabel}>
+                    Ap. Paterno
+                  </label>
+                  <input
+                    id="search-paterno"
+                    type="text"
+                    value={paterno}
+                    onChange={(e) => setPaterno(e.target.value.toUpperCase())}
+                    onKeyDown={handleKeyDown}
+                    placeholder="PATERNO"
+                    className={inputClass}
+                    autoFocus
+                  />
+                </div>
+                <div className="flex-1">
+                  <label htmlFor="search-materno" className={fieldLabel}>
+                    Ap. Materno
+                  </label>
+                  <input
+                    id="search-materno"
+                    type="text"
+                    value={materno}
+                    onChange={(e) => setMaterno(e.target.value.toUpperCase())}
+                    onKeyDown={handleKeyDown}
+                    placeholder="MATERNO"
+                    className={inputClass}
+                  />
+                </div>
+                <div className="flex-1">
+                  <label htmlFor="search-nombres" className={fieldLabel}>
+                    Nombres
+                  </label>
+                  <input
+                    id="search-nombres"
+                    type="text"
+                    value={nombres}
+                    onChange={(e) => setNombres(e.target.value.toUpperCase())}
+                    onKeyDown={handleKeyDown}
+                    placeholder="NOMBRES"
+                    className={inputClass}
+                  />
+                </div>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={handleSearch}
+              disabled={loading || !hasCriteria}
+              className={primaryBtnClass}
+            >
+              {loading ? (
+                <Loader2 size={13} className="animate-spin" />
+              ) : (
+                <Search size={13} />
+              )}
+              Buscar
+            </button>
+          </div>
         </div>
 
         {/* Results */}
