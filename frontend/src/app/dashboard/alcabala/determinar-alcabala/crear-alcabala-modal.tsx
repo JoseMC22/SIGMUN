@@ -161,7 +161,7 @@ function ContribuyenteSearchPopup({ target, onSelect, onClose }: SearchPopupProp
         onClick={onClose}
         aria-hidden="true"
       />
-      <div className="relative z-10 w-full max-w-lg rounded-xl bg-white shadow-2xl">
+      <div className="relative z-10 w-full max-w-4xl rounded-xl bg-white shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
           <h3 className="text-sm font-bold text-slate-800">
@@ -284,7 +284,7 @@ function ContribuyenteSearchPopup({ target, onSelect, onClose }: SearchPopupProp
         </div>
 
         {/* Results */}
-        <div className="max-h-64 overflow-y-auto border-t border-slate-100 px-4 pb-4">
+        <div className="max-h-80 overflow-y-auto border-t border-slate-100 px-4 pb-4">
           {loading && (
             <div className="flex items-center justify-center py-8">
               <Loader2 size={18} className="animate-spin text-sat-cyan" />
