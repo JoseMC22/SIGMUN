@@ -28,6 +28,7 @@ import { getStoredUser } from "@/lib/api";
 import { useAccess } from "@/lib/access-context";
 import ContribuyenteModal from "./contribuyente-modal";
 import RepresentantesModal from "./representantes-modal";
+import EstadoCuentaModal from "./estado-cuenta-modal";
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -132,13 +133,16 @@ export default function DeclaracionJuradaPage() {
   // ── Representantes (modal) state ──
   const [representantesCodigo, setRepresentantesCodigo] = useState<string | null>(null);
 
+  // ── Estado de Cuenta (modal) state ──
+  const [estadoCuentaItem, setEstadoCuentaItem] = useState<ContribuyenteAnyItem | null>(null);
+
   const executeSearch = useCallback(
-    async (pageNum: number) => {
+    async (pageNum: number, overrideFilters?: typeof filters) => {
       setLoading(true);
       setError(null);
       try {
         const result = await searchContribuyenteAction(
-          { ...filters, tipoBusqueda, checkfrac },
+          { ...(overrideFilters ?? filters), tipoBusqueda, checkfrac },
           pageNum,
           pageSize,
         );
@@ -238,9 +242,27 @@ export default function DeclaracionJuradaPage() {
     setFilters((prev) => ({ ...prev, [field]: value }));
   };
 
+  // Contribuyente codes are always 7 digits with a leading zero ("0279126"),
+  // but users type the short form ("279126"). Papeleta searches (Infracción
+  // checked) use codes starting with "P" and must not be padded.
+  const normalizeCodigo = (value: string): string => {
+    const trimmed = value.trim();
+    return checkfrac === 0 && /^\d{1,6}$/.test(trimmed)
+      ? trimmed.padStart(7, "0")
+      : trimmed;
+  };
+
+  // Runs a search normalizing the codigo first; the padded value is also
+  // written back so the user sees it in the input.
+  const runSearch = (pageNum: number) => {
+    const normalized = { ...filters, codigo: normalizeCodigo(filters.codigo) };
+    if (normalized.codigo !== filters.codigo) setFilters(normalized);
+    executeSearch(pageNum, normalized);
+  };
+
   const handleSearch = () => {
     setPage(1);
-    executeSearch(1);
+    runSearch(1);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -271,6 +293,9 @@ export default function DeclaracionJuradaPage() {
               placeholder="Código"
               value={filters.codigo}
               onChange={(e) => handleFilterChange("codigo", e.target.value)}
+              onBlur={(e) =>
+                handleFilterChange("codigo", normalizeCodigo(e.target.value))
+              }
               onKeyDown={handleKeyDown}
               className={inputClass}
             />
@@ -742,7 +767,7 @@ export default function DeclaracionJuradaPage() {
                     <span className="pointer-events-none absolute -top-7 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-1.5 py-0.5 text-[9px] font-medium text-white opacity-0 shadow-lg transition group-hover:opacity-100">Declaración Jurada</span>
                   </span>
                   <span className="group relative">
-                    <button type="button" onClick={() => alert("Por desarrollar")}
+                    <button type="button" onClick={() => setEstadoCuentaItem(item)}
                       className="inline-flex items-center justify-center rounded p-1 text-emerald-600 transition hover:bg-emerald-50 active:scale-95">
                       <DollarSign size={13} />
                     </button>
@@ -988,6 +1013,29 @@ export default function DeclaracionJuradaPage() {
         isOpen={!!representantesCodigo}
         onClose={() => setRepresentantesCodigo(null)}
         codigo={representantesCodigo ?? ""}
+      />
+
+      {/* Modal Estado de Cuenta */}
+      <EstadoCuentaModal
+        isOpen={!!estadoCuentaItem}
+        onClose={() => setEstadoCuentaItem(null)}
+        contribuyente={
+          estadoCuentaItem
+            ? {
+                codigo: (estadoCuentaItem as any).codigo ?? "",
+                nombre:
+                  (estadoCuentaItem as any).nombresCompletos ??
+                  (estadoCuentaItem as any).nombre ??
+                  "",
+                documento:
+                  (estadoCuentaItem as any).numDoc ?? "",
+                direccion:
+                  (estadoCuentaItem as any).direFis ??
+                  (estadoCuentaItem as any).direccion ??
+                  "",
+              }
+            : null
+        }
       />
 
       {/* Modal Confirmar Eliminación */}

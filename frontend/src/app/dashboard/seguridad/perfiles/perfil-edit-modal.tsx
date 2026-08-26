@@ -231,7 +231,7 @@ const res = await toggleAccesoPermisoAction({
       <div className="relative w-full max-w-4xl max-h-[85vh] overflow-y-auto rounded-xl bg-white shadow-2xl border border-slate-200">
 
         {/* ── Header ── */}
-        <div className="sticky top-0 z-10 flex items-center justify-between rounded-t-xl bg-gradient-to-r from-sat-navy via-[#1b2b4a] to-slate-800 px-4 py-3">
+        <div className="sticky top-0 z-10 flex items-center justify-between rounded-t-xl bg-linear-to-r from-sat-navy via-[#1b2b4a] to-slate-800 px-4 py-3">
           <div className="flex items-center gap-2">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 backdrop-blur-sm">
               <ShieldCheck size={14} className="text-white" />
@@ -314,7 +314,7 @@ const res = await toggleAccesoPermisoAction({
                         className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] text-slate-700 placeholder-slate-400 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none"
                       />
                     </div>
-                    <div className="flex items-end pb-[3px]">
+                    <div className="flex items-end pb-0.75">
                       <label className="inline-flex items-center gap-2 cursor-pointer">
                         <input
                           type="checkbox"
