@@ -274,37 +274,66 @@ describe("CrearAlcabalaModal", () => {
     });
   });
 
-  // ── Contribuyente search popup ─────────────────────────
+  // ── Contribuyente search ───────────────────────────────
 
-  it("opens search popup for Comprador when search button is clicked", async () => {
+  it("disables the Comprador search button because data comes from the selected contribuyente", () => {
+    render(<CrearAlcabalaModal {...defaultProps} />);
+
+    const btn = screen.getByLabelText("Buscar contribuyente comprador");
+    expect(btn).toBeDisabled();
+  });
+
+  it("opens search popup for Vendedor when its search button is clicked", async () => {
     const user = userEvent.setup();
     render(<CrearAlcabalaModal {...defaultProps} />);
 
-    const searchButtons = screen.getAllByRole("button", {
-      name: /buscar contribuyente/i,
-    });
-    await user.click(searchButtons[0]);
+    await user.click(screen.getByLabelText("Buscar contribuyente vendedor"));
 
     await waitFor(() => {
       expect(screen.getByText("Buscar Contribuyente")).toBeInTheDocument();
     });
   });
 
-  it("fills Comprador fields when search result is selected", async () => {
+  it("mirrors the main search bar distribution with a Tipo Búsqueda select", async () => {
     const user = userEvent.setup();
     render(<CrearAlcabalaModal {...defaultProps} />);
 
-    // Open search popup for Comprador
-    const searchButtons = screen.getAllByRole("button", {
-      name: /buscar contribuyente comprador/i,
-    });
-    await user.click(searchButtons[0]);
+    await user.click(screen.getByLabelText("Buscar contribuyente vendedor"));
 
-    // Type search query
-    const searchInput = screen.getByPlaceholderText("Ingrese búsqueda");
-    await user.type(searchInput, "PEREZ");
+    expect(await screen.findByText("Buscar Contribuyente")).toBeInTheDocument();
+    expect(screen.getByLabelText("Tipo Búsqueda")).toHaveValue("C");
+    expect(screen.getByLabelText("Código (7 dígitos)")).toBeInTheDocument();
 
-    // Set up mock result BEFORE clicking search
+    await user.selectOptions(screen.getByLabelText("Tipo Búsqueda"), "N");
+
+    expect(screen.getByPlaceholderText("PATERNO")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("MATERNO")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("NOMBRES")).toBeInTheDocument();
+  });
+
+  it("keeps Buscar disabled until a criteria is entered", async () => {
+    const user = userEvent.setup();
+    render(<CrearAlcabalaModal {...defaultProps} />);
+
+    await user.click(screen.getByLabelText("Buscar contribuyente vendedor"));
+
+    const buscarBtn = await screen.findByText("Buscar");
+    expect(buscarBtn).toBeDisabled();
+
+    await user.type(screen.getByLabelText("Código (7 dígitos)"), "279126");
+    expect(buscarBtn).not.toBeDisabled();
+
+    await user.selectOptions(screen.getByLabelText("Tipo Búsqueda"), "R");
+    expect(buscarBtn).toBeDisabled();
+  });
+
+  it("fills Vendedor fields when search result is selected", async () => {
+    const user = userEvent.setup();
+    render(<CrearAlcabalaModal {...defaultProps} />);
+
+    // Open search popup for Vendedor
+    await user.click(screen.getByLabelText("Buscar contribuyente vendedor"));
+
     mockedSearch.mockResolvedValueOnce({
       success: true,
       data: [
@@ -324,15 +353,24 @@ describe("CrearAlcabalaModal", () => {
       totalPages: 1,
     });
 
-    // Click search button in popup
+    // Switch to name search like the main interface, then fill Ap. Paterno
+    await user.selectOptions(screen.getByLabelText("Tipo Búsqueda"), "N");
+    await user.type(screen.getByLabelText("Ap. Paterno"), "PEREZ");
     await user.click(screen.getByText("Buscar"));
 
-    // Wait for result to appear
+    // Same call shape as the main page for tipoBusqueda='N' (blank fields go as "")
+    expect(mockedSearch).toHaveBeenCalledWith(
+      "N",
+      undefined,
+      "PEREZ",
+      "",
+      "",
+    );
+
     await waitFor(() => {
       expect(screen.getByText(/0654321/)).toBeInTheDocument();
     });
 
-    // Click on the result
     await user.click(screen.getByText(/0654321/));
 
     // Popup should close and fields should be filled
@@ -366,5 +404,89 @@ describe("CrearAlcabalaModal", () => {
     fireEvent.keyDown(document, { key: "Escape" });
 
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  // ── Porcentaje de Transferencia ───────────────────────
+
+  it("renders the Porcentaje de Transferencia input", () => {
+    render(<CrearAlcabalaModal {...defaultProps} />);
+
+    expect(
+      screen.getByLabelText(/Porc\. de Transf\./i),
+    ).toBeInTheDocument();
+  });
+
+  it("flows porcTransferencia into the crear action payload", async () => {
+    const user = userEvent.setup();
+    render(<CrearAlcabalaModal {...defaultProps} />);
+
+    await user.type(
+      screen.getByLabelText(/Porc\. de Transf\./i),
+      "75",
+    );
+
+    // Required fields to allow a successful submit
+    await user.type(screen.getByLabelText("Código Predio"), "P001");
+    await user.type(screen.getByLabelText("Año Predio"), "2026");
+    await user.type(screen.getByLabelText("Monto Afecto"), "100000");
+
+    await user.click(screen.getByText("Guardar"));
+
+    await waitFor(() => {
+      expect(mockedCrear).toHaveBeenCalledTimes(1);
+    });
+
+    const calledDto = mockedCrear.mock.calls[0][0];
+    expect(calledDto.porcTransferencia).toBe(75);
+  });
+
+  it("keeps decimal value '7.5' in the input (no Math.max/Number corruption) and sends 7.5", async () => {
+    const user = userEvent.setup();
+    render(<CrearAlcabalaModal {...defaultProps} />);
+
+    const input = screen.getByLabelText(
+      /Porc\. de Transf\./i,
+    ) as HTMLInputElement;
+
+    await user.type(input, "7.5");
+
+    // Raw string preserved while typing ("7." -> "7.5"), not coerced to 7/75
+    expect(input.value).toBe("7.5");
+
+    await user.type(screen.getByLabelText("Código Predio"), "P001");
+    await user.type(screen.getByLabelText("Año Predio"), "2026");
+    await user.type(screen.getByLabelText("Monto Afecto"), "100000");
+
+    await user.click(screen.getByText("Guardar"));
+
+    await waitFor(() => {
+      expect(mockedCrear).toHaveBeenCalledTimes(1);
+    });
+
+    expect(mockedCrear.mock.calls[0][0].porcTransferencia).toBe(7.5);
+  });
+
+  it("sends no bogus porcTransferencia when the field is typed then cleared", async () => {
+    const user = userEvent.setup();
+    render(<CrearAlcabalaModal {...defaultProps} />);
+
+    const input = screen.getByLabelText(
+      /Porc\. de Transf\./i,
+    ) as HTMLInputElement;
+
+    await user.type(input, "5");
+    await user.clear(input);
+
+    await user.type(screen.getByLabelText("Código Predio"), "P001");
+    await user.type(screen.getByLabelText("Año Predio"), "2026");
+    await user.type(screen.getByLabelText("Monto Afecto"), "100000");
+
+    await user.click(screen.getByText("Guardar"));
+
+    await waitFor(() => {
+      expect(mockedCrear).toHaveBeenCalledTimes(1);
+    });
+
+    expect(mockedCrear.mock.calls[0][0].porcTransferencia).toBeUndefined();
   });
 });

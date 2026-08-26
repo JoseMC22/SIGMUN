@@ -16,6 +16,12 @@ export const CrearAlcabalaSchema = z.object({
   fechaContrato: z.string().optional().default(''),
   contrato: z.string().optional().default(''),
   transferencia: z.string().optional().default(''),
+  porcTransferencia: z.coerce
+    .number()
+    .min(0, 'El porcentaje debe estar entre 0 y 100')
+    .max(100, 'El porcentaje debe estar entre 0 y 100')
+    .optional()
+    .default(0),
   observacion: z.string().optional().default(''),
   montoInafecto: z.coerce.number().min(0).default(0),
   montoAfecto: z.coerce.number().min(0, 'Monto afecto debe ser >= 0'),

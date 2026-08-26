@@ -206,4 +206,46 @@ describe('CrearAlcabalaSchema', () => {
       ).toThrow();
     });
   });
+
+  describe('porcTransferencia', () => {
+    it('should default to 0 when omitted', () => {
+      const result = CrearAlcabalaSchema.parse(validDto);
+      expect(result.porcTransferencia).toBe(0);
+    });
+
+    it('should accept values between 0 and 100 inclusive (including decimals)', () => {
+      const r0 = CrearAlcabalaSchema.parse({ ...validDto, porcTransferencia: 0 });
+      expect(r0.porcTransferencia).toBe(0);
+
+      const r100 = CrearAlcabalaSchema.parse({ ...validDto, porcTransferencia: 100 });
+      expect(r100.porcTransferencia).toBe(100);
+
+      const r50 = CrearAlcabalaSchema.parse({ ...validDto, porcTransferencia: 50 });
+      expect(r50.porcTransferencia).toBe(50);
+
+      const rDecimal = CrearAlcabalaSchema.parse({ ...validDto, porcTransferencia: 33.33 });
+      expect(rDecimal.porcTransferencia).toBeCloseTo(33.33, 2);
+    });
+
+    it('should reject values greater than 100', () => {
+      expect(() =>
+        CrearAlcabalaSchema.parse({ ...validDto, porcTransferencia: 101 }),
+      ).toThrow('El porcentaje debe estar entre 0 y 100');
+    });
+
+    it('should reject negative values', () => {
+      expect(() =>
+        CrearAlcabalaSchema.parse({ ...validDto, porcTransferencia: -1 }),
+      ).toThrow('El porcentaje debe estar entre 0 y 100');
+    });
+
+    it('should reject non-numeric garbage like "abc" (NaN path)', () => {
+      expect(() =>
+        CrearAlcabalaSchema.parse({
+          ...validDto,
+          porcTransferencia: 'abc' as unknown as number,
+        }),
+      ).toThrow();
+    });
+  });
 });

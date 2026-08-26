@@ -23,6 +23,7 @@ export interface CrearAlcabalaDto {
   fechaContrato?: string;
   contrato?: string;
   transferencia?: string;
+  porcTransferencia?: number;
   observacion?: string;
   montoInafecto: number;
   montoAfecto: number;

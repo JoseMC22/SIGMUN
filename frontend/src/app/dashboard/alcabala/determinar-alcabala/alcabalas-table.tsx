@@ -187,9 +187,16 @@ export default function AlcabalasTable({ data, loading, onViewDetail, onImprimir
                         <button
                           type="button"
                           onClick={() => handlePrintDeclaracion(item)}
-                          disabled={declaracionPrintingId === item.idAlcabala}
+                          disabled={
+                            declaracionPrintingId === item.idAlcabala ||
+                            Number(item.estado) !== ESTADO_ACTIVO
+                          }
                           className="inline-flex items-center justify-center rounded p-1 text-emerald-600 transition hover:bg-emerald-50 active:scale-95 disabled:text-slate-300 disabled:cursor-not-allowed"
-                          title="Imprimir Declaración"
+                          title={
+                            Number(item.estado) !== ESTADO_ACTIVO
+                              ? "Solo disponible para alcabalas en estado Activo"
+                              : "Imprimir Declaración"
+                          }
                         >
                           {declaracionPrintingId === item.idAlcabala ? (
                             <Loader2 size={13} className="animate-spin" />

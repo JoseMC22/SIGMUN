@@ -122,6 +122,46 @@ describe("AlcabalasTable — Imprimir Declaración button", () => {
     await waitFor(() => expect(getDeclaracionHtmlAction).toHaveBeenCalled());
     expect(onImprimirDeclaracion).not.toHaveBeenCalled();
   });
+
+  it("is disabled and does not print when estado is Inactivo (0)", () => {
+    const inactivo = { ...item, estado: "0" };
+    render(
+      <AlcabalasTable
+        data={[inactivo]}
+        loading={false}
+        onImprimirDeclaracion={onImprimirDeclaracion}
+      />,
+    );
+
+    const btn = screen.getByTitle(
+      "Solo disponible para alcabalas en estado Activo",
+    );
+    expect(btn).toBeDisabled();
+
+    fireEvent.click(btn);
+    expect(getDeclaracionHtmlAction).not.toHaveBeenCalled();
+    expect(onImprimirDeclaracion).not.toHaveBeenCalled();
+  });
+
+  it("is disabled and does not print when estado is Anulado (2)", () => {
+    const anulado = { ...item, estado: "2" };
+    render(
+      <AlcabalasTable
+        data={[anulado]}
+        loading={false}
+        onImprimirDeclaracion={onImprimirDeclaracion}
+      />,
+    );
+
+    const btn = screen.getByTitle(
+      "Solo disponible para alcabalas en estado Activo",
+    );
+    expect(btn).toBeDisabled();
+
+    fireEvent.click(btn);
+    expect(getDeclaracionHtmlAction).not.toHaveBeenCalled();
+    expect(onImprimirDeclaracion).not.toHaveBeenCalled();
+  });
 });
 
 describe("AlcabalasTable — Eliminar (baja) button", () => {

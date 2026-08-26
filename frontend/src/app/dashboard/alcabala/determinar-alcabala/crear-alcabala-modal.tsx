@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { X, ChevronDown, ChevronRight, Search, Loader2 } from "lucide-react";
 import { crearAlcabalaAction } from "@/actions/alcabala/crear-alcabala";
 import {
@@ -51,16 +51,61 @@ interface SearchPopupProps {
   onClose: () => void;
 }
 
+// Same search-criteria options as the main Determinar Alcabala page.
+type PopupTipoBusqueda = "C" | "N" | "R" | "D";
+
+const TIPO_BUSQUEDA_OPTIONS: { value: PopupTipoBusqueda; label: string }[] = [
+  { value: "C", label: "Código" },
+  { value: "N", label: "Nombre" },
+  { value: "R", label: "Razón Social" },
+  { value: "D", label: "Documento" },
+];
+
 function ContribuyenteSearchPopup({ target, onSelect, onClose }: SearchPopupProps) {
-  const [query, setQuery] = useState("");
+  // Mirrors the main page's search bar distribution: a Tipo Búsqueda select,
+  // then either a single field (C/R/D) or the three name fields (N).
+  const [tipoBusqueda, setTipoBusqueda] = useState<PopupTipoBusqueda>("C");
+  const [busqueda, setBusqueda] = useState("");
+  const [paterno, setPaterno] = useState("");
+  const [materno, setMaterno] = useState("");
+  const [nombres, setNombres] = useState("");
   const [results, setResults] = useState<ContribuyenteItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    inputRef.current?.focus();
+  const isCodigo = tipoBusqueda === "C";
+  const isNombre = tipoBusqueda === "N";
+
+  const hasCriteria = isNombre
+    ? !!(paterno.trim() || materno.trim() || nombres.trim())
+    : !!busqueda.trim();
+
+  const handleBusquedaChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      let val = e.target.value;
+      if (isCodigo) {
+        val = val.replace(/\D/g, "").slice(0, 7);
+      } else {
+        val = val.toUpperCase();
+      }
+      setBusqueda(val);
+    },
+    [isCodigo],
+  );
+
+  const formatCodigo = useCallback((val: string): string => {
+    return val.replace(/\D/g, "").padStart(7, "0");
+  }, []);
+
+  const resetCriteria = useCallback(() => {
+    setBusqueda("");
+    setPaterno("");
+    setMaterno("");
+    setNombres("");
+    setResults([]);
+    setError(null);
+    setSearched(false);
   }, []);
 
   useEffect(() => {
@@ -75,12 +120,19 @@ function ContribuyenteSearchPopup({ target, onSelect, onClose }: SearchPopupProp
   }, [onClose]);
 
   const handleSearch = useCallback(async () => {
-    if (!query.trim()) return;
+    if (!hasCriteria) return;
     setLoading(true);
     setError(null);
     setSearched(true);
     try {
-      const res = await searchContribuyenteAction("N", undefined, query, "", "");
+      const searchVal = isCodigo ? formatCodigo(busqueda) : busqueda;
+      const res = await searchContribuyenteAction(
+        tipoBusqueda,
+        isNombre ? undefined : searchVal,
+        isNombre ? paterno : undefined,
+        isNombre ? materno : undefined,
+        isNombre ? nombres : undefined,
+      );
       if (res.success) {
         setResults(res.data);
         if (res.data.length === 0) {
@@ -96,7 +148,7 @@ function ContribuyenteSearchPopup({ target, onSelect, onClose }: SearchPopupProp
     } finally {
       setLoading(false);
     }
-  }, [query]);
+  }, [tipoBusqueda, busqueda, isCodigo, isNombre, paterno, materno, nombres, hasCriteria, formatCodigo]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") handleSearch();
@@ -109,7 +161,7 @@ function ContribuyenteSearchPopup({ target, onSelect, onClose }: SearchPopupProp
         onClick={onClose}
         aria-hidden="true"
       />
-      <div className="relative z-10 w-full max-w-lg rounded-xl bg-white shadow-2xl">
+      <div className="relative z-10 w-full max-w-4xl rounded-xl bg-white shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
           <h3 className="text-sm font-bold text-slate-800">
@@ -125,22 +177,100 @@ function ContribuyenteSearchPopup({ target, onSelect, onClose }: SearchPopupProp
           </button>
         </div>
 
-        {/* Search input */}
+        {/* Same distribution as the main Determinar Alcabala search bar */}
         <div className="p-4">
-          <div className="flex gap-2">
-            <input
-              ref={inputRef}
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value.toUpperCase())}
-              onKeyDown={handleKeyDown}
-              placeholder="Ingrese búsqueda"
-              className={inputClass}
-            />
+          <div className="flex items-end gap-2">
+            <div className="w-[160px] shrink-0">
+              <label htmlFor="search-tipoBusqueda" className={fieldLabel}>
+                Tipo Búsqueda
+              </label>
+              <select
+                id="search-tipoBusqueda"
+                value={tipoBusqueda}
+                onChange={(e) => {
+                  setTipoBusqueda(e.target.value as PopupTipoBusqueda);
+                  resetCriteria();
+                }}
+                className={inputClass}
+              >
+                {TIPO_BUSQUEDA_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {/* Single input for C, R, D */}
+            {!isNombre && (
+              <div className="flex-1">
+                <label htmlFor="search-busqueda" className={fieldLabel}>
+                  {isCodigo ? "Código (7 dígitos)" : "Búsqueda"}
+                </label>
+                <input
+                  id="search-busqueda"
+                  type="text"
+                  inputMode={isCodigo ? "numeric" : "text"}
+                  value={busqueda}
+                  onChange={handleBusquedaChange}
+                  onKeyDown={handleKeyDown}
+                  placeholder={isCodigo ? "Ej: 0279126" : "Ingrese término de búsqueda"}
+                  className={`${inputClass} ${isCodigo ? "font-mono" : ""}`}
+                  autoFocus
+                />
+              </div>
+            )}
+            {/* Three name fields for N */}
+            {isNombre && (
+              <>
+                <div className="flex-1">
+                  <label htmlFor="search-paterno" className={fieldLabel}>
+                    Ap. Paterno
+                  </label>
+                  <input
+                    id="search-paterno"
+                    type="text"
+                    value={paterno}
+                    onChange={(e) => setPaterno(e.target.value.toUpperCase())}
+                    onKeyDown={handleKeyDown}
+                    placeholder="PATERNO"
+                    className={inputClass}
+                    autoFocus
+                  />
+                </div>
+                <div className="flex-1">
+                  <label htmlFor="search-materno" className={fieldLabel}>
+                    Ap. Materno
+                  </label>
+                  <input
+                    id="search-materno"
+                    type="text"
+                    value={materno}
+                    onChange={(e) => setMaterno(e.target.value.toUpperCase())}
+                    onKeyDown={handleKeyDown}
+                    placeholder="MATERNO"
+                    className={inputClass}
+                  />
+                </div>
+                <div className="flex-1">
+                  <label htmlFor="search-nombres" className={fieldLabel}>
+                    Nombres
+                  </label>
+                  <input
+                    id="search-nombres"
+                    type="text"
+                    value={nombres}
+                    onChange={(e) => setNombres(e.target.value.toUpperCase())}
+                    onKeyDown={handleKeyDown}
+                    placeholder="NOMBRES"
+                    className={inputClass}
+                  />
+                </div>
+              </>
+            )}
             <button
               type="button"
               onClick={handleSearch}
-              disabled={loading || !query.trim()}
+              disabled={loading || !hasCriteria}
               className={primaryBtnClass}
             >
               {loading ? (
@@ -154,7 +284,7 @@ function ContribuyenteSearchPopup({ target, onSelect, onClose }: SearchPopupProp
         </div>
 
         {/* Results */}
-        <div className="max-h-64 overflow-y-auto border-t border-slate-100 px-4 pb-4">
+        <div className="max-h-80 overflow-y-auto border-t border-slate-100 px-4 pb-4">
           {loading && (
             <div className="flex items-center justify-center py-8">
               <Loader2 size={18} className="animate-spin text-sat-cyan" />
@@ -188,7 +318,7 @@ function ContribuyenteSearchPopup({ target, onSelect, onClose }: SearchPopupProp
 
           {!loading && !searched && (
             <p className="mt-3 text-center text-[11px] text-slate-400">
-              Escriba un término y presione Buscar
+              Complete al menos un criterio y presione Buscar
             </p>
           )}
         </div>
@@ -252,6 +382,7 @@ export default function CrearAlcabalaModal({
     montoAfecto: 0,
     montoAlcabala: 0,
     autoavaluo: 0,
+    porcTransferencia: '100',
   });
 
   const [submitting, setSubmitting] = useState(false);
@@ -295,6 +426,7 @@ export default function CrearAlcabalaModal({
         montoAfecto: 0,
         montoAlcabala: 0,
         autoavaluo: 0,
+        porcTransferencia: '100',
       });
       setSubmitError(null);
       setSubmitting(false);
@@ -354,6 +486,14 @@ export default function CrearAlcabalaModal({
     setSubmitting(true);
     setSubmitError(null);
 
+    // Convert the raw string to a number only here; empty/invalid -> omit
+    // so the backend DTO default (0) applies. No clamping on the input.
+    const porcRaw = montos.porcTransferencia.trim();
+    const porcTransferencia =
+      porcRaw !== '' && !Number.isNaN(Number(porcRaw))
+        ? Number(porcRaw)
+        : undefined;
+
     const result = await crearAlcabalaAction({
       codigoCompra: comprador.codigoCompra,
       nombres: comprador.nombres,
@@ -375,6 +515,7 @@ export default function CrearAlcabalaModal({
       montoAfecto: montos.montoAfecto,
       montoAlcabala: montos.montoAlcabala,
       autoavaluo: montos.autoavaluo,
+      porcTransferencia: porcTransferencia,
       anexo: predio.anexo,
       subAnexo: predio.subAnexo,
     });
@@ -455,9 +596,14 @@ export default function CrearAlcabalaModal({
                         <button
                           type="button"
                           onClick={() => openSearch("comprador")}
-                          className={searchBtnClass}
+                          disabled={comprador.codigoCompra !== ""}
+                          className={`${searchBtnClass} disabled:text-slate-300 disabled:cursor-not-allowed`}
                           aria-label="Buscar contribuyente comprador"
-                          title="Buscar contribuyente"
+                          title={
+                            comprador.codigoCompra !== ""
+                              ? "El comprador proviene del contribuyente seleccionado"
+                              : "Buscar contribuyente"
+                          }
                         >
                           <Search size={13} />
                         </button>
@@ -749,7 +895,7 @@ export default function CrearAlcabalaModal({
                       />
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-4 gap-3">
                     <div>
                       <label htmlFor="fechaContrato" className={fieldLabel}>
                         Fecha Contrato
@@ -799,6 +945,25 @@ export default function CrearAlcabalaModal({
                           }))
                         }
                         className={inputClass}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="porcTransferencia" className={fieldLabel}>
+                        Porc. de Transf. (%)
+                      </label>
+                      <input
+                        id="porcTransferencia"
+                        type="text"
+                        inputMode="decimal"
+                        value={montos.porcTransferencia}
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) =>
+                          setMontos((prev) => ({
+                            ...prev,
+                            porcTransferencia: e.target.value,
+                          }))
+                        }
+                        className={inputMono}
                       />
                     </div>
                   </div>
