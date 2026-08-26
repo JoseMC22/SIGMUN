@@ -57,7 +57,7 @@ describe('ObjectAccessService', () => {
 
       expect(db.executeProcedure).toHaveBeenCalledWith(
         '[Acceso].[SP_MAcceso]',
-        { busc: 7, id_acceso, username },
+        { busc: 7, id_acceso, operador: username },
       );
       expect(cache.set).toHaveBeenCalledWith(
         cacheKey,

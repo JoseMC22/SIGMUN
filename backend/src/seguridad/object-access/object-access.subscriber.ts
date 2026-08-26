@@ -12,14 +12,25 @@ export class ObjectAccessSubscriber {
   private refCounts = new Map<string, number>();
   private keepaliveTimers = new Map<string, ReturnType<typeof setInterval>>();
 
-  constructor(private readonly redisFactory: () => Redis) {}
+  constructor(private readonly redisFactory: () => Redis | null) {}
 
   getObservable(username: string): Observable<MessageEvent> {
     return new Observable<MessageEvent>((observer) => {
       let redis = this.connections.get(username);
 
       if (!redis) {
-        redis = this.redisFactory();
+        const created = this.redisFactory();
+
+        // No Redis available (REDIS_URL not set) — run keepalive-only mode so
+        // the SSE stream stays open without a real Pub/Sub connection.
+        if (!created) {
+          const timer = setInterval(() => {
+            observer.next({ type: '', data: '' });
+          }, KEEPALIVE_INTERVAL_MS);
+          return () => clearInterval(timer);
+        }
+
+        redis = created;
         this.connections.set(username, redis);
 
         const channel = `access:changed:${username}`;

@@ -14,12 +14,12 @@ export class ObjectAccessService {
   constructor(
     private readonly db: DatabaseService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
-    @Inject('REDIS_PUB_CLIENT') private readonly redisPub: Redis,
+    @Inject('REDIS_PUB_CLIENT') private readonly redisPub: Redis | null,
   ) {}
 
   async getPermissions(
     username: string,
-    id_acceso: string,
+    id_acceso: string | number,
   ): Promise<ObjectPermission[]> {
     const cacheKey = `access:objects:${username}:${id_acceso}`;
 
@@ -57,7 +57,7 @@ export class ObjectAccessService {
   }
 
   async invalidateAndNotify(
-    id_acceso: string,
+    id_acceso: string | number,
     usernames: string[],
   ): Promise<void> {
     for (const username of usernames) {
@@ -84,13 +84,15 @@ export class ObjectAccessService {
 
       const channel = `access:changed:${username}`;
       const payload = JSON.stringify({ id_acceso });
-      try {
-        await this.redisPub.publish(channel, payload);
-      } catch (err) {
-        this.logger.error(
-          `Failed to publish to ${channel}`,
-          err,
-        );
+      if (this.redisPub) {
+        try {
+          await this.redisPub.publish(channel, payload);
+        } catch (err) {
+          this.logger.error(
+            `Failed to publish to ${channel}`,
+            err,
+          );
+        }
       }
     }
   }
@@ -98,7 +100,7 @@ export class ObjectAccessService {
   async checkObjectAccess(
     username: string,
     id_objeto: string,
-    id_acceso: string,
+    id_acceso: string | number,
   ): Promise<0 | 1> {
     const flatKey = `access:object:${username}:${id_objeto}`;
     const cached = await this.cacheManager.get<0 | 1>(flatKey);

@@ -12,6 +12,6 @@ export interface SpObjectAccessRow {
 
 /** API response envelope for GET /seguridad/object-access/:id_acceso */
 export interface ObjectAccessResponse {
-  id_acceso: string;
+  id_acceso: string | number;
   objects: ObjectPermission[];
 }
