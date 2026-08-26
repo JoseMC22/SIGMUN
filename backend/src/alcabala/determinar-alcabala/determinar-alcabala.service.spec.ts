@@ -272,6 +272,163 @@ describe('DeterminarAlcabalaService', () => {
     });
   });
 
+  describe('searchPredios', () => {
+    const predioRow = (overrides: Record<string, any> = {}) => ({
+      codigo: '0212131',
+      nombres: 'CORNEJO MANTILLA AGUEDA AURORA',
+      cod_pred: '000000000',
+      anexo: '0001',
+      sub_anexo: '0001',
+      porcen_propiedad: '100.00',
+      predial: 'CLL. H.U. EL CARMELO II ETAPA MZ J LTE 13',
+      total_autoavaluo: '108414.17',
+      tipo_pred: 'Predio Urbano',
+      tipo_pred1: '1',
+      anno: '2025',
+      Val_Terreno: '16706.13',
+      ...overrides,
+    });
+
+    it('should NOT call the SP when @anio is empty and return a validation error', async () => {
+      const result = await service.searchPredios({
+        codigo: '0297596',
+        anio: '',
+        codPred: '',
+        tipoBusqueda: 'c',
+        page: 1,
+        pageSize: 15,
+      });
+
+      expect(db.executeProcedure).not.toHaveBeenCalled();
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('El año del contrato (@anio) es obligatorio para buscar predios');
+      expect(result.data).toEqual([]);
+    });
+
+    it('should call sp_DJAlcabala with buscar=3 and the mapped params', async () => {
+      db.executeProcedure.mockResolvedValueOnce(mockSpResult([predioRow()]));
+
+      await service.searchPredios({
+        codigo: '0297596',
+        anio: '2025',
+        codPred: '',
+        tipoBusqueda: 'c',
+        page: 1,
+        pageSize: 15,
+      });
+
+      expect(db.executeProcedure).toHaveBeenCalledWith(SP_DJALCABALA, {
+        buscar: '3',
+        codigo: '0297596',
+        anio: '2025',
+        codpred: '',
+        nombres: '',
+        paterno: '',
+        materno: '',
+        num_doc: '',
+        razon: '',
+        tipo_busqueda: 'c',
+      });
+    });
+
+    it('should map SP rows to PredioItem[] (snake_case -> camelCase)', async () => {
+      const row = predioRow();
+
+      db.executeProcedure.mockResolvedValueOnce(mockSpResult([row]));
+
+      const result = await service.searchPredios({
+        codigo: '0297596',
+        anio: '2025',
+        codPred: '',
+        tipoBusqueda: 'c',
+        page: 1,
+        pageSize: 15,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]).toEqual({
+        codigo: '0212131',
+        nombres: 'CORNEJO MANTILLA AGUEDA AURORA',
+        codPred: '000000000',
+        anexo: '0001',
+        subAnexo: '0001',
+        porcenPropiedad: '100.00',
+        predial: 'CLL. H.U. EL CARMELO II ETAPA MZ J LTE 13',
+        totalAutoavaluo: '108414.17',
+        tipoPred: 'Predio Urbano',
+        anno: '2025',
+        valTerreno: '16706.13',
+      });
+      // tipo_pred1 is internal-only and must NOT leak to the domain item
+      expect(result.data[0]).not.toHaveProperty('tipoPred1');
+    });
+
+    it('should return empty data when SP returns no rows', async () => {
+      db.executeProcedure.mockResolvedValueOnce(mockSpResult([]));
+
+      const result = await service.searchPredios({
+        codigo: '0297596',
+        anio: '2025',
+        codPred: '',
+        tipoBusqueda: 'c',
+        page: 1,
+        pageSize: 15,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual([]);
+    });
+
+    it('should handle SP error gracefully', async () => {
+      db.executeProcedure.mockRejectedValueOnce(new Error('DB error'));
+
+      const result = await service.searchPredios({
+        codigo: '0297596',
+        anio: '2025',
+        codPred: '',
+        tipoBusqueda: 'c',
+        page: 1,
+        pageSize: 15,
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Error al buscar predios del contribuyente');
+      expect(result.data).toEqual([]);
+    });
+
+    it('should handle case-insensitive SP column names', async () => {
+      const row = {
+        CODIGO: '0212131',
+        NOMBRES: 'AGUEDA AURORA',
+        COD_PRED: '000000000',
+        ANEXO: '0001',
+        SUB_ANEXO: '0001',
+        PORCEN_PROPIEDAD: '100.00',
+        PREDIAL: 'DIRECCION X',
+        TOTAL_AUTOAVALUO: '108414.17',
+        TIPO_PRED: 'Predio Urbano',
+        ANNO: '2025',
+        VAL_TERRENO: '16706.13',
+      };
+
+      db.executeProcedure.mockResolvedValueOnce(mockSpResult([row]));
+
+      const result = await service.searchPredios({
+        codigo: '0297596',
+        anio: '2025',
+        codPred: '',
+        tipoBusqueda: 'c',
+        page: 1,
+        pageSize: 15,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.data[0].codPred).toBe('000000000');
+      expect(result.data[0].tipoPred).toBe('Predio Urbano');
+    });
+  });
+
   describe('getAlcabalasByContribuyente', () => {
     it('should call sp_DJAlcabala with buscar=6 and codigo', async () => {
       db.executeProcedure.mockResolvedValueOnce(mockSpResult([alcabalaRow()]));

@@ -179,6 +179,67 @@ export async function bajaAlcabalaAction(
   }
 }
 
+// ─── Search Predios (Buscar Predio) ──────────────────────
+
+export interface PredioItem {
+  codigo: string;
+  nombres: string;
+  codPred: string;
+  anexo: string;
+  subAnexo: string;
+  porcenPropiedad: string;
+  predial: string;
+  totalAutoavaluo: string;
+  tipoPred: string;
+  anno: string;
+  valTerreno: string;
+}
+
+export interface PredioSearchResult {
+  success: boolean;
+  data: PredioItem[];
+  error?: string;
+}
+
+export async function searchPrediosAction(
+  codigo: string,      // comprador code (always sent)
+  anio: string,         // year (always sent)
+  tipoBusqueda: string, // 'c' | 'n' | 'd' | 'r'
+  options?: {
+    codPred?: string;      // for tipoBusqueda='c'
+    paterno?: string;      // for tipoBusqueda='n'
+    materno?: string;      // for tipoBusqueda='n'
+    nombres?: string;      // for tipoBusqueda='n'
+    numDoc?: string;       // for tipoBusqueda='d'
+    razon?: string;        // for tipoBusqueda='r'
+  },
+): Promise<PredioSearchResult> {
+  try {
+    const params: Record<string, string> = {
+      codigo,
+      anio,
+      tipoBusqueda,
+      // Always send empty defaults for unused params
+      codpred: options?.codPred ?? '',
+      nombres: options?.nombres ?? '',
+      paterno: options?.paterno ?? '',
+      materno: options?.materno ?? '',
+      num_doc: options?.numDoc ?? '',
+      razon: options?.razon ?? '',
+    };
+    const response = await authFetch(
+      `/alcabala/determinar-alcabala/predios?${new URLSearchParams(params)}`,
+    );
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false, data: [], error: errorData.error ?? `Error ${response.status}` };
+    }
+    return await response.json();
+  } catch (error) {
+    return { success: false, data: [], error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
 // ─── Get Detalle Alcabala ─────────────────────────────────
 
 export interface DetalleAlcabalaItem {
