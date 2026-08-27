@@ -464,7 +464,7 @@ describe("CrearAlcabalaModal", () => {
       );
     });
 
-    // The predios results table shows the 6 columns and the predio row.
+    // The predios results table shows the 7 columns and the predio row.
     const table = document.querySelector("table");
     expect(table).toBeTruthy();
     const t = within(table as HTMLElement);
@@ -472,11 +472,13 @@ describe("CrearAlcabalaModal", () => {
     expect(t.getByText("Nombres")).toBeInTheDocument();
     expect(t.getByText("Cód. Predio")).toBeInTheDocument();
     expect(t.getByText("% Propiedad")).toBeInTheDocument();
+    expect(t.getByText("Total Autoavaluó")).toBeInTheDocument();
     expect(t.getByText("Dirección")).toBeInTheDocument();
     expect(t.getByText("Tipo")).toBeInTheDocument();
     expect(t.getByText(/AV\. LIMA 200/)).toBeInTheDocument();
     expect(t.getByText("000000001")).toBeInTheDocument();
     expect(t.getByText("100.00")).toBeInTheDocument();
+    expect(t.getByText("108414.17")).toBeInTheDocument();
     expect(t.getByText("Predio Urbano")).toBeInTheDocument();
 
     // The contract-date alert was removed — assert no alert is shown anymore.

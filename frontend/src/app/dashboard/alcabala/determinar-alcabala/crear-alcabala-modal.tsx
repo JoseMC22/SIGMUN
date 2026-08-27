@@ -478,6 +478,7 @@ function ContribuyenteSearchPopup({ target, initialFechaContrato = "", onSelect,
                         <th className="px-2 py-1.5 text-left font-semibold">Nombres</th>
                         <th className="px-2 py-1.5 text-left font-semibold">Cód. Predio</th>
                         <th className="px-2 py-1.5 text-right font-semibold">% Propiedad</th>
+                        <th className="px-2 py-1.5 text-right font-semibold">Total Autoavaluó</th>
                         <th className="px-2 py-1.5 text-left font-semibold">Dirección</th>
                         <th className="px-2 py-1.5 text-left font-semibold">Tipo</th>
                       </tr>
@@ -493,6 +494,7 @@ function ContribuyenteSearchPopup({ target, initialFechaContrato = "", onSelect,
                           <td className="px-2 py-2">{item.nombres}</td>
                           <td className="px-2 py-2 font-mono">{item.codPred}</td>
                           <td className="px-2 py-2 text-right font-mono">{item.porcenPropiedad}</td>
+                          <td className="px-2 py-2 text-right font-mono">{item.totalAutoavaluo}</td>
                           <td className="px-2 py-2">{item.predial}</td>
                           <td className="px-2 py-2">{item.tipoPred}</td>
                         </tr>
