@@ -626,7 +626,7 @@ export default function ContribuyenteModal({ isOpen, onClose, codigoInicial }: P
         data-testid="contribuyente-modal"
       >
         {/* ── Header ── */}
-        <div className="flex items-center justify-between rounded-t-xl bg-gradient-to-r from-sat-navy via-[#1b2b4a] to-slate-800 px-4 py-2 shrink-0">
+        <div className="flex items-center justify-between rounded-t-xl bg-linear-to-r from-sat-navy via-[#1b2b4a] to-slate-800 px-4 py-2 shrink-0">
           <div className="flex items-center gap-2">
             <div className="h-3.5 w-0.5 rounded-full bg-sat-cyan" />
             <h2 className="font-outfit text-sm font-bold tracking-tight text-white">
@@ -1281,7 +1281,7 @@ export default function ContribuyenteModal({ isOpen, onClose, codigoInicial }: P
         )}
 
         {combosLoading && (
-          <div className="pointer-events-none absolute inset-0 top-[92px] flex items-start justify-center pt-4">
+          <div className="pointer-events-none absolute inset-0 top-23 flex items-start justify-center pt-4">
             <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 shadow-lg">
               <Loader2 size={14} className="animate-spin text-sat-cyan" />
               <span className="text-xs font-medium text-slate-500">Cargando datos...</span>
@@ -1290,7 +1290,7 @@ export default function ContribuyenteModal({ isOpen, onClose, codigoInicial }: P
         )}
 
         {edicionCargando && (
-          <div className="pointer-events-none absolute inset-0 top-[92px] flex items-start justify-center pt-4">
+          <div className="pointer-events-none absolute inset-0 top-23 flex items-start justify-center pt-4">
             <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 shadow-lg">
               <Loader2 size={14} className="animate-spin text-sat-cyan" />
               <span className="text-xs font-medium text-slate-500">Cargando datos del contribuyente...</span>

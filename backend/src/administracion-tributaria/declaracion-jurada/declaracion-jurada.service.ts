@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import * as mssql from 'mssql';
 import { DatabaseService } from '../../database/database.service';
 import { SearchDeclaracionJuradaDto } from './dto/search-declaracion-jurada.dto';
 import {
@@ -26,7 +27,15 @@ import {
   ObtenerRepresentantesResult,
   EditarRepresentanteResult,
   EliminarRepresentanteResult,
+  EstadoCuentaFiltrosResult,
+  EstadoCuentaPredioOption,
+  EstadoCuentaReciboRow,
+  GenerarLiquidacionDJResult,
+  LiquidacionReporteData,
+  LiquidacionReporteDetalle,
 } from './dto/declaracion-jurada.types';
+import { EstadoCuentaRecibosDto } from './dto/estado-cuenta-recibos.dto';
+import { GenerarLiquidacionDJDto } from './dto/estado-cuenta-liquidacion.dto';
 import { GuardarContribuyenteDto } from './dto/guardar-contribuyente.dto';
 import { GuardarRepresentanteDto } from './dto/guardar-representante.dto';
 import { VincularRepresentanteDto } from './dto/vincular-representante.dto';
@@ -41,6 +50,7 @@ export class DeclaracionJuradaService {
   private readonly SP_MRECEPCION = 'Coactivo.SP_Mrecepcion';
   private readonly SP_TBLDISTRITO = 'Contenedor.SP_TblDistrito';
   private readonly SP_VW_MVIAS = 'Rentas.SP_vw_Mvias';
+  private readonly SP_CAJA_FRAMEWORK = 'dbo.store_caja_framework';
   private readonly logger = new Logger(DeclaracionJuradaService.name);
 
   constructor(private readonly db: DatabaseService) {}
@@ -921,5 +931,493 @@ export class DeclaracionJuradaService {
       id: dto.id,
     });
     return { success: true };
+  }
+
+  // ── Estado de Cuenta (modal): filtros por contribuyente ─────────────────
+  // dbo.store_caja_framework:
+  //   @msquery=5  → período min/max   | @msquery=6 → año min/max
+  //   @msquery=15 → predios           | @msquery=20 → vehículos (placas)
+  //   @msquery=21 → fraccionamientos (num_docu)
+  async getEstadoCuentaFiltros(codigo: string): Promise<EstadoCuentaFiltrosResult> {
+    const cod = codigo.trim();
+    if (!cod) {
+      throw new Error('Código de contribuyente no válido.');
+    }
+
+    const [periodoRes, anioRes, predioRes, vehiculoRes, fracRes] =
+      await Promise.all([
+        this.db.executeProcedure<any>(this.SP_CAJA_FRAMEWORK, { msquery: 5, codigo: cod }),
+        this.db.executeProcedure<any>(this.SP_CAJA_FRAMEWORK, { msquery: 6, codigo: cod }),
+        this.db.executeProcedure<any>(this.SP_CAJA_FRAMEWORK, { msquery: 15, codigo: cod }),
+        this.db.executeProcedure<any>(this.SP_CAJA_FRAMEWORK, { msquery: 20, codigo: cod }),
+        this.db.executeProcedure<any>(this.SP_CAJA_FRAMEWORK, { msquery: 21, codigo: cod }),
+      ]);
+
+    // Rangos min/max → listas ("01".."12" / "2008".."2026")
+    const periodoRow = periodoRes.recordset?.[0];
+    const anioRow = anioRes.recordset?.[0];
+
+    const predios: EstadoCuentaPredioOption[] = (predioRes.recordset ?? []).map(
+      (row: any) => {
+        const codPred = String(row.cod_pred ?? '').trim();
+        const anexo1 = String(row.anexo1 ?? '').trim();
+        const direccion = String(row.direccion ?? '').trim();
+        return {
+          // The recibos SPs filter by MRecibos.cod_pred ONLY (bare predio
+          // code, no anexo suffix): appending "-anexo" here made every
+          // receipt of the predio fail the cod_pred IN(...) match while
+          // predial/multas survived via their '' / codigo escape values.
+          // Legacy sent the bare code too.
+          value: codPred,
+          label: [codPred, anexo1, direccion].filter(Boolean).join('-'),
+        };
+      },
+    );
+
+    return {
+      periodos: this.buildRange(periodoRow?.minimo, periodoRow?.maximo, 2),
+      // Años del más reciente al más viejo: 2026, 2025, ... 2008
+      anios: this.buildRange(anioRow?.minimo, anioRow?.maximo).reverse(),
+      predios,
+      vehiculos: (vehiculoRes.recordset ?? [])
+        .map((row: any) => String(row.cod_pred ?? '').trim())
+        .filter(Boolean),
+      fraccionamientos: (fracRes.recordset ?? [])
+        .map((row: any) => String(row.num_docu ?? '').trim())
+        .filter(Boolean),
+    };
+  }
+
+  /** Genera la lista [min..max] como strings; opcionalmente con padding de ceros. */
+  private buildRange(minRaw: unknown, maxRaw: unknown, pad?: number): string[] {
+    const min = parseInt(String(minRaw ?? ''), 10);
+    const max = parseInt(String(maxRaw ?? ''), 10);
+    if (!Number.isFinite(min) || !Number.isFinite(max) || max < min) return [];
+    const out: string[] = [];
+    for (let n = min; n <= max; n++) {
+      out.push(pad ? String(n).padStart(pad, '0') : String(n));
+    }
+    return out;
+  }
+
+  // ── Estado de Cuenta (modal): recibos grid ("Mostrar") ──────────────────
+  // Port of the legacy conreccontriAction, with a few improvements:
+  //   • Named JSON payload instead of the legacy positional array.
+  //   • Every filter value is wrapped as *value* — sp_EstCta_Rentas_predecesor
+  //     replaces asterisks with quotes to build `in('v1','v2')` clauses.
+  //   • Explicit SP selection table (legacy could hit an undefined SP name).
+  //   • Rows are mapped by column name (the SPs end with SELECT *) and state
+  //     filtering happens server-side instead of inside view code.
+  async getEstadoCuentaRecibos(
+    dto: EstadoCuentaRecibosDto,
+  ): Promise<EstadoCuentaReciboRow[]> {
+    // Clients must send PLAIN values ("2026", "02.30"); we wrap each one as
+    // *value*. Quotes and asterisks are stripped first because the predecesor
+    // SP rewrites asterisks as quotes when building its dynamic IN clauses,
+    // so letting them through would corrupt (or inject into) the SQL text.
+    const wrapList = (items: string[]): string =>
+      items
+        .map((item) => item.replace(/['*]/g, "").trim())
+        .filter(Boolean)
+        .map((item) => `*${item}*`)
+        .join(",");
+
+    let tipos = wrapList(dto.conceptos);
+
+    // Arbitrio sub-concepts (11.01 barridos, 11.02 residuos, 11.03 parques,
+    // 11.04 serenazgo) are stored in MRecibos.tipo_rec while EVERY arbitrio
+    // receipt lives under tipo '11.00'. The predecesor SP only filters by
+    // tipo (@tiporec is a vestigial parameter it ignores), so a sub-concept
+    // selection must pull the parent concept and then be applied as a
+    // row-level filter on the result below.
+    const tipoRecFilter = dto.arbitrios
+      .map((value) => value.replace(/['*]/g, "").trim())
+      .filter(Boolean);
+    if (
+      tipoRecFilter.length > 0 &&
+      !dto.conceptos.some((c) => c.trim() === "11.00")
+    ) {
+      tipos += (tipos ? "," : "") + "*11.00*";
+    }
+
+    // Legacy rule: criteria 9-12 also request companion "beneficio" concept
+    // codes when their base concept (arbitrios/predial/vehicular/alcabala)
+    // is present in the filter.
+    if ([9, 10, 11, 12].includes(dto.criterio)) {
+      const companions: ReadonlyArray<readonly [string, string]> = [
+        ['11.00', '*00.47*'],
+        ['02.01', '*00.46*'],
+        ['00.30', '*00.48*'],
+        ['00.38', '*00.50*'],
+      ];
+      const extras = companions
+        .filter(([needle]) => tipos.includes(needle))
+        .map(([, extra]) => extra)
+        .filter((extra) => !tipos.includes(extra));
+      if (extras.length > 0) {
+        tipos += `,${extras.join(',')}`;
+      }
+    }
+
+    // Legacy quirk kept on purpose: the SP has no native "por compensar"
+    // state, so we ask it for pending rows ('0') and keep only negative
+    // reajuste rows in the filter below.
+    const estadoParam = dto.estado === '3' ? '0' : dto.estado;
+
+    const result = await this.db.executeProcedure<Record<string, unknown>>(
+      this.resolveRecibosSp(dto.criterio, dto.soloCoactivo),
+      {
+        codigo: dto.codigo.trim(),
+        annos: wrapList(dto.anios),
+        tipos,
+        tiporec: wrapList(dto.arbitrios),
+        perio: wrapList(dto.periodos),
+        predio: wrapList(dto.predios),
+        vehiculo: wrapList(dto.vehiculos),
+        estado: estadoParam,
+        criterio: String(dto.criterio),
+        fracciona: wrapList(dto.fraccionamientos),
+      },
+      undefined,
+      190_000, // heavy queries — same budget as the legacy store proxy
+    );
+
+    return ((result.recordset ?? []) as Array<Record<string, unknown>>)
+      .map((raw) => this.mapEstadoCuentaReciboRow(raw))
+      .filter((row) => {
+        switch (dto.estado) {
+          case '0':
+            return row.impReaj >= 0; // pendiente
+          case '3':
+            return row.impReaj < 0; // por compensar (saldo a favor)
+          default:
+            return true; // cancelado / todo
+        }
+      })
+      .filter(
+        (row) =>
+          tipoRecFilter.length === 0 ||
+          row.tipo !== '11.00' ||
+          tipoRecFilter.includes(row.tipoRec),
+      );
+  }
+
+  /** Maps the legacy button criterion (+ Solo Coactivo flag) to its SP. */
+  private resolveRecibosSp(criterio: number, soloCoactivo: boolean): string {
+    if (criterio === 12) {
+      return soloCoactivo
+        ? 'Caja.sp_EstCta_Rentas_Coactivo_amnistia'
+        : 'Caja.sp_EstCta_Rentas_amnistia_2026';
+    }
+    if (soloCoactivo) {
+      return 'Caja.sp_EstCta_Rentas_Coactivo';
+    }
+    switch (criterio) {
+      case 8:
+        return 'Caja.sp_EstCta_Rentas_Fracc_2025';
+      case 11:
+        return 'Caja.sp_EstCta_Rentas_2021';
+      default:
+        return 'Caja.sp_EstCta_Rentas';
+    }
+  }
+
+  private mapEstadoCuentaReciboRow(
+    raw: Record<string, unknown>,
+  ): EstadoCuentaReciboRow {
+    const str = (key: string): string => String(raw[key] ?? '').trim();
+    const num = (key: string): number => Number(raw[key] ?? 0) || 0;
+
+    const tipo = str('tipo');
+    const anexo = str('anexo');
+    const subAnexo = str('sub_anexo');
+    const impReaj = num('imp_reaj');
+    const interes = num('mora');
+    const costoEmision = num('costo_emis');
+    const totPagado = num('tot_pago');
+
+    return {
+      idrecibo: str('idrecibo'),
+      codigo: str('codigo'),
+      tipo,
+      anno: str('anno'),
+      codPred: str('cod_pred'),
+      anexo,
+      subAnexo,
+      detAnexo: tipo === '11.00' && anexo ? `${anexo}-${subAnexo}` : '',
+      tipoRec: str('tipo_rec'),
+      periodo: str('periodo'),
+      impInsol: num('imp_insol'),
+      costoEmision,
+      impReaj,
+      interes,
+      desTipo: str('des_tipo'),
+      desCabecera: str('des_cabecera'),
+      ubica: str('ubica_2') || str('ubica'),
+      benefic: num('descuento'),
+      total: Number((impReaj + interes + costoEmision - totPagado).toFixed(2)),
+      totPagado,
+    };
+  }
+
+  // ── Generar Liquidación DJ (Estado de Cuenta modal) ─────────────────
+
+  async generarLiquidacionDJ(
+    dto: GenerarLiquidacionDJDto,
+  ): Promise<GenerarLiquidacionDJResult> {
+    const SP_LIQUIDACION = '[Caja].[pa_liquidacion]';
+    const cod = dto.codigo.trim();
+    const dtz = new Date().toLocaleDateString('es-PE');
+
+    // ── Step 1: VT Validation (conditional — only if vt array is non-empty) ──
+    if (dto.vt && dto.vt.length > 0) {
+      // Get num_val for each VT receipt
+      const vtNumVals: { idrecibo: number; num_val: string }[] = [];
+      for (const vt of dto.vt) {
+        const vtResult = await this.db.executeProcedure<any>(SP_LIQUIDACION, {
+          msquery: 14,
+          idrecibo: Number(vt.idrecibo),
+          codigo: vt.codigo,
+        });
+        const vtRow = vtResult.recordset?.[0];
+        if (vtRow) {
+          const numVal = String(vtRow.num_val ?? Object.values(vtRow)[0] ?? '').trim();
+          vtNumVals.push({ idrecibo: Number(vt.idrecibo), num_val: numVal });
+        }
+      }
+
+      // Group VT receipts by num_val
+      const grouped = new Map<string, number[]>();
+      for (const item of vtNumVals) {
+        if (!item.num_val) continue;
+        const ids = grouped.get(item.num_val) || [];
+        ids.push(item.idrecibo);
+        grouped.set(item.num_val, ids);
+      }
+
+      // For each group, verify all receipts exist in the valor tributario
+      for (const [numVal, ids] of grouped.entries()) {
+        if (ids.length === 0) continue;
+
+        const idsStr = ids.join(',');
+
+        const foundResult = await this.db.query<{ encontrados: number; num_val: string; id_valor: number; ano_val: number }>(
+          `SELECT COUNT(*) as encontrados, rm.num_val, rm.id_valor, rm.ano_val
+           FROM Rentas.Mvalores rm WITH(NOLOCK)
+           INNER JOIN Rentas.Dvalores rd WITH(NOLOCK) ON rd.id_valor = rm.id_valor AND rd.num_val = rm.num_val AND rd.ano_val = rm.ano_val AND rm.nestado = '1'
+           INNER JOIN Caja.MRecibos r ON rd.idrecibo = r.idrecibo
+           WHERE rm.num_val = @num_val AND rd.idrecibo IN (${idsStr}) AND r.estado <> 1
+           GROUP BY rm.num_val, rm.id_valor, rm.ano_val`,
+          { num_val: numVal },
+        );
+
+        const foundRow = foundResult.recordset?.[0];
+        if (!foundRow) {
+          return {
+            success: false,
+            error: `Existen periodos faltantes para la Liquidación del Valor Tributario: ${numVal}`,
+          };
+        }
+
+        const totalResult = await this.db.query<{ total_recibos: number }>(
+          `SELECT COUNT(*) as total_recibos
+           FROM Rentas.Dvalores rd WITH(NOLOCK)
+           INNER JOIN Caja.MRecibos r ON rd.idrecibo = r.idrecibo
+           WHERE rd.id_valor = @id_valor AND rd.num_val = @num_val AND rd.ano_val = @ano_val AND r.estado <> 1`,
+          { id_valor: foundRow.id_valor, num_val: numVal, ano_val: foundRow.ano_val },
+        );
+
+        const totalRow = totalResult.recordset?.[0];
+        const totalRecibos = totalRow ? Number(totalRow.total_recibos ?? 0) : 0;
+
+        if (foundRow.encontrados !== totalRecibos) {
+          return {
+            success: false,
+            error: `Existen periodos faltantes para la Liquidación del Valor Tributario: ${numVal}`,
+          };
+        }
+      }
+    }
+
+    // ── Step 2: Create Header (@msquery=1) ──
+    const firstReceipt = dto.liquidacion[0];
+    const observacion = `${firstReceipt.anexo || ''}/${firstReceipt.sub_anexo || ''}`;
+
+    this.logger.log(
+      `[liquidacion-dj] Step 2 pa_liquidacion(@msquery=1) | monto=${dto.totalp} codigo=${cod}`,
+    );
+
+    let nliqui = '';
+    let idliqui = '';
+
+    const headerResult = await this.db.executeProcedure(
+      SP_LIQUIDACION,
+      {
+        msquery: 1,
+        codigo: cod,
+        monto: dto.totalp,
+        usuario: dto.usuario || 'USUARIO',
+        terminal: 'NIMAGEN01',
+        observacion,
+        fec_venci: dtz,
+      },
+      {
+        msquery: mssql.Int,
+        codigo: mssql.VarChar(20),
+        monto: mssql.Float,
+        usuario: mssql.VarChar(50),
+        terminal: mssql.VarChar(50),
+        observacion: mssql.NVarChar(4000),
+        fec_venci: mssql.VarChar(30),
+      },
+    );
+
+    const headerRow = headerResult.recordset?.[0] as Record<string, unknown> | undefined;
+    this.logger.log(
+      `[liquidacion-dj] Step 2 result: ${JSON.stringify(headerRow ?? {})}`,
+    );
+
+    if (headerRow) {
+      nliqui = String(headerRow.nliqui ?? Object.values(headerRow)[0] ?? '');
+      idliqui = String(headerRow.idliqui ?? Object.values(headerRow)[1] ?? '');
+    }
+
+    if (!nliqui) {
+      return { success: false, error: 'No se pudo crear la cabecera de liquidación' };
+    }
+
+    // ── Step 3: Batch Insert Details (@msquery=15) ──
+    const detalles = dto.liquidacion.map((item, index) => ({
+      secuencia: index + 1,
+      idrecibo: Number(item.idrecibo),
+      anno: item.anno,
+      cod_pre: item.cod_pred,
+      anexo: item.anexo || '',
+      sub_anexo: item.sub_anexo || '',
+      tipo: item.tipo,
+      tipo_rec: item.tipo_rec,
+      periodo: item.periodo,
+      imp_insol: item.imp_reaj,
+      imp_mora: item.mora,
+      costo_emi: item.costo_emis,
+      fact_mora: item.fact_mora,
+      descuento: item.benefic,
+    }));
+
+    this.logger.log(
+      `[liquidacion-dj] Step 3 pa_liquidacion(@msquery=15) | nliqui=${nliqui} idliqui=${idliqui} detalles=${detalles.length}`,
+    );
+
+    const detailsResult = await this.db.executeProcedure(
+      SP_LIQUIDACION,
+      {
+        msquery: 15,
+        numero: nliqui,
+        idlq: Number(idliqui) || 0,
+        detalles: JSON.stringify(detalles),
+      },
+      {
+        msquery: mssql.Int,
+        numero: mssql.VarChar(15),
+        idlq: mssql.Int,
+        detalles: mssql.NVarChar(mssql.MAX),
+      },
+    );
+
+    const detailsRow = detailsResult.recordset?.[0];
+    const firstCol = detailsRow ? String(Object.values(detailsRow)[0] ?? '').trim() : '';
+
+    this.logger.log(
+      `[liquidacion-dj] Step 3 result: ${firstCol}`,
+    );
+
+    if (firstCol !== 'CORRECTO') {
+      return { success: false, error: 'Error al insertar detalles de liquidación' };
+    }
+
+    // ── Step 4: Verify Totals (@msquery=11) ──
+    this.logger.log(
+      `[liquidacion-dj] Step 4 pa_liquidacion(@msquery=11) | nliqui=${nliqui} expectedTotal=${dto.totalp}`,
+    );
+
+    const verifyResult = await this.db.executeProcedure<{ total: number }>(
+      SP_LIQUIDACION,
+      { msquery: 11, numero: nliqui },
+    );
+
+    const verifyRow = verifyResult.recordset?.[0];
+    const spTotal = verifyRow ? Number(verifyRow.total ?? Object.values(verifyRow)[0] ?? 0) : 0;
+
+    this.logger.log(
+      `[liquidacion-dj] Step 4 result: spTotal=${spTotal} expectedTotal=${dto.totalp}`,
+    );
+
+    const diff = Math.abs(spTotal - dto.totalp);
+    if (diff > 0.01) {
+      return { success: false, error: 'Error de verificación: total no coincide' };
+    }
+
+    this.logger.log(
+      `[liquidacion-dj] Liquidación generada: ${nliqui} para código ${cod}`,
+    );
+
+    return { success: true, idliqui, nliqui };
+  }
+
+  // ── Reporte Liquidación ──────────────────────────────────
+
+  /**
+   * Obtiene los datos para el reporte de impresión de una liquidación.
+   * SP: [Caja].[pa_liquidacion] (@msquery=9, @idlq=<idliqui>)
+   * Retorna: nombre, domicilio, código, n° liquidación, fecha,
+   *          y filas de detalle (año, tributo, monto).
+   */
+  async getLiquidacionReporte(
+    idliqui: string,
+  ): Promise<LiquidacionReporteData> {
+    const result = await this.db.executeProcedure<Record<string, unknown>>(
+      '[Caja].[pa_liquidacion]',
+      { msquery: 9, idlq: Number(idliqui) },
+      { msquery: mssql.Int, idlq: mssql.Int },
+    );
+
+    const rows = (result.recordset ?? []) as Array<Record<string, unknown>>;
+    if (rows.length === 0) {
+      throw new Error('No se encontraron datos para la liquidación especificada.');
+    }
+
+    // First row carries header fields; all rows carry detail fields.
+    const first = rows[0];
+
+    // The SP may return named columns or positional. We try common names
+    // first and fall back to positional index (matching the legacy PHP code).
+    const str = (v: unknown): string => String(v ?? '').trim();
+    const num = (v: unknown): number => Number(v ?? 0);
+
+    const nombre = str(first.nombre ?? first.Name ?? Object.values(first)[0]);
+    const domicilio = str(first.domicilio ?? first.Direccion ?? Object.values(first)[1]);
+    const nliqui = str(first.nliqui ?? first.numero ?? first.NumLiq ?? Object.values(first)[2]);
+    const codigo = str(first.codigo ?? first.Codigo ?? Object.values(first)[3]);
+    const fecha = str(first.fecha ?? first.Fecha ?? Object.values(first)[7]);
+    const usuario = str(first.usuario ?? first.Usuario ?? Object.values(first)[8]);
+
+    const detalles: LiquidacionReporteDetalle[] = rows.map((row) => ({
+      anno: str(row.anno ?? row.Anno ?? row.YEAR ?? Object.values(row)[4]),
+      tipo_general: str(row.tipo_general ?? row.descripcion ?? row.Tipo ?? Object.values(row)[5]),
+      monto: num(row.monto ?? row.Monto ?? row.importe ?? Object.values(row)[6]),
+    }));
+
+    const totalNeto = detalles.reduce((sum, d) => sum + d.monto, 0);
+
+    return {
+      nombre,
+      domicilio,
+      codigo,
+      nliqui,
+      fecha,
+      usuario,
+      detalles,
+      totalNeto,
+    };
   }
 }

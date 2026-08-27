@@ -779,3 +779,202 @@ export async function eliminarRepresentanteAction(
     return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
   }
 }
+
+// ─── Estado de Cuenta (modal): filtros por contribuyente ──
+// store_caja_framework @msquery=5|6|15|20|21, @codigo
+
+export interface EstadoCuentaPredioOption {
+  /** cod_pred-anexo1 — código compuesto enviado al backend al consultar deuda */
+  value: string;
+  /** cod_pred-anexo1-direccion — texto mostrado en el groupbox */
+  label: string;
+}
+
+export interface EstadoCuentaFiltrosData {
+  periodos: string[];
+  anios: string[];
+  predios: EstadoCuentaPredioOption[];
+  vehiculos: string[];
+  fraccionamientos: string[];
+}
+
+export async function getEstadoCuentaFiltrosAction(
+  codigo: string,
+): Promise<
+  { success: true; data: EstadoCuentaFiltrosData } | { success: false; error: string }
+> {
+  try {
+    const params = new URLSearchParams({ codigo });
+    const response = await authFetch(`/declaracion-jurada/estado-cuenta/filtros?${params}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.message ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    return { success: true as const, ...result };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ─── Estado de Cuenta (modal): recibos grid ("Mostrar") ───
+// Caja.sp_EstCta_Rentas family via POST /declaracion-jurada/estado-cuenta/recibos
+
+export interface EstadoCuentaRecibosPayload {
+  codigo: string;
+  periodos: string[];
+  anios: string[];
+  conceptos: string[];
+  arbitrios: string[];
+  predios: string[];
+  vehiculos: string[];
+  fraccionamientos: string[];
+  /** '0' pendiente | '1' cancelado | '3' por compensar | '%' todo */
+  estado: '0' | '1' | '3' | '%';
+  criterio?: number;
+  soloCoactivo?: boolean;
+}
+
+export interface EstadoCuentaReciboRow {
+  idrecibo: string;
+  codigo: string;
+  tipo: string;
+  anno: string;
+  codPred: string;
+  anexo: string;
+  subAnexo: string;
+  detAnexo: string;
+  tipoRec: string;
+  periodo: string;
+  impInsol: number;
+  costoEmision: number;
+  impReaj: number;
+  interes: number;
+  desTipo: string;
+  desCabecera: string;
+  ubica: string;
+  benefic: number;
+  total: number;
+  totPagado: number;
+}
+
+export async function getEstadoCuentaRecibosAction(
+  payload: EstadoCuentaRecibosPayload,
+): Promise<
+  { success: true; data: EstadoCuentaReciboRow[] } | { success: false; error: string }
+> {
+  try {
+    const response = await authFetch('/declaracion-jurada/estado-cuenta/recibos', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false as const,
+        error: errorData.error ?? errorData.message ?? `Error ${response.status}`,
+      };
+    }
+    const result = await response.json();
+    return { success: true as const, ...result };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ─── Liquidación types ────────────────────────────────────
+
+export type LiquidacionReciboPayload = {
+  idrecibo: string;
+  codigo: string;
+  anno: string;
+  cod_pred: string;
+  anexo: string;
+  sub_anexo: string;
+  tipo: string;
+  tipo_rec: string;
+  periodo: string;
+  total: number;
+  imp_reaj: number;
+  mora: number;
+  costo_emis: number;
+  fact_mora: number;
+  benefic: number;
+  ubica?: string;
+};
+
+export type GenerarLiquidacionPayload = {
+  codigo: string;
+  totalp: number;
+  liquidacion: LiquidacionReciboPayload[];
+  vt: { codigo: string; idrecibo: string }[];
+  usuario: string;
+};
+
+export type LiquidacionReporteDetalle = {
+  anno: string;
+  tipo_general: string;
+  monto: number;
+};
+
+export type LiquidacionReporteData = {
+  nombre: string;
+  domicilio: string;
+  codigo: string;
+  nliqui: string;
+  fecha: string;
+  usuario: string;
+  detalles: LiquidacionReporteDetalle[];
+  totalNeto: number;
+};
+
+// ─── Generar Liquidación (POST) ───────────────────────────
+
+export async function generarLiquidacionDJAction(
+  payload: GenerarLiquidacionPayload,
+): Promise<
+  { success: true; idliqui: string; nliqui: string } | { success: false; error: string }
+> {
+  try {
+    const response = await authFetch('/declaracion-jurada/estado-cuenta/liquidacion', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false as const,
+        error: errorData.error ?? errorData.message ?? `Error ${response.status}`,
+      };
+    }
+    const result = await response.json();
+    // Backend returns { success: true, data: { idliqui, nliqui } } — unwrap data.
+    const data = result.data ?? result;
+    return { success: true as const, idliqui: String(data.idliqui ?? ''), nliqui: String(data.nliqui ?? '') };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ─── Reporte Liquidación (GET) ────────────────────────────
+
+export async function getLiquidacionReporteAction(
+  idliqui: string,
+): Promise<
+  { success: true; data: LiquidacionReporteData } | { success: false; error: string }
+> {
+  try {
+    const response = await authFetch(`/declaracion-jurada/liquidacion/${encodeURIComponent(idliqui)}/reporte`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false as const,
+        error: errorData.error ?? errorData.message ?? `Error ${response.status}`,
+      };
+    }
+    const result = await response.json();
+    return { success: true as const, ...result };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}

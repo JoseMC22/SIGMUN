@@ -354,3 +354,84 @@ export interface EditarContribuyenteResult {
   anexo2: string;
   flagNotificar: string;
 }
+
+// ── SP dbo.store_caja_framework @msquery=5|6|15|20|21 ─────────────
+// Filtros del modal Estado de Cuenta, por contribuyente.
+
+export interface EstadoCuentaPredioOption {
+  /** cod_pred-anexo1 — código compuesto enviado al backend al consultar deuda */
+  value: string;
+  /** cod_pred-anexo1-direccion — texto mostrado en el groupbox */
+  label: string;
+}
+
+export interface EstadoCuentaFiltrosResult {
+  /** @msquery=5 → rango min/max, p.ej. ["01".."12"] */
+  periodos: string[];
+  /** @msquery=6 → rango min/max en orden descendente, p.ej. ["2026".."2008"] */
+  anios: string[];
+  /** @msquery=15 → predios del contribuyente */
+  predios: EstadoCuentaPredioOption[];
+  /** @msquery=20 → placas (cod_pred) */
+  vehiculos: string[];
+  /** @msquery=21 → fraccionamientos (num_docu) */
+  fraccionamientos: string[];
+}
+
+// ── SP Caja.sp_EstCta_Rentas family ───────────────────────────────
+// Recibos grid ("Mostrar" button) of the Estado de Cuenta modal.
+
+/** Radio "Estado" values understood by the SPs (@estado). */
+export type EstadoCuentaEstadoFiltro = '0' | '1' | '3' | '%';
+
+export interface EstadoCuentaReciboRow {
+  idrecibo: string;
+  codigo: string;
+  tipo: string;
+  anno: string;
+  codPred: string;
+  anexo: string;
+  subAnexo: string;
+  /** "anexo-subAnexo", only for Arbitrios rows (tipo 11.00). */
+  detAnexo: string;
+  tipoRec: string;
+  periodo: string;
+  impInsol: number;
+  costoEmision: number;
+  impReaj: number;
+  interes: number;
+  desTipo: string;
+  desCabecera: string;
+  ubica: string;
+  benefic: number;
+  total: number;
+  totPagado: number;
+}
+
+// ── Generar Liquidación DJ ───────────────────────────────
+
+export interface GenerarLiquidacionDJResult {
+  success: boolean;
+  idliqui?: string;
+  nliqui?: string;
+  error?: string;
+}
+
+// ── Reporte Liquidación (pa_liquidacion @msquery=9) ───────
+
+export interface LiquidacionReporteDetalle {
+  anno: string;
+  tipo_general: string;
+  monto: number;
+}
+
+export interface LiquidacionReporteData {
+  nombre: string;
+  domicilio: string;
+  codigo: string;
+  nliqui: string;
+  fecha: string;
+  usuario: string;
+  detalles: LiquidacionReporteDetalle[];
+  totalNeto: number;
+}

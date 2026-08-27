@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { X, ChevronDown, ChevronRight, Search, Loader2 } from "lucide-react";
 import { crearAlcabalaAction } from "@/actions/alcabala/crear-alcabala";
 import {
