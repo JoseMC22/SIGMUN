@@ -12,14 +12,16 @@ vi.mock("@/actions/alcabala/crear-alcabala", () => ({
 vi.mock("@/actions/alcabala/determinar-alcabala", () => ({
   searchContribuyenteAction: vi.fn(),
   searchPrediosAction: vi.fn(),
+  getUitAction: vi.fn(),
 }));
 
 import { crearAlcabalaAction } from "@/actions/alcabala/crear-alcabala";
-import { searchContribuyenteAction, searchPrediosAction } from "@/actions/alcabala/determinar-alcabala";
+import { searchContribuyenteAction, searchPrediosAction, getUitAction } from "@/actions/alcabala/determinar-alcabala";
 
 const mockedCrear = vi.mocked(crearAlcabalaAction);
 const mockedSearch = vi.mocked(searchContribuyenteAction);
 const mockedSearchPredios = vi.mocked(searchPrediosAction);
+const mockedGetUit = vi.mocked(getUitAction);
 
 const mockContribuyente: ContribuyenteItem = {
   codigo: "0279126",
@@ -54,6 +56,9 @@ describe("CrearAlcabalaModal", () => {
       success: true,
       data: [],
     });
+    // Default: no UIT found → montoInafecto must remain unchanged (0), keeping
+    // the existing 28 tests green and respecting manual entry.
+    mockedGetUit.mockResolvedValue({ success: false });
   });
 
   // ── Rendering ──────────────────────────────────────────
@@ -135,9 +140,11 @@ describe("CrearAlcabalaModal", () => {
     const user = userEvent.setup();
     render(<CrearAlcabalaModal {...defaultProps} />);
 
-    const montoAfectoInput = screen.getByLabelText("Monto Afecto");
-    await user.clear(montoAfectoInput);
-    await user.type(montoAfectoInput, "100000");
+    // montoAfecto is now read-only and auto-calculated. Drive it via the formula
+    // inputs: porcTransferencia=100, transferencia=100000 (autoavaluo=0)
+    // → max(0×1, 100000) − 0 = 100000.
+    await user.type(screen.getByLabelText("Porc. de Transf. (%)"), "100");
+    await user.type(screen.getByLabelText("Transferencia"), "100000");
 
     // montoAlcabala = (montoAfecto - montoInafecto) * 0.03
     // montoInafecto defaults to 0, so: (100000 - 0) * 0.03 = 3000
@@ -153,15 +160,18 @@ describe("CrearAlcabalaModal", () => {
     const user = userEvent.setup();
     render(<CrearAlcabalaModal {...defaultProps} />);
 
-    const montoAfectoInput = screen.getByLabelText("Monto Afecto");
-    await user.clear(montoAfectoInput);
-    await user.type(montoAfectoInput, "100000");
+    // montoAfecto is now read-only and auto-calculated. Drive it via the formula
+    // inputs: porcTransferencia=100, transferencia=100000 (autoavaluo=0)
+    // → max(0×1, 100000) − montoInafecto.
+    await user.type(screen.getByLabelText("Porc. de Transf. (%)"), "100");
+    await user.type(screen.getByLabelText("Transferencia"), "100000");
 
     const montoInafectoInput = screen.getByLabelText("Monto Inafecto");
     await user.clear(montoInafectoInput);
     await user.type(montoInafectoInput, "10000");
 
-    // (100000 - 10000) * 0.03 = 2700
+    // montoAfecto = max(0, 100000) − 10000 = 90000
+    // montoAlcabala = 90000 × 0.03 = 2700  (montoAfecto ya descuenta el inafecto)
     await waitFor(() => {
       const montoAlcabalaInput = screen.getByLabelText(
         "Monto Alcabala",
@@ -210,10 +220,12 @@ describe("CrearAlcabalaModal", () => {
     });
     await user.click(screen.getByText(/AV\. LIMA 200/));
 
-    // Fill the manual Monto Afecto field (still editable).
-    const montoAfectoInput = screen.getByLabelText("Monto Afecto");
-    await user.clear(montoAfectoInput);
-    await user.type(montoAfectoInput, "100000");
+    // montoAfecto is now read-only and auto-calculated. The selected predio set
+    // autoavaluo=108414.17, so force the transfer-value branch by setting
+    // porcTransferencia=0 and transferencia=100000:
+    //   max(108414.17 × 0, 100000) − 0 = 100000.
+    await user.type(screen.getByLabelText("Porc. de Transf. (%)"), "0");
+    await user.type(screen.getByLabelText("Transferencia"), "100000");
 
     await user.click(screen.getByText("Guardar"));
 
@@ -237,7 +249,10 @@ describe("CrearAlcabalaModal", () => {
     // Fill required fields
     await user.type(screen.getByLabelText("Código Predio"), "P001");
     await user.type(screen.getByLabelText("Año Predio"), "2026");
-    await user.type(screen.getByLabelText("Monto Afecto"), "100000");
+    // montoAfecto is read-only/auto-calculated → porc=100, transferencia=100000
+    // (autoavaluo=0) → 100000.
+    await user.type(screen.getByLabelText("Porc. de Transf. (%)"), "100");
+    await user.type(screen.getByLabelText("Transferencia"), "100000");
 
     await user.click(screen.getByText("Guardar"));
 
@@ -258,7 +273,10 @@ describe("CrearAlcabalaModal", () => {
     // Fill required fields
     await user.type(screen.getByLabelText("Código Predio"), "P001");
     await user.type(screen.getByLabelText("Año Predio"), "2026");
-    await user.type(screen.getByLabelText("Monto Afecto"), "100000");
+    // montoAfecto is read-only/auto-calculated → porc=100, transferencia=100000
+    // (autoavaluo=0) → 100000.
+    await user.type(screen.getByLabelText("Porc. de Transf. (%)"), "100");
+    await user.type(screen.getByLabelText("Transferencia"), "100000");
 
     await user.click(screen.getByText("Guardar"));
 
@@ -281,7 +299,10 @@ describe("CrearAlcabalaModal", () => {
 
     await user.type(screen.getByLabelText("Código Predio"), "P001");
     await user.type(screen.getByLabelText("Año Predio"), "2026");
-    await user.type(screen.getByLabelText("Monto Afecto"), "100000");
+    // montoAfecto is read-only/auto-calculated → porc=100, transferencia=100000
+    // (autoavaluo=0) → 100000.
+    await user.type(screen.getByLabelText("Porc. de Transf. (%)"), "100");
+    await user.type(screen.getByLabelText("Transferencia"), "100000");
 
     const guardarButton = screen.getByText("Guardar");
     await user.click(guardarButton);
@@ -297,7 +318,10 @@ describe("CrearAlcabalaModal", () => {
     // Fill required fields
     await user.type(screen.getByLabelText("Código Predio"), "P001");
     await user.type(screen.getByLabelText("Año Predio"), "2026");
-    await user.type(screen.getByLabelText("Monto Afecto"), "100000");
+    // montoAfecto is read-only/auto-calculated → porc=100, transferencia=100000
+    // (autoavaluo=0) → 100000.
+    await user.type(screen.getByLabelText("Porc. de Transf. (%)"), "100");
+    await user.type(screen.getByLabelText("Transferencia"), "100000");
 
     await user.click(screen.getByText("Guardar"));
 
@@ -464,7 +488,7 @@ describe("CrearAlcabalaModal", () => {
       );
     });
 
-    // The predios results table shows the 6 columns and the predio row.
+    // The predios results table shows the 7 columns and the predio row.
     const table = document.querySelector("table");
     expect(table).toBeTruthy();
     const t = within(table as HTMLElement);
@@ -472,11 +496,13 @@ describe("CrearAlcabalaModal", () => {
     expect(t.getByText("Nombres")).toBeInTheDocument();
     expect(t.getByText("Cód. Predio")).toBeInTheDocument();
     expect(t.getByText("% Propiedad")).toBeInTheDocument();
+    expect(t.getByText("Total Autoavaluó")).toBeInTheDocument();
     expect(t.getByText("Dirección")).toBeInTheDocument();
     expect(t.getByText("Tipo")).toBeInTheDocument();
     expect(t.getByText(/AV\. LIMA 200/)).toBeInTheDocument();
     expect(t.getByText("000000001")).toBeInTheDocument();
     expect(t.getByText("100.00")).toBeInTheDocument();
+    expect(t.getByText("108414.17")).toBeInTheDocument();
     expect(t.getByText("Predio Urbano")).toBeInTheDocument();
 
     // The contract-date alert was removed — assert no alert is shown anymore.
@@ -648,7 +674,9 @@ describe("CrearAlcabalaModal", () => {
     // Required fields to allow a successful submit
     await user.type(screen.getByLabelText("Código Predio"), "P001");
     await user.type(screen.getByLabelText("Año Predio"), "2026");
-    await user.type(screen.getByLabelText("Monto Afecto"), "100000");
+    // montoAfecto is read-only/auto-calculated → drive via transferencia
+    // (autoavaluo=0). porcTransferencia already set to 75 above.
+    await user.type(screen.getByLabelText("Transferencia"), "100000");
 
     await user.click(screen.getByText("Guardar"));
 
@@ -675,7 +703,9 @@ describe("CrearAlcabalaModal", () => {
 
     await user.type(screen.getByLabelText("Código Predio"), "P001");
     await user.type(screen.getByLabelText("Año Predio"), "2026");
-    await user.type(screen.getByLabelText("Monto Afecto"), "100000");
+    // montoAfecto is read-only/auto-calculated → drive via transferencia
+    // (autoavaluo=0). porcTransferencia already set to 7.5 above.
+    await user.type(screen.getByLabelText("Transferencia"), "100000");
 
     await user.click(screen.getByText("Guardar"));
 
@@ -699,7 +729,9 @@ describe("CrearAlcabalaModal", () => {
 
     await user.type(screen.getByLabelText("Código Predio"), "P001");
     await user.type(screen.getByLabelText("Año Predio"), "2026");
-    await user.type(screen.getByLabelText("Monto Afecto"), "100000");
+    // montoAfecto is read-only/auto-calculated → drive via transferencia
+    // (autoavaluo=0). porcTransferencia was cleared to "" above (→ undefined in DTO).
+    await user.type(screen.getByLabelText("Transferencia"), "100000");
 
     await user.click(screen.getByText("Guardar"));
 
@@ -708,6 +740,65 @@ describe("CrearAlcabalaModal", () => {
     });
 
     expect(mockedCrear.mock.calls[0][0].porcTransferencia).toBeUndefined();
+  });
+
+  // ── montoInafecto = UIT(año de la transferencia) × 10 ──
+
+  it("auto-fills montoInafecto as UIT(year) × 10 from the contract date", async () => {
+    const user = userEvent.setup();
+    mockedGetUit.mockResolvedValueOnce({ success: true, valorUit: 5150 });
+
+    render(<CrearAlcabalaModal {...defaultProps} />);
+
+    // Open the vendedor popup and type a contract date → propagates to
+    // predio.fechaContrato, which triggers the UIT lookup.
+    await user.click(screen.getByLabelText("Buscar contribuyente vendedor"));
+    expect(await screen.findByText("Buscar Contribuyente")).toBeInTheDocument();
+
+    await user.type(
+      screen.getByLabelText("Fecha Contrato", { selector: "#search-fechaContrato" }),
+      "2026-05-10",
+    );
+
+    // UIT(2026) = 5150 → montoInafecto = 5150 × 10 = 51500
+    await waitFor(() => {
+      const montoInafectoInput = screen.getByLabelText(
+        "Monto Inafecto",
+      ) as HTMLInputElement;
+      expect(Number(montoInafectoInput.value)).toBe(51500);
+    });
+
+    expect(mockedGetUit).toHaveBeenCalledWith("2026");
+  });
+
+  it("does not change montoInafecto when the UIT lookup fails (404 / error)", async () => {
+    const user = userEvent.setup();
+    // 404 / error → success:false → keep current value (default 0).
+    mockedGetUit.mockResolvedValueOnce({ success: false });
+
+    render(<CrearAlcabalaModal {...defaultProps} />);
+
+    await user.click(screen.getByLabelText("Buscar contribuyente vendedor"));
+    expect(await screen.findByText("Buscar Contribuyente")).toBeInTheDocument();
+
+    await user.type(
+      screen.getByLabelText("Fecha Contrato", { selector: "#search-fechaContrato" }),
+      "2026-05-10",
+    );
+
+    await waitFor(() => {
+      expect(mockedGetUit).toHaveBeenCalledWith("2026");
+    });
+
+    const montoInafectoInput = screen.getByLabelText(
+      "Monto Inafecto",
+    ) as HTMLInputElement;
+    expect(Number(montoInafectoInput.value)).toBe(0);
+
+    // Manual entry still works after a failed lookup.
+    await user.clear(montoInafectoInput);
+    await user.type(montoInafectoInput, "999");
+    expect(Number(montoInafectoInput.value)).toBe(999);
   });
 });
 

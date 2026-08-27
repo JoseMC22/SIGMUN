@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { X, ChevronDown, ChevronRight, Search, Loader2 } from "lucide-react";
 import { crearAlcabalaAction } from "@/actions/alcabala/crear-alcabala";
 import {
   searchContribuyenteAction,
   searchPrediosAction,
+  getUitAction,
   type ContribuyenteItem,
   type PredioItem,
 } from "@/actions/alcabala/determinar-alcabala";
@@ -478,6 +479,7 @@ function ContribuyenteSearchPopup({ target, initialFechaContrato = "", onSelect,
                         <th className="px-2 py-1.5 text-left font-semibold">Nombres</th>
                         <th className="px-2 py-1.5 text-left font-semibold">Cód. Predio</th>
                         <th className="px-2 py-1.5 text-right font-semibold">% Propiedad</th>
+                        <th className="px-2 py-1.5 text-right font-semibold">Total Autoavaluó</th>
                         <th className="px-2 py-1.5 text-left font-semibold">Dirección</th>
                         <th className="px-2 py-1.5 text-left font-semibold">Tipo</th>
                       </tr>
@@ -493,6 +495,7 @@ function ContribuyenteSearchPopup({ target, initialFechaContrato = "", onSelect,
                           <td className="px-2 py-2">{item.nombres}</td>
                           <td className="px-2 py-2 font-mono">{item.codPred}</td>
                           <td className="px-2 py-2 text-right font-mono">{item.porcenPropiedad}</td>
+                          <td className="px-2 py-2 text-right font-mono">{item.totalAutoavaluo}</td>
                           <td className="px-2 py-2">{item.predial}</td>
                           <td className="px-2 py-2">{item.tipoPred}</td>
                         </tr>
@@ -628,15 +631,72 @@ export default function CrearAlcabalaModal({
     }
   }, [open, contribuyente]);
 
+  // ── Auto-calc montoAfecto ──
+  // Regla de negocio (Opción A, confirmada por el usuario):
+  //   montoAfecto = max(autoavaluo × (porcTransferencia/100), valorTransferencia) − montoInafecto
+  // Se coloca ANTES del efecto de montoAlcabala para que montoAfecto se actualice primero
+  // y montoAlcabala lo consuma en el render siguiente (converge en un render extra).
+  useEffect(() => {
+    const autoavaluo = Number(montos.autoavaluo) || 0;
+    const porcTransferencia = Number(montos.porcTransferencia) || 0;
+    // transferencia llega como texto (puede incluir separador de miles "100,000");
+    // si algo no es numérico, se trata como no ingresado (0)
+    const valorTransferencia =
+      Number(String(predio.transferencia ?? "").replace(/,/g, "").trim()) || 0;
+    const montoInafecto = Number(montos.montoInafecto) || 0;
+
+    const base = Math.max(
+      autoavaluo * (porcTransferencia / 100),
+      valorTransferencia,
+    );
+    const calc = Math.max(0, base - montoInafecto);
+    const rounded = Math.round(calc * 100) / 100;
+
+    setMontos((prev) => {
+      if (prev.montoAfecto === rounded) return prev;
+      return { ...prev, montoAfecto: rounded };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [montos.autoavaluo, montos.porcTransferencia, predio.transferencia, montos.montoInafecto]);
+
   // ── Auto-calc montoAlcabala ──
+  // montoAlcabala = montoAfecto × 3%  (montoAfecto ya descuenta el inafecto; sin doble resta).
   useEffect(() => {
     const calc = Math.max(
       0,
-      (montos.montoAfecto - montos.montoInafecto) * 0.03,
+      montos.montoAfecto * 0.03,
     );
     setMontos((prev) => ({ ...prev, montoAlcabala: Math.round(calc * 100) / 100 }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [montos.montoAfecto, montos.montoInafecto]);
+  }, [montos.montoAfecto]);
+
+  // ── Auto-fill montoInafecto from UIT of the transfer year ──
+  // Regla de negocio: monto inafecto = valor de la UIT del año de la transferencia × 10.
+  // El "año de la transferencia" se deriva de la fecha del contrato (predio.fechaContrato).
+  // Si no hay UIT para ese año (404), hay error de red, o el año no es válido, se deja
+  // el monto inafecto sin cambios (respeta la entrada manual del usuario).
+  useEffect(() => {
+    if (!open) return;
+    const anio = predio.fechaContrato ? predio.fechaContrato.slice(0, 4) : "";
+    if (!/^\d{4}$/.test(anio)) return;
+
+    let cancelled = false;
+    getUitAction(anio)
+      .then((res) => {
+        if (cancelled) return;
+        if (res.success && typeof res.valorUit === "number") {
+          const valor = Math.round(res.valorUit * 10 * 100) / 100;
+          setMontos((prev) => ({ ...prev, montoInafecto: valor }));
+        }
+      })
+      .catch(() => {
+        // Swallow: keep current montoInafecto on unexpected errors.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, predio.fechaContrato]);
 
   // ── Escape key ──
   useEffect(() => {
@@ -690,6 +750,11 @@ export default function CrearAlcabalaModal({
       direccionPredio: predio.predial,
       anexo: predio.anexo,
       subAnexo: predio.subAnexo,
+    }));
+    // Autoavaluo comes from the selected predio's total autoavaluo (SP buscar=3).
+    setMontos((prev) => ({
+      ...prev,
+      autoavaluo: Number(predio.totalAutoavaluo) || 0,
     }));
     // Close the popup.
     setSearchOpen(false);
@@ -1137,6 +1202,19 @@ export default function CrearAlcabalaModal({
                       />
                     </div>
                     <div>
+                      <label htmlFor="autoavaluo" className={fieldLabel}>
+                        Autoavaluo
+                      </label>
+                      <input
+                        id="autoavaluo"
+                        type="number"
+                        min={0}
+                        value={montos.autoavaluo}
+                        disabled
+                        className={inputMono}
+                      />
+                    </div>
+                    <div>
                       <label htmlFor="contrato" className={fieldLabel}>
                         Contrato
                       </label>
@@ -1168,25 +1246,6 @@ export default function CrearAlcabalaModal({
                           }))
                         }
                         className={inputClass}
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="porcTransferencia" className={fieldLabel}>
-                        Porc. de Transf. (%)
-                      </label>
-                      <input
-                        id="porcTransferencia"
-                        type="text"
-                        inputMode="decimal"
-                        value={montos.porcTransferencia}
-                        onFocus={(e) => e.target.select()}
-                        onChange={(e) =>
-                          setMontos((prev) => ({
-                            ...prev,
-                            porcTransferencia: e.target.value,
-                          }))
-                        }
-                        className={inputMono}
                       />
                     </div>
                   </div>
@@ -1231,9 +1290,28 @@ export default function CrearAlcabalaModal({
               {openSections.montos && (
                 <div className={sectionContent}>
                   <p className="text-[10px] text-slate-400 italic">
-                    Monto Alcabala se calcula automáticamente: (Monto Afecto - Monto Inafecto) × 3%
+                    Monto Alcabala se calcula automáticamente: Monto Afecto × 3%
                   </p>
                   <div className="grid grid-cols-4 gap-3">
+                    <div>
+                      <label htmlFor="porcTransferencia" className={fieldLabel}>
+                        Porc. de Transf. (%)
+                      </label>
+                      <input
+                        id="porcTransferencia"
+                        type="text"
+                        inputMode="decimal"
+                        value={montos.porcTransferencia}
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) =>
+                          setMontos((prev) => ({
+                            ...prev,
+                            porcTransferencia: e.target.value,
+                          }))
+                        }
+                        className={inputMono}
+                      />
+                    </div>
                     <div>
                       <label htmlFor="montoInafecto" className={fieldLabel}>
                         Monto Inafecto
@@ -1260,14 +1338,9 @@ export default function CrearAlcabalaModal({
                         id="montoAfecto"
                         type="number"
                         min={0}
+                        readOnly
                         value={montos.montoAfecto}
-                        onChange={(e) =>
-                          setMontos((prev) => ({
-                            ...prev,
-                            montoAfecto: Math.max(0, Number(e.target.value)),
-                          }))
-                        }
-                        className={inputMono}
+                        className={`${inputMono} bg-slate-100`}
                       />
                     </div>
                     <div>
@@ -1280,24 +1353,6 @@ export default function CrearAlcabalaModal({
                         readOnly
                         value={montos.montoAlcabala}
                         className={`${inputMono} bg-slate-100 text-emerald-700 font-bold`}
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="autoavaluo" className={fieldLabel}>
-                        Autoavaluo
-                      </label>
-                      <input
-                        id="autoavaluo"
-                        type="number"
-                        min={0}
-                        value={montos.autoavaluo}
-                        onChange={(e) =>
-                          setMontos((prev) => ({
-                            ...prev,
-                            autoavaluo: Math.max(0, Number(e.target.value)),
-                          }))
-                        }
-                        className={inputMono}
                       />
                     </div>
                   </div>
