@@ -8,8 +8,6 @@ import {
   Body,
   HttpCode,
   HttpStatus,
-  BadRequestException,
-  InternalServerErrorException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { Request } from 'express';
@@ -159,24 +157,21 @@ export class ConsultaRdAlcabalaController {
       dto = EliminarRdAlcabalaSchema.parse(body);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        throw new BadRequestException({
+        return {
           success: false,
-          error: error.issues.map((i) => i.message).join(', '),
-        });
+          error:
+            error.issues.map((i) => i.message).join(', ') ||
+            'Parámetros inválidos',
+        };
       }
-      throw new BadRequestException({
-        success: false,
-        error: 'Parámetros inválidos',
-      });
+      return { success: false, error: 'Parámetros inválidos' };
     }
 
     const operador = (req.user as any)?.username || '';
     const estacion = os.hostname();
 
+    // Mismo contrato que los GET del controller: responde 200 + { success }.
     const result = await this.service.eliminar(dto, operador, estacion);
-    if (!result.success) {
-      throw new InternalServerErrorException(result);
-    }
     return result;
   }
 }

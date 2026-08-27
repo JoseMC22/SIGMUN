@@ -310,8 +310,16 @@ export async function eliminarRDAction(params: {
       body: JSON.stringify(params),
     });
 
-    const json = await response.json();
-    if (!response.ok || !json.success) {
+    // Parse the JSON defensively (un cuerpo no-JSON, p. ej. de un proxy 5xx,
+    // no debe romper la lectura del error real).
+    let json: { success?: boolean; error?: string; message?: string } | null = null;
+    try {
+      json = await response.json();
+    } catch {
+      json = null;
+    }
+
+    if (!response.ok || !json?.success) {
       return {
         success: false,
         error: json?.error ?? `Error ${response.status}`,

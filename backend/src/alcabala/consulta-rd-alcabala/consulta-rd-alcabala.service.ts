@@ -334,7 +334,16 @@ export class ConsultaRdAlcabalaService {
 
     try {
       const result = await this.db.executeProcedure<any>(this.SP_NAME, params);
-      const mensaje: string = result.recordset?.[0]?.mensaje ?? '';
+      // mssql v12+ preserva el casing de las columnas del SP; leemos
+      // 'mensaje' sin distinguir mayúsculas (igual que col() en search/getDetail).
+      const first = result.recordset?.[0];
+      let mensaje = '';
+      if (first) {
+        const key = Object.keys(first).find(
+          (k) => k.toLowerCase() === 'mensaje',
+        );
+        mensaje = key ? String(first[key] ?? '') : '';
+      }
       this.logger.log(`[ConsultaRdAlcabala] eliminar SP mensaje: ${mensaje}`);
 
       if (/Acceso a Eliminar/i.test(mensaje)) {
