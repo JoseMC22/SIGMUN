@@ -16,6 +16,12 @@ export const SearchPredioSchema = z.preprocess(
       page: obj.page ?? 1,
       pageSize: obj.pageSize ?? 15,
       codPred: typeof obj.codpred === 'string' ? obj.codpred : '',
+      // Extra search criteria forwarded to the SP for buscar=3 (vendedor N/D/R search).
+      nombres: typeof obj.nombres === 'string' ? obj.nombres : '',
+      paterno: typeof obj.paterno === 'string' ? obj.paterno : '',
+      materno: typeof obj.materno === 'string' ? obj.materno : '',
+      numDoc: typeof obj.num_doc === 'string' ? obj.num_doc : '',
+      razon: typeof obj.razon === 'string' ? obj.razon : '',
     };
   },
   z.object({
@@ -25,6 +31,11 @@ export const SearchPredioSchema = z.preprocess(
     page: z.coerce.number().int().min(1),
     pageSize: z.coerce.number().int().min(1),
     codPred: z.string(),
+    nombres: z.string(),
+    paterno: z.string(),
+    materno: z.string(),
+    numDoc: z.string(),
+    razon: z.string(),
   }),
 );
 

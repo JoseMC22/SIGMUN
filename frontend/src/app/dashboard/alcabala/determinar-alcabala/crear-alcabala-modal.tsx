@@ -57,14 +57,7 @@ interface SearchPopupProps {
 }
 
 // Same search-criteria options as the main Determinar Alcabala page.
-type PopupTipoBusqueda = "C" | "N" | "R" | "D";
-
-const TIPO_BUSQUEDA_OPTIONS: { value: PopupTipoBusqueda; label: string }[] = [
-  { value: "C", label: "Código" },
-  { value: "N", label: "Nombre" },
-  { value: "R", label: "Razón Social" },
-  { value: "D", label: "Documento" },
-];
+type PopupTipoBusqueda = "C" | "N" | "R" | "D" | "P";
 
 function ContribuyenteSearchPopup({ target, initialFechaContrato = "", onSelect, onSelectPredio, onFechaContratoChange, onClose }: SearchPopupProps) {
   // Mirrors the main page's search bar distribution: a Tipo Búsqueda select,
@@ -88,8 +81,20 @@ function ContribuyenteSearchPopup({ target, initialFechaContrato = "", onSelect,
 
   const cancelled = useRef(false);
 
+  // Vendedor-only search option: "Código Predio" (tipo_busqueda='P', 9 dígitos).
+  const tipoBusquedaOptions: { value: PopupTipoBusqueda; label: string }[] = [
+    { value: "C", label: "Código" },
+    { value: "N", label: "Nombre" },
+    { value: "R", label: "Razón Social" },
+    { value: "D", label: "Documento" },
+    ...(target === "vendedor"
+      ? ([{ value: "P", label: "Código Predio" }] as { value: PopupTipoBusqueda; label: string }[])
+      : []),
+  ];
+
   const isCodigo = tipoBusqueda === "C";
   const isNombre = tipoBusqueda === "N";
+  const isPredio = tipoBusqueda === "P";
 
   const hasCriteria = isNombre
     ? !!(paterno.trim() || materno.trim() || nombres.trim())
@@ -111,18 +116,22 @@ function ContribuyenteSearchPopup({ target, initialFechaContrato = "", onSelect,
   const handleBusquedaChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       let val = e.target.value;
-      if (isCodigo) {
-        val = val.replace(/\D/g, "").slice(0, 7);
+      if (isCodigo || isPredio) {
+        val = val.replace(/\D/g, "").slice(0, isPredio ? 9 : 7);
       } else {
         val = val.toUpperCase();
       }
       setBusqueda(val);
     },
-    [isCodigo],
+    [isCodigo, isPredio],
   );
 
   const formatCodigo = useCallback((val: string): string => {
     return val.replace(/\D/g, "").padStart(7, "0");
+  }, []);
+
+  const formatCodigoPredio = useCallback((val: string): string => {
+    return val.replace(/\D/g, "").padStart(9, "0");
   }, []);
 
   const resetCriteria = useCallback(() => {
@@ -181,9 +190,11 @@ function ContribuyenteSearchPopup({ target, initialFechaContrato = "", onSelect,
           res = await searchPrediosAction("", anio, "n", { paterno, materno, nombres });
         } else if (tipoBusqueda === "D") {
           res = await searchPrediosAction("", anio, "d", { numDoc: busqueda });
-        } else {
-          // R — razón social
+        } else if (tipoBusqueda === "R") {
           res = await searchPrediosAction("", anio, "r", { razon: busqueda });
+        } else {
+          // P — código predio (9 dígitos con ceros a la izquierda)
+          res = await searchPrediosAction("", anio, "P", { codPred: formatCodigoPredio(busqueda) });
         }
         if (cancelled.current) return;
         if (res.success) {
@@ -235,7 +246,7 @@ function ContribuyenteSearchPopup({ target, initialFechaContrato = "", onSelect,
     } finally {
       if (!cancelled.current) setLoading(false);
     }
-  }, [target, fechaContrato, tipoBusqueda, busqueda, isCodigo, isNombre, paterno, materno, nombres, hasCriteria, formatCodigo]);
+  }, [target, fechaContrato, tipoBusqueda, busqueda, isCodigo, isNombre, paterno, materno, nombres, hasCriteria, formatCodigo, formatCodigoPredio]);
 
   // Vendedor flow (single step): pressing Buscar runs the predio search SP
   // directly, so there is no contribuyente list for the vendedor target.
@@ -309,28 +320,28 @@ function ContribuyenteSearchPopup({ target, initialFechaContrato = "", onSelect,
                 }}
                 className={inputClass}
               >
-                {TIPO_BUSQUEDA_OPTIONS.map((opt) => (
+                {tipoBusquedaOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>
                     {opt.label}
                   </option>
                 ))}
               </select>
             </div>
-            {/* Single input for C, R, D */}
+            {/* Single input for C, R, D, P */}
             {!isNombre && (
               <div className="flex-1">
                 <label htmlFor="search-busqueda" className={fieldLabel}>
-                  {isCodigo ? "Código (7 dígitos)" : "Búsqueda"}
+                  {isCodigo ? "Código (7 dígitos)" : isPredio ? "Código Predio (9 dígitos)" : "Búsqueda"}
                 </label>
                 <input
                   id="search-busqueda"
                   type="text"
-                  inputMode={isCodigo ? "numeric" : "text"}
+                  inputMode={isCodigo || isPredio ? "numeric" : "text"}
                   value={busqueda}
                   onChange={handleBusquedaChange}
                   onKeyDown={handleKeyDown}
-                  placeholder={isCodigo ? "Ej: 0279126" : "Ingrese término de búsqueda"}
-                  className={`${inputClass} ${isCodigo ? "font-mono" : ""}`}
+                  placeholder={isCodigo ? "Ej: 0279126" : isPredio ? "Ej: 010195288" : "Ingrese término de búsqueda"}
+                  className={`${inputClass} ${isCodigo || isPredio ? "font-mono" : ""}`}
                   autoFocus
                 />
               </div>

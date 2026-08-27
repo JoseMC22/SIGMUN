@@ -176,15 +176,41 @@ describe("CrearAlcabalaModal", () => {
     const user = userEvent.setup();
     render(<CrearAlcabalaModal {...defaultProps} />);
 
-    // Fill in required predio fields
-    const codPredInput = screen.getByLabelText("Código Predio");
-    await user.clear(codPredInput);
-    await user.type(codPredInput, "P001");
+    // Predio fields are now disabled (auto-filled from the popup), so select a
+    // predio to fill codPred/anioPred via the real flow before submitting.
+    await user.click(screen.getByLabelText("Buscar contribuyente vendedor"));
+    await user.type(
+      screen.getByLabelText("Fecha Contrato", { selector: "#search-fechaContrato" }),
+      "2026-05-10",
+    );
+    await user.type(screen.getByLabelText("Código (7 dígitos)"), "0279126");
 
-    const anioPredInput = screen.getByLabelText("Año Predio");
-    await user.clear(anioPredInput);
-    await user.type(anioPredInput, "2026");
+    mockedSearchPredios.mockResolvedValueOnce({
+      success: true,
+      data: [
+        {
+          codigo: "0297596",
+          nombres: "CORNEJO MANTILLA AGUEDA AURORA",
+          codPred: "000000001",
+          anexo: "0003",
+          subAnexo: "0004",
+          porcenPropiedad: "100.00",
+          predial: "AV. LIMA 200",
+          totalAutoavaluo: "108414.17",
+          tipoPred: "Predio Urbano",
+          anno: "2025",
+          valTerreno: "16706.13",
+        },
+      ],
+    });
 
+    await user.click(screen.getByText("Buscar"));
+    await waitFor(() => {
+      expect(screen.getByText(/AV\. LIMA 200/)).toBeInTheDocument();
+    });
+    await user.click(screen.getByText(/AV\. LIMA 200/));
+
+    // Fill the manual Monto Afecto field (still editable).
     const montoAfectoInput = screen.getByLabelText("Monto Afecto");
     await user.clear(montoAfectoInput);
     await user.type(montoAfectoInput, "100000");
@@ -200,7 +226,7 @@ describe("CrearAlcabalaModal", () => {
     expect(calledDto.nombres).toBe("MARIA GARCIA LOPEZ");
     expect(calledDto.numDoc).toBe("12345678");
     expect(calledDto.montoAfecto).toBe(100000);
-    expect(calledDto.codPred).toBe("P001");
+    expect(calledDto.codPred).toBe("000000001");
   });
 
   it("calls onSuccess on successful creation", async () => {
@@ -453,8 +479,8 @@ describe("CrearAlcabalaModal", () => {
     expect(t.getByText("100.00")).toBeInTheDocument();
     expect(t.getByText("Predio Urbano")).toBeInTheDocument();
 
-    // The alert with the contract date was shown.
-    expect(alertSpy).toHaveBeenCalledWith("Fecha de Contrato: 10/05/2026");
+    // The contract-date alert was removed — assert no alert is shown anymore.
+    expect(alertSpy).not.toHaveBeenCalled();
 
     alertSpy.mockRestore();
   });
@@ -549,6 +575,32 @@ describe("CrearAlcabalaModal", () => {
     });
 
     alertSpy.mockRestore();
+  });
+
+  it("vendedor: combo P (Código Predio) maps to searchPrediosAction with 9-digit padded codPred", async () => {
+    const user = userEvent.setup();
+    render(<CrearAlcabalaModal {...defaultProps} />);
+
+    await user.click(screen.getByLabelText("Buscar contribuyente vendedor"));
+    expect(await screen.findByText("Buscar Contribuyente")).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText("Tipo Búsqueda"), "P");
+    await user.type(
+      screen.getByLabelText("Fecha Contrato", { selector: "#search-fechaContrato" }),
+      "2026-05-10",
+    );
+    // The P input is "Código Predio (9 dígitos)"; "10195288" gets padded to 9 digits.
+    await user.type(screen.getByLabelText("Código Predio (9 dígitos)"), "10195288");
+
+    mockedSearchPredios.mockResolvedValueOnce({ success: true, data: [] });
+
+    await user.click(screen.getByText("Buscar"));
+
+    await waitFor(() => {
+      expect(mockedSearchPredios).toHaveBeenCalledWith("", "2026", "P", {
+        codPred: "010195288",
+      });
+    });
   });
 
   // ── Cancel ─────────────────────────────────────────────

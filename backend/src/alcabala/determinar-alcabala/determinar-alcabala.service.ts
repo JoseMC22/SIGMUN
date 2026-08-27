@@ -130,7 +130,7 @@ export class DeterminarAlcabalaService {
   }
 
   async searchPredios(dto: SearchPredioDto): Promise<PredioSearchResult> {
-    const { codigo, anio, codPred, tipoBusqueda } = dto;
+    const { codigo, anio, codPred, tipoBusqueda, nombres, paterno, materno, numDoc, razon } = dto;
 
     // Guard: @anio (year of the contract date) is required — do not hit the SP with an empty year.
     if (!anio || !anio.trim()) {
@@ -149,11 +149,11 @@ export class DeterminarAlcabalaService {
           codigo: codigo || '',
           anio: anio || '',
           codpred: codPred || '',
-          nombres: '',
-          paterno: '',
-          materno: '',
-          num_doc: '',
-          razon: '',
+          nombres: nombres || '',
+          paterno: paterno || '',
+          materno: materno || '',
+          num_doc: numDoc || '',
+          razon: razon || '',
           tipo_busqueda: tipoBusqueda || DEFAULT_TIPO_BUSQUEDA,
         },
       );
