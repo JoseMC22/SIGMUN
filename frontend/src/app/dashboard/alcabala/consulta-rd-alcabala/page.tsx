@@ -14,6 +14,7 @@ import {
   Loader2,
   MapPin,
   Printer,
+  Trash2,
   X,
   ChevronDown,
 } from "lucide-react";
@@ -22,6 +23,7 @@ import {
   getDetailConsultaRDAction,
   getRutaConsultaRDAction,
   getImprimirRDAlcabalaAction,
+  eliminarRDAction,
 } from "@/actions/alcabala/consulta-rd";
 import type {
   ConsultaRDRow,
@@ -36,24 +38,27 @@ import { DocumentoRDModal } from "@/app/dashboard/alcabala/reportes/rd-alcabala/
 // ── Status badge ─────────────────────────────────────────
 
 function StatusBadge({ estado }: { estado: string }) {
-  const isActivo = estado === "ACTIVO" || estado === "PENDIENTE";
-  const isPagado = estado === "PAGADO" || estado === "CANCELADO";
+  // El SP devuelve "Pendiente"/"Cancelado" (capitalizado); comparamos sin
+  // distinción de mayúsculas para no caer en el estado desconocido (rojo).
+  const estadoUp = (estado || "").toUpperCase();
+  const isPendiente = estadoUp === "PENDIENTE" || estadoUp === "ACTIVO";
+  const isCancelado = estadoUp === "CANCELADO" || estadoUp === "PAGADO";
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold tracking-wide ${
-        isPagado
+        isPendiente
           ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-300/40"
-          : isActivo
-            ? "bg-amber-50 text-amber-700 ring-1 ring-amber-300/40"
+          : isCancelado
+            ? "bg-slate-100 text-slate-600 ring-1 ring-slate-300/40"
             : "bg-red-50 text-red-700 ring-1 ring-red-300/40"
       }`}
     >
       <span
         className={`w-1.5 h-1.5 rounded-full ${
-          isPagado
+          isPendiente
             ? "bg-emerald-500"
-            : isActivo
-              ? "bg-amber-400"
+            : isCancelado
+              ? "bg-slate-400"
               : "bg-red-400"
         }`}
       />
@@ -547,6 +552,133 @@ function TableSkeleton() {
   );
 }
 
+// ── Eliminar RD Modal ────────────────────────────────────
+
+function EliminarRDModal({
+  row,
+  onClose,
+  onSuccess,
+}: {
+  row: ConsultaRDRow;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [motivo, setMotivo] = useState("");
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleConfirm = async () => {
+    if (!motivo.trim()) {
+      setError("El motivo de eliminación es obligatorio");
+      return;
+    }
+    setCargando(true);
+    setError(null);
+    try {
+      const result = await eliminarRDAction({
+        num_val: row.num_val,
+        ano_val: String(row.ano_val),
+        observacion: motivo.trim(),
+      });
+      if (result.success) {
+        onSuccess();
+      } else {
+        setError(result.error ?? "No se pudo eliminar la RD");
+        setCargando(false);
+      }
+    } catch {
+      setError("Error de conexión");
+      setCargando(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Eliminar RD"
+    >
+      <div className="relative mx-4 w-full max-w-md rounded-xl border border-slate-200 bg-white shadow-2xl">
+        {/* ── Header ──────────────────────────────────── */}
+        <div className="flex items-center justify-between border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-5 py-3 rounded-t-xl">
+          <div className="flex items-center gap-2">
+            <div className="w-0.5 h-3.5 bg-red-500 rounded-full" />
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
+              Eliminar RD
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+            aria-label="Cerrar"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* ── Body ────────────────────────────────────── */}
+        <div className="px-5 py-4">
+          <p className="text-xs text-slate-500 leading-relaxed">
+            Está por eliminar la RD{" "}
+            <span className="font-semibold text-slate-700">
+              {row.nomb_val} {row.num_val}-{row.ano_val}
+            </span>{" "}
+            del contribuyente{" "}
+            <span className="font-semibold text-slate-700">{row.nombre}</span>.
+            Solo es posible cuando está en estado{" "}
+            <span className="font-semibold text-amber-600">Pendiente</span>.
+          </p>
+
+          <label className="mt-4 block text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
+            Motivo de eliminación
+          </label>
+          <textarea
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value)}
+            rows={3}
+            placeholder="Indique el motivo por el que se elimina la RD"
+            className="mt-1 w-full resize-none rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:border-sat-cyan focus:outline-none focus:ring-2 focus:ring-sat-cyan/20"
+          />
+
+          {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+        </div>
+
+        {/* ── Footer ──────────────────────────────────── */}
+        <div className="flex items-center justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-3 rounded-b-xl">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={cargando}
+            className="rounded-md border border-slate-200 px-4 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={handleConfirm}
+            disabled={cargando}
+            className="inline-flex items-center gap-1.5 rounded-md bg-red-600 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {cargando ? (
+              <>
+                <Loader2 size={12} className="animate-spin" />
+                Eliminando...
+              </>
+            ) : (
+              <>
+                <Trash2 size={12} />
+                Eliminar RD
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Page ────────────────────────────────────────────
 
 export default function ConsultaRDPage() {
@@ -578,6 +710,9 @@ export default function ConsultaRDPage() {
 
   // ── Official RD document (DocumentoRDModal) ──
   const [docData, setDocData] = useState<any[] | null>(null);
+
+  // ── Eliminar RD modal ─────────────────────────────────
+  const [eliminarRow, setEliminarRow] = useState<ConsultaRDRow | null>(null);
 
   const handlePrintRow = useCallback(async (row: ConsultaRDRow) => {
     try {
@@ -634,6 +769,12 @@ export default function ConsultaRDPage() {
     },
     [filters, pageSize],
   );
+
+  // Refresh current page after an RD is successfully eliminated.
+  const handleEliminarSuccess = useCallback(() => {
+    setEliminarRow(null);
+    executeSearch(page);
+  }, [executeSearch, page]);
 
   // ── Initial load ─────────────────────────────────────────
 
@@ -834,6 +975,20 @@ export default function ConsultaRDPage() {
                 title="Imprimir"
               >
                 <Printer size={12} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setEliminarRow(row)}
+                disabled={row.estado.toUpperCase() !== "PENDIENTE"}
+                className="rounded p-1 text-slate-400 transition hover:bg-red-100 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400"
+                aria-label="Eliminar RD"
+                title={
+                  row.estado.toUpperCase() === "PENDIENTE"
+                    ? "Eliminar RD"
+                    : "Solo se puede eliminar una RD en estado Pendiente"
+                }
+              >
+                <Trash2 size={12} />
               </button>
             </div>
           </td>
@@ -1119,6 +1274,15 @@ export default function ConsultaRDPage() {
         <RutaRDModal
           row={rutaRow}
           onClose={() => setRutaRow(null)}
+        />
+      )}
+
+      {/* Eliminar RD modal */}
+      {eliminarRow && (
+        <EliminarRDModal
+          row={eliminarRow}
+          onClose={() => setEliminarRow(null)}
+          onSuccess={handleEliminarSuccess}
         />
       )}
 

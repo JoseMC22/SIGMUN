@@ -293,3 +293,35 @@ export async function getImprimirRDAlcabalaAction(
     };
   }
 }
+
+/**
+ * Elimina (anula) una RD del listado, solo si está en estado Pendiente.
+ * Llama a POST /alcabala/consulta-rd/eliminar (SP @msquery=5).
+ */
+export async function eliminarRDAction(params: {
+  num_val: string;
+  ano_val: string;
+  observacion: string;
+}): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const response = await authFetch(`/alcabala/consulta-rd/eliminar`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    });
+
+    const json = await response.json();
+    if (!response.ok || !json.success) {
+      return {
+        success: false,
+        error: json?.error ?? `Error ${response.status}`,
+      };
+    }
+    return { success: true, message: json.message };
+  } catch {
+    return {
+      success: false,
+      error: "Error de conexión con el servidor",
+    };
+  }
+}
