@@ -171,12 +171,12 @@ describe("CrearAlcabalaModal", () => {
     await user.type(montoInafectoInput, "10000");
 
     // montoAfecto = max(0, 100000) − 10000 = 90000
-    // montoAlcabala = (90000 - 10000) * 0.03 = 2400
+    // montoAlcabala = 90000 × 0.03 = 2700  (montoAfecto ya descuenta el inafecto)
     await waitFor(() => {
       const montoAlcabalaInput = screen.getByLabelText(
         "Monto Alcabala",
       ) as HTMLInputElement;
-      expect(Number(montoAlcabalaInput.value)).toBeCloseTo(2400, 0);
+      expect(Number(montoAlcabalaInput.value)).toBeCloseTo(2700, 0);
     });
   });
 

@@ -657,14 +657,15 @@ export default function CrearAlcabalaModal({
   }, [montos.autoavaluo, montos.porcTransferencia, predio.transferencia, montos.montoInafecto]);
 
   // ── Auto-calc montoAlcabala ──
+  // montoAlcabala = montoAfecto × 3%  (montoAfecto ya descuenta el inafecto; sin doble resta).
   useEffect(() => {
     const calc = Math.max(
       0,
-      (montos.montoAfecto - montos.montoInafecto) * 0.03,
+      montos.montoAfecto * 0.03,
     );
     setMontos((prev) => ({ ...prev, montoAlcabala: Math.round(calc * 100) / 100 }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [montos.montoAfecto, montos.montoInafecto]);
+  }, [montos.montoAfecto]);
 
   // ── Auto-fill montoInafecto from UIT of the transfer year ──
   // Regla de negocio: monto inafecto = valor de la UIT del año de la transferencia × 10.
