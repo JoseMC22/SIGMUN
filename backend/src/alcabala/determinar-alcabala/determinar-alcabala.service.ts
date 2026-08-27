@@ -332,11 +332,14 @@ export class DeterminarAlcabalaService {
       aniopred: dto.anioPred,
       tipo_pred: dto.tipoPred,
       direccion_predio: dto.direccionPredio,
-      fecha_contrato: dto.fechaContrato
-        ? new Date(dto.fechaContrato)
-        : new Date('1900-01-01'),
+      // fecha como string ISO "YYYY-MM-DD": el SP la castea como date sin zona horaria.
+      // new Date() introduciría un off-by-one en hosts con UTC negativo (corrompería @anio)
+      fecha_contrato: dto.fechaContrato || '1900-01-01',
       contrato: dto.contrato,
-      transferencia: Number(dto.transferencia) || 0,
+      // transferencia es texto libre (puede traer separador de miles "100,000");
+      // valor no numérico se envía como 0 (sin conversión silenciosa a 0 de inputs formateados)
+      transferencia:
+        Number(String(dto.transferencia ?? '').replace(/,/g, '').trim()) || 0,
       porc_transfiere: Number(dto.porcTransferencia) || 0,
       observacion: dto.observacion,
       monto_inafecto: dto.montoInafecto,

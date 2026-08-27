@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { X, ChevronDown, ChevronRight, Search, Loader2 } from "lucide-react";
 import { crearAlcabalaAction } from "@/actions/alcabala/crear-alcabala";
 import {
@@ -639,7 +639,10 @@ export default function CrearAlcabalaModal({
   useEffect(() => {
     const autoavaluo = Number(montos.autoavaluo) || 0;
     const porcTransferencia = Number(montos.porcTransferencia) || 0;
-    const valorTransferencia = Number(predio.transferencia) || 0;
+    // transferencia llega como texto (puede incluir separador de miles "100,000");
+    // si algo no es numérico, se trata como no ingresado (0)
+    const valorTransferencia =
+      Number(String(predio.transferencia ?? "").replace(/,/g, "").trim()) || 0;
     const montoInafecto = Number(montos.montoInafecto) || 0;
 
     const base = Math.max(
@@ -1287,7 +1290,7 @@ export default function CrearAlcabalaModal({
               {openSections.montos && (
                 <div className={sectionContent}>
                   <p className="text-[10px] text-slate-400 italic">
-                    Monto Alcabala se calcula automáticamente: (Monto Afecto - Monto Inafecto) × 3%
+                    Monto Alcabala se calcula automáticamente: Monto Afecto × 3%
                   </p>
                   <div className="grid grid-cols-4 gap-3">
                     <div>
