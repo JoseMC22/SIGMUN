@@ -324,24 +324,26 @@ export class DeterminarAlcabalaService {
       codigo_compra: dto.codigoCompra,
       nombres: dto.nombres,
       num_doc: dto.numDoc,
-      direcc_fiscal: dto.direccFiscal,
+      // Nota: sp_DJAlcabala NO declara @direcc_fiscal/@direcc_fiscal1/@nombres1/@num_doc1;
+      // las direcciones/nombres del comprador y vendedor se resuelven dentro del SP
+      // via dbo.getDireccion/Rentas.getNombres a partir de @codigo_compra / @codigo_venta.
       codigo_venta: dto.codigoVenta,
-      nombres1: dto.nombres1,
-      num_doc1: dto.numDoc1,
-      direcc_fiscal1: dto.direccFiscal1,
       codpred: dto.codPred,
       aniopred: dto.anioPred,
       tipo_pred: dto.tipoPred,
       direccion_predio: dto.direccionPredio,
-      fecha_contrato: dto.fechaContrato,
+      fecha_contrato: dto.fechaContrato
+        ? new Date(dto.fechaContrato)
+        : new Date('1900-01-01'),
       contrato: dto.contrato,
-      transferencia: dto.transferencia,
-      porc_transferencia: dto.porcTransferencia,
+      transferencia: Number(dto.transferencia) || 0,
+      porc_transfiere: Number(dto.porcTransferencia) || 0,
       observacion: dto.observacion,
       monto_inafecto: dto.montoInafecto,
       monto_afecto: dto.montoAfecto,
       monto_alcabala: dto.montoAlcabala,
       autoavaluo: dto.autoavaluo,
+      tasa_impuesto: 3, // 3% de alcabala (regla de negocio: montoAlcabala = montoAfecto × 3%)
       anexo: dto.anexo,
       sub_anexo: dto.subAnexo,
       usuario,
