@@ -11,6 +11,7 @@ describe('DeterminarAlcabalaController', () => {
   beforeEach(() => {
     service = {
       searchContribuyente: jest.fn(),
+      searchPredios: jest.fn(),
       getAlcabalasByContribuyente: jest.fn(),
       crear: jest.fn(),
     } as any;
@@ -90,6 +91,50 @@ describe('DeterminarAlcabalaController', () => {
 
       expect(result.success).toBe(false);
       expect(typeof result.error).toBe('string');
+    });
+  });
+
+  describe('GET predios', () => {
+    it('delegates valid query to service.searchPredios with parsed DTO', async () => {
+      const mockResult = { success: true, data: [] };
+      service.searchPredios.mockResolvedValue(mockResult);
+
+      const result = await controller.searchPredios({
+        codigo: '0279126',
+        anio: '2026',
+        codpred: 'P1',
+      });
+
+      expect(service.searchPredios).toHaveBeenCalledWith({
+        codigo: '0279126',
+        anio: '2026',
+        tipoBusqueda: 'c',
+        page: 1,
+        pageSize: 15,
+        codPred: 'P1',
+      });
+      expect(result).toEqual(mockResult);
+    });
+
+    it('returns error response for missing/invalid params', async () => {
+      const result = await controller.searchPredios({ page: '0' });
+
+      expect(result.success).toBe(false);
+      expect(result.data).toEqual([]);
+      expect(typeof result.error).toBe('string');
+      expect(service.searchPredios).not.toHaveBeenCalled();
+    });
+
+    it('returns error response when service throws', async () => {
+      service.searchPredios.mockRejectedValue(new Error('SP error'));
+
+      const result = await controller.searchPredios({ codigo: '0279126' });
+
+      expect(result).toEqual({
+        success: false,
+        data: [],
+        error: 'Parámetros inválidos',
+      });
     });
   });
 

@@ -223,4 +223,47 @@ describe('ObjectAccessSubscriber', () => {
       expect(keepalives).toHaveLength(0);
     });
   });
+
+  describe('when Redis is unavailable (null factory)', () => {
+    let noRedisSubscriber: ObjectAccessSubscriber;
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      jest.useFakeTimers();
+      // Factory returns null → no Redis client should ever be created
+      noRedisSubscriber = new ObjectAccessSubscriber(() => null);
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('should not throw and should not call any Redis method', () => {
+      const received: MessageEvent[] = [];
+      const sub = noRedisSubscriber.getObservable('alice').subscribe((e) => {
+        received.push(e);
+      });
+
+      // Advance timers — only keepalive heartbeats should arrive
+      jest.advanceTimersByTime(30000);
+      const keepalives = received.filter((e) => e.type === '');
+      expect(keepalives.length).toBe(1);
+
+      expect(() => sub.unsubscribe()).not.toThrow();
+    });
+
+    it('should still emit keepalive heartbeats over time', () => {
+      const received: MessageEvent[] = [];
+      const sub = noRedisSubscriber.getObservable('alice').subscribe((e) => {
+        received.push(e);
+      });
+
+      jest.advanceTimersByTime(90000); // 90 seconds = 3 keepalives
+
+      const keepalives = received.filter((e) => e.type === '');
+      expect(keepalives.length).toBe(3);
+
+      sub.unsubscribe();
+    });
+  });
 });

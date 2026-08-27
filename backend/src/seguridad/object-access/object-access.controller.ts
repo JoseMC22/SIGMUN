@@ -25,7 +25,7 @@ export class ObjectAccessController {
 
   @Get(':id_acceso')
   async getPermissions(
-    @Param('id_acceso') id_acceso: string,
+    @Param('id_acceso') id_acceso: string | number,
     @Request() req: any,
   ): Promise<ObjectAccessResponse> {
     const username: string = req.user?.username ?? req.user?.sub;
@@ -44,7 +44,7 @@ export class ObjectAccessController {
 
   @Post('invalidate')
   async invalidate(
-    @Body() body: { id_acceso: string; usernames: string[] },
+    @Body() body: { id_acceso: string | number; usernames: string[] },
   ): Promise<{ success: boolean }> {
     await this.objectAccessService.invalidateAndNotify(
       body.id_acceso,

@@ -7,9 +7,10 @@ import {
   SearchContribuyenteSchema,
   SearchContribuyenteDto,
 } from './dto/search-contribuyente.dto';
+import { SearchPredioSchema, SearchPredioDto } from './dto/search-predio.dto';
 import { CrearAlcabalaSchema, CrearAlcabalaDto } from './dto/crear-alcabala.dto';
 import { BajaAlcabalaSchema, BajaAlcabalaDto } from './dto/baja-alcabala.dto';
-import { ContribuyenteSearchResult, AlcabalasResult, DetalleAlcabalaResult, CrearAlcabalaResult, BajaAlcabalaResult } from './determinar-alcabala.types';
+import { ContribuyenteSearchResult, AlcabalasResult, DetalleAlcabalaResult, CrearAlcabalaResult, BajaAlcabalaResult, PredioSearchResult } from './determinar-alcabala.types';
 import { z } from 'zod';
 
 @Controller('alcabala/determinar-alcabala')
@@ -47,6 +48,30 @@ export class DeterminarAlcabalaController {
       };
     }
     return this.service.searchContribuyente(dto);
+  }
+
+  @Get('predios')
+  async searchPredios(
+    @Query() query: Record<string, string>,
+  ): Promise<PredioSearchResult> {
+    let dto: SearchPredioDto;
+    try {
+      dto = SearchPredioSchema.parse(query);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return {
+          success: false,
+          data: [],
+          error: error.issues.map((i) => i.message).join(', ') || 'Parámetros inválidos',
+        };
+      }
+      return { success: false, data: [], error: 'Parámetros inválidos' };
+    }
+    try {
+      return await this.service.searchPredios(dto);
+    } catch {
+      return { success: false, data: [], error: 'Parámetros inválidos' };
+    }
   }
 
   @Get('alcabalas/:codigo')

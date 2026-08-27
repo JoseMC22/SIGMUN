@@ -235,7 +235,7 @@ export default function DetalleAlcabala({
                   <Field label="Contrato" value={data.contrato} />
                   <Field label="Transferencia" value={data.transferencia} />
                   <Field
-                    label="Porcentaje Transferencia"
+                    label="Porc. Transf."
                     value={
                       data.porcTransferencia != null
                         ? `${data.porcTransferencia}%`

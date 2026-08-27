@@ -168,3 +168,44 @@ export interface BajaAlcabalaResult {
   success: boolean;
   error?: string;
 }
+
+// ── Predio search (buscar=3) ──
+
+export interface SpPredioRow {
+  codigo: string;
+  nombres: string;
+  cod_pred: string;
+  anexo: string;
+  sub_anexo: string;
+  porcen_propiedad: string;
+  predial: string;
+  total_autoavaluo: string;
+  tipo_pred: string;
+  /** Internal SP column — intentionally NOT mapped to PredioItem (used by SP logic only) */
+  tipo_pred1: string;
+  anno: string;
+  Val_Terreno: string;
+}
+
+export interface PredioItem {
+  codigo: string;
+  nombres: string;
+  codPred: string;
+  anexo: string;
+  subAnexo: string;
+  porcenPropiedad: string;
+  /** Property address from SP column 'predial' (confusing name — SP convention) */
+  predial: string;
+  totalAutoavaluo: string;
+  tipoPred: string;
+  /** Year from SP column 'anno' (double-n, no ñ — SP convention) */
+  anno: string;
+  /** Land value from SP column 'Val_Terreno' (PascalCase — SP convention) */
+  valTerreno: string;
+}
+
+export interface PredioSearchResult {
+  success: boolean;
+  data: PredioItem[];
+  error?: string;
+}

@@ -6,8 +6,9 @@ import { ObjectAccessService } from './object-access.service';
 import { ObjectAccessSubscriber } from './object-access.subscriber';
 import { ObjectAccessGuard } from './object-access.guard';
 
-function createRedisClient(config: ConfigService): Redis {
-  const url = config.get<string>('REDIS_URL', 'redis://localhost:6379');
+function createRedisClient(config: ConfigService): Redis | null {
+  const url = config.get<string>('REDIS_URL');
+  if (!url) return null;
   return new Redis(url, { maxRetriesPerRequest: 3 });
 }
 
@@ -17,7 +18,6 @@ function createRedisClient(config: ConfigService): Redis {
   providers: [
     ObjectAccessService,
     ObjectAccessGuard,
-    ObjectAccessSubscriber,
     {
       provide: 'REDIS_PUB_CLIENT',
       inject: [ConfigService],
@@ -31,7 +31,8 @@ function createRedisClient(config: ConfigService): Redis {
     {
       provide: ObjectAccessSubscriber,
       inject: ['REDIS_SUB_CLIENT'],
-      useFactory: (redis: Redis) => new ObjectAccessSubscriber(() => redis),
+      useFactory: (redis: Redis | null) =>
+        new ObjectAccessSubscriber(() => redis),
     },
   ],
   exports: [ObjectAccessService, ObjectAccessGuard],

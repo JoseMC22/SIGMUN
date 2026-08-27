@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 import { SearchContribuyenteDto } from './dto/search-contribuyente.dto';
+import { SearchPredioDto, DEFAULT_TIPO_BUSQUEDA } from './dto/search-predio.dto';
 import { CrearAlcabalaDto } from './dto/crear-alcabala.dto';
 import {
   SpMContribuyenteRow,
@@ -14,6 +15,9 @@ import {
   DetalleAlcabalaResult,
   CrearAlcabalaResult,
   BajaAlcabalaResult,
+  SpPredioRow,
+  PredioItem,
+  PredioSearchResult,
 } from './determinar-alcabala.types';
 import { BajaAlcabalaDto } from './dto/baja-alcabala.dto';
 
@@ -30,6 +34,7 @@ function col(row: Record<string, any>, name: string): any {
 export class DeterminarAlcabalaService {
   private readonly SP_MCONTRIBUYENTE = 'Rentas.sp_Mcontribuyente';
   private readonly SP_DJALCABALA = 'Alcabala.sp_DJAlcabala';
+  private readonly BUSCAR_PREDIOS = '3';
   private readonly BUSCAR_BAJA = '9';
   private readonly logger = new Logger(DeterminarAlcabalaService.name);
 
@@ -120,6 +125,60 @@ export class DeterminarAlcabalaService {
         pageSize,
         totalPages: 0,
         error: 'Error al buscar contribuyentes',
+      };
+    }
+  }
+
+  async searchPredios(dto: SearchPredioDto): Promise<PredioSearchResult> {
+    const { codigo, anio, codPred, tipoBusqueda, nombres, paterno, materno, numDoc, razon } = dto;
+
+    // Guard: @anio (year of the contract date) is required — do not hit the SP with an empty year.
+    if (!anio || !anio.trim()) {
+      return {
+        success: false,
+        data: [],
+        error: 'El año del contrato (@anio) es obligatorio para buscar predios',
+      };
+    }
+
+    try {
+      const result = await this.db.executeProcedure<SpPredioRow>(
+        this.SP_DJALCABALA,
+        {
+          buscar: this.BUSCAR_PREDIOS,
+          codigo: codigo || '',
+          anio: anio || '',
+          codpred: codPred || '',
+          nombres: nombres || '',
+          paterno: paterno || '',
+          materno: materno || '',
+          num_doc: numDoc || '',
+          razon: razon || '',
+          tipo_busqueda: tipoBusqueda || DEFAULT_TIPO_BUSQUEDA,
+        },
+      );
+
+      const data: PredioItem[] = (result.recordset || []).map((row: any) => ({
+        codigo: String(col(row, 'codigo') ?? ''),
+        nombres: String(col(row, 'nombres') ?? ''),
+        codPred: String(col(row, 'cod_pred') ?? ''),
+        anexo: String(col(row, 'anexo') ?? ''),
+        subAnexo: String(col(row, 'sub_anexo') ?? ''),
+        porcenPropiedad: String(col(row, 'porcen_propiedad') ?? ''),
+        predial: String(col(row, 'predial') ?? ''),
+        totalAutoavaluo: String(col(row, 'total_autoavaluo') ?? ''),
+        tipoPred: String(col(row, 'tipo_pred') ?? ''),
+        anno: String(col(row, 'anno') ?? ''),
+        valTerreno: String(col(row, 'Val_Terreno') ?? ''),
+      }));
+
+      return { success: true, data };
+    } catch (err) {
+      this.logger.error(`[DeterminarAlcabala] searchPredios SP error: ${err}`);
+      return {
+        success: false,
+        data: [],
+        error: 'Error al buscar predios del contribuyente',
       };
     }
   }
