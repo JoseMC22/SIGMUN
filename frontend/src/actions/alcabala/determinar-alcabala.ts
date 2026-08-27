@@ -240,6 +240,54 @@ export async function searchPrediosAction(
   }
 }
 
+// ─── Get UIT (valor de la UIT por año) ────────────────────
+
+export interface GetUitResult {
+  success: boolean;
+  valorUit?: number;
+  error?: string;
+}
+
+export async function getUitAction(
+  anno: string,
+): Promise<GetUitResult> {
+  try {
+    const response = await authFetch(
+      `/mantenimiento-tablas/mantenimiento-uit?anno=${encodeURIComponent(anno)}`,
+    );
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return {
+          success: false,
+          error: "No se encontró la UIT para el año",
+        };
+      }
+      return {
+        success: false,
+        error: "Error al obtener la UIT",
+      };
+    }
+
+    const result = await response.json();
+    const data = result?.data;
+    if (Array.isArray(data) && data.length > 0) {
+      return { success: true, valorUit: data[0].valor_uit };
+    }
+
+    // 200 but empty payload → treat as not found; let the caller keep the current value.
+    return {
+      success: false,
+      error: "No se encontró la UIT para el año",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Error al obtener la UIT",
+    };
+  }
+}
+
 // ─── Get Detalle Alcabala ─────────────────────────────────
 
 export interface DetalleAlcabalaItem {
