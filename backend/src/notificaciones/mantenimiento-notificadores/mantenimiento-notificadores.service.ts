@@ -64,13 +64,13 @@ export class MantenimientoNotificadoresService {
     const list = await this.listar();
     if (list.success && list.data.length) {
       const dupNombre = list.data.find(
-        (r) => r.notificador.toLowerCase() === notificador.toLowerCase(),
+        (r) => r.notificador.trim().toLowerCase() === notificador.trim().toLowerCase(),
       );
       if (dupNombre) {
-        return { success: false, error: 'validation_error' };
+        return { success: false, error: 'El nombre del notificador ya existe' };
       }
       const dupIniciales = list.data.find(
-        (r) => r.iniciales.toLowerCase() === iniciales.toLowerCase(),
+        (r) => r.iniciales.trim().toLowerCase() === iniciales.trim().toLowerCase(),
       );
       if (dupIniciales) {
         return { success: false, error: 'Las iniciales ya existen' };
@@ -86,10 +86,12 @@ export class MantenimientoNotificadoresService {
         estacion,
       });
       const mensaje = this.firstMensaje(result);
-      if (/Existe las Iniciales/i.test(mensaje)) {
-        return { success: false, error: mensaje };
+      // Whitelist de éxito: solo 'Se insertó...' cuenta como exitoso.
+      // Cualquier otro texto (incl. 'Existe las Iniciales' o mensaje vacío) → fallo.
+      if (/Se insertó/i.test(mensaje)) {
+        return { success: true, message: mensaje };
       }
-      return { success: true, message: mensaje || 'Se insertó el Notificador' };
+      return { success: false, error: mensaje || 'Operación no completada' };
     } catch (err) {
       this.logger.error(`[MantenimientoNotificadores] guardar SP error: ${err}`);
       return { success: false, error: 'Error al guardar notificador' };
@@ -118,11 +120,11 @@ export class MantenimientoNotificadoresService {
       }
       const dupNombre = list.data.find(
         (r) =>
-          r.notificador.toLowerCase() === notificador.toLowerCase() &&
+          r.notificador.trim().toLowerCase() === notificador.trim().toLowerCase() &&
           String(r.codigo_autoridad) !== String(id_notificador),
       );
       if (dupNombre) {
-        return { success: false, error: 'validation_error' };
+        return { success: false, error: 'El nombre del notificador ya existe' };
       }
     }
 
@@ -136,10 +138,12 @@ export class MantenimientoNotificadoresService {
         estacion,
       });
       const mensaje = this.firstMensaje(result);
-      if (/No se puede actualizar registro eliminado/i.test(mensaje)) {
-        return { success: false, error: mensaje };
+      // Whitelist de éxito: solo 'Se actualizó...' cuenta como exitoso.
+      // Cualquier otro texto (incl. 'No se puede actualizar...' o vacío) → fallo.
+      if (/Se actualizó/i.test(mensaje)) {
+        return { success: true, message: mensaje };
       }
-      return { success: true, message: mensaje || 'Se actualizó el Notificador' };
+      return { success: false, error: mensaje || 'No se puede actualizar registro eliminado' };
     } catch (err) {
       this.logger.error(`[MantenimientoNotificadores] actualizar SP error: ${err}`);
       return { success: false, error: 'Error al actualizar notificador' };
