@@ -3,6 +3,7 @@ import { DatabaseService } from '../../database/database.service';
 import { SearchRdAlcabalaDto } from './dto/search-rd-alcabala.dto';
 import { DetalleRdAlcabalaDto } from './dto/detalle-rd-alcabala.dto';
 import { RutaRdAlcabalaDto } from './dto/ruta-rd-alcabala.dto';
+import { EliminarRdAlcabalaDto } from './dto/eliminar-rd-alcabala.dto';
 import {
   ConsultaRDRow,
   ConsultaRDResult,
@@ -12,6 +13,7 @@ import {
   RutaRDResult,
   ImprimirRDRow,
   ImprimirRDResult,
+  EliminarRDResult,
 } from './consulta-rd-alcabala.types';
 
 @Injectable()
@@ -305,6 +307,64 @@ export class ConsultaRdAlcabalaService {
     } catch (err) {
       this.logger.error(`[ConsultaRdAlcabala] imprimir SP error: ${err}`);
       return { success: false, error: 'Error al generar el documento RD' };
+    }
+  }
+
+  /**
+   * Elimina (anula) una RD del listado, siempre que esté en estado Pendiente.
+   * Llama a Rentas.SP_ConsultadocuAlcabala @msquery=5 (Eliminar RD): marca
+   * Rentas.Mvalores.NESTADO='2' + OBSERVACION y los recibos asociados
+   * (caja.mrecibos.UBICA='EM'). El SP ya valida acceso (ACCESO.FN_VER_ACCESO
+   * '21.04.01') y el estado (NESTADO='1').
+   */
+  async eliminar(
+    dto: EliminarRdAlcabalaDto,
+    operador: string,
+    estacion: string,
+  ): Promise<EliminarRDResult> {
+    const params: Record<string, any> = {
+      msquery: '5',
+      id_valor: this.ID_VALOR_ALCABALA,
+      num_val: dto.num_val,
+      ano_val: dto.ano_val,
+      observacion: dto.observacion,
+      operador,
+      estacion,
+    };
+
+    try {
+      const result = await this.db.executeProcedure<any>(this.SP_NAME, params);
+      // mssql v12+ preserva el casing de las columnas del SP; leemos
+      // 'mensaje' sin distinguir mayúsculas (igual que col() en search/getDetail).
+      const first = result.recordset?.[0];
+      let mensaje = '';
+      if (first) {
+        const key = Object.keys(first).find(
+          (k) => k.toLowerCase() === 'mensaje',
+        );
+        mensaje = key ? String(first[key] ?? '') : '';
+      }
+      this.logger.log(`[ConsultaRdAlcabala] eliminar SP mensaje: ${mensaje}`);
+
+      if (/Acceso a Eliminar/i.test(mensaje)) {
+        return {
+          success: false,
+          error: 'No tiene permiso para eliminar/dar de baja la RD.',
+        };
+      }
+      if (/No se Anuló/i.test(mensaje)) {
+        return {
+          success: false,
+          error: 'La RD no está en estado Pendiente, no se puede eliminar.',
+        };
+      }
+      if (/Se Anuló/i.test(mensaje)) {
+        return { success: true, message: mensaje };
+      }
+      return { success: false, error: 'No se pudo eliminar la RD.' };
+    } catch (err) {
+      this.logger.error(`[ConsultaRdAlcabala] eliminar SP error: ${err}`);
+      return { success: false, error: 'Error al eliminar la RD' };
     }
   }
 }

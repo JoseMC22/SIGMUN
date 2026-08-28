@@ -14,6 +14,7 @@ describe('ConsultaRdAlcabalaController', () => {
     search: jest.fn(),
     getDetail: jest.fn(),
     getRuta: jest.fn(),
+    eliminar: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -261,6 +262,51 @@ describe('ConsultaRdAlcabalaController', () => {
       });
 
       expect(result.success).toBe(false);
+    });
+  });
+
+  describe('POST /alcabala/consulta-rd/eliminar', () => {
+    const req = { user: { username: 'mvaez' } } as any;
+    const validBody = {
+      num_val: '0001234',
+      ano_val: '2026',
+      observacion: 'Ampliación de plazo',
+    };
+
+    it('should delegate to service.eliminar and return your result with 200 semantics', async () => {
+      mockService.eliminar.mockResolvedValue({ success: true, message: 'Se Anuló' });
+
+      const result = await controller.eliminar(req, validBody);
+
+      expect(mockService.eliminar).toHaveBeenCalledWith(
+        { num_val: '0001234', ano_val: '2026', observacion: 'Ampliación de plazo' },
+        'mvaez',
+        expect.any(String),
+      );
+      expect(result.success).toBe(true);
+    });
+
+    it('should return the service error (business rule) as success:false', async () => {
+      mockService.eliminar.mockResolvedValue({
+        success: false,
+        error: 'La RD no está en estado Pendiente, no se puede eliminar.',
+      });
+
+      const result = await controller.eliminar(req, validBody);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toMatch(/no está en estado Pendiente/i);
+    });
+
+    it('should return a validation error envelope when observacion is missing', async () => {
+      const result = await controller.eliminar(req, {
+        num_val: '0001234',
+        ano_val: '2026',
+      });
+
+      expect(result.success).toBe(false);
+      expect(mockService.eliminar).not.toHaveBeenCalled();
+      expect(result.error).toBeTruthy();
     });
   });
 });

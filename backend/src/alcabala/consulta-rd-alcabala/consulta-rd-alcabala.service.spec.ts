@@ -668,4 +668,60 @@ describe('ConsultaRdAlcabalaService', () => {
       });
     });
   });
+
+  describe('eliminar', () => {
+    const dto = { num_val: '0001234', ano_val: '2026', observacion: 'Ampliación de plazo' };
+
+    it('should call SP with msquery=5 and mapped params', async () => {
+      db.executeProcedure.mockResolvedValueOnce(
+        mockSpResult([{ mensaje: 'Rentas.SP_ConsultadocuAlcabala --> Se Anuló' }]),
+      );
+
+      const result = await service.eliminar(dto, 'mvaez', 'PC-001');
+
+      expect(db.executeProcedure).toHaveBeenCalledTimes(1);
+      expect(db.executeProcedure).toHaveBeenCalledWith(SP_NAME, {
+        msquery: '5',
+        id_valor: '08',
+        num_val: '0001234',
+        ano_val: '2026',
+        observacion: 'Ampliación de plazo',
+        operador: 'mvaez',
+        estacion: 'PC-001',
+      });
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('Se Anuló');
+    });
+
+    it('should return friendly error when RD is not Pendiente (No se Anuló)', async () => {
+      db.executeProcedure.mockResolvedValueOnce(
+        mockSpResult([{ mensaje: 'Rentas.SP_ConsultadocuAlcabala --> No se Anuló (la RD no está en estado Pendiente)' }]),
+      );
+
+      const result = await service.eliminar(dto, 'mvaez', 'PC-001');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toMatch(/no está en estado Pendiente/i);
+    });
+
+    it('should return friendly error when user lacks access', async () => {
+      db.executeProcedure.mockResolvedValueOnce(
+        mockSpResult([{ mensaje: 'Rentas.SP_ConsultadocuAlcabala : 21.04.01 -> No cuenta con Acceso a Eliminar' }]),
+      );
+
+      const result = await service.eliminar(dto, 'mvaez', 'PC-001');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toMatch(/no tiene permiso/i);
+    });
+
+    it('should return generic error on SP failure', async () => {
+      db.executeProcedure.mockRejectedValueOnce(new Error('SP down'));
+
+      const result = await service.eliminar(dto, 'mvaez', 'PC-001');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Error al eliminar la RD');
+    });
+  });
 });

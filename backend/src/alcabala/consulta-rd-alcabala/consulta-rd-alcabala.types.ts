@@ -109,3 +109,12 @@ export interface ImprimirRDResult {
   data?: ImprimirRDRow[];
   error?: string;
 }
+
+// ── Eliminar RD (Rentas.SP_ConsultadocuAlcabala @msquery=5) ──
+
+/** Result of anular (soft-delete) an RD via the list action. */
+export interface EliminarRDResult {
+  success: boolean;
+  message?: string;   // SP message when success ('Se Anuló')
+  error?: string;     // friendly error when failed
+}
