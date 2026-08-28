@@ -11,6 +11,7 @@ import { SeguridadModule } from './seguridad/seguridad.module';
 import { ImpuestoVehicularModule } from './impuesto-vehicular/impuesto-vehicular.module';
 import { FiscalizacionTributariaModule } from './fiscalizacion-tributaria/fiscalizacion-tributaria.module';
 import { AlcabalaModule } from './alcabala/alcabala.module';
+import { NotificacionesModule } from './notificaciones/notificaciones.module';
 import { MantenimientoViasModule } from './administracion-tributaria/mantenimiento-vias/mantenimiento-vias.module';
 import { DeclaracionJuradaModule } from './administracion-tributaria/declaracion-jurada/declaracion-jurada.module';
 import { ReportesModule } from './reportes-gerenciales/reportes-gerenciales.module';
@@ -66,6 +67,8 @@ import { PapeletaTransitoModule } from './papeleta-transito/papeleta-transito.mo
     FiscalizacionTributariaModule,
     // Módulo de alcabala
     AlcabalaModule,
+    // Módulo de notificaciones
+    NotificacionesModule,
     // Módulo de mantenimiento de tablas - UIT
     MantenimientoUitModule,
     // Módulo de mantenimiento - estados de convenio
