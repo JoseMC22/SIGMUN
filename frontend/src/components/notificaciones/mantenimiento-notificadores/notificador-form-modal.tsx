@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { X, Loader2, Save, AlertCircle } from "lucide-react";
 import {
   guardarNotificadorAction,
@@ -31,6 +31,7 @@ export default function NotificadorFormModal({
   const [notificador, setNotificador] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const firstFieldRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -38,6 +39,8 @@ export default function NotificadorFormModal({
       setNotificador(initial?.notificador ?? "");
       setError(null);
       setSaving(false);
+      // Mover el foco al primer campo al abrir (accesibilidad del diálogo).
+      setTimeout(() => firstFieldRef.current?.focus(), 0);
     }
   }, [isOpen, initial]);
 
@@ -59,6 +62,12 @@ export default function NotificadorFormModal({
       return;
     }
 
+    // El modo "modificar" siempre requiere el registro original.
+    if (mode === "modificar" && !initial) {
+      setError("Registro no válido");
+      return;
+    }
+
     setSaving(true);
     setError(null);
 
@@ -67,7 +76,7 @@ export default function NotificadorFormModal({
         mode === "nuevo"
           ? await guardarNotificadorAction({ iniciales: ini, notificador: nom })
           : await actualizarNotificadorAction({
-              id_notificador: initial!.codigo_autoridad,
+              id_notificador: initial.codigo_autoridad,
               notificador: nom,
             });
 
@@ -90,9 +99,17 @@ export default function NotificadorFormModal({
       onClick={(e) => {
         if (e.target === e.currentTarget && !saving) onClose();
       }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape" && !saving) onClose();
+      }}
       tabIndex={-1}
     >
-      <div className="relative w-full max-w-md rounded-xl bg-white shadow-2xl border border-slate-200">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={mode === "nuevo" ? "Nuevo Notificador" : "Modificar Notificador"}
+        className="relative w-full max-w-md rounded-xl bg-white shadow-2xl border border-slate-200"
+      >
         {/* Header */}
         <div className="flex items-center justify-between rounded-t-xl bg-gradient-to-r from-sat-navy via-[#1b2b4a] to-slate-800 px-4 py-3">
           <span className="text-sm font-semibold text-white tracking-tight">
@@ -129,6 +146,7 @@ export default function NotificadorFormModal({
               id="iniciales"
               type="text"
               value={iniciales}
+              ref={firstFieldRef}
               disabled={mode === "modificar"}
               onChange={(e) => setIniciales(e.target.value)}
               className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] text-slate-700 placeholder-slate-400 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"

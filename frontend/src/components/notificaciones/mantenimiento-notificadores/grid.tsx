@@ -7,7 +7,7 @@ import {
   activarEliminarNotificadorAction,
   type NotificadorRow,
 } from "@/actions/notificaciones/mantenimiento-notificadores";
-import StatusBadge from "./status-badge";
+import StatusBadge, { isActivo } from "./status-badge";
 import NotificadorFormModal from "./notificador-form-modal";
 import ConfirmDialog from "@/components/confirm-dialog";
 
@@ -62,7 +62,7 @@ export function NotificadorGrid({ initialData }: Props) {
 
   const confirmToggle = async () => {
     if (!confirmRow) return;
-    const estado = confirmRow.estado === "Activado" ? 0 : 1;
+    const estado = isActivo(confirmRow.estado) ? 0 : 1;
     setTogglingId(confirmRow.codigo_autoridad);
     try {
       const res = await activarEliminarNotificadorAction(
@@ -138,7 +138,7 @@ export function NotificadorGrid({ initialData }: Props) {
               </tr>
             )}
             {data.map((row) => {
-              const activo = row.estado === "Activado";
+              const activo = isActivo(row.estado);
               const isToggling = togglingId === row.codigo_autoridad;
               return (
                 <tr
@@ -214,15 +214,15 @@ export function NotificadorGrid({ initialData }: Props) {
       <ConfirmDialog
         isOpen={confirmRow !== null}
         title={
-          confirmRow?.estado === "Activado"
+          isActivo(confirmRow?.estado ?? "")
             ? "Eliminar Notificador"
             : "Activar Notificador"
         }
         message={`¿Está seguro de ${
-          confirmRow?.estado === "Activado" ? "eliminar" : "activar"
+          isActivo(confirmRow?.estado ?? "") ? "eliminar" : "activar"
         } el notificador "${confirmRow?.notificador}"?`}
         confirmLabel={
-          confirmRow?.estado === "Activado" ? "Sí, eliminar" : "Sí, activar"
+          isActivo(confirmRow?.estado ?? "") ? "Sí, eliminar" : "Sí, activar"
         }
         cancelLabel="No"
         loading={togglingId !== null}
