@@ -53,11 +53,7 @@ export class MantenimientoNotificadoresService {
     }
   }
 
-  async guardar(
-    dto: GuardarNotificadorDto,
-    operador: string,
-    estacion: string,
-  ): Promise<MantenimientoResult> {
+  async guardar(dto: GuardarNotificadorDto): Promise<MantenimientoResult> {
     const { iniciales, notificador } = dto;
 
     // Pre-check: bloquear duplicados nombre/iniciales (case-insensitive) antes de escribir.
@@ -82,8 +78,6 @@ export class MantenimientoNotificadoresService {
         busc: 12,
         iniciales,
         notificador,
-        operador,
-        estacion,
       });
       const mensaje = this.firstMensaje(result);
       // Whitelist de éxito: solo 'Se insertó...' cuenta como exitoso.
@@ -98,11 +92,7 @@ export class MantenimientoNotificadoresService {
     }
   }
 
-  async actualizar(
-    dto: ActualizarNotificadorDto,
-    operador: string,
-    estacion: string,
-  ): Promise<MantenimientoResult> {
+  async actualizar(dto: ActualizarNotificadorDto): Promise<MantenimientoResult> {
     const { id_notificador, notificador } = dto;
 
     // Pre-check: el registro debe estar Activado y el nombre no debe colisionar
@@ -134,8 +124,6 @@ export class MantenimientoNotificadoresService {
         busc: 14,
         id_notificador,
         notificador,
-        operador,
-        estacion,
       });
       const mensaje = this.firstMensaje(result);
       // Whitelist de éxito: solo 'Se actualizó...' cuenta como exitoso.
@@ -152,8 +140,6 @@ export class MantenimientoNotificadoresService {
 
   async activarEliminar(
     dto: ActivarEliminarNotificadorDto,
-    operador: string,
-    estacion: string,
   ): Promise<MantenimientoResult> {
     const { id_notificador, estado } = dto;
 
@@ -162,8 +148,6 @@ export class MantenimientoNotificadoresService {
         busc: 13,
         id_notificador,
         estado,
-        operador,
-        estacion,
       });
       const mensaje = this.firstMensaje(result);
       if (/eliminó|restauró/i.test(mensaje)) {

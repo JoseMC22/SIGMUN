@@ -3,13 +3,11 @@ import {
   Get,
   Post,
   UseGuards,
-  Req,
   Body,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { Request } from 'express';
 import { z } from 'zod';
 import { MantenimientoNotificadoresService } from './mantenimiento-notificadores.service';
 import {
@@ -18,7 +16,6 @@ import {
   ActivarEliminarNotificadorSchema,
 } from './dto/mantenimiento-notificadores.dto';
 import { MantenimientoResult } from './mantenimiento-notificadores.types';
-import * as os from 'os';
 
 @Controller('notificaciones/mantenimiento-notificadores')
 @UseGuards(JwtAuthGuard)
@@ -32,10 +29,7 @@ export class MantenimientoNotificadoresController {
 
   @Post('guardar')
   @HttpCode(HttpStatus.OK)
-  async guardar(
-    @Req() req: Request,
-    @Body() body: unknown,
-  ): Promise<MantenimientoResult> {
+  async guardar(@Body() body: unknown): Promise<MantenimientoResult> {
     let dto: z.infer<typeof GuardarNotificadorSchema>;
     try {
       dto = GuardarNotificadorSchema.parse(body);
@@ -50,18 +44,12 @@ export class MantenimientoNotificadoresController {
       }
       return { success: false, error: 'Parámetros inválidos' };
     }
-
-    const operador = (req.user as any)?.username || '';
-    const estacion = os.hostname();
-    return this.service.guardar(dto, operador, estacion);
+    return this.service.guardar(dto);
   }
 
   @Post('actualizar')
   @HttpCode(HttpStatus.OK)
-  async actualizar(
-    @Req() req: Request,
-    @Body() body: unknown,
-  ): Promise<MantenimientoResult> {
+  async actualizar(@Body() body: unknown): Promise<MantenimientoResult> {
     let dto: z.infer<typeof ActualizarNotificadorSchema>;
     try {
       dto = ActualizarNotificadorSchema.parse(body);
@@ -76,18 +64,12 @@ export class MantenimientoNotificadoresController {
       }
       return { success: false, error: 'Parámetros inválidos' };
     }
-
-    const operador = (req.user as any)?.username || '';
-    const estacion = os.hostname();
-    return this.service.actualizar(dto, operador, estacion);
+    return this.service.actualizar(dto);
   }
 
   @Post('activar-eliminar')
   @HttpCode(HttpStatus.OK)
-  async activarEliminar(
-    @Req() req: Request,
-    @Body() body: unknown,
-  ): Promise<MantenimientoResult> {
+  async activarEliminar(@Body() body: unknown): Promise<MantenimientoResult> {
     let dto: z.infer<typeof ActivarEliminarNotificadorSchema>;
     try {
       dto = ActivarEliminarNotificadorSchema.parse(body);
@@ -102,9 +84,6 @@ export class MantenimientoNotificadoresController {
       }
       return { success: false, error: 'Parámetros inválidos' };
     }
-
-    const operador = (req.user as any)?.username || '';
-    const estacion = os.hostname();
-    return this.service.activarEliminar(dto, operador, estacion);
+    return this.service.activarEliminar(dto);
   }
 }
