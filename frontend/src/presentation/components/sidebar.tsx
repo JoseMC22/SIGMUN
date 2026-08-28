@@ -20,6 +20,7 @@ import {
   Gavel,
   BarChart3,
   Receipt,
+  UserCog,
   Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -54,6 +55,7 @@ const MODULE_ICONS: Record<string, any> = {
   Coactivo: Gavel,
   "Reportes Gerenciales": BarChart3,
   Alcabala: Receipt,
+  Notificaciones: UserCog,
 };
 
 function getModuleIcon(title: string) {
