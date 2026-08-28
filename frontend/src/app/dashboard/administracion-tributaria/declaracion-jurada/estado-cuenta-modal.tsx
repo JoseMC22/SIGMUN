@@ -7,11 +7,17 @@ import {
   getEstadoCuentaRecibosAction,
   generarLiquidacionDJAction,
   getLiquidacionReporteAction,
+  getVerPagosAction,
+  getDeudaConsolidadoAction,
   type EstadoCuentaPredioOption,
   type EstadoCuentaReciboRow,
 } from "@/actions/administracion-tributaria/declaracion-jurada";
 import { obtenerPlantillaReporteLiquidacionAction } from "@/actions/administracion-tributaria/reporte-liquidacion";
 import { construirHtmlReporteLiquidacion } from "./reportes/Liquidacion/reporte-liquidacion";
+import { obtenerPlantillaReporteVerPagosAction } from "@/actions/administracion-tributaria/reporte-ver-pagos";
+import { construirHtmlVerPagos } from "./reportes/VerPagos/reporte-ver-pagos";
+import { obtenerPlantillaReporteDeudaConsolidadaAction } from "@/actions/administracion-tributaria/reporte-deuda-consolidada";
+import { construirHtmlDeudaConsolidada } from "./reportes/DeudaConsolidada/reporte-deuda-consolidada";
 import { getStoredUser } from "@/lib/api";
 import ReporteViewerModal from "@/components/reportes/reporte-viewer-modal";
 import type { ReportePdfConfig } from "@/lib/reportes/reporte-service";
@@ -77,7 +83,6 @@ const ACTION_BUTTONS: {
   { label: "Pasar a Coactivo" },
   { label: "Quitar Coactivo" },
   { label: "Generar Deuda" },
-  { label: "Imprimir Esta. Cta." },
 ];
 
 // ─── Filter groupboxes (placeholder data — will come from SPs) ──
@@ -385,6 +390,12 @@ export default function EstadoCuentaModal({
   const [loadingLiquidacion, setLoadingLiquidacion] = useState(false);
   const [liquidacionReporteHtml, setLiquidacionReporteHtml] = useState<string | null>(null);
   const [liquidacionReportePdf, setLiquidacionReportePdf] = useState<ReportePdfConfig | null>(null);
+  const [loadingVerPagos, setLoadingVerPagos] = useState(false);
+  const [verPagosReporteHtml, setVerPagosReporteHtml] = useState<string | null>(null);
+  const [verPagosReportePdf, setVerPagosReportePdf] = useState<ReportePdfConfig | null>(null);
+  const [loadingConsolidado, setLoadingConsolidado] = useState(false);
+  const [consolidadoReporteHtml, setConsolidadoReporteHtml] = useState<string | null>(null);
+  const [consolidadoReportePdf, setConsolidadoReportePdf] = useState<ReportePdfConfig | null>(null);
   const [deudaError, setDeudaError] = useState<string | null>(null);
   // Accordion: group cabecera -> collapsed?
   const [collapsedGroups, setCollapsedGroups] = useState<
@@ -423,6 +434,12 @@ export default function EstadoCuentaModal({
     setLoadingLiquidacion(false);
     setLiquidacionReporteHtml(null);
     setLiquidacionReportePdf(null);
+    setLoadingVerPagos(false);
+    setVerPagosReporteHtml(null);
+    setVerPagosReportePdf(null);
+    setLoadingConsolidado(false);
+    setConsolidadoReporteHtml(null);
+    setConsolidadoReportePdf(null);
   }, []);
 
   useEffect(() => {
@@ -608,6 +625,139 @@ export default function EstadoCuentaModal({
       setDeudaError('Error al generar la liquidación. Intente nuevamente.');
     } finally {
       setLoadingLiquidacion(false);
+    }
+  };
+
+  // ── "Ver Pagos": fetch payments → build HTML → show in modal ──
+  const handleVerPagos = async () => {
+    if (!contribuyenteCodigo || loadingVerPagos) return;
+
+    setLoadingVerPagos(true);
+    setDeudaError(null);
+
+    try {
+      const [dataResult, plantillaResult] = await Promise.all([
+        getVerPagosAction(contribuyenteCodigo),
+        obtenerPlantillaReporteVerPagosAction(),
+      ]);
+
+      if (!dataResult.success) {
+        setDeudaError(dataResult.error);
+        return;
+      }
+      if (!plantillaResult.success) {
+        setDeudaError(plantillaResult.error);
+        return;
+      }
+
+      const html = construirHtmlVerPagos(dataResult.data, plantillaResult.data);
+      setVerPagosReporteHtml(html);
+
+      // Build flat PDF table from all receipts' details
+      const pdfRows: Array<Array<string | number>> = [];
+      for (const recibo of dataResult.data.recibos) {
+        for (const d of recibo.detalles) {
+          pdfRows.push([
+            recibo.nroRecibo,
+            d.anno,
+            d.tributo,
+            d.cuota,
+            fmt(d.insoluto),
+            fmt(d.intereses),
+            fmt(d.emision),
+            fmt(d.descuento),
+            fmt(d.totalPagado),
+            d.codReferencia,
+          ]);
+        }
+      }
+      setVerPagosReportePdf({
+        filename: `pagos-${contribuyenteCodigo}.pdf`,
+        titulo: 'Reporte de Pagos',
+        orientacion: 'landscape',
+        subtitulo: [['Código', contribuyenteCodigo]],
+        columnas: ['N° Recibo', 'Año', 'Tributo', 'Cuota', 'Insoluto', 'Intereses', 'Emisión', 'Descuento', 'Total Pagado', 'Cod. Ref.'],
+        filas: pdfRows,
+      });
+    } catch {
+      setDeudaError('Error al obtener los pagos. Intente nuevamente.');
+    } finally {
+      setLoadingVerPagos(false);
+    }
+  };
+
+  // ── "Deuda Consolidada": fetch consolidated debt → build HTML → show in modal ──
+  const handleDeudaConsolidada = async () => {
+    if (!contribuyenteCodigo || loadingConsolidado) return;
+
+    const user = getStoredUser();
+    setLoadingConsolidado(true);
+    setDeudaError(null);
+
+    try {
+      const [dataResult, plantillaResult] = await Promise.all([
+        getDeudaConsolidadoAction({
+          codigo: contribuyenteCodigo,
+          periodos: collectChecked(periodoItems, periodos),
+          anios: collectChecked(anioItems, anios),
+          conceptos: collectChecked(CONCEPTOS, conceptos).flatMap(toPlainCodes),
+          arbitrios: collectChecked(ARBITRIOS, arbitrios).flatMap(toPlainCodes),
+          predios: collectChecked(predioItems, predios),
+          vehiculos: collectChecked(vehiculoItems, vehiculos),
+          fraccionamientos: collectChecked(
+            fraccionamientoItems,
+            fraccionamientos,
+          ),
+          // The legacy "Deuda consolidado" button only prints pending accounts.
+          estado: '0',
+          criterio: 0,
+          resumen: verResumen,
+          detalle: verDetalle,
+          agrupar: agruparConcepto,
+        }),
+        obtenerPlantillaReporteDeudaConsolidadaAction(),
+      ]);
+
+      if (!dataResult.success) {
+        setDeudaError(dataResult.error);
+        return;
+      }
+      if (!plantillaResult.success) {
+        setDeudaError(plantillaResult.error);
+        return;
+      }
+
+      const html = construirHtmlDeudaConsolidada(dataResult.data, plantillaResult.data, {
+        usuario: user?.username ?? '',
+      });
+      setConsolidadoReporteHtml(html);
+
+      // Build PDF table: flatten rows with a "Deuda Total por año" grouping.
+      const pdfRows: Array<Array<string | number>> = [];
+      const yearTotals = new Map<string, number>();
+      for (const f of dataResult.data.filas) {
+        yearTotals.set(f.anno, (yearTotals.get(f.anno) ?? 0) + f.saldo);
+      }
+      for (const anno of yearTotals.keys()) {
+        pdfRows.push([anno, `Deuda Total para el A\u00f1o`, yearTotals.get(anno) ?? 0]);
+      }
+      pdfRows.push(['', 'Total Neto', dataResult.data.filas.reduce((s, f) => s + f.saldo, 0)]);
+
+      setConsolidadoReportePdf({
+        filename: `deuda-consolidada-${contribuyenteCodigo}.pdf`,
+        titulo: 'Deuda Consolidada',
+        orientacion: 'landscape',
+        subtitulo: [
+          ['Código', contribuyenteCodigo],
+          ['Nombre', dataResult.data.cabecera.nombre],
+        ],
+        columnas: ['Año', 'Concepto', 'Importe'],
+        filas: pdfRows,
+      });
+    } catch {
+      setDeudaError('Error al obtener la deuda consolidada. Intente nuevamente.');
+    } finally {
+      setLoadingConsolidado(false);
     }
   };
 
@@ -1047,9 +1197,19 @@ export default function EstadoCuentaModal({
                 <button
                   key={btn.label}
                   type="button"
-                  disabled={loadingDeuda}
+                  disabled={
+                    loadingDeuda ||
+                    (btn.label === "Ver Pagos" && loadingVerPagos) ||
+                    (btn.label === "Deuda Consolidada" && loadingConsolidado)
+                  }
                   onClick={() => {
-                    if (btn.criterio !== undefined) handleMostrar(btn.criterio);
+                    if (btn.label === "Ver Pagos") {
+                      handleVerPagos();
+                    } else if (btn.label === "Deuda Consolidada") {
+                      handleDeudaConsolidada();
+                    } else if (btn.criterio !== undefined) {
+                      handleMostrar(btn.criterio);
+                    }
                   }}
                   className={`inline-flex min-w-[110px] items-center justify-center gap-1.5 rounded px-2.5 py-1 text-[10px] font-medium text-white transition active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60 ${
                     btn.primary
@@ -1057,7 +1217,9 @@ export default function EstadoCuentaModal({
                       : "bg-slate-600 hover:bg-slate-700"
                   }`}
                 >
-                  {loadingDeuda && btn.criterio !== undefined && (
+                  {((loadingDeuda && btn.criterio !== undefined) ||
+                    (btn.label === "Ver Pagos" && loadingVerPagos) ||
+                    (btn.label === "Deuda Consolidada" && loadingConsolidado)) && (
                     <Loader2 size={10} className="animate-spin" />
                   )}
                   {btn.label}
@@ -1098,6 +1260,28 @@ export default function EstadoCuentaModal({
         }}
         html={liquidacionReporteHtml ?? ""}
         pdfConfig={liquidacionReportePdf}
+      />
+
+      {/* ══ Modal Vista Previa del Reporte Ver Pagos ══ */}
+      <ReporteViewerModal
+        isOpen={verPagosReporteHtml !== null}
+        onClose={() => {
+          setVerPagosReporteHtml(null);
+          setVerPagosReportePdf(null);
+        }}
+        html={verPagosReporteHtml ?? ""}
+        pdfConfig={verPagosReportePdf}
+      />
+
+      {/* ══ Modal Vista Previa del Reporte Deuda Consolidada ══ */}
+      <ReporteViewerModal
+        isOpen={consolidadoReporteHtml !== null}
+        onClose={() => {
+          setConsolidadoReporteHtml(null);
+          setConsolidadoReportePdf(null);
+        }}
+        html={consolidadoReporteHtml ?? ""}
+        pdfConfig={consolidadoReportePdf}
       />
     </div>
   );

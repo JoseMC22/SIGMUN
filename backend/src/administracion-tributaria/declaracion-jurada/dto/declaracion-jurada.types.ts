@@ -435,3 +435,55 @@ export interface LiquidacionReporteData {
   detalles: LiquidacionReporteDetalle[];
   totalNeto: number;
 }
+
+// ── Ver Pagos (Rentas.Recibos_reporte @buscar=2) ──────────
+
+export interface VerPagosDetalle {
+  anno: string;
+  codObligacion: string;
+  tributo: string;
+  cuota: string;
+  insoluto: number;
+  intereses: number;
+  emision: number;
+  descuento: number;
+  totalPagado: number;
+  codReferencia: string;
+}
+
+export interface VerPagosRecibo {
+  nroRecibo: string;
+  fechaPago: string;
+  totalPagado: number;
+  contribuyente: string;
+  banco: string;
+  detalles: VerPagosDetalle[];
+}
+
+export interface VerPagosData {
+  recibos: VerPagosRecibo[];
+}
+
+// ── Deuda Consolidada (Caja.sp_Imprime_EstCta family) ──────
+
+export interface DeudaConsolidadoCabecera {
+  codigo: string;
+  nombre: string;
+  direccion: string;
+  fecEmision: string;
+  horEmision: string;
+  tipoDoc: string;
+  ndoc: string;
+}
+
+export interface DeudaConsolidadoFila {
+  codigo: string;
+  anno: string;
+  tipoagr: string;
+  saldo: number;
+}
+
+export interface DeudaConsolidadoData {
+  cabecera: DeudaConsolidadoCabecera;
+  filas: DeudaConsolidadoFila[];
+}

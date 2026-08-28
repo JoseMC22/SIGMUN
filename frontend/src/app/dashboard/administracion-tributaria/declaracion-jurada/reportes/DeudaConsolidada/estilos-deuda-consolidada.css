@@ -1,0 +1,103 @@
+/* ── Deuda Consolidada Report ─────────────────────────── */
+
+body {
+    padding: 0;
+    margin: 0;
+    font-family: Arial, sans-serif;
+    font-style: normal;
+    page-break-after: avoid;
+    page-break-before: avoid;
+    page-break-inside: avoid;
+}
+
+.text1 {
+    font-family: Arial;
+    font-size: 11px;
+    letter-spacing: 1px;
+}
+
+.header .title {
+    font-family: Arial;
+    font-size: 13px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    margin: 0 0 4px 0;
+}
+
+.header-table {
+    width: 100%;
+    border: 0;
+    border-spacing: 0;
+    font-family: Arial;
+    font-size: 11px;
+    letter-spacing: 1px;
+}
+
+.header-table .label {
+    width: 30%;
+    text-align: left;
+    vertical-align: top;
+    font-size: 16px;
+}
+
+.header-table td {
+    font-size: 11px;
+}
+
+.body {
+    margin-top: 4px;
+    font-family: Arial;
+    font-size: 11px;
+    letter-spacing: 1px;
+}
+
+.body table {
+    width: 100%;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+
+.body table hr {
+    border: 0;
+    border-top: 1px solid #555;
+    margin: 2px 0;
+}
+
+.year-title-row td {
+    height: 5px;
+}
+
+.totals-table {
+    width: 100%;
+    border-spacing: 0;
+    margin-top: 4px;
+}
+
+.footer {
+    margin-top: 8px;
+}
+
+.footer hr {
+    border: 0;
+    border-top: 1px solid #555;
+}
+
+.total-table {
+    width: 100%;
+    font-family: Arial;
+    font-size: 16px;
+    letter-spacing: 1px;
+}
+
+.meta-table {
+    width: 100%;
+    font-family: Arial;
+    font-size: 11px;
+    letter-spacing: 1px;
+}
+
+@media print {
+    body {
+        padding: 0;
+    }
+}

@@ -32,9 +32,13 @@ import {
   EstadoCuentaReciboRow,
   GenerarLiquidacionDJResult,
   LiquidacionReporteData,
+  VerPagosData,
+  VerPagosRecibo,
   LiquidacionReporteDetalle,
+  DeudaConsolidadoData,
 } from './dto/declaracion-jurada.types';
 import { EstadoCuentaRecibosDto } from './dto/estado-cuenta-recibos.dto';
+import { DeudaConsolidadoDto } from './dto/deuda-consolidado.dto';
 import { GenerarLiquidacionDJDto } from './dto/estado-cuenta-liquidacion.dto';
 import { GuardarContribuyenteDto } from './dto/guardar-contribuyente.dto';
 import { GuardarRepresentanteDto } from './dto/guardar-representante.dto';
@@ -1419,5 +1423,149 @@ export class DeclaracionJuradaService {
       detalles,
       totalNeto,
     };
+  }
+
+  // ── Ver Pagos (Rentas.Recibos_reporte) ──────────────────────
+
+  /**
+   * Obtiene los pagos de un contribuyente para el reporte "Ver Pagos".
+   * SP: [Rentas].[Recibos_reporte] (@buscar=2, @codigo=<codigo>)
+   * Agrupa filas por nro_recibo: flag=1 es cabecera, flag=0 es detalle.
+   */
+  async getVerPagos(codigo: string): Promise<VerPagosData> {
+    const result = await this.db.executeProcedure<Record<string, unknown>>(
+      '[Rentas].[Recibos_reporte]',
+      { buscar: 2, codigo: codigo.trim() },
+      { buscar: mssql.Int, codigo: mssql.VarChar(20) },
+    );
+
+    const rows = (result.recordset ?? []) as Array<Record<string, unknown>>;
+    if (rows.length === 0) {
+      return { recibos: [] };
+    }
+
+    const str = (v: unknown): string => String(v ?? '').trim();
+    const num = (v: unknown): number => Number(v ?? 0);
+
+    // Group rows by nro_recibo. flag=1 → header row, flag=0 → detail row.
+    const reciboMap = new Map<string, VerPagosRecibo>();
+
+    for (const row of rows) {
+      const nroRecibo = str(row.nro_recibo ?? Object.values(row)[0]);
+      const flag = str(row.flag ?? Object.values(row)[14]);
+
+      if (flag === '1') {
+        // Header row — creates/updates the receipt
+        reciboMap.set(nroRecibo, {
+          nroRecibo,
+          fechaPago: str(row.fecha_pago ?? Object.values(row)[1]),
+          totalPagado: num(row.total_pagado ?? Object.values(row)[2]),
+          contribuyente: str(row.contribuyente ?? Object.values(row)[9]),
+          banco: str(row.banco ?? Object.values(row)[15]),
+          detalles: [],
+        });
+      } else {
+        // Detail row — append to existing receipt
+        const recibo = reciboMap.get(nroRecibo);
+        if (recibo) {
+          recibo.detalles.push({
+            anno: str(row.anno ?? Object.values(row)[3]),
+            codObligacion: str(row.cod_obligacion ?? Object.values(row)[4]),
+            cuota: str(row.cuota ?? Object.values(row)[5]),
+            tributo: str(row.tributo ?? Object.values(row)[6]),
+            totalPagado: num(row.total_pagado_det ?? Object.values(row)[7]),
+            descuento: num(row.descuento ?? Object.values(row)[8]),
+            insoluto: num(row.insoluto ?? Object.values(row)[10]),
+            intereses: num(row.intereses ?? Object.values(row)[11]),
+            emision: num(row.emision ?? Object.values(row)[12]),
+            codReferencia: str(row.cod_referencia ?? Object.values(row)[13]),
+          });
+        }
+      }
+    }
+
+    return { recibos: Array.from(reciboMap.values()) };
+  }
+
+  // ── Deuda Consolidada (Caja.sp_Imprime_EstCta_4version) ──
+
+  /**
+   * Obtiene el reporte "Deuda Consolidada" de un contribuyente.
+   * - Cabecera: [Caja].[sp_Imprime_EstCta] (@buscar=1) → nombre, domicilio, fecha
+   * - Cuerpo:   [Caja].[sp_Imprime_EstCta_4version_2020|_2021] según criterio
+   *             (0 → _2020, otro → _2021) → codigo, anno, tipoagr, saldo
+   * Las filas se agrupan por año en el builder del frontend.
+   */
+  async getDeudaConsolidado(dto: DeudaConsolidadoDto): Promise<DeudaConsolidadoData> {
+    const wrapList = (items: string[]): string =>
+      items
+        .map((item) => item.replace(/['*]/g, '').trim())
+        .filter(Boolean)
+        .map((item) => `*${item}*`)
+        .join(',');
+
+    const codigo = dto.codigo.trim();
+
+    // ── Header: [Caja].[sp_Imprime_EstCta] (@buscar=1) ──
+    const headerResult = await this.db.executeProcedure<Record<string, unknown>>(
+      '[Caja].[sp_Imprime_EstCta]',
+      { buscar: 1, codigo },
+      { buscar: mssql.Int, codigo: mssql.VarChar(20) },
+    );
+    const headerRow = (headerResult.recordset ?? [])[0] ?? {};
+
+    const str = (v: unknown): string => String(v ?? '').trim();
+    const num = (v: unknown): number => Number(v ?? 0) || 0;
+
+    const cabecera = {
+      codigo: str(headerRow.codigo ?? Object.values(headerRow)[0] ?? codigo),
+      nombre: str(headerRow.nombre ?? Object.values(headerRow)[1]),
+      direccion: str(headerRow.direccion ?? Object.values(headerRow)[2]),
+      fecEmision: str(headerRow.fec_emision ?? Object.values(headerRow)[3]),
+      horEmision: str(headerRow.hor_emision ?? Object.values(headerRow)[4]),
+      tipoDoc: str(headerRow.tipo_doc ?? Object.values(headerRow)[5]),
+      ndoc: str(headerRow.ndoc ?? Object.values(headerRow)[6]),
+    };
+
+    // ── Body: choose SP variant by criterion (0 → _2020, else → _2021) ──
+    const bodySp = dto.criterio === 0
+      ? '[Caja].[sp_Imprime_EstCta_4version_2020]'
+      : '[Caja].[sp_Imprime_EstCta_4version_2021]';
+
+    const resumen = dto.resumen ? 1 : 0;
+    const detalle = dto.detalle ? 1 : 0;
+    const agrupar = dto.agrupar ? 1 : 0;
+
+    const bodyResult = await this.db.executeProcedure<Record<string, unknown>>(
+      bodySp,
+      {
+        codigo,
+        resumen,
+        detalle,
+        agrupar,
+        perio: wrapList(dto.periodos),
+        annos: wrapList(dto.anios),
+        tipos: wrapList(dto.conceptos),
+        tiporec: wrapList(dto.arbitrios),
+        predio: wrapList(dto.predios),
+        vehiculo: wrapList(dto.vehiculos),
+        estado: dto.estado,
+        criterio: String(dto.criterio),
+        fracciona: wrapList(dto.fraccionamientos),
+      },
+      undefined,
+      190_000, // heavy queries — same budget as the legacy store proxy
+    );
+
+    const filas: DeudaConsolidadoData['filas'] = (
+      (bodyResult.recordset ?? []) as Array<Record<string, unknown>>
+    ).map((row) => ({
+      codigo: str(row.codigo ?? Object.values(row)[0] ?? codigo),
+      anno: str(row.anno ?? Object.values(row)[1]),
+      tipoagr: str(row.tipoagr ?? Object.values(row)[2]),
+      saldo: num(row.saldo ?? Object.values(row)[3]),
+    }));
+
+    return { cabecera, filas };
   }
 }

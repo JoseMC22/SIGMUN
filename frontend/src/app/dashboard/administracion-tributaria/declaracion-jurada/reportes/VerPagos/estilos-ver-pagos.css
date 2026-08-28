@@ -1,0 +1,133 @@
+/* ── Ver Pagos Report ─────────────────────────────────── */
+
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 10px;
+    background: #f5f5f5;
+}
+
+.receipt-section {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 16px;
+    padding: 12px 16px;
+    page-break-inside: avoid;
+}
+
+.receipt-section.interbank {
+    background-color: #00BF45;
+    color: white;
+}
+
+.receipt-section.cmacica {
+    background-color: #FE2A1C;
+    color: white;
+}
+
+.receipt-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+}
+
+.receipt-header .info {
+    flex: 1;
+}
+
+.receipt-header .logo {
+    max-width: 80px;
+    height: auto;
+}
+
+.receipt-meta {
+    margin-bottom: 10px;
+}
+
+.receipt-meta .recibo-num {
+    font-size: 14px;
+}
+
+.receipt-section.interbank .recibo-num {
+    color: #002EA4;
+}
+
+.receipt-section.cmacica .recibo-num {
+    color: #00ccff;
+}
+
+.receipt-section:not(.interbank):not(.cmacica) .recibo-num {
+    color: blue;
+}
+
+.receipt-meta .fecha {
+    font-size: 12px;
+}
+
+.receipt-meta .total {
+    font-size: 18px;
+    font-weight: bold;
+    margin: 6px 0;
+}
+
+.receipt-section.interbank .total,
+.receipt-section.cmacica .total {
+    color: #ffff00;
+}
+
+.receipt-section:not(.interbank):not(.cmacica) .total {
+    color: #7B241C;
+}
+
+/* Detail table */
+.receipt-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+    margin-top: 8px;
+}
+
+.receipt-table th {
+    background-color: DimGray;
+    color: white;
+    padding: 6px 8px;
+    text-align: center;
+    font-weight: 600;
+    border: 1px solid #999;
+}
+
+.receipt-table td {
+    padding: 5px 8px;
+    text-align: center;
+    border: 1px solid #ccc;
+}
+
+.receipt-table tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+/* No results */
+.no-results {
+    text-align: center;
+    padding: 40px 20px;
+    color: #c0392b;
+    font-weight: bold;
+    font-size: 16px;
+    border: 2px groove #c0392b;
+    border-radius: 8px;
+    background: white;
+    box-shadow: 0 10px 16px rgba(0,0,0,0.2);
+}
+
+@media print {
+    body {
+        background: white;
+        padding: 0;
+    }
+    .receipt-section {
+        border: 1px solid #ccc;
+        box-shadow: none;
+    }
+}

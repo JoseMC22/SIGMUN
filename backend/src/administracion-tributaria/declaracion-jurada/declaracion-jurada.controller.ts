@@ -30,11 +30,17 @@ import {
   EstadoCuentaReciboRow,
   GenerarLiquidacionDJResult,
   LiquidacionReporteData,
+  VerPagosData,
+  DeudaConsolidadoData,
 } from './dto/declaracion-jurada.types';
 import {
   EstadoCuentaRecibosSchema,
   EstadoCuentaRecibosDto,
 } from './dto/estado-cuenta-recibos.dto';
+import {
+  DeudaConsolidadoSchema,
+  DeudaConsolidadoDto,
+} from './dto/deuda-consolidado.dto';
 import {
   GenerarLiquidacionDJSchema,
   GenerarLiquidacionDJDto,
@@ -540,6 +546,68 @@ export class DeclaracionJuradaController {
         error: error instanceof Error
           ? error.message
           : 'Error al obtener datos de la liquidación.',
+      };
+    }
+  }
+
+  // ── Ver Pagos ──────────────────────────────────────────
+
+  @Get('ver-pagos/:codigo')
+  async getVerPagos(
+    @Param('codigo') codigo: string,
+  ): Promise<
+    { success: true; data: VerPagosData } | { success: false; error: string }
+  > {
+    if (!codigo) {
+      return { success: false, error: 'Falta el parámetro codigo.' };
+    }
+    try {
+      const data = await this.service.getVerPagos(codigo);
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error
+          ? error.message
+          : 'Error al obtener los pagos del contribuyente.',
+      };
+    }
+  }
+
+  // ── Deuda Consolidada ─────────────────────────────────
+
+  @Post('estado-cuenta/deuda-consolidada')
+  async getDeudaConsolidado(
+    @Body() dto: DeudaConsolidadoDto,
+  ): Promise<
+    { success: true; data: DeudaConsolidadoData } | { success: false; error: string }
+  > {
+    let parsed: DeudaConsolidadoDto;
+    try {
+      parsed = DeudaConsolidadoSchema.parse(dto);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const messages = error.issues.map((issue) => issue.message).join(', ');
+        throw new BadRequestException({
+          success: false,
+          error: messages || 'Datos de entrada inválidos.',
+        });
+      }
+      throw new BadRequestException({
+        success: false,
+        error: 'Datos de entrada inválidos.',
+      });
+    }
+    try {
+      const data = await this.service.getDeudaConsolidado(parsed);
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Error al obtener la deuda consolidada del contribuyente.',
       };
     }
   }

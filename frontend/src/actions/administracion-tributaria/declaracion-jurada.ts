@@ -978,3 +978,120 @@ export async function getLiquidacionReporteAction(
     return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
   }
 }
+
+// ─── Ver Pagos (GET) ─────────────────────────────────────
+
+export type VerPagosDetalle = {
+  anno: string;
+  codObligacion: string;
+  tributo: string;
+  cuota: string;
+  insoluto: number;
+  intereses: number;
+  emision: number;
+  descuento: number;
+  totalPagado: number;
+  codReferencia: string;
+};
+
+export type VerPagosRecibo = {
+  nroRecibo: string;
+  fechaPago: string;
+  totalPagado: number;
+  contribuyente: string;
+  banco: string;
+  detalles: VerPagosDetalle[];
+};
+
+export type VerPagosData = {
+  recibos: VerPagosRecibo[];
+};
+
+export async function getVerPagosAction(
+  codigo: string,
+): Promise<
+  { success: true; data: VerPagosData } | { success: false; error: string }
+> {
+  try {
+    const response = await authFetch(`/declaracion-jurada/ver-pagos/${encodeURIComponent(codigo)}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false as const,
+        error: errorData.error ?? errorData.message ?? `Error ${response.status}`,
+      };
+    }
+    const result = await response.json();
+    return { success: true as const, ...result };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ─── Deuda Consolidada (POST) ────────────────────────────
+
+export type DeudaConsolidadoFila = {
+  codigo: string;
+  anno: string;
+  tipoagr: string;
+  saldo: number;
+};
+
+export type DeudaConsolidadoCabecera = {
+  codigo: string;
+  nombre: string;
+  direccion: string;
+  fecEmision: string;
+  horEmision: string;
+  tipoDoc: string;
+  ndoc: string;
+};
+
+export type DeudaConsolidadoData = {
+  cabecera: DeudaConsolidadoCabecera;
+  filas: DeudaConsolidadoFila[];
+};
+
+export type DeudaConsolidadoPayload = {
+  codigo: string;
+  periodos: string[];
+  anios: string[];
+  conceptos: string[];
+  arbitrios: string[];
+  predios: string[];
+  vehiculos: string[];
+  fraccionamientos: string[];
+  /** '0' pendiente | '1' cancelado | '3' por compensar | '%' todo */
+  estado: '0' | '1' | '3' | '%';
+  criterio?: number;
+  /** Option "Ver Resumen Ctas." */
+  resumen?: boolean;
+  /** Option "Ver Detalle Ctas." */
+  detalle?: boolean;
+  /** Option "Agrupar detalle por concepto" */
+  agrupar?: boolean;
+};
+
+export async function getDeudaConsolidadoAction(
+  payload: DeudaConsolidadoPayload,
+): Promise<
+  { success: true; data: DeudaConsolidadoData } | { success: false; error: string }
+> {
+  try {
+    const response = await authFetch('/declaracion-jurada/estado-cuenta/deuda-consolidada', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false as const,
+        error: errorData.error ?? errorData.message ?? `Error ${response.status}`,
+      };
+    }
+    const result = await response.json();
+    return { success: true as const, ...result };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
