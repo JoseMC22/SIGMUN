@@ -83,8 +83,8 @@ export class ReporteCargosService {
       // modo 'fecha' — rango de fechas, por defecto el día actual
       spParams = {
         busc: '7',
-        inicio: fecha_inicio || '',
-        final: fecha_fin || '',
+        desde: fecha_inicio || '',
+        hasta: fecha_fin || '',
       };
     }
 
