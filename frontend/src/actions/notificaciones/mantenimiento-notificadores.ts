@@ -70,9 +70,12 @@ async function postMantenimiento(
 
 // ─── Server Actions ─────────────────────────────────────────
 
-export async function listarNotificadoresAction(): Promise<MantenimientoNotificadorResult> {
+export async function listarNotificadoresAction(
+  nombre?: string,
+): Promise<MantenimientoNotificadorResult> {
   try {
-    const response = await authFetch(BASE, { cache: "no-store" });
+    const query = nombre && nombre.trim() ? `?nombre=${encodeURIComponent(nombre.trim())}` : "";
+    const response = await authFetch(`${BASE}${query}`, { cache: "no-store" });
 
     if (!response.ok) {
       const text = await response.text().catch(() => "");

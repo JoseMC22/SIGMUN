@@ -148,7 +148,7 @@ export default function NotificadorFormModal({
               value={iniciales}
               ref={firstFieldRef}
               disabled={mode === "modificar"}
-              onChange={(e) => setIniciales(e.target.value)}
+              onChange={(e) => setIniciales(e.target.value.toUpperCase())}
               className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] text-slate-700 placeholder-slate-400 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
               placeholder="Ej. ABC"
             />
@@ -165,7 +165,7 @@ export default function NotificadorFormModal({
               id="notificador"
               type="text"
               value={notificador}
-              onChange={(e) => setNotificador(e.target.value)}
+              onChange={(e) => setNotificador(e.target.value.toUpperCase())}
               className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] text-slate-700 placeholder-slate-400 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none"
               placeholder="Nombre del notificador"
             />

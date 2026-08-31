@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { Pencil, Trash2, CheckCircle2, Plus, Loader2, AlertCircle } from "lucide-react";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { Pencil, Trash2, CheckCircle2, Plus, Loader2, AlertCircle, Search, X } from "lucide-react";
 import {
   listarNotificadoresAction,
   activarEliminarNotificadorAction,
@@ -23,6 +23,7 @@ export function NotificadorGrid({ initialData }: Props) {
   const [data, setData] = useState<NotificadorRow[]>(initialData);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"nuevo" | "modificar">("nuevo");
@@ -31,11 +32,11 @@ export function NotificadorGrid({ initialData }: Props) {
   const [togglingId, setTogglingId] = useState<number | null>(null);
   const [confirmRow, setConfirmRow] = useState<NotificadorRow | null>(null);
 
-  const refetch = useCallback(async () => {
+  const refetch = useCallback(async (nombre?: string) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await listarNotificadoresAction();
+      const res = await listarNotificadoresAction(nombre);
       if (res.success) {
         setData(res.data ?? []);
       } else {
@@ -46,6 +47,27 @@ export function NotificadorGrid({ initialData }: Props) {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  // Debounce del input de búsqueda: dispara el SP @busc=11 con @nombre al
+  // dejar de tipear (300ms). Input en mayúsculas como el resto del módulo.
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSearch = useCallback(
+    (value: string) => {
+      const upper = value.toUpperCase();
+      setSearchTerm(upper);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => refetch(upper || undefined), 300);
+    },
+    [refetch],
+  );
+
+  // Limpia el temporizador pendiente al desmontar el componente.
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
   }, []);
 
   const openNuevo = () => {
@@ -85,10 +107,38 @@ export function NotificadorGrid({ initialData }: Props) {
   return (
     <div className="space-y-4">
       {/* Header row */}
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-slate-500">
-          {data.length} notificador(es)
-        </span>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-slate-500">
+            {data.length} notificador(es)
+          </span>
+          <div className="relative">
+            <Search
+              size={13}
+              className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-slate-400"
+            />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => handleSearch(e.target.value)}
+              placeholder="Buscar por nombre..."
+              className="w-56 rounded-md border border-slate-300 bg-white py-1.5 pl-6 pr-8 text-[11px] text-slate-700 placeholder-slate-400 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none"
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchTerm("");
+                  refetch();
+                }}
+                aria-label="Limpiar búsqueda"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-400 transition hover:text-slate-600"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+        </div>
         <button
           type="button"
           onClick={openNuevo}
