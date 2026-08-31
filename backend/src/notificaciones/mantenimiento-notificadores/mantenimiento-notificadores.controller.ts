@@ -5,6 +5,7 @@ import {
   UseGuards,
   Req,
   Body,
+  Query,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -26,8 +27,8 @@ export class MantenimientoNotificadoresController {
   constructor(private readonly service: MantenimientoNotificadoresService) {}
 
   @Get()
-  async listar(): Promise<MantenimientoResult> {
-    return this.service.listar();
+  async listar(@Query('nombre') nombre?: string): Promise<MantenimientoResult> {
+    return this.service.listar(nombre);
   }
 
   @Post('guardar')

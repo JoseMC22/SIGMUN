@@ -40,9 +40,14 @@ export class MantenimientoNotificadoresService {
     };
   }
 
-  async listar(): Promise<MantenimientoResult & { data: ListarNotificadorResult[] }> {
+  async listar(
+    nombre?: string,
+  ): Promise<MantenimientoResult & { data: ListarNotificadorResult[] }> {
     try {
-      const result = await this.db.executeProcedure<any>(this.SP_NAME, { busc: 11 });
+      const result = await this.db.executeProcedure<any>(this.SP_NAME, {
+        busc: 11,
+        nombre: nombre ?? '',
+      });
       const data: ListarNotificadorResult[] = (result.recordset || []).map((row: any) =>
         this.mapRow(row),
       );
@@ -82,16 +87,19 @@ export class MantenimientoNotificadoresService {
         busc: 12,
         iniciales,
         notificador,
-        operador,
-        estacion,
       });
       const mensaje = this.firstMensaje(result);
-      // Whitelist de éxito: solo 'Se insertó...' cuenta como exitoso.
-      // Cualquier otro texto (incl. 'Existe las Iniciales' o mensaje vacío) → fallo.
-      if (/Se insertó/i.test(mensaje)) {
+      // El SP ejecutó sin excepción → la inserción fue exitosa.
+      // Distinguir entre éxito con mensaje y éxito sin mensaje (SP legacy).
+      if (mensaje) {
+        // Si el SP retornó un mensaje que indica conflicto, reportarlo.
+        if (/existe|duplicad|ya existe/i.test(mensaje)) {
+          return { success: false, error: mensaje };
+        }
         return { success: true, message: mensaje };
       }
-      return { success: false, error: mensaje || 'Operación no completada' };
+      // Sin mensaje y sin excepción → éxito silencioso (SP legacy sin SELECT de retorno).
+      return { success: true, message: 'Notificador registrado correctamente' };
     } catch (err) {
       this.logger.error(`[MantenimientoNotificadores] guardar SP error: ${err}`);
       return { success: false, error: 'Error al guardar notificador' };
@@ -134,16 +142,15 @@ export class MantenimientoNotificadoresService {
         busc: 14,
         id_notificador,
         notificador,
-        operador,
-        estacion,
       });
       const mensaje = this.firstMensaje(result);
-      // Whitelist de éxito: solo 'Se actualizó...' cuenta como exitoso.
-      // Cualquier otro texto (incl. 'No se puede actualizar...' o vacío) → fallo.
-      if (/Se actualizó/i.test(mensaje)) {
+      if (mensaje) {
+        if (/no se puede|eliminad|desactivad/i.test(mensaje)) {
+          return { success: false, error: mensaje };
+        }
         return { success: true, message: mensaje };
       }
-      return { success: false, error: mensaje || 'No se puede actualizar registro eliminado' };
+      return { success: true, message: 'Notificador actualizado correctamente' };
     } catch (err) {
       this.logger.error(`[MantenimientoNotificadores] actualizar SP error: ${err}`);
       return { success: false, error: 'Error al actualizar notificador' };
@@ -162,14 +169,15 @@ export class MantenimientoNotificadoresService {
         busc: 13,
         id_notificador,
         estado,
-        operador,
-        estacion,
       });
       const mensaje = this.firstMensaje(result);
-      if (/eliminó|restauró/i.test(mensaje)) {
+      if (mensaje) {
+        if (/no se puede|error|ya existe/i.test(mensaje)) {
+          return { success: false, error: mensaje };
+        }
         return { success: true, message: mensaje };
       }
-      return { success: false, error: mensaje || 'Operación no completada' };
+      return { success: true, message: 'Estado del notificador actualizado' };
     } catch (err) {
       this.logger.error(
         `[MantenimientoNotificadores] activarEliminar SP error: ${err}`,
