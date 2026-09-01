@@ -30,7 +30,7 @@ function padNumValor(value: string | undefined): string {
 export class CargosNotificacionesService {
   private readonly SP_MAESTRO = 'notificacion.ssp_cargos_notificacion';
   private readonly SP_VALORES = '[Rentas].[ssp_mvalores]';
-  private readonly SP_GRABAR = 'notificacion.sp_cargos_notificacion';
+  private readonly SP_GRABAR = '[notificacion].[ssp_Cargos_Notificacion]';
   private readonly TIPO_VALOR_TABLE = 'Contenedor.TblTipo_valor';
   private readonly logger = new Logger(CargosNotificacionesService.name);
 
@@ -97,7 +97,7 @@ export class CargosNotificacionesService {
   }
 
   /**
-   * Registra un cargo de notificación. SP `notificacion.sp_cargos_notificacion`
+   * Registra un cargo de notificación. SP `[notificacion].[ssp_Cargos_Notificacion]`
    * @busc=2. Recibe operador/estación inyectados desde el controller.
    */
   async grabarCargo(

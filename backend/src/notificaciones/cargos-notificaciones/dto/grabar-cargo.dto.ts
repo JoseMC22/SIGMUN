@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 /**
  * Payload para registrar un cargo de notificación.
- * Se envía como parámetros al SP `notificacion.sp_cargos_notificacion` con
+ * Se envía como parámetros al SP `[notificacion].[ssp_Cargos_Notificacion]` con
  * `@busc=2`. Los campos de auditoría (`usuario_reg`, `estacion_reg`,
  * `usuario_act`, `fecha_act`) se inyectan desde el backend, no desde el front.
  */
