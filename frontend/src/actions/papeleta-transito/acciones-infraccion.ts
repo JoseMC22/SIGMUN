@@ -277,6 +277,22 @@ export async function verFraccionamientoAction(codigo: string) {
   }
 }
 
+export async function resolucionFraccionamientoAction(codigo: string, convenio: string) {
+  try {
+    const response = await authFetch("/papeleta-transito/acciones/resolucion-fraccionamiento", {
+      method: "POST",
+      body: JSON.stringify({ codigo, convenio }),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      return { success: false as const, error: err.message ?? `Error ${response.status}` };
+    }
+    return { success: true as const, ...(await response.json()) };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : "Error de conexión" };
+  }
+}
+
 // ── Cargar Detalle Infracción ─────────────────────────────
 
 export async function cargarDetalleInfraccionAction(ninfrac: string) {
@@ -618,7 +634,9 @@ export async function validarPlacaAction(placa: string) {
 // ── Grabar Conductor / Propietario (Persona Nuevo Ingreso) ──
 
 export interface GrabarConProData {
+  /** Tipo de documento (DNI/RUC/CE) — mapea al @tipoing del SP nuevoingreso */
   tipoPer?: string;
+  /** Tipo de persona (@tipoper): '1' natural, '2' jurídica */
   cmbTipoPer?: string;
   apPaterno: string;
   apMaterno: string;
@@ -637,9 +655,28 @@ export interface GrabarConProData {
 
 export async function grabarConProAction(data: GrabarConProData) {
   try {
+    // Mapea los nombres públicos al formato esperado por el SP papeleta.nuevoingreso
+    // (prefijo txt*, igual que el PHP legacy grabarconproAction).
+    const body = {
+      tipoper: data.tipoPer ?? "DNI",
+      cmbtipoper: data.cmbTipoPer ?? "1",
+      txtaprz: data.apPaterno ?? "",
+      txtapmater: data.apMaterno ?? "",
+      txtnombre: data.nombres ?? "",
+      txtdniruc: data.dniRuc ?? "",
+      txtnlicencia: data.licencia ?? "",
+      txtntarjeta: data.tarjeta ?? "",
+      txtdomicilio: data.domicilio ?? "",
+      txtdnumero: data.numero ?? "",
+      txtdmanzana: data.manzana ?? "",
+      txtdlote: data.lote ?? "",
+      txtidlugar: data.idLugar ?? "",
+      idconductor: data.idConductor ?? "",
+      txtemail: data.email ?? "",
+    };
     const response = await authFetch("/papeleta-transito/acciones/grabar-conpro", {
       method: "POST",
-      body: JSON.stringify(data),
+      body: JSON.stringify(body),
     });
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
@@ -704,6 +741,67 @@ export async function obtenerCombosLugarAction() {
   try {
     const response = await authFetch("/papeleta-transito/acciones/combos-lugar", {
       method: "GET",
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      return { success: false as const, error: err.message ?? `Error ${response.status}` };
+    }
+    return { success: true as const, ...(await response.json()) };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : "Error de conexión" };
+  }
+}
+
+// ── Combos y Grabado de Placa ─────────────────────────────
+
+export interface ComboPlacaItem {
+  id: string;
+  descripcion: string;
+}
+
+export interface CombosPlacaData {
+  tipos: ComboPlacaItem[];
+  marcas: ComboPlacaItem[];
+  colores: ComboPlacaItem[];
+}
+
+export async function obtenerCombosPlacaAction() {
+  try {
+    const response = await authFetch("/papeleta-transito/acciones/combos-placa", {
+      method: "GET",
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      return { success: false as const, error: err.message ?? `Error ${response.status}` };
+    }
+    return { success: true as const, ...(await response.json()) };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : "Error de conexión" };
+  }
+}
+
+export interface GrabarPlacaData {
+  mquery?: number;
+  idtramplac?: number;
+  codplac: string;
+  codplac1?: string;
+  tipvehi?: string;
+  codmarc?: string;
+  codcolo?: string;
+  aniofab?: string;
+  formalidad?: string;
+  codigo?: string;
+  estado?: string;
+  usuario?: string;
+  estacion?: string;
+  fechIngreso?: string;
+}
+
+export async function grabarPlacaAction(data: GrabarPlacaData) {
+  try {
+    const response = await authFetch("/papeleta-transito/acciones/grabar-placa", {
+      method: "POST",
+      body: JSON.stringify(data),
     });
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));

@@ -304,6 +304,10 @@ export type ConsultaPlacaDto = z.infer<typeof ConsultaPlacaSchema>;
 export interface PlacaRow {
   idtramplac: string;
   codplac: string;
+  codplacSec: string;
+  tipvehi: string;
+  codmarc: string;
+  codcolo: string;
   desvehi: string;
   desmarc: string;
   aniofab: string;
@@ -391,3 +395,49 @@ export interface InfraccionMultaRow {
   monto: string;
 }
 
+// ── Reporte: Datos Estado de Cuenta ──────────────────────
+// SP: papeleta.sp_Imprime_EstCta_record (@buscar=0, @placa, @conductor, @dni, @estado)
+
+export const ReporteEstadoCuentaSchema = z.object({
+  ninfrac: z.string().min(1, 'N° de infracción es requerido'),
+  codigo: z.string().default(''),
+  placa: z.string().default(''),
+  conductor: z.string().default(''),
+  dni: z.string().default(''),
+  estado: z.string().default(''),
+});
+
+export type ReporteEstadoCuentaDto = z.infer<typeof ReporteEstadoCuentaSchema>;
+
+// ── Reporte: Datos Certificado No Adeudo ─────────────────
+// SP: papeleta.sp_Imprime_Certificadonoadeudo (@buscar=2, @ninfrac, @numingr, @operador)
+
+export const ReporteCertificadoNoAdeudoSchema = z.object({
+  ninfrac: z.string().min(1, 'N° de infracción es requerido'),
+  numingr: z.string().min(1, 'N° de recibo es requerido'),
+  operador: z.string().default('SISTEMA'),
+});
+
+export type ReporteCertificadoNoAdeudoDto = z.infer<typeof ReporteCertificadoNoAdeudoSchema>;
+
+// ── Reporte: Datos Certificado Gravamen ──────────────────
+// SP: papeleta.sp_Imprime_Certificadogravamen (@buscar=2, @ninfrac, @numingr, @operador)
+
+export const ReporteGravamenSchema = z.object({
+  ninfrac: z.string().min(1, 'N° de infracción es requerido'),
+  numingr: z.string().min(1, 'N° de recibo es requerido'),
+  operador: z.string().default('SISTEMA'),
+});
+
+export type ReporteGravamenDto = z.infer<typeof ReporteGravamenSchema>;
+
+// ── Reporte: Datos Resolución de Sanción ─────────────────
+// SP: papeleta.rpt_reslsanc (@idtramctas, @xidusuario, @xestacion)
+
+export const ReporteResolucionSancionSchema = z.object({
+  idtramctas: z.string().min(1, 'ID de tramitación es requerido'),
+  usuario: z.string().default('SISTEMA'),
+  estacion: z.string().default('SIGMUN-API'),
+});
+
+export type ReporteResolucionSancionDto = z.infer<typeof ReporteResolucionSancionSchema>;

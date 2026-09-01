@@ -25,8 +25,15 @@ import {
   Send,
   Trash2,
 } from "lucide-react";
-import { searchInfraccionesAction } from "@/actions/papeleta-transito/listado-de-infracciones";
+import { checkSessionAction } from "@/actions/auth/auth";
+import { searchInfraccionesAction, obtenerDatosReporteEstadoCuentaAction, obtenerDatosReporteResolucionSancionAction } from "@/actions/papeleta-transito/listado-de-infracciones";
 import { gravamenSinPlacaAction, imprimirRecordPendienteAction, verFraccionamientoAction, generarLiquidacionAction, eliminarPapeletaAction, cargarDetalleInfraccionAction } from "@/actions/papeleta-transito/acciones-infraccion";
+import { obtenerPlantillaEstadoCuentaAction, obtenerPlantillaResolucionSancionAction, obtenerPlantillaRecordAction } from "@/actions/papeleta-transito/reportes-infracciones";
+import { construirHtmlReporteEstadoCuenta, construirConfigPdfEstadoCuenta } from "./reportes/EstadoCuenta/reporte-estado-cuenta";
+import { construirHtmlReporteResolucion, construirConfigPdfResolucion } from "./reportes/ResolucionSancion/reporte-resolucion";
+import { construirHtmlReporteRecord, construirConfigPdfRecord } from "./reportes/RecordPendiente/reporte-record";
+import type { ReportePdfConfig } from "@/lib/reportes/reporte-service";
+import ReporteViewerModal from "@/components/reportes/reporte-viewer-modal";
 import NuevaInfraccionModal from "./nueva-infraccion-modal";
 import FraccionarPapeletaModal from "./fraccionar-papeleta-modal";
 import VerFraccionamientoModal from "./ver-fraccionamiento-modal";
@@ -154,7 +161,16 @@ export default function ListadoDeInfraccionesPage() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
 
-  // ── Modal states ──────────────────────────────────────────
+  const [usuarioLogueado, setUsuarioLogueado] = useState<string>("SISTEMA");
+
+  useEffect(() => {
+    checkSessionAction().then((res) => {
+      if (res.authenticated && res.user) {
+        const nombreUsr = res.user.usuario || res.user.username || res.user.nombre || "SISTEMA";
+        setUsuarioLogueado(nombreUsr);
+      }
+    });
+  }, []);
   const [showNuevaInfraccion, setShowNuevaInfraccion] = useState(false);
   const [showFraccionar, setShowFraccionar] = useState(false);
   const [showVerFraccionamiento, setShowVerFraccionamiento] = useState(false);
@@ -170,6 +186,16 @@ export default function ListadoDeInfraccionesPage() {
   const [showEnvioCoactivo, setShowEnvioCoactivo] = useState(false);
   const [editData, setEditData] = useState<Record<string, string> | undefined>(undefined);
   const [actionLoading, setActionLoading] = useState(false);
+
+  // ── Reporte states ────────────────────────────────────────
+  const [reporteHtml, setReporteHtml] = useState<string | null>(null);
+  const [reportePdf, setReportePdf] = useState<ReportePdfConfig | null>(null);
+  const [reporteLoading, setReporteLoading] = useState(false);
+
+  const cerrarReporte = () => {
+    setReporteHtml(null);
+    setReportePdf(null);
+  };
 
   const executeSearch = useCallback(
     async (pageNum: number, filtersOverride?: typeof filters) => {
@@ -216,8 +242,9 @@ export default function ListadoDeInfraccionesPage() {
       dniConductor: "",
     };
     setFilters(cleared);
+    setData([]);
+    setTotal(0);
     setPage(1);
-    executeSearch(1, cleared);
   };
 
   const handleSearch = () => {
@@ -378,89 +405,67 @@ export default function ListadoDeInfraccionesPage() {
   };
 
   const handleImprimirRecordPendiente = async () => {
-    setActionLoading(true);
-    try {
-      const placa = filters.placa.trim() || selectedRow?.placa || "";
-      const conductor = filters.conductor.trim() || selectedRow?.conductor || "";
-      const dni = filters.dniConductor.trim() || (selectedRow as any)?.dniConductor || (selectedRow as any)?.dni || "";
+    const placa = filters.placa.trim() || selectedRow?.placa || "";
+    const conductor = filters.conductor.trim() || selectedRow?.conductor || "";
+    const dni = filters.dniConductor.trim() || (selectedRow as any)?.dniConductor || (selectedRow as any)?.dni || "";
 
-      const result = await imprimirRecordPendienteAction({
-        placa,
-        conductor,
-        dni,
-        estado: "9",
-      });
+    setReporteLoading(true);
+    try {
+      const [plantilla, result] = await Promise.all([
+        obtenerPlantillaRecordAction(),
+        imprimirRecordPendienteAction({
+          placa,
+          conductor,
+          dni,
+          estado: "",
+        }),
+      ]);
+
+      if (!plantilla.success) {
+        alert(`Error al cargar plantilla: ${plantilla.error}`);
+        return;
+      }
 
       if (result.success && result.data) {
         const d = result.data;
         const rows = d.rows ?? [];
-        const detalle = rows.map((r: any) => {
-          const valorr = r.infraccion === 'M.40' ? '' : (r.valor ? r.valor.toFixed(2) : '');
-          const valor11 = r.infraccion === 'M.40' ? '' : (r.valor ? (r.valor - (r.descuento || 0)).toFixed(2) : '');
-          return `
-            <tr><td colspan="4">Codigo:&nbsp;&nbsp;${r.codigo}</td></tr>
-            <tr><td colspan="4">Infractor:&nbsp;&nbsp;${r.infractor}</td></tr>
-            <tr><td colspan="4" height="5">&nbsp;</td></tr>
-            <tr><td width="20%"><b>Papeleta</b></td><td width="20%"><b>Placa</b></td><td width="25%"><b>Infracc.</b><br><b>Deuda</b></td><td width="35%"><b>Fecha Infr.</b><br><b>Deuda-Dscto</b></td></tr>
-            <tr><td>${r.papeleta}</td><td>${r.placa}</td><td>${r.infraccion}</td><td>${r.fecha}</td></tr>
-            <tr><td colspan="2"><b>${r.propietario}</b></td><td>${valorr}</td><td>${valor11}</td></tr>
-            <tr><td colspan="4">Propietario</td></tr>
-            <tr><td colspan="4" class="Estilo8">${r.propietario}</td></tr>
-            <tr><td colspan="4"><hr></td></tr>
-          `;
-        }).join("");
+        const items = rows.map((r: any) => {
+          const valInsol = r.infraccion === "M.40" ? 0 : (r.valor ?? 0);
+          const desc = r.infraccion === "M.40" ? 0 : (r.descuento ?? 0);
+          const totalFinal = r.infraccion === "M.40" ? 0 : (r.total ?? (valInsol - desc));
+          return {
+            papeleta: String(r.papeleta ?? "-"),
+            placa: String(r.placa ?? "-"),
+            infraccion: String(r.infraccion ?? "-"),
+            fecha: String(r.fecha ?? "-"),
+            propietario: String(r.propietario ?? "-"),
+            valor: valInsol,
+            descuento: desc,
+            montoFinal: totalFinal,
+            estado: String(r.estado ?? "PENDIENTE"),
+          };
+        });
 
-        const html = `
-          <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="es" lang="es">
-          <head>
-            <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-            <title>RECORD DE PAPELETA DEL INFRACTOR</title>
-            <style type="text/css">
-              body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; margin: 10px; color: #000; }
-              .Estilo6 { font-size: 10px; }
-              .Estilo7 { font-size: 8px; font-weight: bold; }
-              .Estilo8 { font-size: 9px; }
-            </style>
-          </head>
-          <body onload="window.print();">
-            <table width="100%" border="0" cellspacing="0" cellpadding="0">
-              <tr>
-                <td height="24" colspan="6" class="Estilo6">
-                  <b>SAT - ICA<br>RECORD DE PAPELETA DEL INFRACTOR AL ${new Date().toLocaleDateString('es-PE')}</b>
-                  <hr align="left" width="100%">
-                </td>
-              </tr>
-              <tr>
-                <td height="10" colspan="2" class="Estilo9" id="detalle">
-                  <table width="100%" border="0" cellspacing="0" cellpadding="0" class="Estilo6">
-                    ${detalle}
-                    <tr style="color:#7B241C;font-weight: bold;"><td>Total Descuento</td><td></td><td></td><td>${d.totalDescuento?.toFixed(2) ?? '0.00'}</td></tr>
-                    <tr style="color:#5B2C6F;font-weight: bold;"><td>Total Costas</td><td></td><td></td><td>0.00</td></tr>
-                  </table>
-                </td>
-              </tr>
-              <tr><td colspan="2" class="Estilo7" align="left"><b>Nota: EL PRESENTE DOCUMENTO SOLAMENTE TIENE VALIDEZ REFERENCIAL</b></td></tr>
-              <tr><td colspan="2"><hr></td></tr>
-              <tr><td colspan="2" class="Estilo6" align="right" id="datostot" style="font-size:12px;"><b>Importe Total:&nbsp;&nbsp;S/ ${d.importeTotal?.toFixed(2) ?? '0.00'}&nbsp;&nbsp;&nbsp;</b></td></tr>
-              <tr><td colspan="2" height="5"></td></tr>
-              <tr><td colspan="2" class="Estilo6" align="left" id="datos10">Fecha:&nbsp;&nbsp;${new Date().toLocaleString('es-PE')}</td></tr>
-            </table>
-          </body>
-          </html>`;
-        const win = window.open("", "_blank");
-        if (win) {
-          win.document.write(html);
-          win.document.close();
-        } else {
-          alert("Bloqueado por el navegador. Permita ventanas emergentes para imprimir.");
-        }
+        const primerItem = rows[0] ?? {};
+        const datosReporte: import("./reportes/RecordPendiente/reporte-record").DatosRecordPendiente = {
+          codigo: String(primerItem.codigo ?? "-"),
+          infractor: String(primerItem.infractor ?? (conductor || "-")),
+          items,
+          totalDescuento: d.totalDescuento ?? 0,
+          totalCostas: 0,
+          totalImporte: d.importeTotal ?? 0,
+          usuario: usuarioLogueado,
+        };
+
+        setReporteHtml(construirHtmlReporteRecord(datosReporte, plantilla.data));
+        setReportePdf(construirConfigPdfRecord(datosReporte));
       } else {
         alert(`❌ ${result.error ?? result.message}`);
       }
     } catch {
-      alert("❌ Error de conexión al obtener record.");
+      alert("❌ Error al generar el Récord Pendiente del Infractor.");
     } finally {
-      setActionLoading(false);
+      setReporteLoading(false);
     }
   };
 
@@ -524,20 +529,49 @@ export default function ListadoDeInfraccionesPage() {
   };
 
   // 3. Imprimir Resolución de Sanción (Printer)
-  const handleImprimirResolucionSancion = (row: InfraccionRow) => {
+  const handleImprimirResolucionSancion = async (row: InfraccionRow) => {
     if (row.imp === "N") {
       alert(`No puede imprimir una RS para infracción ${row.estado}`);
       return;
     }
-    const reportBaseUrl = process.env.NEXT_PUBLIC_REPORT_URL ?? "";
-    if (!reportBaseUrl) {
-      alert("URL del servidor de reportes no configurada. Agregue NEXT_PUBLIC_REPORT_URL en .env");
-      return;
+    setReporteLoading(true);
+    try {
+      const [plantilla, datosRes] = await Promise.all([
+        obtenerPlantillaResolucionSancionAction(),
+        obtenerDatosReporteResolucionSancionAction({ idtramctas: row.id }),
+      ]);
+      if (!plantilla.success) { alert(`Error al cargar plantilla: ${plantilla.error}`); return; }
+      if (!datosRes.success) { alert(`Error al obtener datos: ${datosRes.error}`); return; }
+      const d = datosRes.data ?? {};
+      setReporteHtml(construirHtmlReporteResolucion({
+        nroSancion: d.nrosanc ?? "-",
+        nroPapeleta: d.numero ?? row.id,
+        fecAplicacion: d.fecapli ?? row.fecha,
+        codInfraccion: d.codinfr ?? row.codigoInfra,
+        detalleInfraccion: d.detalleinf ?? "-",
+        placa: d.codplac ?? row.placa,
+        nombreInfractor: d.nomcond ?? row.conductor,
+        direccionInfractor: d.direcccond ?? "-",
+        montoMuta: parseFloat(d.valpape ?? "0") || 0,
+        montoEnLetras: d.monto_soles ?? "",
+        fechaEmision: d.fechnow ?? new Date().toLocaleDateString("es-PE"),
+      }, plantilla.data));
+      setReportePdf(construirConfigPdfResolucion({
+        nroSancion: d.nrosanc ?? "-",
+        nroPapeleta: d.numero ?? row.id,
+        fecAplicacion: d.fecapli ?? row.fecha,
+        codInfraccion: d.codinfr ?? row.codigoInfra,
+        detalleInfraccion: d.detalleinf ?? "-",
+        placa: d.codplac ?? row.placa,
+        nombreInfractor: d.nomcond ?? row.conductor,
+        direccionInfractor: d.direcccond ?? "-",
+        montoMuta: parseFloat(d.valpape ?? "0") || 0,
+      }));
+    } catch {
+      alert("Error al generar reporte de Resolución de Sanción.");
+    } finally {
+      setReporteLoading(false);
     }
-    const usuario = "USUARIO";
-    const fecha = new Date().toLocaleDateString("es-PE");
-    const url = `${reportBaseUrl}?usuario=${usuario}&fecha=${fecha}&schema=&tipo=pdf&nombrereporte=rptsancion01&param=PINDICE^${row.id}|PUSUARIO^${usuario}|PESTACION^`;
-    window.open(url, "_blank", "width=700,height=600,scrollbars=yes");
   };
 
   // 4. Generar Resolución de Sanción (FileText)
@@ -578,8 +612,7 @@ export default function ListadoDeInfraccionesPage() {
       alert("Ingrese la información del conductor.");
       return;
     }
-
-    setActionLoading(true);
+    setReporteLoading(true);
     try {
       const codigoClean = (row.codigo ?? "").trim();
       let infracClean = (row.codigoInfraccion ?? "").trim().replace(/\s+/g, "");
@@ -588,28 +621,90 @@ export default function ListadoDeInfraccionesPage() {
         infracClean = `${parts[0]}-${parts[1]}-${parts[2].padStart(6, "0")}`;
       }
 
-      const result = await generarLiquidacionAction({
+      const [plantilla, datosRes] = await Promise.all([
+        obtenerPlantillaEstadoCuentaAction(),
+        obtenerDatosReporteEstadoCuentaAction({
+          ninfrac: infracClean || row.id,
+          codigo: codigoClean,
+          placa: row.placa,
+          conductor: row.conductor,
+        }),
+      ]);
+      if (!plantilla.success) { alert(`Error al cargar plantilla: ${plantilla.error}`); return; }
+      if (!datosRes.success) { alert(`Error al obtener datos: ${datosRes.error}`); return; }
+
+      let nroLiq = "";
+      // Disparar generación de liquidación en segundo plano sin bloquear el UI ni esperar su respuesta
+      generarLiquidacionAction({
         codigo: codigoClean,
         infraccion: infracClean,
-        usuario: "JMOZO",
+        usuario: usuarioLogueado,
         idrecibo: row.idRecibo?.trim() ?? "",
-      });
-
-      if (result.success && result.nliqui) {
-        const reportBaseUrl = process.env.NEXT_PUBLIC_REPORT_URL ?? "";
-        if (!reportBaseUrl) {
-          alert("URL del servidor de reportes no configurada.");
-          return;
+      }).then((res) => {
+        if (res.success && res.nliqui) {
+          nroLiq = res.nliqui;
         }
-        const params = `tipo=pdf&nombrereporte=rptEstCtaMaestroContrib_papelq&param=PCODIGO^${codigoClean}|PUSUARIO^JMOZO|PRESUMEN^1|PDETALLE^0|PAGRUPAR^0|PPERIODO^|PANIOS^|PCONCEPTOS^*10.86*,*25.30*,*30.98*,*46.34*|PARBITRIOS^|PPREDIO^|ESTADO^|CRITERIO^0|VEHICULO^|FRACCIONA^*${infracClean}*|NLIQ^${result.nliqui}`;
-        window.open(`${reportBaseUrl}?${params}`, "_blank", "width=700,height=600,scrollbars=yes");
-      } else {
-        alert(result.message ?? "Error al generar la liquidación.");
-      }
+      }).catch(() => {});
+
+      const rows: any[] = Array.isArray(datosRes.data) ? datosRes.data : [];
+      const items = rows.map((r: any) => {
+        const isArr = Array.isArray(r);
+        // Si viene como array (PHP style) o como objeto (mssql name mapping):
+        // row[8]=imp_insol, row[10]=imp_reaj, row[12]=total, row[7]=anno, etc.
+        const numPapeleta = isArr ? String(r[7] ?? r[6] ?? row.id) : String(r.cod_pred ?? r.papeleta ?? r.numero ?? row.id).trim();
+        const fecInfraccion = isArr ? String(r[13] ?? r[14] ?? "-") : String(r.fecapli ?? "-");
+        const codInfraccion = isArr ? String(r[15] ?? r[16] ?? "-") : String(r.infracc ?? r.codinfr ?? "-").trim();
+        const placa = isArr ? String(r[17] ?? row.placa) : String(r.cod_pred1 ?? r.codplac ?? row.placa).trim();
+
+        const valInsol = isArr ? (parseFloat(r[8] ?? 0) || 0) : (parseFloat(r.imp_insol ?? 0) || 0);
+        // imp_reaj viene como un número (ej: -294.8), tomamos su valor absoluto para la propiedad descuento
+        const rawReaj = isArr ? (parseFloat(r[10] ?? 0) || 0) : (parseFloat(r.imp_reaj ?? 0) || 0);
+        const desc = Math.abs(rawReaj);
+        const sald = isArr ? (parseFloat(r[12] ?? 0) || 0) : (parseFloat(r.total ?? r.saldo ?? 0) || (valInsol - desc));
+
+        return {
+          numPapeleta,
+          fecInfraccion,
+          fecVencimiento: "-",
+          codInfraccion,
+          placa,
+          tributo: isArr ? String(r[3] ?? "") : String(r.tipode1 ?? r.tributo ?? r.tipo ?? ""),
+          valPapeleta: valInsol,
+          descuento: desc,
+          insoluto: valInsol,
+          reincidencia: 0,
+          costas: 0,
+          saldoDeuda: sald,
+          estado: "PENDIENTE",
+        };
+      });
+      const totalValPape = items.reduce((s, i) => s + i.valPapeleta, 0);
+      const totalDescuento = items.reduce((s, i) => s + i.descuento, 0);
+      const totalDeuda = items.reduce((s, i) => s + i.saldoDeuda, 0);
+      const totalInsoluto = totalValPape - totalDescuento;
+      const nombreSp = rows[0]?.nombre ?? rows[0]?.nomcond ?? "";
+      const domicilioSp = rows[0]?.domicilio ?? rows[0]?.direccion ?? "";
+      const datosReporte: import("./reportes/EstadoCuenta/reporte-estado-cuenta").DatosEstadoCuenta = {
+        codigo: row.codigo,
+        nombre: nombreSp || row.conductor || row.propietario || "-",
+        domicilio: domicilioSp || "-",
+        nombreInfractor: row.conductor || row.propietario,
+        numDoc: "",
+        placa: row.placa,
+        usuario: usuarioLogueado,
+        nroLiquidacion: nroLiq,
+        items,
+        totalValPape,
+        totalDescuento,
+        totalDeuda,
+        totalInsoluto,
+      };
+      setReporteHtml(construirHtmlReporteEstadoCuenta(datosReporte, plantilla.data));
+      setReportePdf(construirConfigPdfEstadoCuenta(datosReporte));
     } catch {
-      alert("Error de conexión al generar la liquidación.");
+      alert("Error al generar reporte de Estado de Cuenta.");
     } finally {
-      setActionLoading(false);
+      setReporteLoading(false);
     }
   };
 
@@ -805,6 +900,7 @@ export default function ListadoDeInfraccionesPage() {
                 className={`rounded p-1 transition ${row.edt === "N" ? "text-slate-300 cursor-not-allowed" : "text-slate-400 hover:bg-slate-100 hover:text-sat-cyan"}`}>
                 <Pencil size={13} />
               </button>
+              {/* TODO: Ocultar temporalmente — Resolución de Sanción no está lista para producción
               <button type="button" title="Imprimir Resolución de Sanción"
                 onClick={(e) => { e.stopPropagation(); setSelectedRowId(row.id); handleImprimirResolucionSancion(row); }}
                 className={`rounded p-1 transition ${row.imp === "N" ? "text-slate-300 cursor-not-allowed" : "text-slate-400 hover:bg-slate-100 hover:text-sat-cyan"}`}>
@@ -815,6 +911,7 @@ export default function ListadoDeInfraccionesPage() {
                 className={`rounded p-1 transition ${row.gnr === "N" ? "text-slate-300 cursor-not-allowed" : "text-slate-400 hover:bg-slate-100 hover:text-sat-cyan"}`}>
                 <FileText size={13} />
               </button>
+              */}
               <button type="button" title="Cambio de Estado"
                 onClick={(e) => { e.stopPropagation(); setSelectedRowId(row.id); handleCambioEstado(row); }}
                 className={`rounded p-1 transition ${row.cmb === "N" ? "text-slate-300 cursor-not-allowed" : "text-slate-400 hover:bg-slate-100 hover:text-sat-cyan"}`}>
@@ -1066,8 +1163,8 @@ export default function ListadoDeInfraccionesPage() {
       />
       <VerFraccionamientoModal
         isOpen={showVerFraccionamiento}
-        codigo={selectedRow?.codigo ?? null}
-        propietarioNombre={selectedRow?.propietario ?? ""}
+        codigo={selectedRow?.codigo || (selectedRow as any)?.codigoInfractor || (selectedRow as any)?.codigoConductor || null}
+        propietarioNombre={selectedRow?.conductor || selectedRow?.propietario || ""}
         onClose={() => setShowVerFraccionamiento(false)}
       />
       <ImportarExcelModal
@@ -1134,6 +1231,24 @@ export default function ListadoDeInfraccionesPage() {
         onClose={() => setShowEnvioCoactivo(false)}
         onSuccess={() => executeSearch(page)}
       />
+
+      {/* ── Reporte viewer (Estado de Cuenta / Resolución de Sanción) ── */}
+      <ReporteViewerModal
+        isOpen={reporteHtml !== null}
+        onClose={cerrarReporte}
+        html={reporteHtml ?? ""}
+        pdfConfig={reportePdf}
+      />
+
+      {/* ── Reporte loading overlay ── */}
+      {reporteLoading && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/20 backdrop-blur-[1px]">
+          <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 shadow-lg">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-sat-cyan border-t-transparent" />
+            <span className="text-xs font-medium text-slate-500">Generando reporte...</span>
+          </div>
+        </div>
+      )}
 
       {/* Action loading overlay */}
       {actionLoading && (
