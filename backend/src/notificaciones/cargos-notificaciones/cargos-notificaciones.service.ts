@@ -7,6 +7,7 @@ import {
   NotificadoresComboResult,
   ParentescosComboResult,
   ValidarValorResult,
+  TributosResult,
   GrabarCargoResult,
   TipoValorOption,
   NotificadorOption,
@@ -33,6 +34,7 @@ export class CargosNotificacionesService {
   private readonly SP_MAESTRO = 'notificacion.ssp_cargos_notificacion';
   private readonly SP_VALORES = '[Rentas].[ssp_mvalores]';
   private readonly SP_GRABAR = 'notificacion.sp_cargos_notificacion';
+  private readonly SP_TRIBUTOS = '[Rentas].[ssp_dvalores]';
   private readonly TIPO_VALOR_TABLE = 'Contenedor.TblTipo_valor';
   private readonly PARENTESCO_TABLE = 'rentas.rc_tipo_relacion';
   private readonly logger = new Logger(CargosNotificacionesService.name);
@@ -116,6 +118,26 @@ export class CargosNotificacionesService {
     } catch (err) {
       this.logger.error(`[CargosNotificaciones] validarValor SP error: ${err}`);
       return { success: false, data: [], error: 'Error al validar el valor' };
+    }
+  }
+
+  /**
+   * Retorna la tabla de tributos del valor tributario.
+   * SP `[Rentas].[ssp_dvalores]` @msquery=4.
+   */
+  async listarTributos(dto: ValidarValorDto): Promise<TributosResult> {
+    const { id_valor, num_valor, ano_valor } = dto;
+    try {
+      const result = await this.db.executeProcedure<any>(this.SP_TRIBUTOS, {
+        msquery: 4,
+        id_valor: id_valor || '',
+        num_val: padNumValor(num_valor),
+        ano_val: ano_valor ?? '',
+      });
+      return { success: true, data: result.recordset || [] };
+    } catch (err) {
+      this.logger.error(`[CargosNotificaciones] listarTributos SP error: ${err}`);
+      return { success: false, data: [], error: 'Error al consultar los tributos' };
     }
   }
 

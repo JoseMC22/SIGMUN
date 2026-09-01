@@ -16,6 +16,7 @@ import {
   listarNotificadoresAction,
   listarParentescosAction,
   validarValorAction,
+  listarTributosAction,
   grabarCargoAction,
   type TipoValorOption,
   type NotificadorOption,
@@ -137,11 +138,15 @@ export default function CargosNotificacionesPage() {
     }
     setValidando(true);
     try {
-      const res = await validarValorAction({
+      const filters = {
         id_valor: idValor,
         num_valor: numValor,
         ano_valor: anoValor ? Number(anoValor) : undefined,
-      });
+      };
+      const [res, trib] = await Promise.all([
+        validarValorAction(filters),
+        listarTributosAction(filters),
+      ]);
       if (res.success && res.data.length > 0) {
         const first = res.data[0];
         setDetalle({
@@ -151,14 +156,12 @@ export default function CargosNotificacionesPage() {
           direccion: getField(first, "direccion", "direc_fiscal", "dir"),
           monto: getField(first, "total", "monto", "monto_valor"),
         });
-        // Las filas de tributos son el mismo recordset; el front renderiza por
-        // sus claves dinámicas (coherente con el resto de los reportes).
-        setTributos(res.data);
       } else {
         setDetalle(EMPTY_DETALLE);
-        setTributos([]);
         setError(res.error ?? "No se encontró el valor");
       }
+      // La tabla de tributos proviene de su propia SP (ssp_dvalores @msquery=4).
+      setTributos(trib.success ? trib.data : []);
     } catch {
       setError("Error al validar el valor");
     } finally {

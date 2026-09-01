@@ -200,6 +200,34 @@ export async function validarValorAction(
   }
 }
 
+export async function listarTributosAction(
+  filters: ValidarValorFilters,
+): Promise<ValidarValorResult> {
+  try {
+    const response = await authFetch(`${BASE}/tributos`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id_valor: filters.id_valor,
+        num_valor: filters.num_valor,
+        ano_valor: filters.ano_valor,
+      }),
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      return { success: false, data: [], error: text || `Error ${response.status}` };
+    }
+    const json = await response.json();
+    if (!json.success) {
+      return { success: false, data: [], error: json.error ?? "Error al consultar los tributos" };
+    }
+    return { success: true, data: json.data ?? [] };
+  } catch {
+    return { success: false, data: [], error: "Error de conexión con el servidor" };
+  }
+}
+
 export async function grabarCargoAction(
   payload: GrabarCargoPayload,
 ): Promise<GrabarCargoResult> {

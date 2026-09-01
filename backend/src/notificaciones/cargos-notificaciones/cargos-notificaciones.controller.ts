@@ -25,6 +25,7 @@ import {
   NotificadoresComboResult,
   ParentescosComboResult,
   ValidarValorResult,
+  TributosResult,
   GrabarCargoResult,
 } from './cargos-notificaciones.types';
 import { z } from 'zod';
@@ -70,6 +71,22 @@ export class CargosNotificacionesController {
       );
     }
     return this.service.validarValor(dto);
+  }
+
+  /** Tabla de tributos del valor (SP [Rentas].[ssp_dvalores] @msquery=4). */
+  @Post('tributos')
+  @HttpCode(HttpStatus.OK)
+  async tributos(@Body() body: unknown): Promise<TributosResult> {
+    let dto: ValidarValorDto;
+    try {
+      dto = ValidarValorSchema.parse(body);
+    } catch (error) {
+      return this.validationError<TributosResult>(
+        error,
+        { success: false, data: [], error: 'Parámetros inválidos' },
+      );
+    }
+    return this.service.listarTributos(dto);
   }
 
   /** Registra un cargo de notificación (SP @busc=2). */

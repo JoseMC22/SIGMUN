@@ -51,6 +51,13 @@ export interface ValidarValorResult {
   error?: string;
 }
 
+/** Envelope returned by the detalle-tributos endpoint (ssp_dvalores @msquery=4). */
+export interface TributosResult {
+  success: boolean;
+  data: ValorTributarioRow[];
+  error?: string;
+}
+
 /** Envelope returned by the grabar-cargo endpoint. */
 export interface GrabarCargoResult {
   success: boolean;
