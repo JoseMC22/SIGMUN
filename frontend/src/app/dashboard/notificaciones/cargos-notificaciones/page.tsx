@@ -246,8 +246,9 @@ export default function CargosNotificacionesPage() {
     resetForm();
   };
 
+  // Se oculta la primera columna del recordset (normalmente el id de control).
   const tributoHeaders =
-    tributos.length > 0 ? Object.keys(tributos[0]) : [];
+    tributos.length > 0 ? Object.keys(tributos[0]).slice(1) : [];
 
   // ── Render helpers ────────────────────────────────────────
   const label = (text: string, w = "w-24") => (
@@ -255,7 +256,7 @@ export default function CargosNotificacionesPage() {
   );
 
   const inputCls =
-    "border border-slate-300 rounded px-2 py-1 text-sm text-slate-700 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400";
+    "border border-slate-300 rounded px-2 py-0 leading-tight text-sm text-slate-700 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400";
 
   return (
     <div className="space-y-4">
@@ -425,19 +426,19 @@ export default function CargosNotificacionesPage() {
                 {tributoHeaders.length > 0 ? (
                   <tr>
                     {tributoHeaders.map((h) => (
-                      <th key={h} className="px-3 py-1.5 border-r border-gray-300">{h}</th>
+                      <th key={h} className="px-3 py-1 border-r border-gray-300">{h}</th>
                     ))}
                   </tr>
                 ) : (
                   <tr>
-                    <th className="px-3 py-1.5 border-r border-gray-300">Tributo</th>
-                    <th className="px-3 py-1.5 border-r border-gray-300">Año</th>
-                    <th className="px-3 py-1.5 border-r border-gray-300">Periodo</th>
-                    <th className="px-3 py-1.5 border-r border-gray-300 text-right">Imp. Insol</th>
-                    <th className="px-3 py-1.5 border-r border-gray-300 text-right">Imp. Reaj</th>
-                    <th className="px-3 py-1.5 border-r border-gray-300 text-right">Costo Emis.</th>
-                    <th className="px-3 py-1.5 border-r border-gray-300 text-right">Interés</th>
-                    <th className="px-3 py-1.5 text-right">Total</th>
+                    <th className="px-3 py-1 border-r border-gray-300">Tributo</th>
+                    <th className="px-3 py-1 border-r border-gray-300">Año</th>
+                    <th className="px-3 py-1 border-r border-gray-300">Periodo</th>
+                    <th className="px-3 py-1 border-r border-gray-300 text-right">Imp. Insol</th>
+                    <th className="px-3 py-1 border-r border-gray-300 text-right">Imp. Reaj</th>
+                    <th className="px-3 py-1 border-r border-gray-300 text-right">Costo Emis.</th>
+                    <th className="px-3 py-1 border-r border-gray-300 text-right">Interés</th>
+                    <th className="px-3 py-1 text-right">Total</th>
                   </tr>
                 )}
               </thead>
@@ -446,7 +447,7 @@ export default function CargosNotificacionesPage() {
                   tributos.map((row, i) => (
                     <tr key={i} className="border-b border-gray-100 last:border-0">
                       {tributoHeaders.map((h) => (
-                        <td key={h} className="px-3 py-1.5 border-r border-gray-300 text-sm text-slate-600">
+                        <td key={h} className="px-3 py-1 border-r border-gray-300 text-sm text-slate-600">
                           {String(row[h] ?? "")}
                         </td>
                       ))}
@@ -454,7 +455,7 @@ export default function CargosNotificacionesPage() {
                   ))
                 ) : (
                   <tr className="border-b border-gray-100 last:border-0 h-24">
-                    <td colSpan={8} className="px-3 py-1.5 italic text-gray-400 text-sm">....</td>
+                    <td colSpan={8} className="px-3 py-1 italic text-gray-400 text-sm">....</td>
                   </tr>
                 )}
               </tbody>
@@ -546,6 +547,8 @@ export default function CargosNotificacionesPage() {
                   <span className="w-24 text-slate-600 font-bold text-right">Firmó</span>
                   <select value={firma} onChange={(e) => setFirma(e.target.value)} className={`${inputCls} w-24`}>
                     <option value=""></option>
+                    <option value="Si">Sí</option>
+                    <option value="No">No</option>
                   </select>
                 </div>
 
