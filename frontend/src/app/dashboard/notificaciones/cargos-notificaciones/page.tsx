@@ -138,7 +138,7 @@ export default function CargosNotificacionesPage() {
           doc_identidad: getField(first, "nro_documento", "documento", "num_doc", "doc_identidad"),
           contribuyente: getField(first, "contribuyente", "nombre", "razon_social"),
           direccion: getField(first, "direccion", "direc_fiscal", "dir"),
-          monto: getField(first, "monto", "monto_valor", "total"),
+          monto: getField(first, "total", "monto", "monto_valor"),
         });
         // Las filas de tributos son el mismo recordset; el front renderiza por
         // sus claves dinámicas (coherente con el resto de los reportes).
