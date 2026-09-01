@@ -160,8 +160,13 @@ export default function CargosNotificacionesPage() {
         setDetalle(EMPTY_DETALLE);
         setError(res.error ?? "No se encontró el valor");
       }
-      // La tabla de tributos proviene de su propia SP (ssp_dvalores @msquery=4).
-      setTributos(trib.success ? trib.data : []);
+      // La tabla de tributos proviene de su propia SP (ssp_dvalores @msquery=4);
+      // se excluyen los registros cuyo id sea 0 (fila de control/encabezado).
+      const tribRows = (trib.data || []).filter((row) => {
+        const rowId = getField(row, "id");
+        return rowId !== "" && rowId !== "0";
+      });
+      setTributos(trib.success ? tribRows : []);
     } catch {
       setError("Error al validar el valor");
     } finally {
