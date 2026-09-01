@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { X, Upload, Loader2, FileSpreadsheet, CheckCircle2, AlertCircle, RefreshCw, Download } from "lucide-react";
+import { X, Upload, Loader2, FileSpreadsheet, CheckCircle2, AlertCircle, Download } from "lucide-react";
 import {
   gridImportarExcelAction,
   importarExcelAction,
@@ -100,7 +100,7 @@ export default function ImportarExcelModal({ isOpen, onClose, onSuccess }: Props
       .filter((r) => r.placa || r.infracc);
   };
 
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setFileName(file.name);
@@ -132,7 +132,6 @@ export default function ImportarExcelModal({ isOpen, onClose, onSuccess }: Props
       if (res.success) {
         setResult(res.data as ImportResult);
         onSuccess();
-        // Reload DB grid after import
         await loadDbGrid();
       } else {
         setError(res.error);
@@ -141,8 +140,10 @@ export default function ImportarExcelModal({ isOpen, onClose, onSuccess }: Props
       setError("Error de conexión durante la importación.");
     } finally {
       setLoadingImport(false);
+      if (fileRef.current) fileRef.current.value = "";
     }
   };
+
 
   const handleExport = () => {
     if (grid.length === 0) return;
@@ -411,13 +412,12 @@ export default function ImportarExcelModal({ isOpen, onClose, onSuccess }: Props
           </p>
 
           <div className="rounded-lg border border-slate-300/80 bg-white px-4 py-2.5 flex items-center justify-center gap-3 flex-wrap">
-            {/* Cargar Excel — only enabled when grid came from file */}
+            {/* Cargar Excel — opens file picker, auto-imports on select */}
             <button
               type="button"
-              onClick={handleImport}
-              disabled={loadingImport || grid.length === 0 || gridSource !== "file"}
+              onClick={() => fileRef.current?.click()}
+              disabled={loadingImport || loadingDb}
               className="inline-flex items-center gap-1.5 rounded bg-sat-cyan px-5 py-1.5 text-xs font-semibold text-white transition hover:bg-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed shadow-2xs"
-              title={gridSource === "db" ? "Primero seleccione un archivo para importar" : undefined}
             >
               {loadingImport ? (
                 <Loader2 size={13} className="animate-spin" />
@@ -425,29 +425,6 @@ export default function ImportarExcelModal({ isOpen, onClose, onSuccess }: Props
                 <Upload size={13} />
               )}
               Cargar Excel
-            </button>
-
-            {/* Seleccionar archivo */}
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              disabled={loadingImport}
-              className="inline-flex items-center gap-1.5 rounded border border-slate-300 bg-white px-5 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 shadow-2xs"
-            >
-              <FileSpreadsheet size={13} />
-              {fileName ? fileName : "Seleccionar archivo"}
-            </button>
-
-            {/* Recargar desde DB */}
-            <button
-              type="button"
-              onClick={loadDbGrid}
-              disabled={loadingDb || loadingImport}
-              className="inline-flex items-center gap-1.5 rounded border border-slate-300 bg-white px-4 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 shadow-2xs"
-              title="Recargar registros desde la base de datos"
-            >
-              <RefreshCw size={13} className={loadingDb ? "animate-spin" : ""} />
-              Actualizar
             </button>
 
             {/* Exportar */}

@@ -40,6 +40,14 @@ import {
   GrabarEnvioCoactivoSchema,
   GrabarEnvioCoactivoDto,
   ConsultaInfraccionesSchema,
+  ReporteEstadoCuentaSchema,
+  ReporteEstadoCuentaDto,
+  ReporteCertificadoNoAdeudoSchema,
+  ReporteCertificadoNoAdeudoDto,
+  ReporteGravamenSchema,
+  ReporteGravamenDto,
+  ReporteResolucionSancionSchema,
+  ReporteResolucionSancionDto,
 } from './dto/acciones-infraccion.dto';
 
 @Controller('papeleta-transito/acciones')
@@ -111,6 +119,11 @@ export class AccionesInfraccionController {
     return this.accionesService.verFraccionamiento(parsed);
   }
 
+  @Post('resolucion-fraccionamiento')
+  async resolucionFraccionamiento(@Body() body: { codigo: string; convenio: string }) {
+    return this.accionesService.resolucionFraccionamiento(body.codigo, body.convenio);
+  }
+
   @Get('grid-importar-excel')
   async gridImportarExcel() {
     return this.accionesService.gridImportarExcel();
@@ -155,9 +168,10 @@ export class AccionesInfraccionController {
   }
 
   @Post('grabar-cambio-estado')
-  async grabarCambioEstado(@Body() dto: GrabarCambioEstadoDto) {
+  async grabarCambioEstado(@Request() req: any, @Body() dto: GrabarCambioEstadoDto) {
     const parsed = GrabarCambioEstadoSchema.parse(dto);
-    return this.accionesService.grabarCambioEstado(parsed);
+    const usuarioLogueado = req.user?.username || req.user?.sub;
+    return this.accionesService.grabarCambioEstado(parsed, usuarioLogueado);
   }
 
   @Post('generar-liquidacion')
@@ -226,9 +240,60 @@ export class AccionesInfraccionController {
     return this.accionesService.grabarJuca(body);
   }
 
-  @Post('grabar-con-pro')
+  @Post('grabar-conpro')
   async grabarConPro(@Body() body: any) {
     return this.accionesService.grabarConPro(body);
+  }
+
+  @Get('combos-placa')
+  async obtenerCombosPlaca() {
+    return this.accionesService.obtenerCombosPlaca();
+  }
+
+  @Post('grabar-placa')
+  async grabarPlaca(@Body() body: {
+    mquery?: number;
+    idtramplac?: number;
+    codplac: string;
+    codplac1?: string;
+    tipvehi?: string;
+    codmarc?: string;
+    codcolo?: string;
+    aniofab?: string;
+    formalidad?: string;
+    codigo?: string;
+    estado?: string;
+    usuario?: string;
+    estacion?: string;
+    fechIngreso?: string;
+  }) {
+    return this.accionesService.grabarPlaca(body);
+  }
+
+  // ── Endpoints de datos para reportes HTML ──────────────────────────────────
+
+  @Post('reporte-estado-cuenta')
+  async reporteEstadoCuenta(@Body() dto: ReporteEstadoCuentaDto) {
+    const parsed = ReporteEstadoCuentaSchema.parse(dto);
+    return this.accionesService.obtenerDatosReporteEstadoCuenta(parsed);
+  }
+
+  @Post('reporte-certificado-no-adeudo')
+  async reporteCertificadoNoAdeudo(@Body() dto: ReporteCertificadoNoAdeudoDto) {
+    const parsed = ReporteCertificadoNoAdeudoSchema.parse(dto);
+    return this.accionesService.obtenerDatosReporteCertificado(parsed);
+  }
+
+  @Post('reporte-gravamen')
+  async reporteGravamen(@Body() dto: ReporteGravamenDto) {
+    const parsed = ReporteGravamenSchema.parse(dto);
+    return this.accionesService.obtenerDatosReporteGravamen(parsed);
+  }
+
+  @Post('reporte-resolucion-sancion')
+  async reporteResolucionSancion(@Body() dto: ReporteResolucionSancionDto) {
+    const parsed = ReporteResolucionSancionSchema.parse(dto);
+    return this.accionesService.obtenerDatosReporteResolucionSancion(parsed);
   }
 }
 

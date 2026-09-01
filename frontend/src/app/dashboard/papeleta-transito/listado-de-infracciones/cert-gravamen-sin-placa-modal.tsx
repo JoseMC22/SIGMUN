@@ -3,6 +3,19 @@
 import { useState } from "react";
 import { X, Printer, AlertTriangle } from "lucide-react";
 import { generarGravamenSinPlacaAction } from "@/actions/papeleta-transito/acciones-infraccion";
+import {
+  obtenerPlantillaCertificadoAction,
+  obtenerPlantillaGravamenAction,
+} from "@/actions/papeleta-transito/reportes-infracciones";
+import {
+  construirHtmlReporteCertificado,
+  construirConfigPdfCertificado,
+} from "./reportes/Certificado/reporte-certificado";
+import {
+  construirHtmlReporteGravamen,
+  construirConfigPdfGravamen,
+} from "./reportes/Gravamen/reporte-gravamen";
+import ReporteViewerModal from "@/components/reportes/reporte-viewer-modal";
 
 interface Props {
   isOpen: boolean;
@@ -14,10 +27,13 @@ interface Props {
 export default function CertGravamenSinPlacaModal({ isOpen, placa, valorGravamen, onClose }: Props) {
   const [nroRecibo, setNroRecibo] = useState("");
   const [loading, setLoading] = useState(false);
+  const [reporteHtml, setReporteHtml] = useState<string | null>(null);
+  const [reportePdf, setReportePdf] = useState<any>(null);
 
   if (!isOpen) return null;
 
-  const tieneDeuda = Number(valorGravamen) > 0;
+  const yaRegistrado = Number(valorGravamen?.trim()) > 0;
+  const tieneDeuda = yaRegistrado; // alias for the warning label
   const reportBaseUrl = process.env.NEXT_PUBLIC_REPORT_URL ?? "";
 
   const handleImprimirGeneraGravamen = async () => {
@@ -28,13 +44,32 @@ export default function CertGravamenSinPlacaModal({ isOpen, placa, valorGravamen
     }
     setLoading(true);
     try {
-      // 1. Ejecutar procedimiento con @buscar=1
       const res = await generarGravamenSinPlacaAction(placa, recibo, "ESTACION/ADMIN");
       if (res.success && res.data === "TRUE") {
-        // 2. Abrir reporte si fue exitoso
-        const params = `schema=&tipo=pdf&nombrereporte=rpt_Certificadogravamensinplaca_pape&param=buscar^2|recibo^${recibo}|usuario=ADMIN|codplaca^${placa}`;
-        const url = `${reportBaseUrl}?${params}`;
-        window.open(url, "_blank", "width=700,height=600,scrollbars=yes");
+        const plantilla = await obtenerPlantillaGravamenAction();
+        if (!plantilla.success) {
+          alert(`Error al cargar plantilla: ${plantilla.error}`);
+          return;
+        }
+        const html = construirHtmlReporteGravamen(
+          {
+            placa,
+            numRecibo: recibo,
+            nroDocumento: "-",
+            usuario: "ADMIN",
+            sinDatos: true,
+          },
+          plantilla.data
+        );
+        setReporteHtml(html);
+        setReportePdf(
+          construirConfigPdfGravamen({
+            placa,
+            numRecibo: recibo,
+            nroDocumento: "-",
+            usuario: "ADMIN",
+          })
+        );
       } else {
         alert(res.message || "Error al generar gravamen.");
       }
@@ -45,22 +80,85 @@ export default function CertGravamenSinPlacaModal({ isOpen, placa, valorGravamen
     }
   };
 
-  const handleImprimirCertificado = () => {
+  const handleImprimirCertificado = async () => {
     if (!nroRecibo.trim()) {
       alert("ℹ️ Ingrese el Número de Recibo.");
       return;
     }
-    const params = `schema=&tipo=pdf&nombrereporte=rpt_CertificadoNoAdeudosinplaca_pape&param=buscar^2|recibo^${nroRecibo.trim()}|usuario=ADMIN|codplaca^${placa}`;
-    window.open(`${reportBaseUrl}?${params}`, "_blank", "width=700,height=600,scrollbars=yes");
+    try {
+      const plantilla = await obtenerPlantillaCertificadoAction();
+      if (!plantilla.success) {
+        alert(`Error al cargar plantilla: ${plantilla.error}`);
+        return;
+      }
+      const html = construirHtmlReporteCertificado(
+        {
+          certNro: "-",
+          nombreInfractor: "GENERAL",
+          numDoc: "-",
+          licencia: "-",
+          direccion: "-",
+          numRecibo: nroRecibo.trim(),
+          hora: new Date().toLocaleTimeString("es-PE"),
+          estacion: "ESTACION",
+          fechaExpedicion: new Date().toLocaleDateString("es-PE"),
+          usuario: "SISTEMA",
+        },
+        plantilla.data
+      );
+      setReporteHtml(html);
+      setReportePdf(
+        construirConfigPdfCertificado({
+          certNro: "-",
+          nombreInfractor: "GENERAL",
+          numDoc: "-",
+          licencia: "-",
+          direccion: "-",
+          numRecibo: nroRecibo.trim(),
+          hora: new Date().toLocaleTimeString("es-PE"),
+          estacion: "ESTACION",
+          fechaExpedicion: new Date().toLocaleDateString("es-PE"),
+          usuario: "SISTEMA",
+        })
+      );
+    } catch {
+      alert("Error al cargar certificado.");
+    }
   };
 
-  const handleImprimirGravamen = () => {
+  const handleImprimirGravamen = async () => {
     if (!nroRecibo.trim()) {
       alert("ℹ️ Ingrese el Número de Recibo.");
       return;
     }
-    const params = `schema=&tipo=pdf&nombrereporte=rpt_Certificadogravamen_pape&param=buscar^2|recibo^${nroRecibo.trim()}|usuario=ADMIN|codplaca^${placa}`;
-    window.open(`${reportBaseUrl}?${params}`, "_blank", "width=700,height=600,scrollbars=yes");
+    try {
+      const plantilla = await obtenerPlantillaGravamenAction();
+      if (!plantilla.success) {
+        alert(`Error al cargar plantilla: ${plantilla.error}`);
+        return;
+      }
+      const html = construirHtmlReporteGravamen(
+        {
+          placa,
+          numRecibo: nroRecibo.trim(),
+          nroDocumento: "-",
+          usuario: "ADMIN",
+          sinDatos: true,
+        },
+        plantilla.data
+      );
+      setReporteHtml(html);
+      setReportePdf(
+        construirConfigPdfGravamen({
+          placa,
+          numRecibo: nroRecibo.trim(),
+          nroDocumento: "-",
+          usuario: "ADMIN",
+        })
+      );
+    } catch {
+      alert("Error al cargar gravamen.");
+    }
   };
 
   return (
@@ -71,7 +169,7 @@ export default function CertGravamenSinPlacaModal({ isOpen, placa, valorGravamen
       <div className="w-full max-w-md rounded-xl bg-white shadow-2xl border border-slate-200 animate-fade-in overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between bg-gradient-to-r from-sat-navy via-[#1b2b4a] to-slate-800 px-4 py-2.5 text-white">
-          <span className="text-xs font-bold tracking-tight">1Generar Gravamen</span>
+          <span className="text-xs font-bold tracking-tight">Generar Gravamen</span>
           <button type="button" onClick={onClose} className="rounded p-1 hover:bg-white/10 text-white/70 hover:text-white transition">
             <X size={15} />
           </button>
@@ -88,7 +186,7 @@ export default function CertGravamenSinPlacaModal({ isOpen, placa, valorGravamen
             {tieneDeuda && (
               <div className="flex items-center gap-1.5 text-red-600 font-bold bg-red-50 border border-red-200 p-2 rounded">
                 <AlertTriangle size={16} />
-                <span>Tiene Deuda</span>
+                <span>Tiene Gravamen Registrado — no se puede generar otro</span>
               </div>
             )}
 
@@ -110,7 +208,7 @@ export default function CertGravamenSinPlacaModal({ isOpen, placa, valorGravamen
             <button
               type="button"
               onClick={handleImprimirGeneraGravamen}
-              disabled={tieneDeuda || loading}
+              disabled={yaRegistrado || loading}
               className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-sat-navy bg-sat-navy px-3 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-[#1b2b4a] disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Printer size={14} />
@@ -148,6 +246,17 @@ export default function CertGravamenSinPlacaModal({ isOpen, placa, valorGravamen
           </button>
         </div>
       </div>
+
+      {/* ── Reporte viewer ── */}
+      <ReporteViewerModal
+        isOpen={reporteHtml !== null}
+        onClose={() => {
+          setReporteHtml(null);
+          setReportePdf(null);
+        }}
+        html={reporteHtml ?? ""}
+        pdfConfig={reportePdf}
+      />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const SearchInfraccionSchema = z.object({
   placa: z.string().optional(),
   propietario: z.string().optional(),
+  infrac: z.string().optional(),
   codigoInfraccion: z.string().optional(),
   anioInfraccion: z.string().optional(),
   conductor: z.string().optional(),
