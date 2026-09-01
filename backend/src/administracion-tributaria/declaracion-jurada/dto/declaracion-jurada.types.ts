@@ -487,3 +487,15 @@ export interface DeudaConsolidadoData {
   cabecera: DeudaConsolidadoCabecera;
   filas: DeudaConsolidadoFila[];
 }
+
+// ═══ Generar Deuda — conceptos (Rentas.sp_generardeuda @busc=10) ═══════════
+// SP body (legacy sample):
+//   exec Rentas.sp_generardeuda @busc='10', @codigo_area='4003'
+// Returns two columns:
+//   tipo      → value del option (e.g. "10.86")
+//   concepto  → label del option (e.g. "ACOG. AMNISTIA. PIT")
+
+export interface GenerarDeudaConcepto {
+  tipo: string;
+  concepto: string;
+}

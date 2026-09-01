@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { 
   LogOut,
@@ -8,12 +8,18 @@ import {
   KeyRound,
   ShieldCheck
 } from "lucide-react";
-import { clearAuth } from "@/lib/api";
+import { clearAuth, getStoredUser, type LoginResponse } from "@/lib/api";
 import { logoutAction } from "@/actions/auth/auth";
 
 export function Header() {
   const router = useRouter();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [user, setUser] = useState<LoginResponse['user'] | null>(null);
+
+  // Hydration-safe: localStorage solo existe en el cliente.
+  useEffect(() => {
+    setUser(getStoredUser());
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -23,6 +29,9 @@ export function Header() {
     clearAuth();
     router.push("/");
   };
+
+  const displayName = user?.username || user?.name || "Usuario";
+  const displayProfile = user?.profileName || "";
 
   return (
     <header className="h-14 bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-10 px-6 flex items-center justify-between shadow-sm">
@@ -37,8 +46,8 @@ export function Header() {
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-3">
           <div className="text-right hidden sm:block">
-            <p className="text-xs font-bold text-slate-800 font-outfit">Jesus Mozo</p>
-            <p className="text-[10px] text-slate-500 font-inter">Administrador</p>
+            <p className="text-xs font-bold text-slate-800 font-outfit">{displayName}</p>
+            <p className="text-[10px] text-slate-500 font-inter">{displayProfile}</p>
           </div>
           <div className="relative">
             <button 
@@ -56,8 +65,8 @@ export function Header() {
                 />
                 <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-xl border border-slate-100 py-2 px-1.5 z-30">
                   <div className="px-3 py-2 border-b border-slate-100 mb-1">
-                    <p className="text-xs font-semibold text-slate-800 font-outfit">Jesus Mozo</p>
-                    <p className="text-[10px] text-slate-500 font-inter">Administrador del Sistema</p>
+                    <p className="text-xs font-semibold text-slate-800 font-outfit">{displayName}</p>
+                    <p className="text-[10px] text-slate-500 font-inter">{displayProfile}</p>
                   </div>
                   <button className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">
                     <KeyRound size={14} /> Cambiar Contraseña

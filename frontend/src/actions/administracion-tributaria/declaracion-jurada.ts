@@ -1095,3 +1095,80 @@ export async function getDeudaConsolidadoAction(
     return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
   }
 }
+
+// ─── Generar Deuda — conceptos (POST) ─────────────────────
+
+export type GenerarDeudaConcepto = {
+  tipo: string;
+  concepto: string;
+};
+
+export async function getGenerarDeudaConceptoAction(
+  codigoArea: string,
+): Promise<
+  | { success: true; data: GenerarDeudaConcepto[] }
+  | { success: false; error: string }
+> {
+  try {
+    const response = await authFetch(
+      '/declaracion-jurada/estado-cuenta/generar-deuda-concepto',
+      {
+        method: 'POST',
+        body: JSON.stringify({ codigo_area: codigoArea }),
+      },
+    );
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false as const,
+        error: errorData.error ?? errorData.message ?? `Error ${response.status}`,
+      };
+    }
+    const result = await response.json();
+    return { success: true as const, ...result };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ─── Generar Deuda — Guardar (POST) ───────────────────────
+
+export type GenerarDeudaGuardarPayload = {
+  codigo: string;
+  anio_desde: string;
+  anio_hasta: string;
+  codigo_infraccion: string;
+  monto_multa: number;
+  fecha_multa: string;
+  operador: string;
+  estacion: string;
+  glosa?: string;
+};
+
+export async function guardarGenerarDeudaAction(
+  payload: GenerarDeudaGuardarPayload,
+): Promise<
+  | { success: true; data: { idMulta: string | null } }
+  | { success: false; error: string }
+> {
+  try {
+    const response = await authFetch(
+      '/declaracion-jurada/estado-cuenta/generar-deuda-guardar',
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+    );
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false as const,
+        error: errorData.error ?? errorData.message ?? `Error ${response.status}`,
+      };
+    }
+    const result = await response.json();
+    return { success: true as const, ...result };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}

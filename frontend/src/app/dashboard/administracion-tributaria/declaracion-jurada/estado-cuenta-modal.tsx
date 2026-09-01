@@ -18,6 +18,7 @@ import { obtenerPlantillaReporteVerPagosAction } from "@/actions/administracion-
 import { construirHtmlVerPagos } from "./reportes/VerPagos/reporte-ver-pagos";
 import { obtenerPlantillaReporteDeudaConsolidadaAction } from "@/actions/administracion-tributaria/reporte-deuda-consolidada";
 import { construirHtmlDeudaConsolidada } from "./reportes/DeudaConsolidada/reporte-deuda-consolidada";
+import GenerarDeudaModal from "./generar-deuda-modal";
 import { getStoredUser } from "@/lib/api";
 import ReporteViewerModal from "@/components/reportes/reporte-viewer-modal";
 import type { ReportePdfConfig } from "@/lib/reportes/reporte-service";
@@ -387,6 +388,10 @@ export default function EstadoCuentaModal({
   // ── Grid state ──
   const [rows, setRows] = useState<GridRow[]>([]);
   const [loadingDeuda, setLoadingDeuda] = useState(false);
+  /** Last criterion used by handleMostrar — used to refresh the grid after
+   *  side-effect actions (e.g. "Generar Deuda") that mutate the underlying
+   *  debt records. null = no grid loaded yet. */
+  const [lastCriterio, setLastCriterio] = useState<number | null>(null);
   const [loadingLiquidacion, setLoadingLiquidacion] = useState(false);
   const [liquidacionReporteHtml, setLiquidacionReporteHtml] = useState<string | null>(null);
   const [liquidacionReportePdf, setLiquidacionReportePdf] = useState<ReportePdfConfig | null>(null);
@@ -396,6 +401,7 @@ export default function EstadoCuentaModal({
   const [loadingConsolidado, setLoadingConsolidado] = useState(false);
   const [consolidadoReporteHtml, setConsolidadoReporteHtml] = useState<string | null>(null);
   const [consolidadoReportePdf, setConsolidadoReportePdf] = useState<ReportePdfConfig | null>(null);
+  const [isGenerarDeudaOpen, setIsGenerarDeudaOpen] = useState(false);
   const [deudaError, setDeudaError] = useState<string | null>(null);
   // Accordion: group cabecera -> collapsed?
   const [collapsedGroups, setCollapsedGroups] = useState<
@@ -429,6 +435,7 @@ export default function EstadoCuentaModal({
     setFraccionamientoItems([]);
     setRows([]);
     setCollapsedGroups({});
+    setLastCriterio(null);
     setDeudaError(null);
     setLoadingDeuda(false);
     setLoadingLiquidacion(false);
@@ -521,6 +528,7 @@ export default function EstadoCuentaModal({
       if (result.success) {
         setRows(result.data.map((r) => ({ ...r, selected: false })));
         setCollapsedGroups({}); // fresh results start fully expanded
+        setLastCriterio(criterio);
       } else {
         setDeudaError(result.error);
         setRows([]);
@@ -1207,6 +1215,8 @@ export default function EstadoCuentaModal({
                       handleVerPagos();
                     } else if (btn.label === "Deuda Consolidada") {
                       handleDeudaConsolidada();
+                    } else if (btn.label === "Generar Deuda") {
+                      setIsGenerarDeudaOpen(true);
                     } else if (btn.criterio !== undefined) {
                       handleMostrar(btn.criterio);
                     }
@@ -1282,6 +1292,22 @@ export default function EstadoCuentaModal({
         }}
         html={consolidadoReporteHtml ?? ""}
         pdfConfig={consolidadoReportePdf}
+      />
+
+      {/* ══ Modal Generar Deuda ══ */}
+      <GenerarDeudaModal
+        isOpen={isGenerarDeudaOpen}
+        onClose={() => setIsGenerarDeudaOpen(false)}
+        codigoContribuyente={contribuyente?.codigo}
+        nombreContribuyente={contribuyente?.nombre}
+        onSaved={() => {
+          // NO cerrar el modal aquí: el GenerarDeudaModal muestra "Se generó
+          // correctamente" y queda abierto hasta que el usuario lo cierre
+          // con OK / X / ESC / Salir.
+          // Solo refrescamos la grilla con el mismo criterio que estaba
+          // viendo, para que la deuda generada aparezca de inmediato.
+          if (lastCriterio !== null) handleMostrar(lastCriterio);
+        }}
       />
     </div>
   );
