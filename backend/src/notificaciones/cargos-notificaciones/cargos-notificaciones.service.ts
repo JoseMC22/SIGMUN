@@ -86,8 +86,8 @@ export class CargosNotificacionesService {
       const result = await this.db.executeProcedure<any>(this.SP_VALORES, {
         msquery: 9,
         id_valor: id_valor || '',
-        num_valor: padNumValor(num_valor),
-        ano_valor: ano_valor ?? '',
+        num_val: padNumValor(num_valor),
+        ano_val: ano_valor ?? '',
       });
       return { success: true, data: result.recordset || [] };
     } catch (err) {
