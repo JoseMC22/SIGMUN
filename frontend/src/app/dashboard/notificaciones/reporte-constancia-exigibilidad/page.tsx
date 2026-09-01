@@ -34,6 +34,34 @@ function todayISO(): string {
   return `${d.getFullYear()}-${mm}-${dd}`;
 }
 
+// ── Columnas que llevan fecha con hora formateada ──
+
+const DATE_TIME_COLS = new Set([
+  "fec_gen",
+  "f_notifica",
+]);
+
+// ── Formatea una fecha a dd/mm/yyyy hh:mm:ss ──
+// Acepta texto SQL/ISO (YYYY-MM-DD[ T]HH:mm:ss) o instancias Date.
+
+function formatDateTime(raw: string | number | null): string {
+  if (raw === null || raw === undefined || raw === "") return "";
+  const str = String(raw).trim();
+
+  // Parsear texto como fecha; reemplaza el separador 'T' o espacio de forma flexible
+  const normalized = str.replace("T", " ");
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) return str; // no parseable → devolver sin tocar
+
+  const dd = String(date.getDate()).padStart(2, "0");
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const yyyy = date.getFullYear();
+  const hh = String(date.getHours()).padStart(2, "0");
+  const min = String(date.getMinutes()).padStart(2, "0");
+  const ss = String(date.getSeconds()).padStart(2, "0");
+  return `${dd}/${mm}/${yyyy} ${hh}:${min}:${ss}`;
+}
+
 // ── Loading skeleton ─────────────────────────────────────
 
 function TableSkeleton() {
@@ -220,7 +248,9 @@ export default function ReporteConstanciaExigibilidadPage() {
               <tr key={idx} className={`transition hover:bg-slate-50 ${idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"}`}>
                 {headers.map((h) => (
                   <td key={h} className="px-2 py-1.5 text-[10px] text-slate-600 truncate">
-                    {String(row[h] ?? "")}
+                    {DATE_TIME_COLS.has(h.toLowerCase())
+                      ? formatDateTime(row[h] ?? null)
+                      : String(row[h] ?? "")}
                   </td>
                 ))}
               </tr>
