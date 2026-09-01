@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Certificado de No Adeudo</title>
+  <link rel="stylesheet" href="./estilos-certificado.css">
+</head>
+<body>
+  <div class="contenedor-certificado">
+    <div class="header">
+      <div class="logos-superiores">
+        <div class="logo-sat">
+          <div class="sat-box">
+            <span class="sat-text">SAT <span class="ica-text">ICA</span></span>
+            <div class="sat-sub">SERVICIO DE ADMINISTRACIÓN TRIBUTARIA DE ICA</div>
+          </div>
+        </div>
+        <div class="logo-muni">
+          <img src="/escudo-ica.png" alt="Municipalidad Provincial de Ica" class="img-escudo" onerror="this.style.display='none'">
+          <div class="muni-texto">Municipalidad Provincial<br>de Ica</div>
+        </div>
+      </div>
+      <div class="header-titulos">
+        <h1 class="titulo-cert">CERTIFICADO DE NO ADEUDO DEL CONDUCTOR N° {{certNro}}</h1>
+      </div>
+    </div>
+
+    <div class="cuerpo-certificado">
+      <p class="parrafo-firma">
+        El que suscribe, Jefe del Departamento de Cobranzas del Servicio de Administración Tributaria de la Municipalidad Provincial de ICA;
+      </p>
+
+      <div class="seccion-certifica">
+        <h2 class="titulo-certifica">CERTIFICA</h2>
+      </div>
+
+      <p class="parrafo-contenido">
+        Que, don(ña) <strong>{{nombreInfractor}}</strong>, Identificado con DNI N°<strong>{{numDoc}}</strong>, con Licencia de Conducir N°<strong>{{licencia}}</strong> y domicilio Habitual en <strong>{{direccion}}</strong>; a la hora y fecha de emisión del presente documento en los sistemas del Servicio de Administración Tributaria de Ica, <strong>NO TIENE DEUDA PENDIENTE DE PAGO POR CONCEPTO DE PAPELETAS DE INFRACCIÓN AL TRÁNSITO</strong>; procediéndose a emitir el presente en atención a la solicitud del interesado.
+      </p>
+
+      <p class="parrafo-cierre">
+        Sin otro particular, me suscribo.
+      </p>
+
+      <p class="parrafo-ciudad">
+        <strong>Ica, {{fechaExpedicion}}</strong>
+      </p>
+    </div>
+
+    <div class="recuadro-recibo">
+      <span class="recibo-label">RECIBO DE PAGO N° {{numRecibo}}</span>
+      <span class="hora-label">HORA {{hora}}</span>
+    </div>
+
+    <div class="footer-usuario">
+      <span>{{usuario}}</span>
+      <span class="estacion">{{usuario}}</span>
+    </div>
+  </div>
+</body>
+</html>

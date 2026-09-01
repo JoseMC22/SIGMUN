@@ -41,3 +41,92 @@ export async function searchInfraccionesAction(
     return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
   }
 }
+
+// ── Acciones de datos para reportes ───────────────────────────────────────────
+
+export async function obtenerDatosReporteEstadoCuentaAction(params: {
+  ninfrac: string;
+  codigo?: string;
+  placa?: string;
+  conductor?: string;
+  dni?: string;
+  estado?: string;
+}) {
+  try {
+    const response = await authFetch('/papeleta-transito/acciones/reporte-estado-cuenta', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.message ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    return { success: true as const, data: result.data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+export async function obtenerDatosReporteCertificadoAction(params: {
+  ninfrac: string;
+  numingr: string;
+  operador?: string;
+}) {
+  try {
+    const response = await authFetch('/papeleta-transito/acciones/reporte-certificado-no-adeudo', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.message ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    return { success: true as const, data: result.data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+export async function obtenerDatosReporteGravamenAction(params: {
+  ninfrac: string;
+  numingr: string;
+  operador?: string;
+}) {
+  try {
+    const response = await authFetch('/papeleta-transito/acciones/reporte-gravamen', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.message ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    return { success: true as const, data: result.data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+export async function obtenerDatosReporteResolucionSancionAction(params: {
+  idtramctas: string;
+  usuario?: string;
+  estacion?: string;
+}) {
+  try {
+    const response = await authFetch('/papeleta-transito/acciones/reporte-resolucion-sancion', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.message ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    return { success: true as const, data: result.data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}

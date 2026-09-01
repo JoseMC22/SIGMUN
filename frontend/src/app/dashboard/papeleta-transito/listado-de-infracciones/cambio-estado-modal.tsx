@@ -65,7 +65,7 @@ export default function CambioEstadoModal({ isOpen, ninfrac, editable = true, on
             usuario: d.usuario ?? "",
             estacion: d.estacion ?? "",
             fechaModificacion: d.fechaModificacion ?? "",
-            nuevoEstado: "",
+            nuevoEstado: d.idEstado || d.estadoActual || "",
           });
         } else {
           setError(estadoResult.error ?? estadoResult.message ?? "Error al cargar datos.");
@@ -113,26 +113,28 @@ export default function CambioEstadoModal({ isOpen, ninfrac, editable = true, on
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/30 backdrop-blur-sm"
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/30 backdrop-blur-xs p-4"
       onClick={(e) => { if (e.target === e.currentTarget && !loading && !saving) onClose(); }}
     >
-      <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl border border-slate-200 animate-fade-in max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between rounded-t-xl bg-gradient-to-r from-sat-navy via-[#1b2b4a] to-slate-800 px-4 py-3 shrink-0">
-          <span className="text-sm font-semibold text-white tracking-tight">
-            {editable ? "Cambio de Estado" : "Consulta de Estado"}
+      <div className="w-full max-w-[560px] rounded-xl bg-white shadow-2xl border border-slate-300 animate-fade-in overflow-hidden flex flex-col">
+        {/* Header Modal */}
+        <div className="flex items-center justify-between bg-gradient-to-r from-sat-navy via-[#1b2b4a] to-slate-800 px-4 py-2.5 shrink-0">
+          <span className="text-xs font-bold text-white tracking-wide">
+            {editable ? "Cambio de Estados" : "Consulta de Estados"}
           </span>
           {!loading && !saving && (
-            <button type="button" onClick={onClose} className="rounded-md p-1 text-white/60 transition hover:bg-white/10 hover:text-white">
-              <X size={16} />
+            <button type="button" onClick={onClose} className="rounded p-1 text-white/70 hover:bg-white/10 hover:text-white">
+              <X size={15} />
             </button>
           )}
         </div>
 
-        <div className="p-4 overflow-y-auto flex-1 space-y-3">
+        {/* Form Body */}
+        <div className="p-4 space-y-3 bg-slate-50/50 overflow-y-auto max-h-[85vh]">
           {loading && (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 size={20} className="animate-spin text-sat-cyan" />
-              <span className="ml-2 text-xs text-slate-500">Cargando...</span>
+            <div className="flex items-center justify-center py-10">
+              <Loader2 size={22} className="animate-spin text-sat-cyan" />
+              <span className="ml-2 text-xs font-medium text-slate-600">Cargando datos...</span>
             </div>
           )}
           {error && (
@@ -141,97 +143,122 @@ export default function CambioEstadoModal({ isOpen, ninfrac, editable = true, on
 
           {!loading && (
             <>
-              {/* Header Box Legacy (Serie, Talonario, N° Papeleta, Oficio, Fecha, Infraccion) */}
-              <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3 space-y-2 text-xs">
+              {/* Grupo Superior: Serie, Talonario, N° Papeleta y Oficio */}
+              <fieldset className="rounded-lg border border-slate-200 bg-white p-3 shadow-2xs space-y-2 text-xs">
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-600 mb-1">Serie, Talonario, N° Papeleta y Oficio</label>
-                  <div className="flex items-center gap-1.5 font-bold font-mono">
-                    <input type="text" value={form.seriePapel} readOnly className="w-16 rounded border border-slate-300 bg-white px-2 py-1 text-center text-xs text-slate-800" />
-                    <span>-</span>
-                    <input type="text" value={form.taloPapel || "01"} readOnly className="w-10 rounded border border-slate-300 bg-white px-1.5 py-1 text-center text-xs text-slate-800" />
-                    <span>-</span>
-                    <input type="text" value={form.numeroPapel} readOnly className="w-24 rounded border border-slate-300 bg-white px-2 py-1 text-center text-xs text-slate-800" />
-                    <span>-</span>
-                    <input type="text" value={form.oficio || "01"} readOnly className="w-16 rounded border border-slate-300 bg-white px-2 py-1 text-center text-xs text-slate-800" />
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    Serie, Talonario, N° Papeleta y Oficio
+                  </label>
+                  <div className="flex items-center gap-1.5 flex-wrap font-mono font-bold">
+                    <input type="text" value={form.seriePapel} readOnly className="flex-1 min-w-[50px] rounded border border-slate-300 bg-slate-100 px-2 py-1 text-center text-xs text-slate-900" />
+                    <span className="text-slate-400">-</span>
+                    <input type="text" value={form.taloPapel || "01"} readOnly className="w-12 rounded border border-slate-300 bg-slate-100 px-1.5 py-1 text-center text-xs text-slate-900" />
+                    <span className="text-slate-400">-</span>
+                    <input type="text" value={form.numeroPapel} readOnly className="flex-1 min-w-[70px] rounded border border-slate-300 bg-slate-100 px-2 py-1 text-center text-xs text-slate-900" />
+                    <span className="text-slate-400">-</span>
+                    <input type="text" value={form.oficio || "01"} readOnly className="w-12 rounded border border-slate-300 bg-slate-100 px-2 py-1 text-center text-xs text-slate-900" />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 pt-1">
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Fecha Aplicacion</label>
-                    <input type="text" value={form.fechaPapeleta} readOnly className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800 font-medium" />
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Fecha Aplicacion:</label>
+                    <input type="text" value={form.fechaPapeleta} readOnly className="w-full rounded border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs text-slate-900 font-bold" />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Infraccion</label>
-                    <input type="text" value={form.codigoInfraccion} readOnly className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800 font-bold" />
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Infraccion:</label>
+                    <input type="text" value={form.codigoInfraccion} readOnly className="w-full rounded border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs text-slate-900 font-bold" />
                   </div>
                 </div>
+              </fieldset>
+
+              {/* Grupo Inferior: Formulario Cambio de Estado */}
+              <fieldset className="rounded-lg border border-slate-200 bg-white p-3 shadow-2xs space-y-2.5 text-xs">
+                <div className="flex items-center gap-3">
+                  <span className="w-24 font-semibold text-slate-700 shrink-0">Estados:</span>
+                  <select
+                    value={form.nuevoEstado}
+                    onChange={(e) => update("nuevoEstado", e.target.value)}
+                    disabled={!editable}
+                    className="flex-1 min-w-0 rounded border border-slate-300 bg-white px-2.5 py-1 text-xs text-slate-900 font-bold focus:border-sat-cyan focus:outline-none"
+                  >
+                    <option value="">[SELECCIONE]</option>
+                    {estados.map((e) => (
+                      <option key={e.id} value={e.id}>{e.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <span className="w-24 font-semibold text-slate-700 shrink-0">N° Resolución:</span>
+                  <input
+                    type="text"
+                    value={form.resolucion}
+                    onChange={(e) => update("resolucion", e.target.value)}
+                    readOnly={!editable}
+                    className="flex-1 min-w-0 rounded border border-slate-300 bg-white px-2.5 py-1 text-xs text-slate-900 font-semibold focus:border-sat-cyan focus:outline-none"
+                  />
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <span className="w-24 font-semibold text-slate-700 shrink-0">Fecha:</span>
+                  <input
+                    type="date"
+                    value={form.fechaNotificacion}
+                    onChange={(e) => update("fechaNotificacion", e.target.value)}
+                    readOnly={!editable}
+                    className="w-44 rounded border border-slate-300 bg-white px-2.5 py-1 text-xs text-slate-900 font-semibold focus:border-sat-cyan focus:outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <span className="block font-semibold text-slate-700">Observación:</span>
+                  <textarea
+                    rows={3}
+                    value={form.observaciones}
+                    onChange={(e) => update("observaciones", e.target.value)}
+                    readOnly={!editable}
+                    className="w-full rounded border border-slate-300 bg-white p-2 text-xs font-normal text-slate-900 resize-none focus:border-sat-cyan focus:outline-none"
+                  />
+                </div>
+
+                {/* Ficha de Auditoría (Usuario, Estación, Fecha) */}
+                <div className="grid grid-cols-3 gap-1.5 pt-1">
+                  <input readOnly value={form.usuario} className="w-full rounded border border-slate-300 bg-slate-100 px-1 py-1 text-center font-bold text-[11px] text-slate-800 truncate" />
+                  <input readOnly value={form.estacion} className="w-full rounded border border-slate-300 bg-slate-100 px-1 py-1 text-center font-bold text-[11px] text-slate-800 truncate" />
+                  <input readOnly value={form.fechaModificacion} className="w-full rounded border border-slate-300 bg-slate-100 px-1 py-1 text-center font-bold text-[11px] text-slate-800 truncate" />
+                </div>
+
+                {/* Adjuntar PDF */}
+                <div className="flex items-center gap-2 pt-1 overflow-hidden">
+                  <span className="text-[11px] font-semibold text-slate-700 shrink-0">Adjuntar PDF:</span>
+                  <input type="file" accept=".pdf" className="text-xs text-slate-600 file:mr-2 file:py-0.5 file:px-2 file:rounded file:border file:border-slate-300 file:text-xs file:font-semibold file:bg-white file:text-slate-700 hover:file:bg-slate-50 cursor-pointer min-w-0 flex-1" />
+                </div>
+              </fieldset>
+
+              {/* Botonera de Acción */}
+              <div className="flex items-center gap-2 pt-1 border-t border-slate-200">
+                {editable && (
+                  <button
+                    type="button"
+                    onClick={handleSave}
+                    disabled={loading || saving}
+                    className="rounded border border-slate-300 bg-white px-4 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-100 transition shadow-2xs disabled:opacity-50 flex items-center gap-1"
+                  >
+                    {saving ? <Loader2 size={12} className="animate-spin inline mr-1" /> : null}
+                    Grabar
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={loading || saving}
+                  className="rounded border border-slate-300 bg-white px-4 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-100 transition shadow-2xs"
+                >
+                  Salir
+                </button>
               </div>
-
-              {/* Estado actual info (when coming from read-only mode) */}
-              {form.estadoActual && (
-                <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-[11px] text-amber-700">
-                  <span className="font-semibold">Estado Actual:</span> {form.estadoActual}
-                  {form.usuario && <span className="ml-2 text-amber-500">| Por: {form.usuario}</span>}
-                  {form.fechaModificacion && <span className="ml-2 text-amber-500">| {form.fechaModificacion}</span>}
-                </div>
-              )}
-
-              {editable && (
-                <div className="space-y-3 pt-1">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="col-span-2">
-                      <label className="block text-[10px] font-bold text-slate-700 mb-1">Estados *</label>
-                      <select value={form.nuevoEstado} onChange={(e) => update("nuevoEstado", e.target.value)}
-                        className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 font-semibold focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none">
-                        <option value="">[SELECCIONE]</option>
-                        {estados.map((e) => (
-                          <option key={e.id} value={e.id}>{e.nombre}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-700 mb-1">N° Resolución</label>
-                      <input type="text" value={form.resolucion} onChange={(e) => update("resolucion", e.target.value)}
-                        className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 font-medium focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none" />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-700 mb-1">Fecha</label>
-                      <input type="date" value={form.fechaNotificacion} onChange={(e) => update("fechaNotificacion", e.target.value)}
-                        className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-800 font-medium focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none" />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-700 mb-1">Observación</label>
-                    <textarea rows={3} value={form.observaciones} onChange={(e) => update("observaciones", e.target.value)}
-                      placeholder="Ingrese observaciones..."
-                      className="w-full rounded-md border border-slate-300 bg-white p-2 text-xs text-slate-800 font-normal resize-none focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none" />
-                  </div>
-
-                  <div className="pt-1 flex flex-col gap-1 border-t border-slate-100">
-                    <label className="block text-[10px] font-bold text-slate-700">Adjuntar PDF:</label>
-                    <input type="file" accept=".pdf" className="text-xs text-slate-600 file:mr-2 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 cursor-pointer" />
-                  </div>
-                </div>
-              )}
             </>
-          )}
-        </div>
-
-        <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3 shrink-0">
-          <button type="button" onClick={onClose} disabled={loading || saving}
-            className="rounded-md border border-slate-300 bg-white px-4 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50">
-            {editable ? "Cancelar" : "Cerrar"}
-          </button>
-          {editable && (
-            <button type="button" onClick={handleSave} disabled={loading || saving}
-              className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-4 py-1.5 text-xs font-medium text-white transition hover:bg-cyan-600 disabled:opacity-60 disabled:cursor-not-allowed">
-              {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
-              Grabar
-            </button>
           )}
         </div>
       </div>

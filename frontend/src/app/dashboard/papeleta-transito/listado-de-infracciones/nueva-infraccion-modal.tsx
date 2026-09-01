@@ -14,6 +14,8 @@ import {
   grabarJucaAction,
   consultaInfraccionesAction,
   obtenerCombosLugarAction,
+  obtenerCombosPlacaAction,
+  grabarPlacaAction,
 } from "@/actions/papeleta-transito/acciones-infraccion";
 
 // ── Types ─────────────────────────────────────────────────
@@ -207,6 +209,29 @@ export default function NuevaInfraccionModal({ isOpen, onClose, onSuccess, editD
 
   // Submodal Nueva Placa
   const [showNuevaPlaca, setShowNuevaPlaca] = useState(false);
+  const [placaForm, setPlacaForm] = useState({
+    codplac: "", codplac1: "", tipvehi: "", codmarc: "", codcolo: "", aniofab: "",
+    formalidad: "Informal", estado: "1",
+  });
+  const [placaCombos, setPlacaCombos] = useState<{ tipos: any[]; marcas: any[]; colores: any[] }>({
+    tipos: [], marcas: [], colores: [],
+  });
+  const [nuevaPlacaLoading, setNuevaPlacaLoading] = useState(false);
+  const [nuevaPlacaError, setNuevaPlacaError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (showNuevaPlaca) {
+      obtenerCombosPlacaAction().then((res) => {
+        if (res.success && res.data) {
+          setPlacaCombos({
+            tipos: res.data.tipos ?? [],
+            marcas: res.data.marcas ?? [],
+            colores: res.data.colores ?? [],
+          });
+        }
+      });
+    }
+  }, [showNuevaPlaca]);
 
   // Submodal Nuevo Conductor / Persona
   const [showNuevoConductor, setShowNuevoConductor] = useState(false);
@@ -220,13 +245,34 @@ export default function NuevaInfraccionModal({ isOpen, onClose, onSuccess, editD
     licencia: "",
     noPresentoLicencia: false,
     domicilio: "",
+    idlugar: "",
+    dnumero: "",
+    dmanzana: "",
+    dlote: "",
   });
   const [newCondLoading, setNewCondLoading] = useState(false);
+
+  // Submodal Buscar Domicilio (vía y calle) — igual al nuevadomicilio del antiguo.
+  // domicilioOrigin indica desde qué form se abrió ('cond' = conductor, 'prop' = propietario)
+  const [domicilioOrigin, setDomicilioOrigin] = useState<"cond" | "prop">("cond");
+  const [showBuscarDomicilio, setShowBuscarDomicilio] = useState(false);
+  const [domTipoVia, setDomTipoVia] = useState("");
+  const [domVia, setDomVia] = useState("");
+  const [domTipoLugar, setDomTipoLugar] = useState("");
+  const [domLugar, setDomLugar] = useState("");
+  const [domNumero, setDomNumero] = useState("");
+  const [domManzana, setDomManzana] = useState("");
+  const [domLote, setDomLote] = useState("");
+  const [domResult, setDomResult] = useState<PagedResult<any> | null>(null);
+  const [domPage, setDomPage] = useState(1);
+  const [domLoading, setDomLoading] = useState(false);
 
   // Submodal Nuevo Propietario
   const [showNuevoPropietario, setShowNuevoPropietario] = useState(false);
   const [propForm, setPropForm] = useState({
-    apPaterno: "", apMaterno: "", nombres: "", dniRuc: "", tarjeta: "", domicilio: "",
+    cmbTipoPer: "01", tipoDoc: "DNI", apPaterno: "", apMaterno: "", nombres: "", dniRuc: "",
+    tarjeta: "", noPresentoTarjeta: false, domicilio: "",
+    idlugar: "", dnumero: "", dmanzana: "", dlote: "",
   });
   const [newPropLoading, setNewPropLoading] = useState(false);
 
@@ -257,8 +303,13 @@ export default function NuevaInfraccionModal({ isOpen, onClose, onSuccess, editD
         return clean;
       };
 
+      const parseBooleanFlag = (val: unknown): boolean => {
+        if (val === true || val === 1 || val === "1" || val === "true") return true;
+        return false;
+      };
+
       setForm({
-        acta: Boolean(editData.acta),
+        acta: parseBooleanFlag(editData.acta),
         seriePapel: String(editData.seriePapel ?? new Date().getFullYear().toString()),
         taloPapel: String(editData.taloPapel ?? "01"),
         numeroPapel: String(editData.numeroPapel ?? ""),
@@ -275,7 +326,7 @@ export default function NuevaInfraccionModal({ isOpen, onClose, onSuccess, editD
         fechaResolucion: String(editData.fechaResolucion ?? ""),
         dosaje: String(editData.dosaje ?? ""),
         grado: String(editData.grado ?? ""),
-        retener: Boolean(editData.retener),
+        retener: parseBooleanFlag(editData.retener),
         idLugar: String(editData.idLugar ?? ""),
         lugar: String(editData.lugar ?? ""),
         referencia: String(editData.referencia ?? ""),
@@ -295,7 +346,7 @@ export default function NuevaInfraccionModal({ isOpen, onClose, onSuccess, editD
         detalle: String(editData.detalle ?? ""),
         cipAuto: String(editData.cipAuto ?? ""),
         codigoPropietario: String(editData.codigoPropietario ?? ""),
-        presento: Boolean(editData.presento),
+        presento: parseBooleanFlag(editData.presento),
         nombrePropietario: String(editData.nombrePropietario ?? ""),
         dniPropietario: String(editData.dniPropietario ?? editData.rucPropietario ?? ""),
         tipoPropiedad: String(editData.tipoPropiedad ?? ""),
@@ -395,22 +446,58 @@ export default function NuevaInfraccionModal({ isOpen, onClose, onSuccess, editD
     }
   }
 
+  async function handleGrabarPlaca() {
+    setNuevaPlacaError(null);
+    if (!placaForm.codplac.trim()) {
+      setNuevaPlacaError("Debe ingresar el número de Placa.");
+      return;
+    }
+    setNuevaPlacaLoading(true);
+    const res = await grabarPlacaAction({
+      mquery: 1,
+      codplac: placaForm.codplac,
+      codplac1: placaForm.codplac1,
+      tipvehi: placaForm.tipvehi,
+      codmarc: placaForm.codmarc,
+      codcolo: placaForm.codcolo,
+      aniofab: placaForm.aniofab,
+      formalidad: placaForm.formalidad,
+      estado: placaForm.estado,
+    });
+    setNuevaPlacaLoading(false);
+    if (res.success) {
+      alert(res.message || "Placa registrada correctamente.");
+      setShowNuevaPlaca(false);
+      setPlacaForm({ codplac: "", codplac1: "", tipvehi: "", codmarc: "", codcolo: "", aniofab: "", formalidad: "Informal", estado: "1" });
+      searchPlaca(1);
+    } else {
+      setNuevaPlacaError((res as any).error ?? (res as any).message ?? "Error al grabar la placa");
+    }
+  }
+
   async function handleGrabarConductor() {
     if (!condForm.apPaterno || !condForm.dniRuc) return;
     setNewCondLoading(true);
     const res = await grabarConProAction({
-      tipoPer: "c",
+      tipoPer: "C",
+      cmbTipoPer: condForm.tipoPersona === "JURIDICA" ? "03" : "01",
       apPaterno: condForm.apPaterno,
       apMaterno: condForm.apMaterno,
       nombres: condForm.nombres,
       dniRuc: condForm.dniRuc,
       licencia: condForm.licencia,
       domicilio: condForm.domicilio,
+      numero: condForm.dnumero,
+      manzana: condForm.dmanzana,
+      lote: condForm.dlote,
+      idLugar: condForm.idlugar,
     });
     setNewCondLoading(false);
     if (res.success) {
       setShowNuevoConductor(false);
       searchConductor(1);
+    } else {
+      alert((res as any).error ?? (res as any).message ?? "Error al grabar el conductor");
     }
   }
 
@@ -418,18 +505,25 @@ export default function NuevaInfraccionModal({ isOpen, onClose, onSuccess, editD
     if (!propForm.apPaterno || !propForm.dniRuc) return;
     setNewPropLoading(true);
     const res = await grabarConProAction({
-      tipoPer: "p",
+      tipoPer: "P",
+      cmbTipoPer: propForm.cmbTipoPer,
       apPaterno: propForm.apPaterno,
       apMaterno: propForm.apMaterno,
       nombres: propForm.nombres,
       dniRuc: propForm.dniRuc,
       tarjeta: propForm.tarjeta,
       domicilio: propForm.domicilio,
+      numero: propForm.dnumero,
+      manzana: propForm.dmanzana,
+      lote: propForm.dlote,
+      idLugar: propForm.idlugar,
     });
     setNewPropLoading(false);
     if (res.success) {
       setShowNuevoPropietario(false);
       searchPropietario(1);
+    } else {
+      alert((res as any).error ?? (res as any).message ?? "Error al grabar el propietario");
     }
   }
 
@@ -464,7 +558,7 @@ export default function NuevaInfraccionModal({ isOpen, onClose, onSuccess, editD
       ...prev,
       idPlaca: String(row.idtramplac ?? row.id ?? row.codplac ?? "").trim(),
       placa: String(row.codplac ?? row.placa ?? "").trim(),
-      placaSecundaria: String(row.placasec ?? row.placaSecundaria ?? "").trim(),
+      placaSecundaria: String(row.codplacSec ?? row.placasec ?? row.placaSecundaria ?? "").trim(),
       tipoVehiculo: String(row.desvehi ?? row.tipoVehiculo ?? "").trim(),
       marca: String(row.desmarc ?? row.marca ?? "").trim(),
       anio: String(row.aniofab ?? row.anio ?? "").trim(),
@@ -490,6 +584,65 @@ export default function NuevaInfraccionModal({ isOpen, onClose, onSuccess, editD
     setActivePanel(null);
   }
 
+  // ── Buscar Domicilio (vía/calle) del conductor ─────────────
+  // Legacy: Papeletatransito01Controller::consultalugarAction
+  // SP: papeleta.lugar_infrac (@msquery=1 total, @msquery=2 filas)
+  async function searchDomicilio(page = 1) {
+    setDomLoading(true);
+    setDomPage(page);
+    const res = await consultaLugarAction({
+      cmbtipocalle: domTipoVia,
+      ncalle: domVia,
+      cmbtipolugar: domTipoLugar,
+      nlugar: domLugar,
+      page,
+      limit: 10,
+    });
+    if (res.success && res.data) setDomResult(res.data as PagedResult<any>);
+    setDomLoading(false);
+  }
+
+  // Al escoger un lugar se construye el domicilio (igual que el JS js_domicilio_pape.js del antiguo):
+  // "tvia via tlugar lugar" + opcional "Nro. x", "Mz. y", "Lt. z"
+  function seleccionarDomicilio(row: any) {
+    let direccion = `${row.tvia ?? ""} ${row.via ?? ""} ${row.tlugar ?? ""} ${row.lugar ?? ""}`.replace(/\s+/g, " ").trim();
+    let dnumero = "";
+    let dmanzana = "";
+    let dlote = "";
+    if (domNumero.trim()) {
+      direccion += ` Nro. ${domNumero.trim()}`;
+      dnumero = domNumero.trim();
+    }
+    if (domManzana.trim()) {
+      direccion += ` Mz. ${domManzana.trim()}`;
+      dmanzana = domManzana.trim();
+    }
+    if (domLote.trim()) {
+      direccion += ` Lt. ${domLote.trim()}`;
+      dlote = domLote.trim();
+    }
+    if (domicilioOrigin === "prop") {
+      setPropForm((prev) => ({
+        ...prev,
+        domicilio: direccion,
+        idlugar: String(row.id ?? "").trim(),
+        dnumero,
+        dmanzana,
+        dlote,
+      }));
+    } else {
+      setCondForm((prev) => ({
+        ...prev,
+        domicilio: direccion,
+        idlugar: String(row.id ?? "").trim(),
+        dnumero,
+        dmanzana,
+        dlote,
+      }));
+    }
+    setShowBuscarDomicilio(false);
+  }
+
   // ── Submit ────────────────────────────────────────────
 
   function handleSubmit() {
@@ -501,6 +654,8 @@ export default function NuevaInfraccionModal({ isOpen, onClose, onSuccess, editD
     startTransition(async () => {
       const horaMin = `${form.hora}:${form.minuto}`;
       const result = await nuevaInfraccionAction({
+        operacion: editData ? 1 : 0,
+        papeleta: String(editData?.id ?? editData?.numeroInfraccion ?? form.numeroPapel).trim(),
         placa: form.placa,
         seriePapel: form.seriePapel,
         numeroPapel: form.numeroPapel,
@@ -816,11 +971,21 @@ export default function NuevaInfraccionModal({ isOpen, onClose, onSuccess, editD
                     </div>
 
                     <span className="font-bold text-black">Domicilio</span>
-                    <input
-                      value={condForm.domicilio}
-                      onChange={(e) => setCondForm({ ...condForm, domicilio: e.target.value })}
-                      className="col-span-2 rounded border border-slate-400 bg-white px-2 py-1 text-black font-semibold focus:border-sat-cyan focus:outline-none"
-                    />
+                    <div className="col-span-2 flex items-center gap-1.5">
+                      <input
+                        value={condForm.domicilio}
+                        onChange={(e) => setCondForm({ ...condForm, domicilio: e.target.value })}
+                        className="flex-1 rounded border border-slate-400 bg-white px-2 py-1 text-black font-semibold focus:border-sat-cyan focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => { setDomicilioOrigin("cond"); setShowBuscarDomicilio(true); }}
+                        className="shrink-0 h-7 px-2.5 rounded border border-slate-400 bg-slate-100 hover:bg-slate-200 font-semibold text-xs text-black transition flex items-center gap-1"
+                        title="Buscar vía y calle del domicilio"
+                      >
+                        <Search size={12} /> Buscar
+                      </button>
+                    </div>
                   </div>
 
                   <div className="flex justify-start gap-2 pt-3 border-t border-slate-300 mt-3">
@@ -840,6 +1005,272 @@ export default function NuevaInfraccionModal({ isOpen, onClose, onSuccess, editD
                       Cerrar
                     </button>
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Submodal Flotante e Independiente: Nuevo Ingreso (Propietario) */}
+          {showNuevoPropietario && (
+            <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-xs p-2">
+              <div className="w-full max-w-lg bg-white rounded-xl shadow-2xl border border-slate-300 overflow-hidden text-[11px] animate-scale-up">
+                <div className="flex items-center justify-between bg-gradient-to-r from-sat-navy via-[#1b2b4a] to-slate-800 px-3 py-2">
+                  <span className="text-xs font-bold text-white tracking-tight">Nuevo Ingreso — Propietario</span>
+                  <button type="button" onClick={() => setShowNuevoPropietario(false)} className="rounded p-0.5 text-white/60 hover:text-white hover:bg-white/10">
+                    <X size={14} />
+                  </button>
+                </div>
+                <div className="p-4 space-y-2 bg-white text-black font-semibold">
+                  <div className="grid grid-cols-3 gap-x-3 gap-y-2 text-xs items-center">
+                    <span className="font-bold text-black">Tipo de Persona</span>
+                    <select
+                      value={propForm.cmbTipoPer}
+                      onChange={(e) => setPropForm({ ...propForm, cmbTipoPer: e.target.value })}
+                      className="col-span-2 rounded border border-slate-400 bg-white px-2 py-1 text-black font-bold focus:border-sat-cyan focus:outline-none"
+                    >
+                      <option value="01">Natural</option>
+                      <option value="03">Juridica</option>
+                    </select>
+
+                    <span className="font-bold text-black">Ap. Paterno / Razon Social *</span>
+                    <input
+                      value={propForm.apPaterno}
+                      onChange={(e) => setPropForm({ ...propForm, apPaterno: e.target.value })}
+                      className="col-span-2 rounded border border-slate-400 bg-white px-2 py-1 text-black font-semibold focus:border-sat-cyan focus:outline-none"
+                    />
+
+                    <span className="font-bold text-black">Ap. Materno</span>
+                    <input
+                      value={propForm.apMaterno}
+                      onChange={(e) => setPropForm({ ...propForm, apMaterno: e.target.value })}
+                      className="col-span-2 rounded border border-slate-400 bg-white px-2 py-1 text-black font-semibold focus:border-sat-cyan focus:outline-none"
+                    />
+
+                    <span className="font-bold text-black">Nombre(s) *</span>
+                    <input
+                      value={propForm.nombres}
+                      onChange={(e) => setPropForm({ ...propForm, nombres: e.target.value })}
+                      className="col-span-2 rounded border border-slate-400 bg-white px-2 py-1 text-black font-semibold focus:border-sat-cyan focus:outline-none"
+                    />
+
+                    <span className="font-bold text-black">Tipo Documento</span>
+                    <select
+                      value={propForm.tipoDoc}
+                      onChange={(e) => setPropForm({ ...propForm, tipoDoc: e.target.value })}
+                      className="col-span-2 rounded border border-slate-400 bg-white px-2 py-1 text-black font-bold focus:border-sat-cyan focus:outline-none"
+                    >
+                      <option value="DNI">DNI</option>
+                      <option value="RUC">RUC</option>
+                      <option value="CE">CARNET EXT.</option>
+                    </select>
+
+                    <span className="font-bold text-black">Nro Documento *</span>
+                    <input
+                      value={propForm.dniRuc}
+                      onChange={(e) => setPropForm({ ...propForm, dniRuc: e.target.value })}
+                      className="col-span-2 rounded border border-slate-400 bg-white px-2 py-1 text-black font-bold focus:border-sat-cyan focus:outline-none"
+                    />
+
+                    <span className="font-bold text-black">N° T. Propiedad/TIV</span>
+                    <div className="col-span-2 flex items-center gap-3">
+                      <input
+                        disabled={propForm.noPresentoTarjeta}
+                        value={propForm.tarjeta}
+                        onChange={(e) => setPropForm({ ...propForm, tarjeta: e.target.value })}
+                        className={`flex-1 rounded border px-2 py-1 text-black font-bold focus:outline-none ${propForm.noPresentoTarjeta ? "bg-slate-100 border-slate-300" : "border-slate-400 bg-white focus:border-sat-cyan"}`}
+                      />
+                      <label className="flex items-center gap-1 text-[11px] font-bold text-black cursor-pointer shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={propForm.noPresentoTarjeta}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setPropForm({
+                              ...propForm,
+                              noPresentoTarjeta: checked,
+                              tarjeta: checked ? "No tiene Tarjeta" : "",
+                            });
+                          }}
+                          className="h-3.5 w-3.5 rounded border-slate-400 text-sat-cyan"
+                        />
+                        No presentó Tarjeta de Propiedad
+                      </label>
+                    </div>
+
+                    <span className="font-bold text-black">Domicilio</span>
+                    <div className="col-span-2 flex items-center gap-1.5">
+                      <input
+                        value={propForm.domicilio}
+                        onChange={(e) => setPropForm({ ...propForm, domicilio: e.target.value })}
+                        className="flex-1 rounded border border-slate-400 bg-white px-2 py-1 text-black font-semibold focus:border-sat-cyan focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => { setDomicilioOrigin("prop"); setShowBuscarDomicilio(true); }}
+                        className="shrink-0 h-7 px-2.5 rounded border border-slate-400 bg-slate-100 hover:bg-slate-200 font-semibold text-xs text-black transition flex items-center gap-1"
+                        title="Buscar vía y calle del domicilio"
+                      >
+                        <Search size={12} /> Buscar
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-start gap-2 pt-3 border-t border-slate-300 mt-3">
+                    <button
+                      type="button"
+                      onClick={handleGrabarPropietario}
+                      disabled={newPropLoading}
+                      className="px-4 py-1.5 bg-sat-cyan text-white rounded-md text-xs font-bold hover:bg-cyan-600 transition flex items-center gap-1"
+                    >
+                      {newPropLoading ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Grabar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowNuevoPropietario(false)}
+                      className="px-4 py-1.5 border border-slate-400 rounded-md text-xs font-bold text-black hover:bg-slate-100"
+                    >
+                      Cerrar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Submodal Buscar Domicilio (vía y calle) — igual al nuevadomicilio del antiguo */}
+          {showBuscarDomicilio && (
+            <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 backdrop-blur-xs p-2">
+              <div className="w-full max-w-2xl bg-white rounded-xl shadow-2xl border border-slate-300 overflow-hidden text-[11px] animate-scale-up flex flex-col max-h-[90vh]">
+                <div className="flex items-center justify-between bg-gradient-to-r from-sat-navy via-[#1b2b4a] to-slate-800 px-3 py-2 shrink-0">
+                  <span className="text-xs font-bold text-white tracking-tight">Nueva Domicilio — Búsqueda de Vía y Calle</span>
+                  <button type="button" onClick={() => setShowBuscarDomicilio(false)} className="rounded p-0.5 text-white/60 hover:text-white hover:bg-white/10">
+                    <X size={14} />
+                  </button>
+                </div>
+                <div className="p-3 space-y-2 bg-white text-black font-semibold overflow-y-auto">
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-xs items-center">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-24 font-bold text-black">Tipo de Vía</span>
+                      <select
+                        value={domTipoVia}
+                        onChange={(e) => setDomTipoVia(e.target.value)}
+                        className="flex-1 rounded border border-slate-400 bg-white px-1.5 py-1 text-black font-semibold focus:border-sat-cyan focus:outline-none"
+                      >
+                        <option value="">[SELECCIONE]</option>
+                        {comboVias.map((v) => (
+                          <option key={v.id} value={v.id}>{v.descripcion}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-24 font-bold text-black">Vía</span>
+                      <input
+                        value={domVia}
+                        onChange={(e) => setDomVia(e.target.value.toUpperCase())}
+                        onKeyDown={(e) => e.key === "Enter" && searchDomicilio(1)}
+                        className="flex-1 rounded border border-slate-400 bg-white px-1.5 py-1 text-black font-semibold focus:border-sat-cyan focus:outline-none"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-24 font-bold text-black">Tipo de Lugar</span>
+                      <select
+                        value={domTipoLugar}
+                        onChange={(e) => setDomTipoLugar(e.target.value)}
+                        className="flex-1 rounded border border-slate-400 bg-white px-1.5 py-1 text-black font-semibold focus:border-sat-cyan focus:outline-none"
+                      >
+                        <option value="">[SELECCIONE]</option>
+                        {comboLugares.map((l) => (
+                          <option key={l.id} value={l.id}>{l.descripcion}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-24 font-bold text-black">Lugar</span>
+                      <input
+                        value={domLugar}
+                        onChange={(e) => setDomLugar(e.target.value.toUpperCase())}
+                        onKeyDown={(e) => e.key === "Enter" && searchDomicilio(1)}
+                        className="flex-1 rounded border border-slate-400 bg-white px-1.5 py-1 text-black font-semibold focus:border-sat-cyan focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-x-3 gap-y-2 text-xs items-center">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-20 font-bold text-black">Número</span>
+                      <input
+                        value={domNumero}
+                        onChange={(e) => setDomNumero(e.target.value.toUpperCase())}
+                        className="flex-1 rounded border border-slate-400 bg-white px-1.5 py-1 text-black font-semibold focus:border-sat-cyan focus:outline-none"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-20 font-bold text-black">Manzana</span>
+                      <input
+                        value={domManzana}
+                        onChange={(e) => setDomManzana(e.target.value.toUpperCase())}
+                        className="flex-1 rounded border border-slate-400 bg-white px-1.5 py-1 text-black font-semibold focus:border-sat-cyan focus:outline-none"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-20 font-bold text-black">Lote</span>
+                      <input
+                        value={domLote}
+                        onChange={(e) => setDomLote(e.target.value.toUpperCase())}
+                        className="flex-1 rounded border border-slate-400 bg-white px-1.5 py-1 text-black font-semibold focus:border-sat-cyan focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => searchDomicilio(1)}
+                      className="inline-flex items-center gap-1 rounded-md bg-sat-cyan px-4 py-1.5 text-xs font-bold text-white hover:bg-cyan-600 transition"
+                    >
+                      {domLoading ? <Loader2 size={12} className="animate-spin" /> : <Search size={12} />} Buscar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowBuscarDomicilio(false)}
+                      className="rounded-md border border-slate-400 bg-white px-4 py-1.5 text-xs font-bold text-black hover:bg-slate-100"
+                    >
+                      Cerrar
+                    </button>
+                  </div>
+
+                  {domResult && (
+                    <>
+                      <table className="w-full text-[10px] border-collapse bg-white">
+                        <thead>
+                          <tr className="bg-slate-100 text-black font-bold text-left border-b border-slate-300">
+                            <th className="px-2 py-1">Tipo Vía</th>
+                            <th className="px-2 py-1">Vía</th>
+                            <th className="px-2 py-1">Tipo Lugar</th>
+                            <th className="px-2 py-1">Lugar</th>
+                            <th className="px-2 py-1 text-center">Acción</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {domResult.rows.map((row: any, idx: number) => (
+                            <tr key={row.id || idx} className="hover:bg-sat-cyan/10 border-b border-slate-200 text-black transition">
+                              <td className="px-2 py-1 text-black">{row.tvia}</td>
+                              <td className="px-2 py-1 font-bold text-black">{row.via}</td>
+                              <td className="px-2 py-1 text-black">{row.tlugar}</td>
+                              <td className="px-2 py-1 font-semibold text-black">{row.lugar}</td>
+                              <td className="px-2 py-1 text-center">
+                                <button type="button" onClick={() => seleccionarDomicilio(row)}
+                                  className="rounded bg-sat-cyan px-2 py-0.5 text-white hover:bg-cyan-600 font-bold transition text-[10px]">
+                                  Escoger
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <Pagination total={domResult.total} page={domPage} limit={10} onPage={(p) => searchDomicilio(p)} />
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -1032,6 +1463,90 @@ export default function NuevaInfraccionModal({ isOpen, onClose, onSuccess, editD
                 </button>
               </div>
             </LookupPanel>
+          )}
+
+          {/* Submodal Flotante: Nueva Placa (igual al formuplaca del antiguo) */}
+          {showNuevaPlaca && (
+            <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-xs p-2">
+              <div className="w-full max-w-md bg-white rounded-xl shadow-2xl border border-slate-300 overflow-hidden text-[11px] animate-scale-up">
+                <div className="flex items-center justify-between bg-gradient-to-r from-sat-navy via-[#1b2b4a] to-slate-800 px-3 py-2">
+                  <span className="text-xs font-bold text-white tracking-tight">Nueva Placa</span>
+                  <button type="button" onClick={() => setShowNuevaPlaca(false)} className="rounded p-0.5 text-white/60 hover:text-white hover:bg-white/10">
+                    <X size={14} />
+                  </button>
+                </div>
+                <div className="p-4 space-y-2.5 bg-white text-black font-bold">
+                  {nuevaPlacaError && (
+                    <div className="rounded-md bg-red-50 border border-red-200 px-2.5 py-1 text-red-600 text-xs font-bold">
+                      {nuevaPlacaError}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <span className="w-28 font-bold text-black">Placa</span>
+                    <input value={placaForm.codplac} onChange={(e) => setPlacaForm({ ...placaForm, codplac: e.target.value.toUpperCase() })}
+                      className="flex-1 rounded border border-slate-400 px-2 py-1 text-xs text-black font-bold uppercase focus:border-sat-cyan focus:outline-none" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-28 font-bold text-black">Tipo</span>
+                    <select value={placaForm.tipvehi} onChange={(e) => setPlacaForm({ ...placaForm, tipvehi: e.target.value })} className="flex-1 rounded border border-slate-400 px-2 py-1 text-xs text-black font-bold focus:border-sat-cyan focus:outline-none">
+                      <option value="">[SELECCIONE]</option>
+                      {placaCombos.tipos.map((t) => (
+                        <option key={t.id} value={t.id}>{t.descripcion}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-28 font-bold text-black">Marca</span>
+                    <select value={placaForm.codmarc} onChange={(e) => setPlacaForm({ ...placaForm, codmarc: e.target.value })} className="flex-1 rounded border border-slate-400 px-2 py-1 text-xs text-black font-bold focus:border-sat-cyan focus:outline-none">
+                      <option value="">[SELECCIONE]</option>
+                      {placaCombos.marcas.map((m) => (
+                        <option key={m.id} value={m.id}>{m.descripcion}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-28 font-bold text-black">Año de Fabricación</span>
+                    <input value={placaForm.aniofab} maxLength={4} onChange={(e) => setPlacaForm({ ...placaForm, aniofab: e.target.value })} className="flex-1 rounded border border-slate-400 px-2 py-1 text-xs text-black font-bold focus:border-sat-cyan focus:outline-none" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-28 font-bold text-black">Color</span>
+                    <select value={placaForm.codcolo} onChange={(e) => setPlacaForm({ ...placaForm, codcolo: e.target.value })} className="flex-1 rounded border border-slate-400 px-2 py-1 text-xs text-black font-bold focus:border-sat-cyan focus:outline-none">
+                      <option value="">[SELECCIONE]</option>
+                      {placaCombos.colores.map((c) => (
+                        <option key={c.id} value={c.id}>{c.descripcion}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-28 font-bold text-black">Formalidad</span>
+                    <input value={placaForm.formalidad} readOnly className="flex-1 rounded border border-slate-300 bg-slate-100 px-2 py-1 text-xs text-black font-bold" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-28 font-bold text-black">Placa Secundaria</span>
+                    <input value={placaForm.codplac1} onChange={(e) => setPlacaForm({ ...placaForm, codplac1: e.target.value.toUpperCase() })} className="flex-1 rounded border border-slate-400 px-2 py-1 text-xs text-black font-bold uppercase focus:border-sat-cyan focus:outline-none" />
+                  </div>
+                  <div className="flex items-center gap-3 pt-1">
+                    <span className="w-28 font-bold text-black">Estado</span>
+                    <label className="flex items-center gap-1 font-bold text-black cursor-pointer">
+                      <input type="radio" name="placaEstado" checked={placaForm.estado === "1"} onChange={() => setPlacaForm({ ...placaForm, estado: "1" })} className="text-sat-cyan" />
+                      Activo
+                    </label>
+                    <label className="flex items-center gap-1 font-bold text-black cursor-pointer">
+                      <input type="radio" name="placaEstado" checked={placaForm.estado === "0"} onChange={() => setPlacaForm({ ...placaForm, estado: "0" })} className="text-sat-cyan" />
+                      Inactivo
+                    </label>
+                  </div>
+                  <div className="flex justify-start gap-2 pt-3 border-t border-slate-300 mt-2">
+                    <button type="button" onClick={handleGrabarPlaca} disabled={nuevaPlacaLoading} className="px-4 py-1.5 bg-sat-cyan text-white rounded-md text-xs font-bold hover:bg-cyan-600 transition flex items-center gap-1">
+                      {nuevaPlacaLoading ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Guardar
+                    </button>
+                    <button type="button" onClick={() => setShowNuevaPlaca(false)} className="px-4 py-1.5 border border-slate-400 rounded-md text-xs font-bold text-black hover:bg-slate-100">
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
 
           {/* Submodal Flotante e Independiente: Búsqueda de Calle y Junta */}
@@ -1261,8 +1776,8 @@ export default function NuevaInfraccionModal({ isOpen, onClose, onSuccess, editD
             <div className="flex items-center gap-4 py-0.5">
               <div className="flex items-center gap-1.5">
                 <span className="text-slate-800 font-medium">Placa:</span>
-                <input readOnly value={form.idPlaca} className="w-10 h-6 rounded border border-slate-300 bg-slate-100 px-1 font-semibold text-xs text-slate-900" />
-                <input readOnly value={form.placa} className="w-20 h-6 rounded border border-slate-300 bg-slate-100 px-1.5 font-bold text-xs uppercase text-slate-900" />
+                <input readOnly value={form.idPlaca} className="w-16 min-w-[50px] h-6 rounded border border-slate-300 bg-slate-100 px-1 font-semibold text-xs text-slate-900 text-center" />
+                <input readOnly value={form.placa} className="w-24 h-6 rounded border border-slate-300 bg-slate-100 px-1.5 font-bold text-xs uppercase text-slate-900" />
                 <button type="button" onClick={() => { setActivePanel("placa"); searchPlaca(1); }} className="h-6 px-2.5 rounded border border-slate-400 bg-slate-100 hover:bg-slate-200 font-semibold text-xs text-slate-800 transition">
                   ...
                 </button>

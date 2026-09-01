@@ -44,7 +44,7 @@ export class ListadoDeInfraccionesService {
     const spParams = {
       placa: dto.placa ?? '',
       propie: dto.propietario ?? '',
-      infrac: dto.codigoInfraccion ?? '',
+      infrac: dto.infrac ?? dto.codigoInfraccion ?? '',
       infracanio: dto.anioInfraccion ?? '',
       conduc: dto.conductor ?? '',
       dniconduc: dto.dniConductor ?? '',
