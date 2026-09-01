@@ -12,9 +12,6 @@ import {
   Res,
 } from '@nestjs/common';
 import { Response } from 'express';
-import * as dns from 'dns';
-import * as os from 'os';
-import { promisify } from 'util';
 
 import { AuthService } from './auth.service';
 import {
@@ -39,15 +36,6 @@ function extractClientIp(req: Request & { socket: { remoteAddress?: string } }):
     || '127.0.0.1';
   return rawIp.replace(/^::ffff:/, '');
 }
-
-/** Hostnames que NO son nombres reales de PC */
-const INVALID_HOSTNAMES = new Set([
-  'GATEWAY', 'ROUTER', 'MODEM', 'LOCALHOST', 'UNKNOWN',
-  'WORKGROUP', 'MINWINPC', '(UNKNOWN)', '',
-]);
-
-/** IPs que representan acceso local (el cliente y servidor en la misma máquina) */
-const LOCALHOST_IPS = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1', 'unknown', '']);
 
 function getAuthCookieOptions() {
   const isProduction = process.env.NODE_ENV === 'production';
@@ -124,36 +112,14 @@ export class AuthController {
   async clientInfo(
     @Request() req: Request & { socket: { remoteAddress?: string } },
   ): Promise<{ hostname: string; ip: string }> {
+    const xff = req.headers['x-forwarded-for'] as string | undefined;
     const ip = extractClientIp(req);
+    console.log(
+      `[clientInfo] req.socket.remoteAddress=${req.socket?.remoteAddress} | x-forwarded-for=${xff ?? '<none>'} | resolved ip=${ip}`,
+    );
 
-    // Acceso local: usar el nombre del servidor directamente
-    if (LOCALHOST_IPS.has(ip)) {
-      return { hostname: os.hostname().toUpperCase(), ip };
-    }
-
-    let hostname = ip;
-    try {
-      const reverseDnsAsync = promisify(dns.reverse);
-      const names = await reverseDnsAsync(ip);
-      if (names.length > 0) {
-        const resolved = names[0].split('.')[0].toUpperCase();
-        if (
-          resolved !== ip &&
-          !/^\d+\.\d+\.\d+\.\d+$/.test(resolved) &&
-          !INVALID_HOSTNAMES.has(resolved)
-        ) {
-          hostname = resolved;
-        }
-      }
-    } catch {
-      // DNS reverse lookup failed
-    }
-
-    // Fallback: si reverse DNS no sirvió, usar el nombre del servidor
-    if (hostname === ip) {
-      const serverHostname = os.hostname().toUpperCase();
-      hostname = INVALID_HOSTNAMES.has(serverHostname) ? '' : serverHostname;
-    }
+    const hostname = await this.authService.resolveHostname(ip);
+    console.log(`[clientInfo] resolved hostname='${hostname}' for ip=${ip}`);
 
     return { hostname, ip };
   }

@@ -32,6 +32,7 @@ import {
   LiquidacionReporteData,
   VerPagosData,
   DeudaConsolidadoData,
+  GenerarDeudaConcepto,
 } from './dto/declaracion-jurada.types';
 import {
   EstadoCuentaRecibosSchema,
@@ -41,6 +42,14 @@ import {
   DeudaConsolidadoSchema,
   DeudaConsolidadoDto,
 } from './dto/deuda-consolidado.dto';
+import {
+  GenerarDeudaConceptoSchema,
+  GenerarDeudaConceptoDto,
+} from './dto/generar-deuda-concepto.dto';
+import {
+  GenerarDeudaGuardarSchema,
+  GenerarDeudaGuardarDto,
+} from './dto/generar-deuda-guardar.dto';
 import {
   GenerarLiquidacionDJSchema,
   GenerarLiquidacionDJDto,
@@ -608,6 +617,80 @@ export class DeclaracionJuradaController {
           error instanceof Error
             ? error.message
             : 'Error al obtener la deuda consolidada del contribuyente.',
+      };
+    }
+  }
+
+  @Post('estado-cuenta/generar-deuda-concepto')
+  async getGenerarDeudaConcepto(
+    @Body() dto: GenerarDeudaConceptoDto,
+  ): Promise<
+    | { success: true; data: GenerarDeudaConcepto[] }
+    | { success: false; error: string }
+  > {
+    let parsed: GenerarDeudaConceptoDto;
+    try {
+      parsed = GenerarDeudaConceptoSchema.parse(dto);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const messages = error.issues.map((issue) => issue.message).join(', ');
+        throw new BadRequestException({
+          success: false,
+          error: messages || 'Datos de entrada inválidos.',
+        });
+      }
+      throw new BadRequestException({
+        success: false,
+        error: 'Datos de entrada inválidos.',
+      });
+    }
+    try {
+      const data = await this.service.getGenerarDeudaConcepto(parsed);
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Error al obtener los conceptos de generar deuda.',
+      };
+    }
+  }
+
+  @Post('estado-cuenta/generar-deuda-guardar')
+  async guardarGenerarDeuda(
+    @Body() dto: GenerarDeudaGuardarDto,
+  ): Promise<
+    | { success: true; data: { idMulta: string | null } }
+    | { success: false; error: string }
+  > {
+    let parsed: GenerarDeudaGuardarDto;
+    try {
+      parsed = GenerarDeudaGuardarSchema.parse(dto);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const messages = error.issues.map((issue) => issue.message).join(', ');
+        throw new BadRequestException({
+          success: false,
+          error: messages || 'Datos de entrada inválidos.',
+        });
+      }
+      throw new BadRequestException({
+        success: false,
+        error: 'Datos de entrada inválidos.',
+      });
+    }
+    try {
+      const data = await this.service.guardarGenerarDeuda(parsed);
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Error al guardar la deuda generada.',
       };
     }
   }

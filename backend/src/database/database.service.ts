@@ -105,6 +105,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     if (timeout !== undefined && timeout !== null && timeout > 0) {
       return this.executeWithTimeout(
         request.execute<T>(procedureName),
+        request,
         timeout,
       );
     }
@@ -171,6 +172,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     if (timeout !== undefined && timeout !== null && timeout > 0) {
       return this.executeWithTimeout(
         request.execute<T>(procedureName),
+        request,
         timeout,
       );
     }
@@ -198,7 +200,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     }
 
     if (timeout !== undefined && timeout !== null && timeout > 0) {
-      return this.executeWithTimeout(request.query<T>(queryStr), timeout);
+      return this.executeWithTimeout(request.query<T>(queryStr), request, timeout);
     }
 
     return request.query<T>(queryStr);
@@ -216,7 +218,11 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     }
 
     if (timeout !== undefined && timeout !== null && timeout > 0) {
-      return this.executeWithTimeout(request.query<T>(queryStr), timeout);
+      return this.executeWithTimeout(
+        request.query<T>(queryStr),
+        request,
+        timeout,
+      );
     }
 
     return request.query<T>(queryStr);
@@ -225,10 +231,14 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   /**
    * Ejecuta una promesa con un timeout manual usando race.
    * Si el timeout se alcanza antes de que la promesa se resuelva,
-   * se lanza un error con código ETIMEOUT.
+   * se lanza un error con código ETIMEOUT Y se cancela el request
+   * (request.cancel()) para liberar el socket del pool. Sin esto,
+   * el request queda abierto en SQL Server y los packets que llegan
+   * después contaminan el pool → la siguiente llamada se cuelga.
    */
   private executeWithTimeout<T>(
     promise: Promise<T>,
+    request: mssql.Request,
     timeoutMs: number,
   ): Promise<T> {
     const timeoutPromise = new Promise<never>((_, reject) => {
@@ -241,7 +251,22 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         reject(err);
       }, timeoutMs);
     });
-
-    return Promise.race([promise, timeoutPromise]);
+    return Promise.race([promise, timeoutPromise]).catch(async (err) => {
+      // Si disparamos el timeout, intentamos cancelar el request colgado
+      // para que libere el socket del pool. El método `cancel` existe
+      // en mssql.Request pero no está en los tipos públicos.
+      if (err && (err as any).code === 'ETIMEOUT') {
+        try {
+          if (request && typeof request.cancel === 'function') {
+            request.cancel();
+          }
+        } catch (cancelErr) {
+          this.logger.warn(
+            `No se pudo cancelar el request colgado: ${cancelErr}`,
+          );
+        }
+      }
+      throw err;
+    }) as Promise<T>;
   }
 }

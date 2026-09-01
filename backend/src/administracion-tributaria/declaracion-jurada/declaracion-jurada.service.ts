@@ -36,9 +36,12 @@ import {
   VerPagosRecibo,
   LiquidacionReporteDetalle,
   DeudaConsolidadoData,
+  GenerarDeudaConcepto,
 } from './dto/declaracion-jurada.types';
 import { EstadoCuentaRecibosDto } from './dto/estado-cuenta-recibos.dto';
 import { DeudaConsolidadoDto } from './dto/deuda-consolidado.dto';
+import { GenerarDeudaConceptoDto } from './dto/generar-deuda-concepto.dto';
+import { GenerarDeudaGuardarDto } from './dto/generar-deuda-guardar.dto';
 import { GenerarLiquidacionDJDto } from './dto/estado-cuenta-liquidacion.dto';
 import { GuardarContribuyenteDto } from './dto/guardar-contribuyente.dto';
 import { GuardarRepresentanteDto } from './dto/guardar-representante.dto';
@@ -1567,5 +1570,132 @@ export class DeclaracionJuradaService {
     }));
 
     return { cabecera, filas };
+  }
+
+  // ── Generar Deuda — conceptos (Rentas.sp_generardeuda @busc=10) ─────────
+
+  async getGenerarDeudaConcepto(
+    dto: GenerarDeudaConceptoDto,
+  ): Promise<GenerarDeudaConcepto[]> {
+    const str = (v: unknown): string => String(v ?? '').trim();
+
+    const result = await this.db.executeProcedure<Record<string, unknown>>(
+      'Rentas.sp_generardeuda',
+      { busc: '10', codigo_area: dto.codigo_area.trim() },
+      { busc: mssql.VarChar(5), codigo_area: mssql.VarChar(10) },
+      60_000, // small lookup — 60s is plenty
+    );
+
+    return (result.recordset ?? []).map((row) => ({
+      tipo: str(row.tipo ?? Object.values(row)[0]),
+      concepto: str(row.concepto ?? Object.values(row)[1]),
+    }));
+  }
+
+  // ── Generar Deuda — Guardar (Rentas.sp_generardeuda @busc=12) ─────────
+
+  async guardarGenerarDeuda(
+    dto: GenerarDeudaGuardarDto,
+  ): Promise<{ idMulta: string | null }> {
+    const str = (v: unknown): string => String(v ?? '').trim();
+
+    // Normalize fecha_multa to dd/MM/yyyy so SQL Server (language=Spanish,
+    // datetime column) parses it unambiguously via CONVERT(datetime, ..., 103).
+    // Accepts both ISO (YYYY-MM-DD from <input type="date">) and dd/MM/yyyy.
+    const fechaMultaNorm = this.normalizeFechaMulta(dto.fecha_multa);
+
+    const result = await this.db.executeProcedure<Record<string, unknown>>(
+      'Rentas.sp_generardeuda',
+      {
+        busc: 12,
+        codigo: dto.codigo,
+        hasta: dto.anio_hasta,
+        desde: dto.anio_desde,
+        codigo_infraccion: dto.codigo_infraccion,
+        monto_multa: dto.monto_multa,
+        fecha_multa: fechaMultaNorm,
+        operador: dto.operador,
+        estacion: dto.estacion,
+        glosa: dto.glosa ?? '',
+      },
+      {
+        busc: mssql.Int,
+        codigo: mssql.VarChar(7),
+        hasta: mssql.VarChar(4),
+        desde: mssql.VarChar(4),
+        codigo_infraccion: mssql.VarChar(10),
+        monto_multa: mssql.Decimal(12, 2),
+        // VarChar(10) — fecha en formato dd/MM/yyyy. El SP hace
+        // CONVERT(datetime, @fecha_multa, 103). No usar mssql.Date porque
+        // el driver interpreta según timezone del servidor y rompe el insert.
+        fecha_multa: mssql.VarChar(10),
+        operador: mssql.VarChar(50),
+        estacion: mssql.VarChar(50),
+        glosa: mssql.NVarChar(4000),
+      },
+      30_000, // 30s es más que suficiente para un INSERT individual.
+              // El SP @busc=12 hace un WHILE por cada año entre @desde/@hasta;
+              // en BD de pruebas con hasta=2026 tarda ~1.7s. Si supera 30s,
+              // algo está mal (lock, índice faltante, bucle). Preferimos ver
+              // el error rápido a esperar 2 minutos.
+    );
+
+    // El SP emite múltiples recordsets:
+    //   • 'Actualizado correctamente.. '  (vuelta exitosa del WHILE)
+    //   • 'NIMI'                         (cuando no insertó)
+    //   • 'fallla'                       (cuando falló el INSERT)
+    // Buscamos el id real barriendo todos los recordsets. Un id válido es
+    // numérico (no es ninguno de los mensajes de estado).
+    const allRecordSets = result.recordsets ?? [];
+    let idMulta: string | null = null;
+    for (const rs of allRecordSets) {
+      for (const row of rs ?? []) {
+        const candidate =
+          str((row as any).idmulta) ||
+          str((row as any).id_multa) ||
+          str((row as any).id) ||
+          str(Object.values(row as object)[0]);
+        // Mensajes de estado del SP — los ignoramos
+        if (
+          candidate &&
+          candidate !== 'Actualizado correctamente.. ' &&
+          candidate !== 'Actualizado correctamente.' &&
+          candidate !== 'NIMI' &&
+          candidate !== 'fallla' &&
+          candidate !== 'Falta Codigo Infraccion'
+        ) {
+          idMulta = candidate;
+          break;
+        }
+      }
+      if (idMulta) break;
+    }
+
+    return { idMulta };
+  }
+
+  /**
+   * Normaliza la fecha_multa a formato `dd/MM/yyyy` para que SQL Server
+   * (idioma Spanish, columna datetime) la parsee sin ambigüedad.
+   *
+   *   "2026-08-31"  -> "31/08/2026"
+   *   "31/08/2026"  -> "31/08/2026"
+   *   "" o null     -> ""  (deja que el SP valide el faltante)
+   */
+  private normalizeFechaMulta(raw: string | null | undefined): string {
+    if (!raw) return '';
+    const s = String(raw).trim();
+    if (!s) return '';
+
+    // YYYY-MM-DD -> dd/MM/yyyy
+    const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+    if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+
+    // Already dd/MM/yyyy — validate shape to catch typos early.
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
+
+    // Last resort: try Date.parse but DO NOT trust timezone. Return as-is
+    // and let the SP raise a clear conversion error if it's truly bad.
+    return s;
   }
 }
