@@ -16,6 +16,40 @@ function deriveHeaders(rows: ConstanciaExigibilidadRow[]): string[] {
   return Object.keys(rows[0]);
 }
 
+// ── Columnas que llevan fecha con hora formateada ──
+
+const DATE_TIME_COLS = new Set([
+  "fec_gen",
+  "f_notifica",
+]);
+
+// ── Formatea una fecha a dd/mm/yyyy hh:mm:ss ──
+
+function formatDateTime(raw: string | number | null): string {
+  if (raw === null || raw === undefined || raw === "") return "";
+  const str = String(raw).trim();
+  const date = new Date(str.replace("T", " "));
+  if (Number.isNaN(date.getTime())) return str;
+  const dd = String(date.getDate()).padStart(2, "0");
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const yyyy = date.getFullYear();
+  const hh = String(date.getHours()).padStart(2, "0");
+  const min = String(date.getMinutes()).padStart(2, "0");
+  const ss = String(date.getSeconds()).padStart(2, "0");
+  return `${dd}/${mm}/${yyyy} ${hh}:${min}:${ss}`;
+}
+
+// ── Aplica el formateo de fechas a una fila según sus encabezados ──
+
+function formatRow(row: ConstanciaExigibilidadRow, headers: string[]): Record<string, string | number> {
+  const out: Record<string, string | number> = {};
+  for (const h of headers) {
+    const v = row[h] ?? null;
+    out[h] = DATE_TIME_COLS.has(h.toLowerCase()) ? formatDateTime(v) : String(v);
+  }
+  return out;
+}
+
 interface UseConstanciaExigibilidadExportArgs {
   filters: ConstanciaExigibilidadFilters;
   setExporting: (value: boolean) => void;
@@ -46,7 +80,10 @@ export function useConstanciaExigibilidadExport({
         return;
       }
       const XLSX = await import("xlsx");
-      const ws = XLSX.utils.json_to_sheet(allData);
+      const headers = deriveHeaders(allData);
+      const ws = XLSX.utils.json_to_sheet(
+        allData.map((r) => formatRow(r, headers)),
+      );
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Constancia Exigibilidad");
       XLSX.writeFile(wb, "reporte-constancia-exigibilidad.xlsx");
@@ -66,7 +103,10 @@ export function useConstanciaExigibilidadExport({
         return;
       }
       const headers = deriveHeaders(allData);
-      const body = allData.map((r) => headers.map((h) => String(r[h] ?? "")));
+      const body = allData.map((r) => {
+        const formatted = formatRow(r, headers);
+        return headers.map((h) => String(formatted[h] ?? ""));
+      });
       const { default: jsPDF } = await import("jspdf");
       const { default: autoTable } = await import("jspdf-autotable");
       const doc = new jsPDF({ orientation: "landscape", format: "a3" });
