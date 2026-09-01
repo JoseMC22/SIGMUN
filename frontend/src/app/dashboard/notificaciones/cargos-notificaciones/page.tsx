@@ -50,6 +50,12 @@ function getField(
   return key !== undefined ? String(row[key] ?? "") : "";
 }
 
+/** Pad a numeric code to 7 chars with leading zeros (SP expects this width). */
+function padNumValor(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 7);
+  return digits.padStart(7, "0");
+}
+
 const EMPTY_DETALLE = {
   codigo: "",
   doc_identidad: "",
@@ -281,6 +287,9 @@ export default function CargosNotificacionesPage() {
                 type="text"
                 value={numValor}
                 onChange={(e) => setNumValor(e.target.value.replace(/\D/g, "").slice(0, 7))}
+                onBlur={(e) => {
+                  if (e.target.value) setNumValor(padNumValor(e.target.value));
+                }}
                 className={`${inputCls} w-24 text-center font-mono`}
                 placeholder="999999"
                 maxLength={7}
@@ -326,6 +335,9 @@ export default function CargosNotificacionesPage() {
                 type="text"
                 value={numCargo}
                 onChange={(e) => setNumCargo(e.target.value.replace(/\D/g, "").slice(0, 7))}
+                onBlur={(e) => {
+                  if (e.target.value) setNumCargo(padNumValor(e.target.value));
+                }}
                 className={`${inputCls} w-24 text-center font-mono`}
                 placeholder="999999"
                 maxLength={7}
