@@ -420,24 +420,24 @@ export default function CargosNotificacionesPage() {
 
           {/* Tabla de Tributos */}
           <div className="mt-4 border border-gray-300 rounded overflow-hidden">
-            <table className="w-full text-left border-collapse bg-white">
+            <table className="w-full text-left border-collapse bg-white leading-tight">
               <thead className="bg-white border-b border-gray-300 text-gray-600 text-xs uppercase font-bold">
                 {tributoHeaders.length > 0 ? (
                   <tr>
                     {tributoHeaders.map((h) => (
-                      <th key={h} className="px-3 py-2 border-r border-gray-300">{h}</th>
+                      <th key={h} className="px-3 py-1.5 border-r border-gray-300">{h}</th>
                     ))}
                   </tr>
                 ) : (
                   <tr>
-                    <th className="px-3 py-2 border-r border-gray-300">Tributo</th>
-                    <th className="px-3 py-2 border-r border-gray-300">Año</th>
-                    <th className="px-3 py-2 border-r border-gray-300">Periodo</th>
-                    <th className="px-3 py-2 border-r border-gray-300 text-right">Imp. Insol</th>
-                    <th className="px-3 py-2 border-r border-gray-300 text-right">Imp. Reaj</th>
-                    <th className="px-3 py-2 border-r border-gray-300 text-right">Costo Emis.</th>
-                    <th className="px-3 py-2 border-r border-gray-300 text-right">Interés</th>
-                    <th className="px-3 py-2 text-right">Total</th>
+                    <th className="px-3 py-1.5 border-r border-gray-300">Tributo</th>
+                    <th className="px-3 py-1.5 border-r border-gray-300">Año</th>
+                    <th className="px-3 py-1.5 border-r border-gray-300">Periodo</th>
+                    <th className="px-3 py-1.5 border-r border-gray-300 text-right">Imp. Insol</th>
+                    <th className="px-3 py-1.5 border-r border-gray-300 text-right">Imp. Reaj</th>
+                    <th className="px-3 py-1.5 border-r border-gray-300 text-right">Costo Emis.</th>
+                    <th className="px-3 py-1.5 border-r border-gray-300 text-right">Interés</th>
+                    <th className="px-3 py-1.5 text-right">Total</th>
                   </tr>
                 )}
               </thead>
@@ -446,7 +446,7 @@ export default function CargosNotificacionesPage() {
                   tributos.map((row, i) => (
                     <tr key={i} className="border-b border-gray-100 last:border-0">
                       {tributoHeaders.map((h) => (
-                        <td key={h} className="px-3 py-2 border-r border-gray-300 text-sm text-slate-600">
+                        <td key={h} className="px-3 py-1.5 border-r border-gray-300 text-sm text-slate-600">
                           {String(row[h] ?? "")}
                         </td>
                       ))}
@@ -454,7 +454,7 @@ export default function CargosNotificacionesPage() {
                   ))
                 ) : (
                   <tr className="border-b border-gray-100 last:border-0 h-24">
-                    <td colSpan={8} className="px-3 py-2 italic text-gray-400 text-sm">....</td>
+                    <td colSpan={8} className="px-3 py-1.5 italic text-gray-400 text-sm">....</td>
                   </tr>
                 )}
               </tbody>
