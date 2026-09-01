@@ -29,6 +29,11 @@ export interface NotificadorOption {
   notificador: string;
 }
 
+export interface ParentescoOption {
+  tipo_relacion_id: number;
+  descripcion: string;
+}
+
 export interface TiposValorResult {
   success: boolean;
   data: TipoValorOption[];
@@ -38,6 +43,12 @@ export interface TiposValorResult {
 export interface NotificadoresResult {
   success: boolean;
   data: NotificadorOption[];
+  error?: string;
+}
+
+export interface ParentescosResult {
+  success: boolean;
+  data: ParentescoOption[];
   error?: string;
 }
 
@@ -193,4 +204,23 @@ export async function grabarCargoAction(
   payload: GrabarCargoPayload,
 ): Promise<GrabarCargoResult> {
   return postCargo(`${BASE}/grabar`, payload);
+}
+
+export async function listarParentescosAction(): Promise<ParentescosResult> {
+  try {
+    const response = await authFetch(`${BASE}/parentescos`, {
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      return { success: false, data: [], error: text || `Error ${response.status}` };
+    }
+    const json = await response.json();
+    if (!json.success) {
+      return { success: false, data: [], error: json.error ?? "Error al listar parentescos" };
+    }
+    return { success: true, data: json.data ?? [] };
+  } catch {
+    return { success: false, data: [], error: "Error de conexión con el servidor" };
+  }
 }

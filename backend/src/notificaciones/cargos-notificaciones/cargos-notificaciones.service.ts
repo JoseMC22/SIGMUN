@@ -5,10 +5,12 @@ import { GrabarCargoDto } from './dto/grabar-cargo.dto';
 import {
   TipoValorComboResult,
   NotificadoresComboResult,
+  ParentescosComboResult,
   ValidarValorResult,
   GrabarCargoResult,
   TipoValorOption,
   NotificadorOption,
+  ParentescoOption,
 } from './cargos-notificaciones.types';
 
 // ── Case-insensitive column accessor (mssql v12+ preserves SP casing) ──
@@ -32,6 +34,7 @@ export class CargosNotificacionesService {
   private readonly SP_VALORES = '[Rentas].[ssp_mvalores]';
   private readonly SP_GRABAR = 'notificacion.sp_cargos_notificacion';
   private readonly TIPO_VALOR_TABLE = 'Contenedor.TblTipo_valor';
+  private readonly PARENTESCO_TABLE = 'rentas.rc_tipo_relacion';
   private readonly logger = new Logger(CargosNotificacionesService.name);
 
   constructor(private readonly db: DatabaseService) {}
@@ -73,6 +76,26 @@ export class CargosNotificacionesService {
     } catch (err) {
       this.logger.error(`[CargosNotificaciones] listarNotificadores error: ${err}`);
       return { success: false, data: [], error: 'Error al listar notificadores' };
+    }
+  }
+
+  /** Combo de Parentescos (rentas.rc_tipo_relacion, estado activo). */
+  async listarParentescos(): Promise<ParentescosComboResult> {
+    try {
+      const sql =
+        `SELECT tipo_relacion_id, descripcion FROM ${this.PARENTESCO_TABLE} ` +
+        `WHERE estado_id = 1 ORDER BY 2`;
+      const result = await this.db.query<any>(sql);
+      const rows: ParentescoOption[] = (result.recordset || []).map(
+        (row: any) => ({
+          tipo_relacion_id: Number(col(row, 'tipo_relacion_id') ?? 0),
+          descripcion: String(col(row, 'descripcion') ?? ''),
+        }),
+      );
+      return { success: true, data: rows };
+    } catch (err) {
+      this.logger.error(`[CargosNotificaciones] listarParentescos error: ${err}`);
+      return { success: false, data: [], error: 'Error al listar parentescos' };
     }
   }
 

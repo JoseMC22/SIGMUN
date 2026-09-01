@@ -23,6 +23,7 @@ import {
 import {
   TipoValorComboResult,
   NotificadoresComboResult,
+  ParentescosComboResult,
   ValidarValorResult,
   GrabarCargoResult,
 } from './cargos-notificaciones.types';
@@ -47,6 +48,12 @@ export class CargosNotificacionesController {
   @Get('notificadores')
   async notificadores(): Promise<NotificadoresComboResult> {
     return this.service.listarNotificadores();
+  }
+
+  /** Combo de Parentescos (rentas.rc_tipo_relacion, estado activo). */
+  @Get('parentescos')
+  async parentescos(): Promise<ParentescosComboResult> {
+    return this.service.listarParentescos();
   }
 
   /** Valida un valor tributario (SP [Rentas].[ssp_mvalores] @msquery=9). */

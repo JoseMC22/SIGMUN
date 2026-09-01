@@ -12,6 +12,12 @@ export interface NotificadorOption {
   notificador: string;
 }
 
+/** A single parentesco option for the combo (rentas.rc_tipo_relacion). */
+export interface ParentescoOption {
+  tipo_relacion_id: number;
+  descripcion: string;
+}
+
 /** A single value label from `[Rentas].[ssp_mvalores]` @msquery=9 (dynamically shaped). */
 export interface ValorTributarioRow {
   [key: string]: unknown; // dynamic columns — exact SP shape is DB-defined
@@ -28,6 +34,13 @@ export interface TipoValorComboResult {
 export interface NotificadoresComboResult {
   success: boolean;
   data: NotificadorOption[];
+  error?: string;
+}
+
+/** Envelope returned by the parentescos combo endpoint. */
+export interface ParentescosComboResult {
+  success: boolean;
+  data: ParentescoOption[];
   error?: string;
 }
 

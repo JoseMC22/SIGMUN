@@ -14,10 +14,12 @@ import {
 import {
   listarTiposValorAction,
   listarNotificadoresAction,
+  listarParentescosAction,
   validarValorAction,
   grabarCargoAction,
   type TipoValorOption,
   type NotificadorOption,
+  type ParentescoOption,
 } from "@/actions/notificaciones/cargos-notificaciones";
 
 // ── Static catalogs (provided by the user, not DB-driven) ──
@@ -70,6 +72,7 @@ export default function CargosNotificacionesPage() {
   // ── Combos ────────────────────────────────────────────────
   const [tiposValor, setTiposValor] = useState<TipoValorOption[]>([]);
   const [notificadores, setNotificadores] = useState<NotificadorOption[]>([]);
+  const [parentescos, setParentescos] = useState<ParentescoOption[]>([]);
   const [combosLoaded, setCombosLoaded] = useState(false);
 
   // ── Form: identificación del valor ────────────────────────
@@ -110,12 +113,14 @@ export default function CargosNotificacionesPage() {
   useEffect(() => {
     const t = setTimeout(() => {
       (async () => {
-        const [tv, nf] = await Promise.all([
+        const [tv, nf, pr] = await Promise.all([
           listarTiposValorAction(),
           listarNotificadoresAction(),
+          listarParentescosAction(),
         ]);
         if (tv.success) setTiposValor(tv.data);
         if (nf.success) setNotificadores(nf.data);
+        if (pr.success) setParentescos(pr.data);
         setCombosLoaded(true);
       })();
     }, 0);
@@ -511,6 +516,11 @@ export default function CargosNotificacionesPage() {
                   <span className="w-24 text-slate-600 font-bold text-right">Parentesco</span>
                   <select value={parentesco} onChange={(e) => setParentesco(e.target.value)} className={`${inputCls} flex-1`}>
                     <option value=""></option>
+                    {parentescos.map((p) => (
+                      <option key={p.tipo_relacion_id} value={p.tipo_relacion_id}>
+                        {p.descripcion}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
