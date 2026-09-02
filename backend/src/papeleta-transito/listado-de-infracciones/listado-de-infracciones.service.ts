@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { DatabaseService } from '../database/database.service';
+import { DatabaseService } from '../../database/database.service';
 import { SearchInfraccionDto } from './dto/search-infraccion.dto';
 import {
   InfraccionRow,
