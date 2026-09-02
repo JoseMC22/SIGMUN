@@ -1,5 +1,5 @@
 import { Controller, Post, Body, UseGuards, Get, Request } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { AccionesInfraccionService } from './acciones-infraccion.service';
 import {
   NuevaInfraccionSchema,
@@ -134,7 +134,6 @@ export class AccionesInfraccionController {
     const parsed = ImportarExcelSchema.parse(dto);
     return this.accionesService.importarExcel(parsed);
   }
-
 
   // ── Row action buttons ────────────────────────────────────
 
@@ -296,4 +295,3 @@ export class AccionesInfraccionController {
     return this.accionesService.obtenerDatosReporteResolucionSancion(parsed);
   }
 }
-
