@@ -26,7 +26,8 @@ import {
   Trash2,
 } from "lucide-react";
 import { checkSessionAction } from "@/actions/auth/auth";
-import { searchInfraccionesAction, obtenerDatosReporteEstadoCuentaAction, obtenerDatosReporteResolucionSancionAction } from "@/actions/papeleta-transito/listado-de-infracciones";
+import { searchPruebasAction } from "@/actions/papeleta-transito/listado-pruebas";
+import { obtenerDatosReporteEstadoCuentaAction, obtenerDatosReporteResolucionSancionAction } from "@/actions/papeleta-transito/listado-de-infracciones";
 import { gravamenSinPlacaAction, imprimirRecordPendienteAction, verFraccionamientoAction, generarLiquidacionAction, eliminarPapeletaAction, cargarDetalleInfraccionAction } from "@/actions/papeleta-transito/acciones-infraccion";
 import { obtenerPlantillaEstadoCuentaAction, obtenerPlantillaResolucionSancionAction, obtenerPlantillaRecordAction } from "@/actions/papeleta-transito/reportes-infracciones";
 import { construirHtmlReporteEstadoCuenta, construirConfigPdfEstadoCuenta } from "./reportes/EstadoCuenta/reporte-estado-cuenta";
@@ -202,7 +203,7 @@ export default function ListadoDeInfraccionesPage() {
       setLoading(true);
       setError(null);
       try {
-        const result = await searchInfraccionesAction(filtersOverride ?? filters, pageNum, pageSize);
+        const result = await searchPruebasAction(filtersOverride ?? filters, pageNum, pageSize);
         if (result.success) {
           setData(result.data);
           setTotal(result.total);
@@ -1092,9 +1093,9 @@ export default function ListadoDeInfraccionesPage() {
             <FileWarning size={18} className="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-white font-outfit tracking-tight">
-              Listado de Infracciones
-            </h1>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            Listado Pruebas
+          </h1>
             <p className="text-xs text-white/50 font-inter">
               Papeleta Tránsito — Consulta de infracciones viajeras
             </p>

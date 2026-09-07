@@ -447,6 +447,7 @@ export class AccionesInfraccionService {
     dto: FraccionarPapeletaDto,
   ): Promise<{ success: boolean; message: string }> {
     try {
+      this.logger.log(`Solicitud de fraccionarPapeleta recibida: ${JSON.stringify(dto)}`);
       // Construir XML <row ... /> tal como en FraccionarpapeController.php generaconvenioAction
       let dxml = '';
       if (dto.varxml) {
@@ -487,13 +488,19 @@ export class AccionesInfraccionService {
         },
       );
 
-      const resultado = result.recordset?.[0] ? String(Object.values(result.recordset[0])[0] ?? '') : '';
-      const success = resultado.toUpperCase().includes('CORRECTO') || (resultado.length > 0 && !resultado.toLowerCase().includes('error'));
+      const firstRow = result.recordset?.[0] as any;
+      const resultado = firstRow ? String(firstRow.nro ?? Object.values(firstRow)[0] ?? '').trim() : '';
+      
+      // El SP Rentas.GeneraConveniopape devuelve un recordset con { nro: 'PIT-Ord-2026-XXXX' } si fue exitoso
+      const isError = !resultado || resultado.toLowerCase().includes('error') || resultado.toLowerCase().includes('null');
+      const success = !isError;
 
-      this.logger.log(`Fraccionamiento grabado: código ${dto.codigo}, ${dto.cuotas} cuotas -> ${resultado}`);
+      this.logger.log(`Fraccionamiento grabado: código ${dto.codigo}, ${dto.cuotas} cuotas -> nro: ${resultado}`);
       return {
         success,
-        message: success ? `Fraccionamiento registrado: ${resultado}` : resultado || 'Error al fraccionar.',
+        message: success 
+          ? `Fraccionamiento registrado exitosamente: ${resultado}` 
+          : `Error al fraccionar la papeleta. (${resultado || 'La papeleta ya se encuentra fraccionada o no cuenta con recibo válido'})`,
       };
     } catch (error) {
       this.logger.error('Error al fraccionar papeleta:', error);

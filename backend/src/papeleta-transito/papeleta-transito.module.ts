@@ -6,6 +6,8 @@ import { AccionesInfraccionController } from './listado-de-infracciones/acciones
 import { AccionesInfraccionService } from './listado-de-infracciones/acciones-infraccion.service';
 import { EnvioCoactivoController } from './envio-a-coactivo/envio-a-coactivo.controller';
 import { EnvioCoactivoService } from './envio-a-coactivo/envio-a-coactivo.service';
+import { ListadoPruebasController } from './listado-pruebas/listado-pruebas.controller';
+import { ListadoPruebasService } from './listado-pruebas/listado-pruebas.service';
 
 @Module({
   imports: [AuthModule],
@@ -13,11 +15,14 @@ import { EnvioCoactivoService } from './envio-a-coactivo/envio-a-coactivo.servic
     ListadoDeInfraccionesController,
     AccionesInfraccionController,
     EnvioCoactivoController,
+    ListadoPruebasController,
   ],
   providers: [
     ListadoDeInfraccionesService,
     AccionesInfraccionService,
     EnvioCoactivoService,
+    ListadoPruebasService,
   ],
 })
 export class PapeletaTransitoModule {}
+
