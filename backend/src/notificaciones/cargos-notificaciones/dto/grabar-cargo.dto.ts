@@ -47,6 +47,8 @@ export const GrabarCargoSchema = z.object({
   imagen1: z.string().optional(),
   ruta2: z.string().optional(),
   imagen2: z.string().optional(),
+  /** true = cargo existente => ejecutar @busc=6 (update) en lugar de @busc=2. */
+  actualizar: z.boolean().optional(),
 });
 
 export type GrabarCargoDto = z.infer<typeof GrabarCargoSchema>;

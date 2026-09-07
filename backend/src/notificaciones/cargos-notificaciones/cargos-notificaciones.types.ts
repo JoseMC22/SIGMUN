@@ -64,3 +64,20 @@ export interface GrabarCargoResult {
   message?: string;
   error?: string;
 }
+
+/** Envelope returned by the subir-cargo (NAS upload) endpoint. */
+export interface SubirCargoResult {
+  success: boolean;
+  message?: string;
+  error?: string;
+  filename?: string;
+  ruta?: string;
+}
+
+/** Minimal shape of a multer in-memory file (avoids Express.Multer types). */
+export interface NasUploadFile {
+  buffer: Buffer;
+  originalname: string;
+  mimetype: string;
+  size: number;
+}

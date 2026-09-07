@@ -1,4 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { extname } from 'path';
+import smb2 from '@awo00/smb2';
 import { DatabaseService } from '../../database/database.service';
 import { ValidarValorDto } from './dto/validar-valor.dto';
 import { GrabarCargoDto } from './dto/grabar-cargo.dto';
@@ -9,6 +11,8 @@ import {
   ValidarValorResult,
   TributosResult,
   GrabarCargoResult,
+  SubirCargoResult,
+  NasUploadFile,
   TipoValorOption,
   NotificadorOption,
   ParentescoOption,
@@ -28,6 +32,9 @@ function padNumValor(value: string | undefined): string {
   if (!value) return '';
   return value.replace(/\D/g, '').slice(0, 7).padStart(7, '0');
 }
+
+/** Max size (bytes) for the uploaded notification-charge file (10 MB). */
+export const NAS_UPLOAD_MAX_BYTES = 10 * 1024 * 1024;
 
 @Injectable()
 export class CargosNotificacionesService {
@@ -142,6 +149,26 @@ export class CargosNotificacionesService {
   }
 
   /**
+   * Detalle del cargo ya registrado para un valor (si existe).
+   * SP `notificacion.sp_cargos_notificacion` @busc=10.
+   */
+  async detalleCargo(dto: ValidarValorDto): Promise<ValidarValorResult> {
+    const { id_valor, num_valor, ano_valor } = dto;
+    try {
+      const result = await this.db.executeProcedure<any>(this.SP_GRABAR, {
+        busc: 10,
+        id_valor: id_valor || '',
+        num_valor: padNumValor(num_valor),
+        ano_valor: ano_valor ?? '',
+      });
+      return { success: true, data: result.recordset || [] };
+    } catch (err) {
+      this.logger.error(`[CargosNotificaciones] detalleCargo SP error: ${err}`);
+      return { success: false, data: [], error: 'Error al consultar el cargo' };
+    }
+  }
+
+  /**
    * Registra un cargo de notificación. SP `notificacion.sp_cargos_notificacion`
    * @busc=2. Recibe operador/estación inyectados desde el controller.
    */
@@ -151,7 +178,7 @@ export class CargosNotificacionesService {
     estacion: string,
   ): Promise<GrabarCargoResult> {
     const spParams: Record<string, any> = {
-      busc: 2,
+      busc: dto.actualizar ? 6 : 2,
       codigo: dto.codigo || '',
       id_valor: dto.id_valor || '',
       num_valor: padNumValor(dto.num_valor),
@@ -195,7 +222,7 @@ export class CargosNotificacionesService {
     };
 
     this.logger.log(`[CargosNotificaciones] grabarCargo SP params (resumen): ${JSON.stringify({
-      busc: 2,
+      busc: spParams.busc,
       id_valor: spParams.id_valor,
       num_valor: spParams.num_valor,
       ano_valor: spParams.ano_valor,
@@ -209,7 +236,31 @@ export class CargosNotificacionesService {
         spParams,
       );
       const row = result.recordset?.[0];
-      const mensaje = row ? this.firstMensaje(row) : '';
+      let mensaje = row ? this.firstMensaje(row) : '';
+      // @busc=6 devuelve '1' (ok) / '2' (sin registro coincidente) en una
+      // columna sin nombre legible: se busca el valor en cualquier columna.
+      if (dto.actualizar) {
+        const raw = row
+          ? String(
+              Object.values(row).find(
+                (v) => String(v) === '1' || String(v) === '2',
+              ) ?? '',
+            )
+          : '';
+        if (raw === '1') {
+          mensaje = 'Cargo de notificación actualizado correctamente';
+        } else {
+          // Cualquier otro resultado (recordset vacío, '2', forma inesperada)
+          // es un fallo: nunca se reporta éxito sin confirmación del update.
+          return {
+            success: false,
+            error:
+              raw === '2'
+                ? 'No se pudo actualizar el cargo (no existe registro coincidente)'
+                : 'No se pudo confirmar la actualización del cargo',
+          };
+        }
+      }
       if (mensaje) {
         if (/error|ya existe|no se puede|invalid/i.test(mensaje)) {
           return { success: false, error: mensaje };
@@ -219,6 +270,19 @@ export class CargosNotificacionesService {
       return { success: true, message: 'Cargo de notificación registrado correctamente' };
     } catch (err) {
       this.logger.error(`[CargosNotificaciones] grabarCargo SP error: ${err}`);
+      // Resumen sanitizado: sin ruta1/imagen1 (topología interna del NAS) ni
+      // usuario_reg/estacion_reg (datos operativos del operador).
+      this.logger.error(
+        `[CargosNotificaciones] grabarCargo params (resumen): ${JSON.stringify({
+          busc: spParams.busc,
+          id_valor: spParams.id_valor,
+          num_valor: spParams.num_valor,
+          ano_valor: spParams.ano_valor,
+          num_cargo: spParams.num_cargo,
+          ano_cargo: spParams.ano_cargo,
+          id_notificador: spParams.id_notificador,
+        })}`,
+      );
       return { success: false, error: 'Error al grabar el cargo de notificación' };
     }
   }
@@ -227,5 +291,123 @@ export class CargosNotificacionesService {
   private firstMensaje(row: Record<string, any>): string {
     const key = Object.keys(row).find((k) => k.toLowerCase() === 'mensaje');
     return key ? String(row[key] ?? '') : '';
+  }
+
+  /**
+   * Sube el archivo del cargo de notificación al NAS share
+   * (configurado vía NAS_SERVER/NAS_SHARE/NAS_FOLDER env vars). El archivo se
+   * nombra `{num_cargo}_{ano_cargo}_{YYYYMMDD}_{HHmmss}{ext}`.
+   */
+  async subirCargoNotificacion(
+    file: NasUploadFile | undefined,
+    dto: GrabarCargoDto,
+    operador: string,
+    estacion: string,
+  ): Promise<SubirCargoResult> {
+    if (!file) {
+      return { success: false, error: 'Debe seleccionar un archivo' };
+    }
+    const ext = extname(file.originalname || '').toLowerCase();
+    const allowedMime =
+      ['application/pdf', 'image/jpeg', 'image/png'].includes(file.mimetype);
+    if (!['.pdf', '.jpg', '.jpeg', '.png'].includes(ext) || !allowedMime) {
+      return {
+        success: false,
+        error: 'Solo se permiten archivos PDF o imágenes (JPG, PNG)',
+      };
+    }
+    if (
+      file.size > NAS_UPLOAD_MAX_BYTES ||
+      file.buffer.length > NAS_UPLOAD_MAX_BYTES
+    ) {
+      return { success: false, error: 'El archivo supera el tamaño máximo de 10 MB' };
+    }
+    if (!file.buffer || file.buffer.length === 0) {
+      return { success: false, error: 'El archivo está vacío' };
+    }
+
+    const numCargoClean = (dto.num_cargo || '').replace(/\D/g, '');
+    const anoCargoClean = String(dto.ano_cargo ?? '').replace(/\D/g, '');
+    if (!numCargoClean || anoCargoClean.length !== 4) {
+      return { success: false, error: 'Nro y Año de cargo inválidos' };
+    }
+
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const stamp =
+      `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}` +
+      `_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+    const filename = `${numCargoClean}_${anoCargoClean}_${stamp}${ext}`;
+    // Riesgo aceptado (revisión 4R): la resolución es de 1 segundo, un segundo
+    // upload del mismo cargo dentro del mismo segundo sobrescribe el archivo, y
+    // si la persistencia (SP @busc=6) falla tras el write, el archivo queda
+    // huérfano en el NAS. @awo00/smb2 no soporta delete, así que no hay
+    // rollback; se controla con limpieza periódica del share.
+
+    const server = process.env.NAS_SERVER;
+    const share = process.env.NAS_SHARE;
+    const folder = process.env.NAS_FOLDER;
+    const username = process.env.NAS_USER;
+    const password = process.env.NAS_PASSWORD;
+    const domain = process.env.NAS_DOMAIN || 'WORKGROUP';
+    if (!server || !share || !folder || !username || !password) {
+      this.logger.error(
+        '[CargosNotificaciones] subirCargoNotificacion: NAS env vars missing',
+      );
+      return { success: false, error: 'No se pudo conectar al servidor NAS' };
+    }
+
+    const client = new smb2.Client(server, {
+      connectTimeout: 10000,
+      requestTimeout: 30000,
+    });
+    let connected = false;
+    try {
+      const session = await client.authenticate({ domain, username, password });
+      connected = true;
+      const tree = await session.connectTree(share);
+      await tree.createFile(`/${folder}/${filename}`, file.buffer);
+      this.logger.log(
+        `[CargosNotificaciones] subirCargoNotificacion NAS OK: ` +
+          `${server}\\${share}\\${folder}\\${filename}`,
+      );
+    } catch (err) {
+      this.logger.error(
+        `[CargosNotificaciones] subirCargoNotificacion NAS error: ${err}`,
+      );
+      return {
+        success: false,
+        error: connected
+          ? 'No se pudo guardar el archivo en el NAS'
+          : 'No se pudo conectar al servidor NAS',
+      };
+    } finally {
+      await client.close().catch(() => undefined);
+    }
+
+    // Persistir ruta1/imagen1 en el cargo (SP @busc=6, update).
+    const ruta = `\\\\${server}\\${share}\\${folder}\\${filename}`;
+    const dbRes = await this.grabarCargo(
+      { ...dto, actualizar: true, ruta1: ruta, imagen1: filename },
+      operador,
+      estacion,
+    );
+    if (!dbRes.success) {
+      const cargoNoRegistrado = /no existe registro coincidente/i.test(
+        dbRes.error || '',
+      );
+      return {
+        success: false,
+        error: cargoNoRegistrado
+          ? 'El archivo se subió al NAS, pero el cargo no está registrado todavía. Grabe el cargo y vuelva a subir el archivo.'
+          : `El archivo se subió al NAS, pero no se pudo actualizar el registro del cargo: ${dbRes.error ?? ''}`,
+      };
+    }
+    return {
+      success: true,
+      message: 'Cargo de notificación subido correctamente',
+      filename,
+      ruta,
+    };
   }
 }
