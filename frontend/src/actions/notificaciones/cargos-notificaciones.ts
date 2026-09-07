@@ -105,6 +105,8 @@ export interface GrabarCargoPayload {
   imagen1?: string;
   ruta2?: string;
   imagen2?: string;
+  /** true = el valor ya tiene cargo registrado => SP @busc=6 (update). */
+  actualizar?: boolean;
 }
 
 const BASE = "/notificaciones/cargos-notificaciones";
@@ -228,10 +230,82 @@ export async function listarTributosAction(
   }
 }
 
+export async function detalleCargoAction(
+  filters: ValidarValorFilters,
+): Promise<ValidarValorResult> {
+  try {
+    const response = await authFetch(`${BASE}/detalle`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id_valor: filters.id_valor,
+        num_valor: filters.num_valor,
+        ano_valor: filters.ano_valor,
+      }),
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      return { success: false, data: [], error: text || `Error ${response.status}` };
+    }
+    const json = await response.json();
+    if (!json.success) {
+      return { success: false, data: [], error: json.error ?? "Error al consultar el cargo" };
+    }
+    return { success: true, data: json.data ?? [] };
+  } catch {
+    return { success: false, data: [], error: "Error de conexión con el servidor" };
+  }
+}
+
 export async function grabarCargoAction(
   payload: GrabarCargoPayload,
 ): Promise<GrabarCargoResult> {
   return postCargo(`${BASE}/grabar`, payload);
+}
+
+/** Mirrors the backend SubirCargoResult shape (backend returns ruta). */
+export interface SubirCargoResult {
+  success: boolean;
+  message?: string;
+  error?: string;
+  filename?: string;
+  ruta?: string;
+}
+
+/**
+ * Sube el archivo del cargo de notificación al NAS (multipart).
+ * El FormData debe incluir:
+ *  - file: Blob (PDF/JPG/PNG, máx. 10 MB — keep in sync con
+ *    NAS_UPLOAD_MAX_BYTES del backend)
+ *  - cargo: string JSON del GrabarCargoPayload
+ */
+export async function subirCargoNotificacionAction(
+  formData: FormData,
+): Promise<SubirCargoResult> {
+  try {
+    const response = await authFetch(`${BASE}/subir-cargo`, {
+      method: "POST",
+      body: formData,
+      cache: "no-store",
+    });
+    const json = await response.json().catch(() => null);
+    if (!response.ok || !json?.success) {
+      if (response.status === 413) {
+        // keep in sync con NAS_UPLOAD_MAX_BYTES del backend (10 MB)
+        return { success: false, error: "El archivo supera el tamaño máximo de 10 MB" };
+      }
+      return { success: false, error: json?.error ?? `Error ${response.status}` };
+    }
+    return {
+      success: true,
+      message: json.message,
+      filename: json.filename,
+      ruta: json.ruta,
+    };
+  } catch {
+    return { success: false, error: "Error de conexión con el servidor" };
+  }
 }
 
 export async function listarParentescosAction(): Promise<ParentescosResult> {

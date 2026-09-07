@@ -7,11 +7,18 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Request } from 'express';
 import * as os from 'os';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { CargosNotificacionesService } from './cargos-notificaciones.service';
+import { AccessGuard } from '../../seguridad/object-access/access-guard.decorator';
+import {
+  CargosNotificacionesService,
+  NAS_UPLOAD_MAX_BYTES,
+} from './cargos-notificaciones.service';
 import {
   ValidarValorSchema,
   ValidarValorDto,
@@ -27,6 +34,8 @@ import {
   ValidarValorResult,
   TributosResult,
   GrabarCargoResult,
+  SubirCargoResult,
+  NasUploadFile,
 } from './cargos-notificaciones.types';
 import { z } from 'zod';
 
@@ -89,6 +98,22 @@ export class CargosNotificacionesController {
     return this.service.listarTributos(dto);
   }
 
+  /** Detalle del cargo ya registrado para un valor (SP @busc=10). */
+  @Post('detalle')
+  @HttpCode(HttpStatus.OK)
+  async detalle(@Body() body: unknown): Promise<ValidarValorResult> {
+    let dto: ValidarValorDto;
+    try {
+      dto = ValidarValorSchema.parse(body);
+    } catch (error) {
+      return this.validationError<ValidarValorResult>(
+        error,
+        { success: false, data: [], error: 'Parámetros inválidos' },
+      );
+    }
+    return this.service.detalleCargo(dto);
+  }
+
   /** Registra un cargo de notificación (SP @busc=2). */
   @Post('grabar')
   @HttpCode(HttpStatus.OK)
@@ -108,6 +133,39 @@ export class CargosNotificacionesController {
     const operador = req.user?.username || req.user?.sub || '';
     const estacion = os.hostname();
     return this.service.grabarCargo(dto, operador, estacion);
+  }
+
+  /** Sube el archivo del cargo al NAS y persiste ruta1/imagen1 (SP @busc=6). */
+  @Post('subir-cargo')
+  @AccessGuard('btnSubirCargo')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: NAS_UPLOAD_MAX_BYTES, files: 1 },
+    }),
+  )
+  async subirCargo(
+    @UploadedFile() file: NasUploadFile | undefined,
+    @Body() body: unknown,
+    @Req() req: AuthRequest,
+  ): Promise<SubirCargoResult> {
+    const raw =
+      body && typeof body === 'object'
+        ? (body as Record<string, unknown>).cargo
+        : undefined;
+    let dto: GrabarCargoDto;
+    try {
+      dto = GrabarCargoSchema.parse(
+        typeof raw === 'string' ? JSON.parse(raw) : {},
+      );
+    } catch (error) {
+      return this.validationError<SubirCargoResult>(
+        error,
+        { success: false, error: 'Parámetros inválidos' },
+      );
+    }
+    const operador = req.user?.username || req.user?.sub || '';
+    const estacion = os.hostname();
+    return this.service.subirCargoNotificacion(file, dto, operador, estacion);
   }
 
   /** Builds a validation-error envelope for Zod errors, mirroring siblings. */
