@@ -252,12 +252,12 @@ export default function FraccionarPapeletaModal({ isOpen, infraccion, onClose, o
         codResp: respData.codigo,
         varxml: varxmlStr,
       });
-      if (result.success) {
-        alert("✅ Fraccionamiento generado correctamente.");
+      if (result.success && (result as any).success !== false) {
+        alert((result as any).message || "✅ Fraccionamiento generado correctamente.");
         onSuccess();
         onClose();
       } else {
-        setError(result.error ?? result.message);
+        setError((result as any).error || (result as any).message || "Error al generar convenio.");
       }
     } catch {
       setError("Error al generar convenio.");

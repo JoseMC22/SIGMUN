@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Récord de Papeleta del Infractor</title>
+  <link rel="stylesheet" href="./estilos-record.css">
+</head>
+<body>
+  <div class="contenedor-record">
+    <div class="header">
+      <div class="sat-titulo">SAT - ICA</div>
+      <div class="doc-titulo">RECORD DE PAPELETA DEL INFRACTOR AL {{fechaHoy}} {{horaHoy}}</div>
+    </div>
+
+    <div class="linea-hr"></div>
+
+    <div class="datos-infractor">
+      <div class="row-dato">
+        <span class="label">Codigo:</span>
+        <span class="val"><strong>{{codigo}}</strong></span>
+      </div>
+      <div class="row-dato">
+        <span class="label">Infractor:</span>
+        <span class="val"><strong>{{infractor}}</strong></span>
+      </div>
+    </div>
+
+    <div class="seccion-tabla">
+      <table class="tabla-record">
+        <thead>
+          <tr>
+            <th width="20%">Papeleta</th>
+            <th width="20%">Placa</th>
+            <th width="25%">Infracc.<br>Deuda</th>
+            <th width="35%">Fecha Infr.<br>Deuda-Dscto</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{filas}}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="linea-hr"></div>
+
+    <div class="resumen-totales">
+      <div class="row-total text-red">
+        <span>Total Descuento</span>
+        <span>{{totalDescuento}}</span>
+      </div>
+      <div class="row-total text-purple">
+        <span>Total Costas</span>
+        <span>{{totalCostas}}</span>
+      </div>
+    </div>
+
+    <div class="nota-referencial">
+      <strong>Nota: EL PRESENTE DOCUMENTO SOLAMENTE TIENE VALIDEZ REFERENCIAL</strong>
+    </div>
+
+    <div class="linea-hr"></div>
+
+    <div class="total-general">
+      Importe Total: <strong>S/ {{totalImporte}}</strong>
+    </div>
+
+    <div class="footer-info">
+      <p>Fecha: {{fechaActual}}</p>
+      <p>Usuario: {{usuario}}</p>
+    </div>
+  </div>
+</body>
+</html>
