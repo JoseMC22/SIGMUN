@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { DatabaseService } from '../database/database.service';
-import { SearchInfraccionDto } from './dto/search-infraccion.dto';
+import { DatabaseService } from '../../database/database.service';
+import { SearchInfraccionDto } from '../listado-de-infracciones/dto/search-infraccion.dto';
 import {
   InfraccionRow,
   PaginatedResponse,
-} from './dto/listado-de-infracciones.types';
+} from '../listado-de-infracciones/dto/listado-de-infracciones.types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapRow(row: any): InfraccionRow {
@@ -35,7 +35,7 @@ function mapRow(row: any): InfraccionRow {
 }
 
 @Injectable()
-export class ListadoDeInfraccionesService {
+export class ListadoPruebasService {
   constructor(private readonly db: DatabaseService) {}
 
   async search(
@@ -56,7 +56,6 @@ export class ListadoDeInfraccionesService {
       { msquery: '1', ...spParams },
     );
 
-    // The SP may return the count under different column names
     const countRow = countResult.recordset[0];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const total = countRow ? Number(Object.values(countRow as any)[0] ?? 0) : 0;
