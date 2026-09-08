@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { extname } from 'path';
+import { execFile } from 'node:child_process';
+import { writeFile } from 'node:fs/promises';
 import smb2 from '@awo00/smb2';
 import { DatabaseService } from '../../database/database.service';
 import { ValidarValorDto } from './dto/validar-valor.dto';
@@ -357,33 +359,55 @@ export class CargosNotificacionesService {
       return { success: false, error: 'No se pudo conectar al servidor NAS' };
     }
 
-    const client = new smb2.Client(server, {
-      connectTimeout: 10000,
-      requestTimeout: 30000,
-    });
-    let connected = false;
-    try {
-      const session = await client.authenticate({ domain, username, password });
-      connected = true;
-      const tree = await session.connectTree(share);
-      await tree.createFile(`/${folder}/${filename}`, file.buffer);
-      this.logger.log(
-        `[CargosNotificaciones] subirCargoNotificacion NAS OK: ` +
-          `${server}\\${share}\\${folder}\\${filename}`,
-      );
-    } catch (err) {
-      this.logger.error(
-        `[CargosNotificaciones] subirCargoNotificacion NAS error: ${err}`,
-      );
+    // Estrategia de escritura NAS (env NAS_STRATEGY; default: native en
+    // Windows, smb2 en el resto). 'native' usa la red SMB del propio Windows
+    // (net use + fs) y evita las limitaciones de @awo00/smb2 (dialectos
+    // ≤2.1, sin firma/cifrado): los NAS con cifrado/firma obligatorios lo
+    // rechazan con STATUS_ACCESS_DENIED en el TreeConnect aunque el usuario
+    // tenga permisos (verificado contra Synology SATICA_NAS).
+    // Se usa HOSTNAME (NAS_HOSTNAME) y no IP: Windows no permite dos
+    // credenciales distintas contra el mismo servidor y la IP suele tener
+    // sesión abierta con el usuario de Windows; el hostname cuenta como
+    // servidor distinto.
+    const host = process.env.NAS_HOSTNAME || server;
+    const strategy = (
+      process.env.NAS_STRATEGY ||
+      (process.platform === 'win32' ? 'native' : 'smb2')
+    ).toLowerCase();
+    const nasWrite =
+      strategy === 'native'
+        ? await this.writeFileNative(
+            host,
+            share,
+            folder,
+            username,
+            password,
+            filename,
+            file.buffer,
+          )
+        : await this.writeFileSmb2(
+            server,
+            share,
+            folder,
+            domain,
+            username,
+            password,
+            filename,
+            file.buffer,
+          );
+    if (!nasWrite.ok) {
       return {
         success: false,
-        error: connected
-          ? 'No se pudo guardar el archivo en el NAS'
-          : 'No se pudo conectar al servidor NAS',
+        error:
+          nasWrite.stage === 'connect'
+            ? 'No se pudo conectar al servidor NAS'
+            : 'No se pudo guardar el archivo en el NAS',
       };
-    } finally {
-      await client.close().catch(() => undefined);
     }
+    this.logger.log(
+      `[CargosNotificaciones] subirCargoNotificacion NAS OK (${strategy}): ` +
+        `${server}\\${share}\\${folder}\\${filename}`,
+    );
 
     // Persistir ruta1/imagen1 en el cargo (SP @busc=6, update).
     const ruta = `\\\\${server}\\${share}\\${folder}\\${filename}`;
@@ -409,5 +433,96 @@ export class CargosNotificacionesService {
       filename,
       ruta,
     };
+  }
+
+  /**
+   * Escritura NAS por UNC nativo de Windows: asegura el mapeo con `net use`
+   * (usuario NAS_USER, sin persistencia) y escribe con fs/promises.
+   * Sin shell: execFile con args (la password nunca se interpola en texto).
+   */
+  private async writeFileNative(
+    host: string,
+    share: string,
+    folder: string,
+    username: string,
+    password: string,
+    filename: string,
+    content: Buffer,
+  ): Promise<{ ok: boolean; stage?: 'connect' | 'write' }> {
+    const uncRoot = `\\\\${host}\\${share}`;
+    const uncFile = `${uncRoot}\\${folder}\\${filename}`;
+    const alreadyMapped = await this.netUse(['use', uncRoot]);
+    if (!alreadyMapped) {
+      const mapped = await this.netUse([
+        'use',
+        uncRoot,
+        password,
+        `/user:${username}`,
+        '/persistent:no',
+      ]);
+      if (!mapped) return { ok: false, stage: 'connect' };
+    }
+    try {
+      await writeFile(uncFile, content);
+      return { ok: true };
+    } catch {
+      return { ok: false, stage: 'write' };
+    }
+  }
+
+  /** Ejecuta `net use ...`; true si exit 0. */
+  private netUse(args: string[]): Promise<boolean> {
+    return new Promise((resolve) => {
+      execFile('net', args, { timeout: 15000 }, (error) =>
+        resolve(!error),
+      );
+    });
+  }
+
+  /** Escritura NAS vía @awo00/smb2 (fallback / no-Windows). */
+  private async writeFileSmb2(
+    server: string,
+    share: string,
+    folder: string,
+    domain: string,
+    username: string,
+    password: string,
+    filename: string,
+    content: Buffer,
+  ): Promise<{ ok: boolean; stage?: 'connect' | 'write' }> {
+    const client = new smb2.Client(server, {
+      connectTimeout: 10000,
+      requestTimeout: 30000,
+    });
+    let connected = false;
+    try {
+      const session = await client.authenticate({ domain, username, password });
+      connected = true;
+      const tree = await session.connectTree(share);
+      await tree.createFile(`/${folder}/${filename}`, content);
+      return { ok: true };
+    } catch (err) {
+      // El error de @awo00/smb2 es un objeto (no un Error estándar, puede
+      // contener BigInt). El logging NUNCA debe poder romper el flujo: se
+      // serializa con BigInt-safe replacer y, si aún así falla, String(err).
+      let detail = String(err);
+      try {
+        const nasErr = err as Record<string, unknown> & { message?: string };
+        const replacer = (_k: string, v: unknown) =>
+          typeof v === 'bigint' ? v.toString() : v;
+        detail =
+          nasErr?.message ??
+          JSON.stringify(nasErr, replacer) ??
+          String(nasErr);
+      } catch {
+        // keep String(err) fallback
+      }
+      this.logger.error(
+        `[CargosNotificaciones] subirCargoNotificacion NAS error: ${detail}`,
+      );
+      return { ok: false, stage: connected ? 'write' : 'connect' };
+    } finally {
+      await client.close().catch(() => undefined);
+    }
   }
 }
