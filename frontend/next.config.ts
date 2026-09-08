@@ -18,7 +18,15 @@ const devAllowedEntries = (process.env.DEV_ALLOWED_ORIGIN ?? "")
 
 const nextConfig: NextConfig = {
   /* config options here */
-  experimental: {},
+  experimental: {
+    // El límite debe cubrir NAS_UPLOAD_MAX_BYTES (10 MB) + payload JSON del
+    // cargo + overhead multipart → 12 MB. Default de Next: 1 MB (los uploads
+    // de cargo > 1 MB fallaban con "Error de conexión con el servidor" sin
+    // llegar al backend).
+    serverActions: {
+      bodySizeLimit: "12mb",
+    },
+  },
   // `allowedDevOrigins` is used only in development to allow HMR websocket
   // cross-origin requests from other hosts on the LAN. Accepts both full
   // origins and bare hosts in the same list.

@@ -279,14 +279,29 @@ export interface SubirCargoResult {
  *  - file: Blob (PDF/JPG/PNG, máx. 10 MB — keep in sync con
  *    NAS_UPLOAD_MAX_BYTES del backend)
  *  - cargo: string JSON del GrabarCargoPayload
+ *  - id_acceso: módulo del submenú (lo valida ObjectAccessGuard)
  */
 export async function subirCargoNotificacionAction(
   formData: FormData,
 ): Promise<SubirCargoResult> {
   try {
+    // React serializa los campos del FormData del argumento con prefijos de
+    // índice ("_1_file", "_1_cargo", "_1_id_acceso") en el viaje
+    // navegador → server action, y el objeto reenviado conserva esos
+    // prefijos. Reconstruimos el multipart con los nombres canónicos que
+    // espera el backend (file, cargo, id_acceso) antes del fetch.
+    const body = new FormData();
+    for (const [key, value] of formData.entries()) {
+      body.append(key.replace(/^_\d+_/, ""), value);
+    }
+    // ObjectAccessGuard corre ANTES que multer: en multipart, request.body está
+    // vacío cuando el guard lee id_acceso. Por eso el módulo viaja también como
+    // header x-id-acceso (los headers existen antes del parsing del body).
+    const idAcceso = body.get("id_acceso")?.toString() ?? "";
     const response = await authFetch(`${BASE}/subir-cargo`, {
       method: "POST",
-      body: formData,
+      body,
+      headers: idAcceso ? { "x-id-acceso": idAcceso } : undefined,
       cache: "no-store",
     });
     const json = await response.json().catch(() => null);
