@@ -948,6 +948,14 @@ export async function generarLiquidacionDJAction(
       };
     }
     const result = await response.json();
+    // Si el backend reporta fallo (p.ej. detalle rechazado por el SP),
+    // propagar el error — NO continuar con idliqui vacío.
+    if (result?.success === false) {
+      return {
+        success: false as const,
+        error: result.error ?? 'Error al generar la liquidación.',
+      };
+    }
     // Backend returns { success: true, data: { idliqui, nliqui } } — unwrap data.
     const data = result.data ?? result;
     return { success: true as const, idliqui: String(data.idliqui ?? ''), nliqui: String(data.nliqui ?? '') };
@@ -1168,6 +1176,668 @@ export async function guardarGenerarDeudaAction(
     }
     const result = await response.json();
     return { success: true as const, ...result };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ─── Fraccionar Deuda ───────────────────────────────────────────────────
+
+export type FraccionarCondicionPayload = {
+  codigo: string;
+  param: string;
+};
+
+export async function verificarCondicionFraccionamientoAction(
+  payload: FraccionarCondicionPayload,
+): Promise<{ success: true; data: string } | { success: false; error: string }> {
+  try {
+    const response = await authFetch(
+      '/declaracion-jurada/estado-cuenta/fraccionar/condicion',
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+    );
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false as const,
+        error: errorData.error ?? errorData.message ?? `Error ${response.status}`,
+      };
+    }
+    const result = await response.json();
+    return { success: true as const, data: result.data as string };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+export type FraccionarInicialData = {
+  fecha: string;
+  vencimiento: string;
+  interes: string;
+  porcenInicial: number;
+  montoInicial: number;
+  saldo: number;
+  maxCuotas: number;
+  porcIni: number;
+  condicionId: string;
+  estado: string;
+  flag: string;
+  codigo: string;
+  tipoDeuda: string;
+  totalpagar: number;
+  emision: string;
+};
+
+export type FraccionarInicialPayload = {
+  codigo: string;
+  totalpagar: number | string;
+  param: string;
+  porc_ini?: string;
+  max_cuotas?: string;
+  condicion_id?: string;
+  estado?: string;
+  tipo_deuda?: string;
+};
+
+export async function getDatosInicialesFraccionarAction(
+  payload: FraccionarInicialPayload,
+): Promise<
+  | { success: true; data: FraccionarInicialData }
+  | { success: false; error: string }
+> {
+  try {
+    const response = await authFetch(
+      '/declaracion-jurada/estado-cuenta/fraccionar/inicial',
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+    );
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false as const,
+        error: errorData.error ?? errorData.message ?? `Error ${response.status}`,
+      };
+    }
+    const result = await response.json();
+    return { success: true as const, data: result.data as FraccionarInicialData };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+export type FraccionarCuotasRow = {
+  cuota: string;
+  anno: string;
+  totalDeuda: string;
+  cuotaIni: string;
+  saldoDeuda: string;
+  montoCuota: string;
+  intereses: string;
+  cuotaTotal: string;
+  totalFrac: string;
+  cuotas: string;
+  fecGen: string;
+};
+
+export type FraccionarCuotasPayload = {
+  cuotas: number;
+  total_deuda: number | string;
+  total_inici: number | string;
+  fec_gen: string;
+  fec_cuo: string;
+};
+
+export async function getCuotasConvenioAction(
+  payload: FraccionarCuotasPayload,
+): Promise<
+  | { success: true; data: FraccionarCuotasRow[] }
+  | { success: false; error: string }
+> {
+  try {
+    const response = await authFetch(
+      '/declaracion-jurada/estado-cuenta/fraccionar/cuotas',
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+    );
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false as const,
+        error: errorData.error ?? errorData.message ?? `Error ${response.status}`,
+      };
+    }
+    const result = await response.json();
+    return { success: true as const, data: result.data as FraccionarCuotasRow[] };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+export type ApoderadoConvenioData = {
+  doc: string;
+  paterno: string;
+  materno: string;
+  nombre: string;
+  tipoPersona: string;
+};
+
+export async function getApoderadoConvenioAction(
+  codigo: string,
+): Promise<
+  | { success: true; data: ApoderadoConvenioData }
+  | { success: false; error: string }
+> {
+  try {
+    const response = await authFetch(
+      '/declaracion-jurada/estado-cuenta/fraccionar/apoderado',
+      {
+        method: 'POST',
+        body: JSON.stringify({ codigo }),
+      },
+    );
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false as const,
+        error: errorData.error ?? errorData.message ?? `Error ${response.status}`,
+      };
+    }
+    const result = await response.json();
+    if (!result.success) {
+      return {
+        success: false as const,
+        error: result.error ?? 'No se encontró el Apoderado.',
+      };
+    }
+    return { success: true as const, data: result.data as ApoderadoConvenioData };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ─── Simulación de Convenio de Fraccionamiento ─────────────────────────
+// (legacy: fraccionar/simuladofrac)
+
+/** Recibo seleccionado enviado al SP de simulación (mirror del XML legacy). */
+export interface SimuladoDeudaReciboPayload {
+  idrecibo: string;
+  montotal: number;
+  codigo: string;
+  anno: string;
+  cod_pred: string;
+  anexo: string;
+  sub_anexo: string;
+  tipo: string;
+  tipo_rec: string;
+  periodo: string;
+  imp_insol: number;
+  fact_reaj: string;
+  imp_reaj: number;
+  fact_mora: string;
+  imp_mora: number;
+  costo_emis: number;
+  ubica: string;
+}
+
+export interface SimuladoConvenioPayload {
+  deuda: SimuladoDeudaReciboPayload[];
+  codigo: string;
+  numeroCuotas: number;
+  totalDeuda: number;
+  totalInicial: number;
+  fecGen: string;
+  fecCuo: string;
+  codResp?: string;
+  operador?: string;
+  estacion?: string;
+}
+
+export interface SimuladoConvenioData {
+  contribuyente: {
+    codigo: string;
+    nombre: string;
+    documento: string;
+    domicilio: string;
+  };
+  responsable: { nombre: string; documento: string };
+  montoDeuda: number;
+  numeroCuotas: number;
+  fecha: string;
+  usuario: string;
+  deuda: Array<{
+    anno: string;
+    concepto: string;
+    detalle: string;
+    predio: string;
+    periodos: string;
+    monto: number;
+  }>;
+  totalDeuda: number;
+  cuotas: Array<{
+    cuota: string;
+    anio: string;
+    fecVenc: string;
+    amort: number;
+    interes: number;
+    total: number;
+  }>;
+  totalCuotas: number;
+}
+
+export async function getSimuladoConvenioAction(
+  payload: SimuladoConvenioPayload,
+): Promise<
+  | { success: true; data: SimuladoConvenioData }
+  | { success: false; error: string }
+> {
+  try {
+    const response = await authFetch(
+      '/declaracion-jurada/estado-cuenta/fraccionar/simulado',
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+    );
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false as const,
+        error: errorData.error ?? errorData.message ?? `Error ${response.status}`,
+      };
+    }
+    const result = await response.json();
+    if (!result.success) {
+      return {
+        success: false as const,
+        error: result.error ?? 'Error al generar el simulado del convenio.',
+      };
+    }
+    return { success: true as const, data: result.data as SimuladoConvenioData };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ─── Generar Convenio de Fraccionamiento (real, graba) ─────────────────
+// (legacy: fraccionar/generaconvenio → Rentas.GeneraConvenio)
+
+export interface GenerarConvenioPayload extends SimuladoConvenioPayload {
+  condicionId?: string;
+  tipoDeuda?: string;
+}
+
+export async function generarConvenioAction(
+  payload: GenerarConvenioPayload,
+): Promise<
+  | { success: true; data: { convenio: string } }
+  | { success: false; error: string }
+> {
+  try {
+    const response = await authFetch(
+      '/declaracion-jurada/estado-cuenta/fraccionar/generar-convenio',
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+    );
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false as const,
+        error: errorData.error ?? errorData.message ?? `Error ${response.status}`,
+      };
+    }
+    const result = await response.json();
+    if (!result.success) {
+      return {
+        success: false as const,
+        error: result.error ?? 'Error al generar el convenio.',
+      };
+    }
+    return { success: true as const, data: result.data as { convenio: string } };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ─── Reporte del Convenio ya generado (Rentas.ImprimeConvenio) ─────────
+// (legacy: JasperReport ReporteConvenio.jrxml)
+
+export interface ConvenioReporteDeudaRow {
+  anno: string;
+  concepto: string;
+  detalle: string;
+  predio: string;
+  periodos: string;
+  monto: number;
+}
+
+export interface ConvenioReporteCuotaRow {
+  cuota: string;
+  anio: string;
+  fecVenc: string;
+  amort: number;
+  interes: number;
+  total: number;
+  /** Pagos aplicados a la cuota (columna observacion del SP, buscar=3). */
+  observacion: string;
+}
+
+export interface ConvenioReporteData {
+  /** Cabecera del convenio — columnas nombradas tal cual las emite el SP
+   *  (codigo, nombres, dirfiscal, convenio, fec_conve, deuda_ini, montoletra,
+   *  TipoDeuda, Documento, CodResp, NombResp, dirResp, DocResp, CodPropVeh,
+   *  nombPropVeh, dirPropVeh, DocPropVeh, NombFunc, Funcionario, ...). */
+  cabecera: Record<string, string>;
+  deuda: ConvenioReporteDeudaRow[];
+  totalDeuda: number;
+  cuotas: ConvenioReporteCuotaRow[];
+  totalCuotas: number;
+  /** Número de cuotas del fraccionamiento (columna num_cuotas, buscar=2). */
+  numCuotas: string;
+}
+
+export async function getReporteConvenioAction(
+  codigo: string,
+  convenio: string,
+): Promise<
+  | { success: true; data: ConvenioReporteData }
+  | { success: false; error: string }
+> {
+  try {
+    const response = await authFetch(
+      '/declaracion-jurada/estado-cuenta/fraccionar/convenio-reporte',
+      {
+        method: 'POST',
+        body: JSON.stringify({ codigo, convenio }),
+      },
+    );
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false as const,
+        error: errorData.error ?? errorData.message ?? `Error ${response.status}`,
+      };
+    }
+    const result = await response.json();
+    if (!result.success) {
+      return {
+        success: false as const,
+        error: result.error ?? 'Error al obtener el reporte del convenio.',
+      };
+    }
+    return { success: true as const, data: result.data as ConvenioReporteData };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ─── Listado de Fraccionamientos (Ver Fraccionamiento) ─────────────────
+// (legacy: fraccionar/consultafracc → Rentas.ImprimeConvenio @buscar=4)
+
+export interface FraccionamientoRow {
+  convenio: string;
+  anno: string;
+  cuotas: string;
+  monto: string;
+  estado: string;
+  usuario: string;
+  fecha: string;
+}
+
+export async function getListadoFraccionamientosAction(
+  codigo: string,
+): Promise<
+  | { success: true; data: FraccionamientoRow[] }
+  | { success: false; error: string }
+> {
+  try {
+    const response = await authFetch(
+      '/declaracion-jurada/estado-cuenta/fraccionar/listado',
+      {
+        method: 'POST',
+        body: JSON.stringify({ codigo }),
+      },
+    );
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false as const,
+        error: errorData.error ?? errorData.message ?? `Error ${response.status}`,
+      };
+    }
+    const result = await response.json();
+    if (!result.success) {
+      return {
+        success: false as const,
+        error: result.error ?? 'Error al listar los fraccionamientos.',
+      };
+    }
+    return { success: true as const, data: result.data as FraccionamientoRow[] };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ─── Detalle de Convenio (Detalle Convenio) ───────────────────────────
+// (legacy: fraccionar/resolfracc → Rentas.ImprimeConvenio @buscar=5,
+//  cuotas del grid: Rentas.ImprimeConvenio @buscar=3)
+
+export interface DetalleConvenioCuotaRow {
+  periodo: string;
+  importe: string;
+  reajuste: string;
+  total: string;
+  fechaVenc: string;
+  nroRecibo: string;
+}
+
+export interface DetalleConvenioData {
+  fecha: string;
+  montoTotal: string;
+  cuotaInicial: string;
+  porcentajeInicial: string;
+  saldo: string;
+  numeroCuotas: string;
+  estado: string;
+  estadoCodigo: string;
+  nroRecibo: string;
+  cuotas: DetalleConvenioCuotaRow[];
+}
+
+export async function getDetalleConvenioAction(
+  codigo: string,
+  convenio: string,
+): Promise<
+  | { success: true; data: DetalleConvenioData }
+  | { success: false; error: string }
+> {
+  try {
+    const response = await authFetch(
+      '/declaracion-jurada/estado-cuenta/fraccionar/detalle',
+      {
+        method: 'POST',
+        body: JSON.stringify({ codigo, convenio }),
+      },
+    );
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false as const,
+        error: errorData.error ?? errorData.message ?? `Error ${response.status}`,
+      };
+    }
+    const result = await response.json();
+    if (!result.success) {
+      return {
+        success: false as const,
+        error: result.error ?? 'Error al obtener el detalle del convenio.',
+      };
+    }
+    return { success: true as const, data: result.data as DetalleConvenioData };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ─── Generar Resolución (legacy: fraccionar/resoluciongenera) ────────
+// Rentas.ImprimeConvenio @buscar=7 marca la resolución generada.
+export async function generarResolucionAction(
+  codigo: string,
+  convenio: string,
+): Promise<{ success: true; message?: string } | { success: false; error: string }> {
+  try {
+    const response = await authFetch(
+      '/declaracion-jurada/estado-cuenta/fraccionar/resolucion-genera',
+      {
+        method: 'POST',
+        body: JSON.stringify({ codigo, convenio }),
+      },
+    );
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false as const,
+        error: errorData.error ?? errorData.message ?? `Error ${response.status}`,
+      };
+    }
+    const result = await response.json();
+    if (!result.success) {
+      return {
+        success: false as const,
+        error: result.error ?? 'Error al generar la resolución.',
+      };
+    }
+    return { success: true as const, message: result.message };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ─── Anular Convenio (legacy: fraccionar/anularfrac) ────────────────
+// Rentas.Anularconvenio con codigo/convenio/operador/estacion.
+export async function anularConvenioAction(
+  codigo: string,
+  convenio: string,
+  operador: string,
+  estacion: string,
+): Promise<{ success: true; message?: string } | { success: false; error: string }> {
+  try {
+    const response = await authFetch(
+      '/declaracion-jurada/estado-cuenta/fraccionar/anular',
+      {
+        method: 'POST',
+        body: JSON.stringify({ codigo, convenio, operador, estacion }),
+      },
+    );
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false as const,
+        error: errorData.error ?? errorData.message ?? `Error ${response.status}`,
+      };
+    }
+    const result = await response.json();
+    if (!result.success) {
+      return {
+        success: false as const,
+        error: result.error ?? 'Error al anular el convenio.',
+      };
+    }
+    return { success: true as const, message: result.message };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ─── Anular Convenio S/C (legacy: fraccionar/anularfracsc) ─────────────
+// Rentas.Anularconveniosc con codigo/convenio/operador/estacion.
+export async function anularConvenioScAction(
+  codigo: string,
+  convenio: string,
+  operador: string,
+  estacion: string,
+): Promise<{ success: true; message?: string } | { success: false; error: string }> {
+  try {
+    const response = await authFetch(
+      '/declaracion-jurada/estado-cuenta/fraccionar/anular-sc',
+      {
+        method: 'POST',
+        body: JSON.stringify({ codigo, convenio, operador, estacion }),
+      },
+    );
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false as const,
+        error: errorData.error ?? errorData.message ?? `Error ${response.status}`,
+      };
+    }
+    const result = await response.json();
+    if (!result.success) {
+      return {
+        success: false as const,
+        error: result.error ?? 'Error al anular el convenio sin cargos.',
+      };
+    }
+    return { success: true as const, message: result.message };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ─── Reporte de Resolución (legacy: jasper rpt_conv_resolucion) ──────
+// Rentas.ResolucionConvenio @buscar=1 con codigo/convenio.
+export interface DatosResolucionData {
+  numero_documento: string;
+  nombre_contribuyente: string;
+  direcion: string;
+  numero_cuotas: string;
+  fecha_convenio: string;
+  cuota_inicial: string;
+  numero_letra: string;
+  numero_ingreso: string;
+  fecha_cancelado: string;
+  valores: string;
+}
+
+export async function getDatosResolucionAction(
+  codigo: string,
+  convenio: string,
+): Promise<
+  | { success: true; data: DatosResolucionData }
+  | { success: false; error: string }
+> {
+  try {
+    const response = await authFetch(
+      '/declaracion-jurada/estado-cuenta/fraccionar/resolucion-reporte',
+      {
+        method: 'POST',
+        body: JSON.stringify({ codigo, convenio }),
+      },
+    );
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false as const,
+        error: errorData.error ?? errorData.message ?? `Error ${response.status}`,
+      };
+    }
+    const result = await response.json();
+    if (!result.success) {
+      return {
+        success: false as const,
+        error: result.error ?? 'Error al obtener los datos de la resolución.',
+      };
+    }
+    return { success: true as const, data: result.data as DatosResolucionData };
   } catch (error) {
     return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
   }

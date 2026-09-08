@@ -18,7 +18,11 @@ const devAllowedEntries = (process.env.DEV_ALLOWED_ORIGIN ?? "")
 
 const nextConfig: NextConfig = {
   /* config options here */
-  experimental: {},
+  experimental: {
+    // Server Actions reciben payloads grandes (p.ej. liquidaciones con
+    // miles de recibos seleccionados). Default de Next = 1MB → 500.
+    serverActions: { bodySizeLimit: "10mb" },
+  },
   // `allowedDevOrigins` is used only in development to allow HMR websocket
   // cross-origin requests from other hosts on the LAN. Accepts both full
   // origins and bare hosts in the same list.

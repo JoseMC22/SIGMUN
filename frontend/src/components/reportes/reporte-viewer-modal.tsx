@@ -3,8 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { X, Printer, Download, Loader2 } from "lucide-react";
 import {
-  generarPdf,
-  descargarPdf,
+  descargarPdfDesdeHtml,
   type ReportePdfConfig,
 } from "@/lib/reportes/reporte-service";
 
@@ -58,13 +57,12 @@ export default function ReporteViewerModal({ isOpen, onClose, html, pdfConfig }:
     }
   };
 
-  const guardarPdf = () => {
-    if (!pdfConfig) return;
+  const guardarPdf = async () => {
+    if (!pdfConfig || !html) return;
     setGuardando(true);
     setError(null);
     try {
-      const doc = generarPdf(pdfConfig);
-      descargarPdf(doc, pdfConfig.filename);
+      await descargarPdfDesdeHtml(html, pdfConfig.filename, pdfConfig.orientacion);
     } catch {
       setError("No se pudo generar el PDF. Intente nuevamente.");
     } finally {

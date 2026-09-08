@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { X, Loader2, ChevronDown, ChevronRight } from "lucide-react";
+import { useModalStack, isTopModal } from "@/hooks/use-modal-topmost";
 import {
   getEstadoCuentaFiltrosAction,
   getEstadoCuentaRecibosAction,
@@ -9,8 +10,11 @@ import {
   getLiquidacionReporteAction,
   getVerPagosAction,
   getDeudaConsolidadoAction,
+  verificarCondicionFraccionamientoAction,
+  getDatosInicialesFraccionarAction,
   type EstadoCuentaPredioOption,
   type EstadoCuentaReciboRow,
+  type FraccionarInicialData,
 } from "@/actions/administracion-tributaria/declaracion-jurada";
 import { obtenerPlantillaReporteLiquidacionAction } from "@/actions/administracion-tributaria/reporte-liquidacion";
 import { construirHtmlReporteLiquidacion } from "./reportes/Liquidacion/reporte-liquidacion";
@@ -19,8 +23,11 @@ import { construirHtmlVerPagos } from "./reportes/VerPagos/reporte-ver-pagos";
 import { obtenerPlantillaReporteDeudaConsolidadaAction } from "@/actions/administracion-tributaria/reporte-deuda-consolidada";
 import { construirHtmlDeudaConsolidada } from "./reportes/DeudaConsolidada/reporte-deuda-consolidada";
 import GenerarDeudaModal from "./generar-deuda-modal";
+import FraccionarDeudaModal from "./fraccionar-deuda-modal";
+import VerFraccionamientosModal from "./ver-fraccionamientos-modal";
 import { getStoredUser } from "@/lib/api";
 import ReporteViewerModal from "@/components/reportes/reporte-viewer-modal";
+import ConfirmDialog from "@/components/confirm-dialog";
 import type { ReportePdfConfig } from "@/lib/reportes/reporte-service";
 
 // ─── Types ────────────────────────────────────────────────
@@ -403,6 +410,24 @@ export default function EstadoCuentaModal({
   const [consolidadoReportePdf, setConsolidadoReportePdf] = useState<ReportePdfConfig | null>(null);
   const [isGenerarDeudaOpen, setIsGenerarDeudaOpen] = useState(false);
   const [deudaError, setDeudaError] = useState<string | null>(null);
+  // Fraccionar Deuda — modal + loading
+  const [fraccionarLoading, setFraccionarLoading] = useState(false);
+  const [isFraccionarOpen, setIsFraccionarOpen] = useState(false);
+  const [fraccionarData, setFraccionarData] = useState<FraccionarInicialData | null>(null);
+  // Confirmación (ConfirmDialog) cuando la condición trae excepción
+  // (estado != 0): se otorga porc_ini y max_cuotas especiales al código.
+  const [fraccionarPendiente, setFraccionarPendiente] = useState<{
+    codigo: string;
+    totalpagar: number;
+    param: string;
+    porcIni: string;
+    maxCuotas: string;
+    condicionId: string;
+    estado: string;
+    tipoDeuda: string;
+  } | null>(null);
+  // Ver Fraccionamiento — listado de convenios del contribuyente
+  const [isVerFraccOpen, setIsVerFraccOpen] = useState(false);
   // Accordion: group cabecera -> collapsed?
   const [collapsedGroups, setCollapsedGroups] = useState<
     Record<string, boolean>
@@ -447,6 +472,10 @@ export default function EstadoCuentaModal({
     setLoadingConsolidado(false);
     setConsolidadoReporteHtml(null);
     setConsolidadoReportePdf(null);
+    setFraccionarLoading(false);
+    setIsFraccionarOpen(false);
+    setFraccionarData(null);
+    setIsVerFraccOpen(false);
   }, []);
 
   useEffect(() => {
@@ -769,15 +798,176 @@ export default function EstadoCuentaModal({
     }
   };
 
+  // ── Fraccionar Deuda ──
+  //
+  // Replica el JS legado de fraccionar:
+  //   1) Validar selección: no fracc/gastos/costas, exactamente UN tipo
+  //      (IP/ARB/VEH/MULT), total > 0, total >= monto_min (de condicion).
+  //   2) Llamar condicionfrac ([Rentas].[CondicionConvenio] @busc=1).
+  //   3) Si estado != 0 → confirm dialog con porc_ini y max_cuotas.
+  //   4) Llamar fraccionar/inicial (sp_getfecha + cálculo) y abrir modal.
+  const handleFraccionar = useCallback(async () => {
+    const codigo = contribuyente?.codigo ?? '';
+    if (!codigo) {
+      setDeudaError('No hay un contribuyente seleccionado.');
+      return;
+    }
+
+    const selected = rows.filter((r) => r.selected);
+    if (selected.length === 0) {
+      setDeudaError('Debe seleccionar un registro.');
+      return;
+    }
+
+    // Reglas del legado para tipos que NO pueden fraccionarse juntos.
+    let cant = 0;
+    for (const r of selected) {
+      const t = r.tipo ?? '';
+      const u = r.ubica ?? '';
+      if (u === 'FE  ' || t === '12.23') cant += 1;
+      else if (t === '90.09' || t === '90.00') cant += 1;
+      else if (t === '90.33' || t === '90.32') cant += 1;
+    }
+    if (cant > 0) {
+      setDeudaError('Desmarque Fraccionamiento, Gastos y Costas.');
+      return;
+    }
+
+    // Clasificar por tipo (IP / ARB / VEH / MUL).
+    let hayIp = 0, hayArb = 0, hayVeh = 0, hayMult = 0;
+    for (const r of selected) {
+      const t = r.tipo ?? '';
+      if (t === '02.01') hayIp = 1;
+      else if (t === '11.00') hayArb = 1;
+      else if (t === '00.30' || t === '25.10') hayVeh = 1;
+      else if (t === '30.82') hayMult = 1;
+    }
+    const tipos = hayIp + hayArb + hayVeh + hayMult;
+    if (tipos !== 1) {
+      setDeudaError('Marque solamente un tipo de deuda (IP / ARB / VEH / MULT).');
+      return;
+    }
+    const tipoDeuda: 'IP' | 'ARB' | 'VEH' | 'MUL' =
+      hayIp === 1 ? 'IP' : hayArb === 1 ? 'ARB' : hayVeh === 1 ? 'VEH' : 'MUL';
+
+    const totalpagar = sumTotal;
+    if (totalpagar <= 0) {
+      setDeudaError('El monto seleccionado debe ser mayor.');
+      return;
+    }
+
+    setDeudaError(null);
+    setFraccionarLoading(true);
+    try {
+      // Por ahora siempre '1' (ordinario). Cuando cableemos
+      // "Mostrar Benef. Fracc." este param se setea a '2'.
+      const param = '1';
+      const condRes = await verificarCondicionFraccionamientoAction({
+        codigo,
+        param,
+      });
+      if (!condRes.success) {
+        setDeudaError(
+          condRes.error ||
+            'Error al consultar las condiciones de fraccionamiento del contribuyente.',
+        );
+        return;
+      }
+      const parts = (condRes.data || '').split('*');
+      const [estado, porcFracc, montoMin, porcIni, maxCuotas, condicionId] = [
+        parts[0] ?? '',
+        parts[1] ?? '',
+        parts[2] ?? '0',
+        parts[3] ?? '',
+        parts[4] ?? '0',
+        parts[5] ?? '',
+      ];
+
+      if (totalpagar < Number(montoMin)) {
+        setDeudaError(
+          `La deuda a fraccionar no puede ser menor al ${porcFracc}% de la UIT actual.`,
+        );
+        return;
+      }
+
+      // estado != 0 → excepción con porc_ini y max_cuotas: ConfirmDialog antes de abrir.
+      if (estado !== '0' && estado !== '') {
+        setFraccionarPendiente({
+          codigo,
+          totalpagar,
+          param,
+          porcIni,
+          maxCuotas,
+          condicionId,
+          estado,
+          tipoDeuda,
+        });
+        return;
+      }
+
+      await continuarFraccionar({
+        codigo,
+        totalpagar,
+        param,
+        porcIni,
+        maxCuotas,
+        condicionId,
+        estado,
+        tipoDeuda,
+      });
+    } catch {
+      setDeudaError('Error al iniciar el fraccionamiento. Intente nuevamente.');
+    } finally {
+      setFraccionarLoading(false);
+    }
+  }, [
+    contribuyente?.codigo,
+    rows,
+    sumTotal,
+    continuarFraccionar,
+  ]);
+
+  /** Segunda mitad de handleFraccionar: pide datos iniciales y abre el modal. */
+  async function continuarFraccionar(p: {
+    codigo: string;
+    totalpagar: number;
+    param: string;
+    porcIni: string;
+    maxCuotas: string;
+    condicionId: string;
+    estado: string;
+    tipoDeuda: string;
+  }) {
+    const inicialRes = await getDatosInicialesFraccionarAction({
+      codigo: p.codigo,
+      totalpagar: p.totalpagar,
+      param: p.param,
+      porc_ini: p.porcIni,
+      max_cuotas: p.maxCuotas,
+      condicion_id: p.condicionId,
+      estado: p.estado,
+      tipo_deuda: p.tipoDeuda,
+    });
+    if (!inicialRes.success) {
+      setDeudaError(inicialRes.error || 'Error al abrir el fraccionamiento.');
+      return;
+    }
+    setFraccionarData(inicialRes.data);
+    setIsFraccionarOpen(true);
+  }
+
+  // Modal-foco: solo el modal arriba de la pila global responde ESC.
+  const modalId = useModalStack(isOpen);
+
   // ── Escape to close ──
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape" && isTopModal(modalId)) onClose();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [isOpen, onClose]);
+  }, [isOpen, modalId, onClose]);
 
   // ── Load filters (store_caja_framework) when opened for a contribuyente ──
   const contribuyenteCodigo = contribuyente?.codigo ?? "";
@@ -1207,6 +1397,7 @@ export default function EstadoCuentaModal({
                   type="button"
                   disabled={
                     loadingDeuda ||
+                    fraccionarLoading ||
                     (btn.label === "Ver Pagos" && loadingVerPagos) ||
                     (btn.label === "Deuda Consolidada" && loadingConsolidado)
                   }
@@ -1217,6 +1408,10 @@ export default function EstadoCuentaModal({
                       handleDeudaConsolidada();
                     } else if (btn.label === "Generar Deuda") {
                       setIsGenerarDeudaOpen(true);
+                    } else if (btn.label === "Fraccionar") {
+                      handleFraccionar();
+                    } else if (btn.label === "Ver Fraccionamiento") {
+                      setIsVerFraccOpen(true);
                     } else if (btn.criterio !== undefined) {
                       handleMostrar(btn.criterio);
                     }
@@ -1228,6 +1423,7 @@ export default function EstadoCuentaModal({
                   }`}
                 >
                   {((loadingDeuda && btn.criterio !== undefined) ||
+                    (btn.label === "Fraccionar" && fraccionarLoading) ||
                     (btn.label === "Ver Pagos" && loadingVerPagos) ||
                     (btn.label === "Deuda Consolidada" && loadingConsolidado)) && (
                     <Loader2 size={10} className="animate-spin" />
@@ -1308,6 +1504,79 @@ export default function EstadoCuentaModal({
           // viendo, para que la deuda generada aparezca de inmediato.
           if (lastCriterio !== null) handleMostrar(lastCriterio);
         }}
+      />
+
+      {/* ══ Confirm: excepción de fraccionamiento (porc_ini / max_cuotas) ══ */}
+      <ConfirmDialog
+        isOpen={fraccionarPendiente !== null}
+        title="Fraccionamiento"
+        message={
+          fraccionarPendiente
+            ? `Se otorga un porcentaje inicial (${fraccionarPendiente.porcIni}%) y máximo de cuotas (${fraccionarPendiente.maxCuotas}) al código ${fraccionarPendiente.codigo}. ¿Desea continuar con la operación?`
+            : ""
+        }
+        confirmLabel="Sí"
+        cancelLabel="No"
+        onConfirm={() => {
+          const pend = fraccionarPendiente;
+          setFraccionarPendiente(null);
+          if (pend) void continuarFraccionar(pend);
+        }}
+        onCancel={() => setFraccionarPendiente(null)}
+      />
+
+      {/* Ver Fraccionamiento — listado de convenios del contribuyente con
+          opción de reimprimir el reporte del convenio. */}
+      <VerFraccionamientosModal
+        isOpen={isVerFraccOpen}
+        onClose={() => setIsVerFraccOpen(false)}
+        codigoContribuyente={contribuyente?.codigo}
+        nombreContribuyente={contribuyente?.nombre}
+      />
+
+      {/* Fraccionar Deuda — abre con los datos iniciales calculados
+          por sp_getfecha + reglas de estado/param. Se cierra con X/ESC
+          o el botón Salir. No auto-cierra al "Calcular Cuotas" para que
+          el usuario pueda revisar la grilla antes de salir. */}
+      <FraccionarDeudaModal
+        isOpen={isFraccionarOpen && fraccionarData !== null}
+        onClose={() => {
+          setIsFraccionarOpen(false);
+          setFraccionarData(null);
+        }}
+        seed={fraccionarData}
+        codigoContribuyente={contribuyente?.codigo}
+        nombreContribuyente={contribuyente?.nombre}
+        operador={getStoredUser()?.username ?? ""}
+        onGenerated={() => {
+          // Tras grabar el convenio, refrescar la grilla con el mismo
+          // criterio de búsqueda (legacy: mostrarRecContri()).
+          if (lastCriterio !== null) handleMostrar(lastCriterio);
+        }}
+        deuda={rows
+          .filter((r) => r.selected)
+          .map((r) => ({
+            idrecibo: r.idrecibo,
+            montotal: r.total,
+            codigo: r.codigo,
+            anno: r.anno,
+            cod_pred: r.codPred,
+            anexo: r.anexo,
+            sub_anexo: r.subAnexo,
+            tipo: r.tipo,
+            tipo_rec: r.tipoRec,
+            periodo: r.periodo,
+            imp_insol: r.impInsol,
+            // La grilla del Estado de Cuenta no expone fact_reaj / fact_mora;
+            // se envían con los mismos valores por defecto que ya usa
+            // Generar Liquidación.
+            fact_reaj: "1",
+            imp_reaj: r.impReaj,
+            fact_mora: "0",
+            imp_mora: r.interes,
+            costo_emis: r.costoEmision,
+            ubica: r.ubica,
+          }))}
       />
     </div>
   );

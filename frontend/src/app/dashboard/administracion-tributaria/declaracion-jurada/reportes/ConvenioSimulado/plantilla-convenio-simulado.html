@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Simulación de Convenio de Fraccionamiento</title>
+    <link rel="stylesheet" href="./estilos-convenio-simulado.css">
+</head>
+<body>
+    <div id="dvContainer">
+        <div class="encabezado">
+            <p class="encabezado-institucion">SERVICIO DE ADMINISTRACIÓN TRIBUTARIA - SAT ICA</p>
+            <p class="encabezado-titulo">SIMULACIÓN DE CONVENIO DE FRACCIONAMIENTO Y PLAN DE PAGOS</p>
+        </div>
+        <hr>
+
+        <table class="tabla-contri">
+            <tbody>
+                <tr>
+                    <td class="th-contri">Nombre/Razón Soc.:</td>
+                    <td colspan="3">{{nombreContri}}</td>
+                </tr>
+                <tr>
+                    <td class="th-contri">Domicilio Fiscal/Legal:</td>
+                    <td colspan="3">{{domicilio}}</td>
+                </tr>
+                <tr>
+                    <td class="th-contri">Cod. Contribuyente:</td>
+                    <td>{{codigo}}</td>
+                    <td class="th-contri">Nro. Doc:</td>
+                    <td>{{documento}}</td>
+                </tr>
+                <tr>
+                    <td class="th-contri">Responsable:</td>
+                    <td>{{responsable}}</td>
+                    <td class="th-contri">Nro. Doc:</td>
+                    <td>{{docResponsable}}</td>
+                </tr>
+                <tr>
+                    <td class="th-contri">Monto Deuda:</td>
+                    <td>{{montoDeuda}}</td>
+                    <td class="th-contri">Cuotas:</td>
+                    <td>{{numCuotas}}</td>
+                </tr>
+                <tr>
+                    <td class="th-contri">Fecha Proyección:</td>
+                    <td>{{fecha}}</td>
+                    <td class="th-contri">Fecha Emisión:</td>
+                    <td>{{fecha}}</td>
+                </tr>
+                <tr>
+                    <td class="th-contri">Usuario:</td>
+                    <td>{{usuario}}</td>
+                    <td class="th-contri">Infracción:</td>
+                    <td></td>
+                </tr>
+            </tbody>
+        </table>
+        <hr>
+
+        <table class="tabla-detalle">
+            <caption class="titulo-tabla">Deuda a Fraccionar</caption>
+            <thead>
+                <tr class="th-tabla">
+                    <td>Año</td>
+                    <td>Concepto</td>
+                    <td>Detalle</td>
+                    <td>Predio/Veh.</td>
+                    <td>Periodos</td>
+                    <td class="th-monto">Monto</td>
+                </tr>
+            </thead>
+            <tbody>
+                {{filasDeuda}}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="5" class="td-total-label">TOTAL:</td>
+                    <td class="td-total">S/. {{totalDeuda}}</td>
+                </tr>
+            </tfoot>
+        </table>
+        <hr>
+
+        <table class="tabla-detalle">
+            <caption class="titulo-tabla">Cuotas Fraccionadas</caption>
+            <thead>
+                <tr class="th-tabla">
+                    <td>Cuota</td>
+                    <td>Año</td>
+                    <td>Fec. Venc.</td>
+                    <td>Amort.</td>
+                    <td>Interés</td>
+                    <td class="th-monto">Total</td>
+                </tr>
+            </thead>
+            <tbody>
+                {{filasCuotas}}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="5" class="td-total-label">TOTAL:</td>
+                    <td class="td-total">S/. {{totalCuotas}}</td>
+                </tr>
+            </tfoot>
+        </table>
+        <hr>
+
+        <p class="parrafo">Los valores de deuda están calculados a la fecha de emisión de la presente simulación, estos se actualizarán a la fecha de la firma del convenio y pago de la cuota inicial (cuota 00) a razón del interés moratorio.</p>
+    </div>
+
+    <div class="footer">
+        <span class="footer-izq">Elaborado por: {{usuario}}</span>
+        <span class="footer-der">{{fecha}}</span>
+    </div>
+</body>
+</html>
