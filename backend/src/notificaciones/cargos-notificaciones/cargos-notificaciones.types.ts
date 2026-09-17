@@ -1,0 +1,83 @@
+// ── SP result interfaces for Cargos de Notificación ──
+
+/** A single Tipo de Valor option for the combo (Contenedor.TblTipo_valor). */
+export interface TipoValorOption {
+  id_valor: string;
+  nomb_val: string;
+}
+
+/** A single Notificador option for the combo (SP @busc=11). */
+export interface NotificadorOption {
+  codigo_autoridad: number;
+  notificador: string;
+}
+
+/** A single parentesco option for the combo (rentas.rc_tipo_relacion). */
+export interface ParentescoOption {
+  tipo_relacion_id: number;
+  descripcion: string;
+}
+
+/** A single value label from `[Rentas].[ssp_mvalores]` @msquery=9 (dynamically shaped). */
+export interface ValorTributarioRow {
+  [key: string]: unknown; // dynamic columns — exact SP shape is DB-defined
+}
+
+/** Envelope returned by the tipos-valor combo endpoint. */
+export interface TipoValorComboResult {
+  success: boolean;
+  data: TipoValorOption[];
+  error?: string;
+}
+
+/** Envelope returned by the notificadores combo endpoint. */
+export interface NotificadoresComboResult {
+  success: boolean;
+  data: NotificadorOption[];
+  error?: string;
+}
+
+/** Envelope returned by the parentescos combo endpoint. */
+export interface ParentescosComboResult {
+  success: boolean;
+  data: ParentescoOption[];
+  error?: string;
+}
+
+/** Envelope returned by the validar-valor endpoint. */
+export interface ValidarValorResult {
+  success: boolean;
+  data: ValorTributarioRow[];
+  error?: string;
+}
+
+/** Envelope returned by the detalle-tributos endpoint (ssp_dvalores @msquery=4). */
+export interface TributosResult {
+  success: boolean;
+  data: ValorTributarioRow[];
+  error?: string;
+}
+
+/** Envelope returned by the grabar-cargo endpoint. */
+export interface GrabarCargoResult {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
+/** Envelope returned by the subir-cargo (NAS upload) endpoint. */
+export interface SubirCargoResult {
+  success: boolean;
+  message?: string;
+  error?: string;
+  filename?: string;
+  ruta?: string;
+}
+
+/** Minimal shape of a multer in-memory file (avoids Express.Multer types). */
+export interface NasUploadFile {
+  buffer: Buffer;
+  originalname: string;
+  mimetype: string;
+  size: number;
+}
