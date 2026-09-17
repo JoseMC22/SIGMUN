@@ -55,6 +55,26 @@ import {
   GenerarLiquidacionDJDto,
 } from './dto/estado-cuenta-liquidacion.dto';
 import {
+  CondicionConvenioSchema,
+  CondicionConvenioDto,
+  FraccionarInicialSchema,
+  FraccionarInicialDto,
+  FraccionarCuotasSchema,
+  FraccionarCuotasDto,
+  FraccionarApoderadoSchema,
+  FraccionarApoderadoDto,
+  SimuladoConvenioSchema,
+  SimuladoConvenioDto,
+  GenerarConvenioSchema,
+  GenerarConvenioDto,
+  ConvenioReporteSchema,
+  ConvenioReporteDto,
+  ListadoFraccSchema,
+  ListadoFraccDto,
+  AnularConvenioSchema,
+  AnularConvenioDto,
+} from './dto/fraccionar.dto';
+import {
   GuardarContribuyenteSchema,
   GuardarContribuyenteDto,
 } from './dto/guardar-contribuyente.dto';
@@ -691,6 +711,544 @@ export class DeclaracionJuradaController {
           error instanceof Error
             ? error.message
             : 'Error al guardar la deuda generada.',
+      };
+    }
+  }
+
+  // ─── Fraccionar Deuda ─────────────────────────────────────────────────
+
+  @Post('estado-cuenta/fraccionar/condicion')
+  async fraccionarCondicion(
+    @Body() dto: CondicionConvenioDto,
+  ): Promise<
+    | { success: true; data: string }
+    | { success: false; error: string }
+  > {
+    let parsed: CondicionConvenioDto;
+    try {
+      parsed = CondicionConvenioSchema.parse(dto);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const messages = error.issues.map((i) => i.message).join(', ');
+        throw new BadRequestException({
+          success: false,
+          error: messages || 'Datos de entrada inválidos.',
+        });
+      }
+      throw new BadRequestException({
+        success: false,
+        error: 'Datos de entrada inválidos.',
+      });
+    }
+    try {
+      const r = await this.service.verificarCondicionFraccionamiento(
+        parsed.codigo,
+        parsed.param,
+      );
+      if (!r.success) {
+        return { success: false, error: r.message };
+      }
+      return { success: true, data: r.data ?? '' };
+    } catch (error) {
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Error al consultar la condición de fraccionamiento.',
+      };
+    }
+  }
+
+  @Post('estado-cuenta/fraccionar/inicial')
+  async fraccionarInicial(
+    @Body() dto: FraccionarInicialDto,
+  ): Promise<
+    | { success: true; data: NonNullable<Awaited<ReturnType<DeclaracionJuradaService['getDatosInicialesFraccionar']>>>['data'] }
+    | { success: false; error: string }
+  > {
+    let parsed: FraccionarInicialDto;
+    try {
+      parsed = FraccionarInicialSchema.parse(dto);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const messages = error.issues.map((i) => i.message).join(', ');
+        throw new BadRequestException({
+          success: false,
+          error: messages || 'Datos de entrada inválidos.',
+        });
+      }
+      throw new BadRequestException({
+        success: false,
+        error: 'Datos de entrada inválidos.',
+      });
+    }
+    try {
+      const r = await this.service.getDatosInicialesFraccionar(parsed);
+      if (!r.success) {
+        return { success: false, error: r.message };
+      }
+      return { success: true, data: r.data! };
+    } catch (error) {
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Error al obtener los datos iniciales del fraccionamiento.',
+      };
+    }
+  }
+
+  @Post('estado-cuenta/fraccionar/cuotas')
+  async fraccionarCuotas(
+    @Body() dto: FraccionarCuotasDto,
+  ): Promise<
+    | { success: true; data: NonNullable<Awaited<ReturnType<DeclaracionJuradaService['calcularCuotasConvenio']>>>['data'] }
+    | { success: false; error: string }
+  > {
+    let parsed: FraccionarCuotasDto;
+    try {
+      parsed = FraccionarCuotasSchema.parse(dto);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const messages = error.issues.map((i) => i.message).join(', ');
+        throw new BadRequestException({
+          success: false,
+          error: messages || 'Datos de entrada inválidos.',
+        });
+      }
+      throw new BadRequestException({
+        success: false,
+        error: 'Datos de entrada inválidos.',
+      });
+    }
+    try {
+      const r = await this.service.calcularCuotasConvenio(parsed);
+      if (!r.success) {
+        return { success: false, error: r.message };
+      }
+      return { success: true, data: r.data! };
+    } catch (error) {
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Error al calcular las cuotas.',
+      };
+    }
+  }
+
+  @Post('estado-cuenta/fraccionar/simulado')
+  async fraccionarSimulado(
+    @Body() dto: SimuladoConvenioDto,
+  ): Promise<
+    | { success: true; data: NonNullable<Awaited<ReturnType<DeclaracionJuradaService['getSimuladoConvenio']>>>['data'] }
+    | { success: false; error: string }
+  > {
+    let parsed: SimuladoConvenioDto;
+    try {
+      parsed = SimuladoConvenioSchema.parse(dto);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const messages = error.issues.map((i) => i.message).join(', ');
+        throw new BadRequestException({
+          success: false,
+          error: messages || 'Datos de entrada inválidos.',
+        });
+      }
+      throw new BadRequestException({
+        success: false,
+        error: 'Datos de entrada inválidos.',
+      });
+    }
+    try {
+      const r = await this.service.getSimuladoConvenio(parsed);
+      if (!r.success) {
+        return { success: false, error: r.message };
+      }
+      return { success: true, data: r.data! };
+    } catch (error) {
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Error al generar el simulado del convenio.',
+      };
+    }
+  }
+
+  @Post('estado-cuenta/fraccionar/generar-convenio')
+  async fraccionarGenerarConvenio(
+    @Body() dto: GenerarConvenioDto,
+  ): Promise<
+    | { success: true; data: { convenio: string } }
+    | { success: false; error: string }
+  > {
+    let parsed: GenerarConvenioDto;
+    try {
+      parsed = GenerarConvenioSchema.parse(dto);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const messages = error.issues.map((i) => i.message).join(', ');
+        throw new BadRequestException({
+          success: false,
+          error: messages || 'Datos de entrada inválidos.',
+        });
+      }
+      throw new BadRequestException({
+        success: false,
+        error: 'Datos de entrada inválidos.',
+      });
+    }
+    try {
+      const r = await this.service.generarConvenio(parsed);
+      if (!r.success) {
+        return { success: false, error: r.message };
+      }
+      return { success: true, data: r.data! };
+    } catch (error) {
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Error al generar el convenio.',
+      };
+    }
+  }
+
+  @Post('estado-cuenta/fraccionar/convenio-reporte')
+  async fraccionarConvenioReporte(
+    @Body() dto: ConvenioReporteDto,
+  ): Promise<
+    | { success: true; data: NonNullable<Awaited<ReturnType<DeclaracionJuradaService['getReporteConvenio']>>>['data'] }
+    | { success: false; error: string }
+  > {
+    let parsed: ConvenioReporteDto;
+    try {
+      parsed = ConvenioReporteSchema.parse(dto);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const messages = error.issues.map((i) => i.message).join(', ');
+        throw new BadRequestException({
+          success: false,
+          error: messages || 'Datos de entrada inválidos.',
+        });
+      }
+      throw new BadRequestException({
+        success: false,
+        error: 'Datos de entrada inválidos.',
+      });
+    }
+    try {
+      const r = await this.service.getReporteConvenio(
+        parsed.codigo,
+        parsed.convenio,
+      );
+      if (!r.success) {
+        return { success: false, error: r.message };
+      }
+      return { success: true, data: r.data! };
+    } catch (error) {
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Error al obtener el reporte del convenio.',
+      };
+    }
+  }
+
+  @Post('estado-cuenta/fraccionar/listado')
+  async fraccionarListado(
+    @Body() dto: ListadoFraccDto,
+  ): Promise<
+    | { success: true; data: NonNullable<Awaited<ReturnType<DeclaracionJuradaService['getListadoFraccionamientos']>>>['data'] }
+    | { success: false; error: string }
+  > {
+    let parsed: ListadoFraccDto;
+    try {
+      parsed = ListadoFraccSchema.parse(dto);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const messages = error.issues.map((i) => i.message).join(', ');
+        throw new BadRequestException({
+          success: false,
+          error: messages || 'Datos de entrada inválidos.',
+        });
+      }
+      throw new BadRequestException({
+        success: false,
+        error: 'Datos de entrada inválidos.',
+      });
+    }
+    try {
+      const r = await this.service.getListadoFraccionamientos(parsed.codigo);
+      if (!r.success) {
+        return { success: false, error: r.message };
+      }
+      return { success: true, data: r.data! };
+    } catch (error) {
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Error al listar los fraccionamientos.',
+      };
+    }
+  }
+
+  @Post('estado-cuenta/fraccionar/detalle')
+  async fraccionarDetalleConvenio(
+    @Body() dto: ConvenioReporteDto,
+  ): Promise<
+    | { success: true; data: NonNullable<Awaited<ReturnType<DeclaracionJuradaService['getDetalleConvenio']>>>['data'] }
+    | { success: false; error: string }
+  > {
+    let parsed: ConvenioReporteDto;
+    try {
+      parsed = ConvenioReporteSchema.parse(dto);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const messages = error.issues.map((i) => i.message).join(', ');
+        throw new BadRequestException({
+          success: false,
+          error: messages || 'Datos de entrada inválidos.',
+        });
+      }
+      throw new BadRequestException({
+        success: false,
+        error: 'Datos de entrada inválidos.',
+      });
+    }
+    try {
+      const r = await this.service.getDetalleConvenio(
+        parsed.codigo,
+        parsed.convenio,
+      );
+      if (!r.success) {
+        return { success: false, error: r.message };
+      }
+      return { success: true, data: r.data! };
+    } catch (error) {
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Error al obtener el detalle del convenio.',
+      };
+    }
+  }
+
+  @Post('estado-cuenta/fraccionar/resolucion-genera')
+  async fraccionarResolucionGenera(
+    @Body() dto: ConvenioReporteDto,
+  ): Promise<{ success: boolean; message?: string; error?: string }> {
+    let parsed: ConvenioReporteDto;
+    try {
+      parsed = ConvenioReporteSchema.parse(dto);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const messages = error.issues.map((i) => i.message).join(', ');
+        throw new BadRequestException({
+          success: false,
+          error: messages || 'Datos de entrada inválidos.',
+        });
+      }
+      throw new BadRequestException({
+        success: false,
+        error: 'Datos de entrada inválidos.',
+      });
+    }
+    try {
+      const r = await this.service.generarResolucion(
+        parsed.codigo,
+        parsed.convenio,
+      );
+      if (!r.success) {
+        return { success: false, error: r.message };
+      }
+      return { success: true, message: r.message };
+    } catch (error) {
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Error al generar la resolución.',
+      };
+    }
+  }
+
+  @Post('estado-cuenta/fraccionar/resolucion-reporte')
+  async fraccionarResolucionReporte(
+    @Body() dto: ConvenioReporteDto,
+  ): Promise<
+    | { success: true; data: NonNullable<Awaited<ReturnType<DeclaracionJuradaService['getDatosResolucion']>>>['data'] }
+    | { success: false; error: string }
+  > {
+    let parsed: ConvenioReporteDto;
+    try {
+      parsed = ConvenioReporteSchema.parse(dto);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const messages = error.issues.map((i) => i.message).join(', ');
+        throw new BadRequestException({
+          success: false,
+          error: messages || 'Datos de entrada inválidos.',
+        });
+      }
+      throw new BadRequestException({
+        success: false,
+        error: 'Datos de entrada inválidos.',
+      });
+    }
+    try {
+      const r = await this.service.getDatosResolucion(
+        parsed.codigo,
+        parsed.convenio,
+      );
+      if (!r.success) {
+        return { success: false, error: r.message };
+      }
+      return { success: true, data: r.data! };
+    } catch (error) {
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Error al obtener los datos de la resolución.',
+      };
+    }
+  }
+
+  @Post('estado-cuenta/fraccionar/anular')
+  async fraccionarAnularConvenio(
+    @Body() dto: AnularConvenioDto,
+  ): Promise<{ success: boolean; message?: string; error?: string }> {
+    let parsed: AnularConvenioDto;
+    try {
+      parsed = AnularConvenioSchema.parse(dto);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const messages = error.issues.map((i) => i.message).join(', ');
+        throw new BadRequestException({
+          success: false,
+          error: messages || 'Datos de entrada inválidos.',
+        });
+      }
+      throw new BadRequestException({
+        success: false,
+        error: 'Datos de entrada inválidos.',
+      });
+    }
+    try {
+      const r = await this.service.anularConvenio(
+        parsed.codigo,
+        parsed.convenio,
+        parsed.operador,
+        parsed.estacion,
+      );
+      if (!r.success) {
+        return { success: false, error: r.message };
+      }
+      return { success: true, message: r.message };
+    } catch (error) {
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Error al anular el convenio.',
+      };
+    }
+  }
+
+  @Post('estado-cuenta/fraccionar/anular-sc')
+  async fraccionarAnularConvenioSc(
+    @Body() dto: AnularConvenioDto,
+  ): Promise<{ success: boolean; message?: string; error?: string }> {
+    let parsed: AnularConvenioDto;
+    try {
+      parsed = AnularConvenioSchema.parse(dto);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const messages = error.issues.map((i) => i.message).join(', ');
+        throw new BadRequestException({
+          success: false,
+          error: messages || 'Datos de entrada inválidos.',
+        });
+      }
+      throw new BadRequestException({
+        success: false,
+        error: 'Datos de entrada inválidos.',
+      });
+    }
+    try {
+      const r = await this.service.anularConvenioSc(
+        parsed.codigo,
+        parsed.convenio,
+        parsed.operador,
+        parsed.estacion,
+      );
+      if (!r.success) {
+        return { success: false, error: r.message };
+      }
+      return { success: true, message: r.message };
+    } catch (error) {
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Error al anular el convenio sin cargos.',
+      };
+    }
+  }
+
+  @Post('estado-cuenta/fraccionar/apoderado')
+  async fraccionarApoderado(
+    @Body() dto: FraccionarApoderadoDto,
+  ): Promise<
+    | { success: true; data: NonNullable<Awaited<ReturnType<DeclaracionJuradaService['getApoderadoConvenio']>>>['data'] }
+    | { success: false; error: string }
+  > {
+    let parsed: FraccionarApoderadoDto;
+    try {
+      parsed = FraccionarApoderadoSchema.parse(dto);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const messages = error.issues.map((i) => i.message).join(', ');
+        throw new BadRequestException({
+          success: false,
+          error: messages || 'Datos de entrada inválidos.',
+        });
+      }
+      throw new BadRequestException({
+        success: false,
+        error: 'Datos de entrada inválidos.',
+      });
+    }
+    try {
+      const r = await this.service.getApoderadoConvenio(parsed.codigo);
+      if (!r.success) {
+        return { success: false, error: r.message };
+      }
+      return { success: true, data: r.data! };
+    } catch (error) {
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Error al consultar el apoderado.',
       };
     }
   }

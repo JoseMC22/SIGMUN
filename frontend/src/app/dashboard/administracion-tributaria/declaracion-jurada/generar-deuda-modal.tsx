@@ -9,6 +9,7 @@ import {
   type GenerarDeudaConcepto,
 } from "@/actions/administracion-tributaria/declaracion-jurada";
 import { getAnioOptions } from "@/lib/forms/anios";
+import { useModalStack, isTopModal } from "@/hooks/use-modal-topmost";
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -154,15 +155,18 @@ export default function GenerarDeudaModal({
     };
   }, [isOpen]);
 
+  // Modal-foco: solo el modal arriba de la pila global responde ESC.
+  const modalId = useModalStack(isOpen);
+
   // ── ESC to close ──
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape" && isTopModal(modalId)) onClose();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [isOpen, onClose]);
+  }, [isOpen, modalId, onClose]);
 
   if (!isOpen) return null;
 

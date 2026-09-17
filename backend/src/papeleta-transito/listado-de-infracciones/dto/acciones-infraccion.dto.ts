@@ -1,9 +1,6 @@
 import { z } from 'zod';
 
 // ── Nueva Infracción ──────────────────────────────────────
-// SP: papeleta.ingreso_papeleta  (@msquery=1 nuevo, @msquery=2 modificar)
-// Pre-step: papeleta.estado_papeleta (@msquery=2,3 para calcular fecha vencimiento)
-
 export const NuevaInfraccionSchema = z.object({
   operacion: z.coerce.number().int().min(0).max(1).default(0),
   placa: z.string().min(1, 'Placa es requerida'),
@@ -46,9 +43,6 @@ export const NuevaInfraccionSchema = z.object({
 export type NuevaInfraccionDto = z.infer<typeof NuevaInfraccionSchema>;
 
 // ── Generar Gravamen ──────────────────────────────────────
-// SP: papeleta.sp_Imprime_Certificadogravamen
-// @buscar=1, @ninfrac, @numingr, @operador
-
 export const GenerarGravamenSchema = z.object({
   ninfrac: z.string().min(1, 'N° de infracción es requerido'),
   numingr: z.string().default(''),
@@ -58,9 +52,6 @@ export const GenerarGravamenSchema = z.object({
 export type GenerarGravamenDto = z.infer<typeof GenerarGravamenSchema>;
 
 // ── Generar Certificado No Adeudo ─────────────────────────
-// SP: papeleta.sp_Imprime_Certificadonoadeudo
-// @buscar=1, @ninfrac, @numingr, @operador
-
 export const GenerarNoAdeudoSchema = z.object({
   ninfrac: z.string().min(1, 'N° de infracción es requerido'),
   numingr: z.string().min(1, 'N° de recibo es requerido'),
@@ -70,10 +61,6 @@ export const GenerarNoAdeudoSchema = z.object({
 export type GenerarNoAdeudoDto = z.infer<typeof GenerarNoAdeudoSchema>;
 
 // ── Gravamen Sin Placa (botón toolbar) ───────────────────
-// SP: papeleta.sp_Imprime_Certificadogravamensinplaca
-// @buscar=3, @codplaca
-// Legacy: Papeleta01Controller::consultargravamensinplacaAction
-
 export const GravamenSinPlacaSchema = z.object({
   codplaca: z.string().min(1, 'La placa es requerida'),
 });
@@ -81,9 +68,6 @@ export const GravamenSinPlacaSchema = z.object({
 export type GravamenSinPlacaDto = z.infer<typeof GravamenSinPlacaSchema>;
 
 // ── Imprimir Record Pendiente ─────────────────────────────
-// SP: papeleta.sp_Imprime_EstCta_record
-// @buscar=0, @placa, @conductor, @dni, @estado
-
 export const ImprimirRecordPendienteSchema = z.object({
   placa: z.string().min(1, 'Placa es requerida'),
   conductor: z.string().default(''),
@@ -94,9 +78,6 @@ export const ImprimirRecordPendienteSchema = z.object({
 export type ImprimirRecordPendienteDto = z.infer<typeof ImprimirRecordPendienteSchema>;
 
 // ── Fraccionar Papeleta ───────────────────────────────────
-// First: [Rentas].[CondicionConvenio] (@busc=1, @codigo, @param)
-// Save: Rentas.GeneraConveniopape
-
 export const FraccionarPapeletaSchema = z.object({
   codigo: z.string().min(1, 'Código contribuyente es requerido'),
   cuotas: z.coerce.number().int().min(2, 'Mínimo 2 cuotas').max(60),
@@ -114,8 +95,6 @@ export const FraccionarPapeletaSchema = z.object({
 export type FraccionarPapeletaDto = z.infer<typeof FraccionarPapeletaSchema>;
 
 // ── Ver Fraccionamiento ───────────────────────────────────
-// SP: Rentas.sp_rentasmain (@buscar=3, @codigo)
-
 export const VerFraccionamientoSchema = z.object({
   codigo: z.string().min(1, 'Código contribuyente es requerido'),
 });
@@ -123,10 +102,6 @@ export const VerFraccionamientoSchema = z.object({
 export type VerFraccionamientoDto = z.infer<typeof VerFraccionamientoSchema>;
 
 // ── Importar Excel ────────────────────────────────────────
-// SP: papeleta.sp_importarxls
-// @buscar=1: init upload
-// @buscar=3: insert rows
-
 export const ImportarExcelSchema = z.object({
   registros: z.array(z.object({
     id: z.string().optional(),
@@ -146,8 +121,6 @@ export const ImportarExcelSchema = z.object({
 export type ImportarExcelDto = z.infer<typeof ImportarExcelSchema>;
 
 // ── Cargar Detalle Infracción ─────────────────────────────
-// SP: papeleta.consulta_infrac (@msquery=1, @infra)
-
 export const CargarDetalleInfraccionSchema = z.object({
   ninfrac: z.string().min(1, 'N° de infracción es requerido'),
 });
@@ -155,8 +128,6 @@ export const CargarDetalleInfraccionSchema = z.object({
 export type CargarDetalleInfraccionDto = z.infer<typeof CargarDetalleInfraccionSchema>;
 
 // ── Buscar Resolución de Sanción ──────────────────────────
-// SP: papeleta.ingreso_papeleta (@msquery=5, @txtnumeroinfraccion)
-
 export const BuscarResolucionSancionSchema = z.object({
   ninfrac: z.string().min(1, 'N° de infracción es requerido'),
 });
@@ -164,8 +135,6 @@ export const BuscarResolucionSancionSchema = z.object({
 export type BuscarResolucionSancionDto = z.infer<typeof BuscarResolucionSancionSchema>;
 
 // ── Grabar Resolución de Sanción ──────────────────────────
-// SP: papeleta.ingreso_papeleta (@msquery=6)
-
 export const GrabarResolucionSancionSchema = z.object({
   ninfrac: z.string().min(1, 'N° de infracción es requerido'),
   numero: z.string().default(''),
@@ -176,8 +145,6 @@ export const GrabarResolucionSancionSchema = z.object({
 export type GrabarResolucionSancionDto = z.infer<typeof GrabarResolucionSancionSchema>;
 
 // ── Buscar Cambio de Estado ───────────────────────────────
-// SP: papeleta.ingreso_papeleta (@msquery=9)
-
 export const BuscarCambioEstadoSchema = z.object({
   ninfrac: z.string().min(1, 'N° de infracción es requerido'),
 });
@@ -185,8 +152,6 @@ export const BuscarCambioEstadoSchema = z.object({
 export type BuscarCambioEstadoDto = z.infer<typeof BuscarCambioEstadoSchema>;
 
 // ── Grabar Cambio de Estado ───────────────────────────────
-// SP: papeleta.ingreso_papeleta (@msquery=8)
-
 export const GrabarCambioEstadoSchema = z.object({
   ninfrac: z.string().min(1, 'N° de infracción es requerido'),
   tipoestado: z.string().min(1, 'Estado es requerido'),
@@ -198,8 +163,6 @@ export const GrabarCambioEstadoSchema = z.object({
 export type GrabarCambioEstadoDto = z.infer<typeof GrabarCambioEstadoSchema>;
 
 // ── Generar Liquidación (Estado de Cuenta) ────────────────
-// SP: [Caja].[sp_Imprime_EstCta_pape] (@buscar=2) + [Caja].[pa_liquidacion] (@msquery=1,2)
-
 export const GenerarLiquidacionSchema = z.object({
   codigo: z.string().min(1, 'Código es requerido'),
   infraccion: z.string().min(1, 'Infracción es requerida'),
@@ -210,7 +173,6 @@ export const GenerarLiquidacionSchema = z.object({
 export type GenerarLiquidacionDto = z.infer<typeof GenerarLiquidacionSchema>;
 
 // ── Response types ────────────────────────────────────────
-
 export interface RecordPendienteRow {
   papeleta: string;
   placa: string;
@@ -252,8 +214,6 @@ export interface ImportarResult {
 }
 
 // ── Búsqueda de Propietario ───────────────────────────────
-// SP: papeleta.consultapropie (@msquery=1 count, @msquery=2 rows)
-
 export const ConsultaPropietarioSchema = z.object({
   propieta: z.string().default(''),
   page: z.coerce.number().int().min(1).default(1),
@@ -271,8 +231,6 @@ export interface PropietarioRow {
 }
 
 // ── Búsqueda de Conductor ─────────────────────────────────
-// SP: papeleta.consultaconduc (@msquery=1 count, @msquery=2 rows)
-
 export const ConsultaConductorSchema = z.object({
   conductor: z.string().default(''),
   dni: z.string().default(''),
@@ -291,8 +249,6 @@ export interface ConductorRow {
 }
 
 // ── Búsqueda de Placa ─────────────────────────────────────
-// SP: papeleta.proc_placa (@msquery=6 count, @msquery=7 rows)
-
 export const ConsultaPlacaSchema = z.object({
   placa: z.string().default(''),
   page: z.coerce.number().int().min(1).default(1),
@@ -315,8 +271,6 @@ export interface PlacaRow {
 }
 
 // ── Búsqueda de Policía ───────────────────────────────────
-// SP: papeleta.proc_placa (@msquery=8 count, @msquery=9 rows)
-
 export const ConsultaPoliciaSchema = z.object({
   cip: z.string().default(''),
   page: z.coerce.number().int().min(1).default(1),
@@ -332,8 +286,6 @@ export interface PoliciaRow {
 }
 
 // ── Búsqueda de Lugar ─────────────────────────────────────
-// SP: papeleta.lugar_infrac (@msquery=1 count, @msquery=2 rows)
-
 export const ConsultaLugarSchema = z.object({
   cmbtipolugar: z.string().default(''),
   nlugar: z.string().default(''),
@@ -359,8 +311,6 @@ export interface SearchPagedResult<T> {
 }
 
 // ── Envío a Coactivo ──────────────────────────────────────
-// SP: papeleta.envioacoactivo (@msquery=1 buscar, @msquery=2 grabar)
-
 export const BuscarEnvioCoactivoSchema = z.object({
   ninfrac: z.string().min(1, 'N° de infracción es requerido'),
 });
@@ -375,8 +325,6 @@ export const GrabarEnvioCoactivoSchema = z.object({
 export type GrabarEnvioCoactivoDto = z.infer<typeof GrabarEnvioCoactivoSchema>;
 
 // ── Búsqueda de Infracciones / Escala de Multas ───────────
-// SP: papeleta.tratinfr / papeleta.consulta_infrac / papeleta.proc_placa
-
 export const ConsultaInfraccionesSchema = z.object({
   busqueda: z.string().default(''),
   page: z.coerce.number().int().min(1).default(1),
@@ -396,8 +344,6 @@ export interface InfraccionMultaRow {
 }
 
 // ── Reporte: Datos Estado de Cuenta ──────────────────────
-// SP: papeleta.sp_Imprime_EstCta_record (@buscar=0, @placa, @conductor, @dni, @estado)
-
 export const ReporteEstadoCuentaSchema = z.object({
   ninfrac: z.string().min(1, 'N° de infracción es requerido'),
   codigo: z.string().default(''),
@@ -410,8 +356,6 @@ export const ReporteEstadoCuentaSchema = z.object({
 export type ReporteEstadoCuentaDto = z.infer<typeof ReporteEstadoCuentaSchema>;
 
 // ── Reporte: Datos Certificado No Adeudo ─────────────────
-// SP: papeleta.sp_Imprime_Certificadonoadeudo (@buscar=2, @ninfrac, @numingr, @operador)
-
 export const ReporteCertificadoNoAdeudoSchema = z.object({
   ninfrac: z.string().min(1, 'N° de infracción es requerido'),
   numingr: z.string().min(1, 'N° de recibo es requerido'),
@@ -421,8 +365,6 @@ export const ReporteCertificadoNoAdeudoSchema = z.object({
 export type ReporteCertificadoNoAdeudoDto = z.infer<typeof ReporteCertificadoNoAdeudoSchema>;
 
 // ── Reporte: Datos Certificado Gravamen ──────────────────
-// SP: papeleta.sp_Imprime_Certificadogravamen (@buscar=2, @ninfrac, @numingr, @operador)
-
 export const ReporteGravamenSchema = z.object({
   ninfrac: z.string().min(1, 'N° de infracción es requerido'),
   numingr: z.string().min(1, 'N° de recibo es requerido'),
@@ -432,8 +374,6 @@ export const ReporteGravamenSchema = z.object({
 export type ReporteGravamenDto = z.infer<typeof ReporteGravamenSchema>;
 
 // ── Reporte: Datos Resolución de Sanción ─────────────────
-// SP: papeleta.rpt_reslsanc (@idtramctas, @xidusuario, @xestacion)
-
 export const ReporteResolucionSancionSchema = z.object({
   idtramctas: z.string().min(1, 'ID de tramitación es requerido'),
   usuario: z.string().default('SISTEMA'),

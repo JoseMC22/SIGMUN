@@ -48,6 +48,7 @@ import { GuardarRepresentanteDto } from './dto/guardar-representante.dto';
 import { VincularRepresentanteDto } from './dto/vincular-representante.dto';
 import { EliminarContribuyenteDto } from './dto/eliminar-contribuyente.dto';
 import { EliminarRepresentanteDto } from './dto/eliminar-representante.dto';
+import type { SimuladoConvenioDto, GenerarConvenioDto } from './dto/fraccionar.dto';
 
 @Injectable()
 export class DeclaracionJuradaService {
@@ -1294,16 +1295,21 @@ export class DeclaracionJuradaService {
     }
 
     // ── Step 3: Batch Insert Details (@msquery=15) ──
+    // NOTA: Caja.tbl_dliquidacion.cod_pre es char(14) (dev Y prod). Con
+    // ANSI_WARNINGS ON (driver node-mssql) un valor más largo aborta con
+    // error 2628 → el SP responde FALSO. El legacy rodaba con ANSI_WARNINGS
+    // OFF, así que truncaba silenciosamente. Se trunca aquí explícitamente
+    // para respetar ese comportamiento (p.ej. "IP-Ord-2026-0020" → 14 chars).
     const detalles = dto.liquidacion.map((item, index) => ({
       secuencia: index + 1,
       idrecibo: Number(item.idrecibo),
       anno: item.anno,
-      cod_pre: item.cod_pred,
-      anexo: item.anexo || '',
-      sub_anexo: item.sub_anexo || '',
-      tipo: item.tipo,
-      tipo_rec: item.tipo_rec,
-      periodo: item.periodo,
+      cod_pre: (item.cod_pred ?? '').trim().substring(0, 14),
+      anexo: (item.anexo || '').substring(0, 4),
+      sub_anexo: (item.sub_anexo || '').substring(0, 4),
+      tipo: (item.tipo ?? '').substring(0, 5).trim(),
+      tipo_rec: (item.tipo_rec ?? '').substring(0, 5).trim(),
+      periodo: (item.periodo ?? '').substring(0, 2),
       imp_insol: item.imp_reaj,
       imp_mora: item.mora,
       costo_emi: item.costo_emis,
@@ -1697,5 +1703,1044 @@ export class DeclaracionJuradaService {
     // Last resort: try Date.parse but DO NOT trust timezone. Return as-is
     // and let the SP raise a clear conversion error if it's truly bad.
     return s;
+  }
+
+  // ─── Fraccionar Deuda ────────────────────────────────────────────────────
+  //
+  // Replica los 3 endpoints legacy (Zend PHP):
+  //   • condicionfrac    → [Rentas].[CondicionConvenio] @busc=1
+  //   • fraccionar/index → dbo.sp_getfecha + cálculo de porcen_inicial
+  //   • muestracuotas    → Rentas.CuotasConvenio
+  //
+  // La validación de "gastos/costas/fraccionamiento seleccionados" y
+  // "exactamente un tipo de deuda (IP/ARB/VEH/MULT)" se hace en el
+  // frontend antes de invocar estos métodos (mirror del JS legado).
+
+  /**
+   * Consulta las condiciones de fraccionamiento para un contribuyente.
+   * SP: [Rentas].[CondicionConvenio] (@busc=1, @codigo, @param)
+   * Retorna el string crudo (6 partes separadas por '*'):
+   *   estado | porc_fracc | monto_min | porc_ini | max_cuotas | condicion_id
+   */
+  async verificarCondicionFraccionamiento(
+    codigo: string,
+    param: string,
+  ): Promise<{ success: boolean; data?: string; message: string }> {
+    try {
+      const result = await this.db.executeProcedure<Record<string, unknown>>(
+        '[Rentas].[CondicionConvenio]',
+        { busc: 1, codigo, param },
+      );
+      const data = result.recordset?.[0]
+        ? String(Object.values(result.recordset[0] as object)[0] ?? '')
+        : '';
+      return { success: true, data, message: 'Condición verificada.' };
+    } catch (error) {
+      this.logger.error('Error al verificar condición de fraccionamiento:', error);
+      return {
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Error al consultar las condiciones de fraccionamiento.',
+      };
+    }
+  }
+
+  /**
+   * SP: dbo.sp_getfecha (sin parámetros) — devuelve una fila con
+   *   [0] = fecha
+   *   [1] = vencimiento (legacy usa [0] también, pero lo exponemos por si)
+   *   [2] = interes
+   *   [3] = porcen_inicial (% por defecto del sistema)
+   *
+   * Luego aplica las reglas del legado (fraccionar/indexAction):
+   *   • Si estado==1 y param!=2 → porcen_inicial = porc_ini (excepción).
+   *   • Si param==1             → max_cuotas = 25 (ordinario).
+   *   • Si param==2             → max_cuotas = 11, porc_ini = porcen_inicial
+   *                              (beneficio arbitrios casa habitación).
+   */
+  async getDatosInicialesFraccionar(dto: {
+    codigo: string;
+    totalpagar: number;
+    param: string;
+    porc_ini?: string;
+    max_cuotas?: string;
+    condicion_id?: string;
+    estado?: string;
+    tipo_deuda?: string;
+  }): Promise<{
+    success: boolean;
+    data?: {
+      fecha: string;
+      vencimiento: string;
+      interes: string;
+      porcenInicial: number;
+      montoInicial: number;
+      saldo: number;
+      maxCuotas: number;
+      porcIni: number;
+      condicionId: string;
+      estado: string;
+      flag: string;
+      codigo: string;
+      tipoDeuda: string;
+      totalpagar: number;
+      emision: string;
+    };
+    message: string;
+  }> {
+    try {
+      const result = await this.db.executeProcedure<Record<string, unknown>>(
+        'dbo.sp_getfecha',
+      );
+      const row = result.recordset?.[0] as Record<string, unknown> | undefined;
+      if (!row) {
+        return {
+          success: false,
+          message: 'sp_getfecha no devolvió resultados.',
+        };
+      }
+      const vals = Object.values(row);
+      const fecha = String(vals[0] ?? '');
+      const vencimiento = String(vals[1] ?? vals[0] ?? ''); // legado usa [0] para ambos
+      const interes = String(vals[2] ?? '');
+      let porcenInicial = Number(vals[3] ?? 0);
+      const totalpagar = Number(dto.totalpagar) || 0;
+
+      // Reglas del legado: el estado/param controlan las excepciones.
+      const estado = String(dto.estado ?? '');
+      const param = String(dto.param ?? '1');
+      const porcIniInput = Number(dto.porc_ini ?? 0);
+
+      let porcIni = porcIniInput;
+      let maxCuotas = Number(dto.max_cuotas ?? 0) || 0;
+
+      if (estado === '1' && param !== '2') {
+        porcenInicial = porcIniInput || porcenInicial;
+      } else {
+        if (param === '1') {
+          maxCuotas = 25;
+        } else if (param === '2') {
+          maxCuotas = 11;
+          porcIni = porcenInicial;
+        }
+      }
+
+      const montoInicial = Math.round(totalpagar * porcenInicial) / 100;
+      const saldo = Math.round((totalpagar - montoInicial) * 100) / 100;
+
+      return {
+        success: true,
+        data: {
+          fecha,
+          vencimiento,
+          interes,
+          porcenInicial,
+          montoInicial,
+          saldo,
+          maxCuotas,
+          porcIni,
+          condicionId: String(dto.condicion_id ?? ''),
+          estado,
+          flag: param,
+          codigo: dto.codigo,
+          tipoDeuda: String(dto.tipo_deuda ?? ''),
+          totalpagar,
+          emision: '0.00',
+        },
+        message: 'ok',
+      };
+    } catch (error) {
+      this.logger.error('Error al obtener datos iniciales de fraccionamiento:', error);
+      return {
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Error al obtener los datos iniciales del fraccionamiento.',
+      };
+    }
+  }
+
+  /**
+   * SP: Rentas.CuotasConvenio (@cuotas, @total_deuda, @total_inici,
+   *     @fec_gen, @fec_cuo) — devuelve N filas con la grilla de cuotas.
+   * Mapeo de columnas (mirror exacto del que usa papeleta-transito):
+   *   [0] cuota   [1] anno   [2] total_deuda   [3] cuota_ini
+   *   [4] saldo_deuda   [5] monto_cuota   [6] intereses
+   *   [7] cuota_total   [8] total_frac   [9] cuotas   [10] fec_gen
+   */
+  async calcularCuotasConvenio(dto: {
+    cuotas: number;
+    total_deuda: number;
+    total_inici: number;
+    fec_gen: string;
+    fec_cuo: string;
+  }): Promise<{
+    success: boolean;
+    data?: Array<{
+      cuota: string;
+      anno: string;
+      totalDeuda: string;
+      cuotaIni: string;
+      saldoDeuda: string;
+      montoCuota: string;
+      intereses: string;
+      cuotaTotal: string;
+      totalFrac: string;
+      cuotas: string;
+      fecGen: string;
+    }>;
+    message: string;
+  }> {
+    try {
+      const result = await this.db.executeProcedure<Record<string, unknown>>(
+        'Rentas.CuotasConvenio',
+        {
+          cuotas: dto.cuotas,
+          total_deuda: dto.total_deuda,
+          total_inici: dto.total_inici,
+          fec_gen: dto.fec_gen,
+          fec_cuo: dto.fec_cuo,
+        },
+      );
+      const rows = (result.recordset ?? []).map((row: unknown) => {
+        const r = row as Record<string, unknown>;
+        const isArr = Array.isArray(row);
+        const getVal = (idx: number, key: string): unknown => {
+          if (isArr) return (row as unknown[])[idx];
+          if (r[key] !== undefined) return r[key];
+          const keys = Object.keys(r);
+          return keys[idx] !== undefined ? r[keys[idx]] : '';
+        };
+        return {
+          cuota: String(getVal(0, 'cuota') ?? ''),
+          anno: String(getVal(1, 'anno') ?? ''),
+          totalDeuda: String(getVal(2, 'total_deuda') ?? ''),
+          cuotaIni: String(getVal(3, 'cuota_ini') ?? ''),
+          saldoDeuda: String(getVal(4, 'saldo_deuda') ?? ''),
+          montoCuota: String(getVal(5, 'monto_cuota') ?? ''),
+          intereses: String(getVal(6, 'intereses') ?? ''),
+          cuotaTotal: String(getVal(7, 'cuota_total') ?? ''),
+          totalFrac: String(getVal(8, 'total_frac') ?? ''),
+          cuotas: String(getVal(9, 'cuotas') ?? ''),
+          fecGen: String(getVal(10, 'fec_gen') ?? ''),
+        };
+      });
+      return { success: true, data: rows, message: 'Cuotas calculadas.' };
+    } catch (error) {
+      this.logger.error('Error al calcular cuotas:', error);
+      return {
+        success: false,
+        message:
+          error instanceof Error ? error.message : 'Error al calcular las cuotas.',
+      };
+    }
+  }
+
+  /**
+   * Lookup de Apoderado (legacy: fraccionar/contribuyente).
+   * Consulta la función tabla-valorada `SELECT * FROM [Rentas].[Contribuyente](@codigo)`
+   * con parámetro enlazado (NO interpolación → anti SQL-injection).
+   * El código se rellena defensivamente con ceros a la izquierda hasta 7 chars.
+   * Devuelve una fila: doc | paterno | materno | nombre | tipopersona,
+   * expuesta como campos tipados. Si no hay fila → success:false.
+   */
+  async getApoderadoConvenio(codigo: string): Promise<{
+    success: boolean;
+    data?: {
+      doc: string;
+      paterno: string;
+      materno: string;
+      nombre: string;
+      tipoPersona: string;
+    };
+    message: string;
+  }> {
+    try {
+      const padded = String(codigo).trim().padStart(7, '0');
+      const result = await this.db.queryWithParams<Record<string, unknown>>(
+        'SELECT * FROM [Rentas].[Contribuyente](@codigo)',
+        { codigo: padded },
+      );
+      const row = result.recordset?.[0] as Record<string, unknown> | undefined;
+      if (!row) {
+        return { success: false, message: 'No se encontró el Apoderado.' };
+      }
+      const keys = Object.keys(row);
+      const getVal = (key: string, idx: number): string => {
+        if (row[key] !== undefined) return String(row[key] ?? '').trim();
+        return keys[idx] !== undefined ? String(row[keys[idx]] ?? '').trim() : '';
+      };
+      return {
+        success: true,
+        data: {
+          doc: getVal('doc', 0),
+          paterno: getVal('paterno', 1),
+          materno: getVal('materno', 2),
+          nombre: getVal('nombre', 3),
+          tipoPersona: getVal('tipopersona', 4),
+        },
+        message: 'ok',
+      };
+    } catch (error) {
+      this.logger.error('Error al consultar el apoderado:', error);
+      return {
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Error al consultar el apoderado.',
+      };
+    }
+  }
+
+  /**
+   * Arma el XML de la deuda seleccionada (mirror del XML legacy):
+   * un <row> por recibo con los 17 atributos, TODOS escapados.
+   */
+  private buildDeudaXml(deuda: SimuladoConvenioDto['deuda']): string {
+    return deuda
+      .map((r) => {
+        const attrs: Array<[string, string | number]> = [
+          ['idrecibo', r.idrecibo],
+          ['montotal', r.montotal],
+          ['codigo', r.codigo],
+          ['anno', r.anno],
+          ['cod_pred', r.cod_pred],
+          ['anexo', r.anexo],
+          ['sub_anexo', r.sub_anexo],
+          ['tipo', r.tipo],
+          ['tipo_rec', r.tipo_rec],
+          ['periodo', r.periodo],
+          ['imp_insol', r.imp_insol],
+          ['fact_reaj', r.fact_reaj],
+          ['imp_reaj', r.imp_reaj],
+          ['fact_mora', r.fact_mora],
+          ['imp_mora', r.imp_mora],
+          ['costo_emis', r.costo_emis],
+          ['ubica', r.ubica],
+        ];
+        return (
+          '<row ' +
+          attrs.map(([k, v]) => `${k}="${this.escapeXmlAttr(v)}"`).join(' ') +
+          ' />'
+        );
+      })
+      .join('');
+  }
+
+  /**
+   * Escapa un valor para insertarlo como atributo XML (anti inyección/XML roto).
+   */
+  private escapeXmlAttr(value: string | number): string {
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+  }
+
+  /**
+   * Simulación de Convenio de Fraccionamiento (legacy: fraccionar/simuladofrac).
+   *
+   * Flujo:
+   *  1) Arma el XML de la deuda seleccionada (17 atributos por recibo, escapados).
+   *  2) sp_rentasmain @buscar=3 → datos del contribuyente.
+   *  3) Si hay apoderado → [Rentas].[Contribuyente](@codResp) PARAMETRIZADO.
+   *  4) Rentas.GeneraConvenio_simulado_deuda(@codigo,@operador,@estacion,@varxml).
+   *  5) Rentas.GeneraConvenio_simulado_cuotas(@cuotas,@total_deuda,@total_inici,
+   *     @operador,@fec_gen,@fec_cuo).
+   *
+   * Devuelve todo tipado para que el frontend arme el reporte.
+   */
+  async getSimuladoConvenio(dto: SimuladoConvenioDto): Promise<{
+    success: boolean;
+    data?: {
+      contribuyente: {
+        codigo: string;
+        nombre: string;
+        documento: string;
+        domicilio: string;
+      };
+      responsable: { nombre: string; documento: string };
+      montoDeuda: number;
+      numeroCuotas: number;
+      fecha: string;
+      usuario: string;
+      deuda: Array<{
+        anno: string;
+        concepto: string;
+        detalle: string;
+        predio: string;
+        periodos: string;
+        monto: number;
+      }>;
+      totalDeuda: number;
+      cuotas: Array<{
+        cuota: string;
+        anio: string;
+        fecVenc: string;
+        amort: number;
+        interes: number;
+        total: number;
+      }>;
+      totalCuotas: number;
+    };
+    message: string;
+  }> {
+    try {
+      // ── 1) XML de deuda (mirror del legacy; atributos escapados) ──
+      const dxml = this.buildDeudaXml(dto.deuda);
+
+      // ── 2) Datos del contribuyente ──
+      const mainResult = await this.db.executeProcedure<any>(
+        this.SP_RENTASMAIN,
+        { buscar: 3, codigo: dto.codigo },
+      );
+      const mainRow = mainResult.recordset?.[0] as
+        | Record<string, unknown>
+        | undefined;
+      if (!mainRow) {
+        return { success: false, message: 'Contribuyente no encontrado.' };
+      }
+      const mv = Object.values(mainRow).map((x) => String(x ?? '').trim());
+      const contribuyente = {
+        codigo: mv[0] ?? dto.codigo,
+        nombre: mv[1] ?? '',
+        documento: mv[2] ?? '',
+        domicilio: mv[3] ?? '',
+      };
+
+      // ── 3) Responsable (apoderado o el mismo contribuyente) ──
+      let responsable = { nombre: contribuyente.nombre, documento: contribuyente.documento };
+      const codResp = dto.codResp.trim();
+      if (codResp) {
+        const respResult = await this.db.queryWithParams<Record<string, unknown>>(
+          'SELECT * FROM [Rentas].[Contribuyente](@codResp)',
+          { codResp: codResp.padStart(7, '0') },
+        );
+        const respRow = respResult.recordset?.[0];
+        if (respRow) {
+          const rv = Object.values(respRow).map((x) => String(x ?? '').trim());
+          responsable = {
+            documento: rv[0] ?? '',
+            nombre: `${rv[1] ?? ''} ${rv[2] ?? ''} ${rv[3] ?? ''}`
+              .replace(/\s+/g, ' ')
+              .trim(),
+          };
+        }
+      }
+
+      // ── 4) Deuda simulada (mapeo por índice como el legacy) ──
+      const deudaResult = await this.db.executeProcedure<any>(
+        'Rentas.GeneraConvenio_simulado_deuda',
+        {
+          codigo: dto.codigo,
+          operador: dto.operador,
+          estacion: dto.estacion,
+          varxml: dxml,
+        },
+      );
+      const deudaRows = (deudaResult.recordset ?? []) as Record<string, unknown>[];
+      let totalDeuda = 0;
+      const deuda = deudaRows.map((row) => {
+        const v = Object.values(row).map((x) => String(x ?? '').trim());
+        const monto = Number(v[14]) || 0;
+        totalDeuda += monto;
+        return {
+          anno: v[1] ?? '',
+          concepto: v[7] ?? '',
+          detalle: v[9] ?? '',
+          predio: v[3] ?? '',
+          periodos: v[2] ?? '',
+          monto,
+        };
+      });
+
+      // ── 5) Cuotas simuladas ──
+      const cuotasResult = await this.db.executeProcedure<any>(
+        'Rentas.GeneraConvenio_simulado_cuotas',
+        {
+          cuotas: dto.numeroCuotas,
+          total_deuda: dto.totalDeuda,
+          total_inici: dto.totalInicial,
+          operador: dto.operador,
+          fec_gen: dto.fecGen,
+          fec_cuo: dto.fecCuo,
+        },
+      );
+      const cuotasRows = (cuotasResult.recordset ?? []) as Record<string, unknown>[];
+      let totalCuotas = 0;
+      const cuotas = cuotasRows.map((row) => {
+        const v = Object.values(row).map((x) => String(x ?? '').trim());
+        const esCuotaCero = (v[0] ?? '') === '00';
+        const total = Number(v[9]) || 0;
+        totalCuotas += total;
+        return {
+          cuota: v[0] ?? '',
+          anio: v[1] ?? '',
+          fecVenc: v[10] ?? '',
+          amort: Number(v[5]) || 0,
+          interes: esCuotaCero ? 0 : Number(v[6]) || 0,
+          total,
+        };
+      });
+
+      // Fecha de proyección/emisión: vencimiento de la primera fila (legacy).
+      const primeraFila = cuotasRows[0];
+      const fecha = primeraFila
+        ? String(Object.values(primeraFila)[10] ?? dto.fecCuo).trim()
+        : dto.fecCuo;
+
+      return {
+        success: true,
+        data: {
+          contribuyente,
+          responsable,
+          montoDeuda: dto.totalDeuda,
+          numeroCuotas: dto.numeroCuotas,
+          fecha,
+          usuario: dto.operador.toUpperCase(),
+          deuda,
+          totalDeuda,
+          cuotas,
+          totalCuotas,
+        },
+        message: 'ok',
+      };
+    } catch (error) {
+      this.logger.error('Error al generar el simulado del convenio:', error);
+      return {
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Error al generar el simulado del convenio.',
+      };
+    }
+  }
+
+  /**
+   * Genera el Convenio de Fraccionamiento (legacy: fraccionar/generaconvenio).
+   * SP: Rentas.GeneraConvenio — graba y devuelve el N° de convenio en la
+   * primera columna de la primera fila (legacy: `echo $rowrecibos[0][0]`).
+   * NOTA legacy: validaba que el usuario tuviera "caja asignada"; en Nest el
+   * login actual no maneja ese concepto, se envía operador/estacion reales.
+   */
+  async generarConvenio(dto: GenerarConvenioDto): Promise<{
+    success: boolean;
+    data?: { convenio: string };
+    message: string;
+  }> {
+    try {
+      const dxml = this.buildDeudaXml(dto.deuda);
+      const result = await this.db.executeProcedure<any>(
+        'Rentas.GeneraConvenio',
+        {
+          codigo: dto.codigo,
+          cuotas: dto.numeroCuotas,
+          operador: dto.operador.toUpperCase(),
+          estacion: dto.estacion.toUpperCase(),
+          total_deuda: dto.totalDeuda,
+          total_inici: dto.totalInicial,
+          fec_gen: dto.fecGen,
+          fec_cuo: dto.fecCuo,
+          condicion_id: dto.condicionId,
+          varxml: dxml,
+          CodResp: dto.codResp,
+          TipoDeuda: dto.tipoDeuda,
+        },
+      );
+      const row = result.recordset?.[0] as Record<string, unknown> | undefined;
+      const convenio = row
+        ? String(Object.values(row)[0] ?? '').trim()
+        : '';
+      if (!convenio) {
+        return {
+          success: false,
+          message: 'No se obtuvo el número del convenio generado.',
+        };
+      }
+      return { success: true, data: { convenio }, message: 'ok' };
+    } catch (error) {
+      this.logger.error('Error al generar el convenio:', error);
+      return {
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Error al generar el convenio.',
+      };
+    }
+  }
+
+  /**
+   * Datos del reporte del convenio (legacy: JasperReport ReporteConvenio).
+   * SP: Rentas.ImprimeConvenio
+   *   @buscar=1 → cabecera (contribuyente, responsable, propietario/veh, etc.)
+   *   @buscar=2 → detalle: deuda de origen   (subreporte "Origen")
+   *   @buscar=3 → detalle: cuotas generadas  (subreporte "Destino")
+   * Mapeo POR NOMBRE de columna (verificado contra el legacy/plantilla):
+   *   buscar=2 → anno, tipo_des, tipo_rec_des, cod_pred, periodo, importe,
+   *              total_valor, num_cuotas
+   *   buscar=3 → periodo, fec_venc, imp_insol, intereses, imp_reaj, observacion
+   *              (totalCuotas = Σ imp_reaj)
+   */
+  async getReporteConvenio(
+    codigo: string,
+    convenio: string,
+  ): Promise<{
+    success: boolean;
+    data?: {
+      cabecera: Record<string, string>;
+      deuda: Array<{
+        anno: string;
+        concepto: string;
+        detalle: string;
+        predio: string;
+        periodos: string;
+        monto: number;
+      }>;
+      totalDeuda: number;
+      cuotas: Array<{
+        cuota: string;
+        anio: string;
+        fecVenc: string;
+        amort: number;
+        interes: number;
+        total: number;
+        observacion: string;
+      }>;
+      totalCuotas: number;
+      /** Número de cuotas del fraccionamiento (columna num_cuotas, buscar=2). */
+      numCuotas: string;
+    };
+    message: string;
+  }> {
+    try {
+      // ── Cabecera ──
+      const cabResult = await this.db.executeProcedure<any>(
+        'Rentas.ImprimeConvenio',
+        { buscar: 1, codigo, convenio },
+      );
+      const cabRow = cabResult.recordset?.[0] as
+        | Record<string, unknown>
+        | undefined;
+      if (!cabRow) {
+        return { success: false, message: 'Convenio no encontrado.' };
+      }
+      // Se expone como string map (los campos del Jasper usan nombre de columna).
+      const cabecera: Record<string, string> = {};
+      for (const [k, v] of Object.entries(cabRow)) {
+        cabecera[k] =
+          v instanceof Date
+            ? v.toLocaleDateString('es-PE')
+            : String(v ?? '').trim();
+      }
+
+      // ── Detalle: deuda de origen (@buscar=2) ──
+      const deudaResult = await this.db.executeProcedure<any>(
+        'Rentas.ImprimeConvenio',
+        { buscar: 2, codigo, convenio },
+      );
+      const deudaRows = (deudaResult.recordset ?? []) as Record<
+        string,
+        unknown
+      >[];
+      let totalDeuda = 0;
+      let totalValorSp = '';
+      let numCuotas = '';
+      for (const row of deudaRows) {
+        const get = (k: string) => String(row[k] ?? '').trim();
+        const importe = Number(get('importe')) || 0;
+        if (get('total_valor') !== '') totalValorSp = get('total_valor');
+        if (get('num_cuotas') !== '') numCuotas = get('num_cuotas');
+        totalDeuda += importe;
+      }
+      const deuda = deudaRows.map((row) => {
+        const get = (k: string) => String(row[k] ?? '').trim();
+        return {
+          anno: get('anno'),
+          concepto: get('tipo_des'),
+          detalle: get('tipo_rec_des'),
+          predio: get('cod_pred'),
+          periodos: get('periodo'),
+          monto: Number(get('importe')) || 0,
+        };
+      });
+      // El SP entrega su propio total (total_valor) cuando existe.
+      if (totalValorSp !== '') {
+        totalDeuda = Number(totalValorSp) || totalDeuda;
+      }
+
+      // ── Detalle: cuotas generadas (@buscar=3) ──
+      const cuotasResult = await this.db.executeProcedure<any>(
+        'Rentas.ImprimeConvenio',
+        { buscar: 3, codigo, convenio },
+      );
+      const cuotasRows = (cuotasResult.recordset ?? []) as Record<
+        string,
+        unknown
+      >[];
+      let totalCuotas = 0;
+      const cuotas = cuotasRows.map((row) => {
+        const get = (k: string) => String(row[k] ?? '').trim();
+        const esCuotaCero = get('periodo') === '00';
+        const total = Number(get('imp_reaj')) || 0;
+        totalCuotas += total;
+        return {
+          cuota: get('periodo'),
+          anio: '',
+          fecVenc: get('fec_venc'),
+          amort: Number(get('imp_insol')) || 0,
+          interes: esCuotaCero ? 0 : Number(get('intereses')) || 0,
+          total,
+          observacion: get('observacion'),
+        };
+      });
+
+      return {
+        success: true,
+        data: { cabecera, deuda, totalDeuda, cuotas, totalCuotas, numCuotas },
+        message: 'ok',
+      };
+    } catch (error) {
+      this.logger.error('Error al obtener el reporte del convenio:', error);
+      return {
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Error al obtener el reporte del convenio.',
+      };
+    }
+  }
+
+  /**
+   * Listado de fraccionamientos del contribuyente
+   * (legacy: fraccionar/consultafracc → Rentas.ImprimeConvenio @buscar=4).
+   * Mapeo por índice de columna (igual que el legacy):
+   *   [4] anno | [5] convenio | [7] monto | [11] cuotas |
+   *   [16] estado | [19] usuario | [21] fecha.
+   */
+  async getListadoFraccionamientos(codigo: string): Promise<{
+    success: boolean;
+    data?: Array<{
+      convenio: string;
+      anno: string;
+      cuotas: string;
+      monto: string;
+      estado: string;
+      usuario: string;
+      fecha: string;
+    }>;
+    message: string;
+  }> {
+    try {
+      const result = await this.db.executeProcedure<any>(
+        'Rentas.ImprimeConvenio',
+        { buscar: 4, codigo },
+      );
+      const rows = (result.recordset ?? []) as Record<string, unknown>[];
+      const data = rows.map((row) => {
+        const v = Object.values(row).map((x) =>
+          x instanceof Date
+            ? x.toLocaleDateString('es-PE')
+            : String(x ?? '').trim(),
+        );
+        return {
+          convenio: v[5] ?? '',
+          anno: v[4] ?? '',
+          cuotas: v[11] ?? '',
+          monto: v[7] ?? '',
+          estado: v[16] ?? '',
+          usuario: v[19] ?? '',
+          fecha: v[21] ?? '',
+        };
+      });
+      return { success: true, data, message: 'ok' };
+    } catch (error) {
+      this.logger.error('Error al listar los fraccionamientos:', error);
+      return {
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Error al listar los fraccionamientos.',
+      };
+    }
+  }
+
+  // ─── /Fraccionar Deuda ──────────────────────────────────────────────────
+
+  /**
+   * Detalle de un convenio fraccionado (legacy: fraccionar/resolfracc).
+   * SP: Rentas.ImprimeConvenio
+   *   @buscar=5 → fila única del convenio (mapeo POR ÍNDICE como el legacy):
+   *     [3] monto total frac. | [6] número de cuotas | [7] cuota inicial |
+   *     [9] estado (label) | [12] fecha convenio | [13] nro recibo |
+   *     [14] estado (código)
+   *   @buscar=3 → detalle de cuotas del grid (mapeo por nombre, igual que el
+   *     reporte): periodo, imp_insol, intereses, imp_reaj, fec_venc, observacion
+   */
+  async getDetalleConvenio(codigo: string, convenio: string): Promise<{
+    success: boolean;
+    data?: {
+      fecha: string;
+      montoTotal: string;
+      cuotaInicial: string;
+      porcentajeInicial: string;
+      saldo: string;
+      numeroCuotas: string;
+      estado: string;
+      estadoCodigo: string;
+      nroRecibo: string;
+      cuotas: Array<{
+        periodo: string;
+        importe: string;
+        reajuste: string;
+        total: string;
+        fechaVenc: string;
+        nroRecibo: string;
+      }>;
+    };
+    message: string;
+  }> {
+    try {
+      const result = await this.db.executeProcedure<any>(
+        'Rentas.ImprimeConvenio',
+        { buscar: 5, codigo, convenio },
+      );
+      const row = result.recordset?.[0] as Record<string, unknown> | undefined;
+      if (!row) {
+        return { success: false, message: 'Convenio no encontrado.' };
+      }
+      const v = Object.values(row).map((x) =>
+        x instanceof Date
+          ? x.toLocaleDateString('es-PE')
+          : String(x ?? '').trim(),
+      );
+      // Cálculos del legacy:
+      //   porcentajeInicial = cuotaInicial * (100 / montoTotal)
+      //   saldo = montoTotal - cuotaInicial
+      const montoTotal = Number(v[3]) || 0;
+      const cuotaInicial = Number(v[7]) || 0;
+      const porcentajeInicial =
+        montoTotal > 0 ? cuotaInicial * (100 / montoTotal) : 0;
+      const saldo = montoTotal - cuotaInicial;
+
+      // ── Cuotas del grid (@buscar=3, mismo mapeo que el reporte) ──
+      const cuotasResult = await this.db.executeProcedure<any>(
+        'Rentas.ImprimeConvenio',
+        { buscar: 3, codigo, convenio },
+      );
+      const cuotasRows = (cuotasResult.recordset ?? []) as Record<
+        string,
+        unknown
+      >[];
+      const cuotas = cuotasRows.map((r) => {
+        const get = (k: string) => String(r[k] ?? '').trim();
+        return {
+          periodo: get('periodo'),
+          importe: get('imp_insol'),
+          reajuste: get('intereses'),
+          total: get('imp_reaj'),
+          fechaVenc: get('fec_venc'),
+          nroRecibo: get('observacion'),
+        };
+      });
+
+      return {
+        success: true,
+        data: {
+          fecha: v[12] ?? '',
+          montoTotal: String(montoTotal),
+          cuotaInicial: String(cuotaInicial),
+          porcentajeInicial: String(porcentajeInicial),
+          saldo: String(saldo),
+          numeroCuotas: v[6] ?? '',
+          estado: v[9] ?? '',
+          estadoCodigo: v[14] ?? '',
+          nroRecibo: v[13] ?? '',
+          cuotas,
+        },
+        message: 'ok',
+      };
+    } catch (error) {
+      this.logger.error('Error al obtener el detalle del convenio:', error);
+      return {
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Error al obtener el detalle del convenio.',
+      };
+    }
+  }
+
+  /**
+   * Genera la resolución de un convenio fraccionado (legacy:
+   * fraccionar/resoluciongenera). SP: Rentas.ImprimeConvenio @buscar=7.
+   * El SP genera/marca la resolución; el legacy devolvía el texto
+   * "Resolucion Generada Correctamente".
+   */
+  async generarResolucion(
+    codigo: string,
+    convenio: string,
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      await this.db.executeProcedure<any>('Rentas.ImprimeConvenio', {
+        buscar: 7,
+        codigo,
+        convenio,
+      });
+      return { success: true, message: 'Resolución Generada Correctamente' };
+    } catch (error) {
+      this.logger.error('Error al generar la resolución:', error);
+      return {
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Error al generar la resolución.',
+      };
+    }
+  }
+
+  /**
+   * Datos de la resolución de un convenio fraccionado (legacy: jasper
+   * rpt_conv_resolucion). SP: Rentas.ResolucionConvenio @buscar=1 con
+   * @codigo/@convenio. Devuelve la primera fila mapeada por nombre.
+   */
+  async getDatosResolucion(
+    codigo: string,
+    convenio: string,
+  ): Promise<{
+    success: boolean;
+    data?: {
+      numero_documento: string;
+      nombre_contribuyente: string;
+      direcion: string;
+      numero_cuotas: string;
+      fecha_convenio: string;
+      cuota_inicial: string;
+      numero_letra: string;
+      numero_ingreso: string;
+      fecha_cancelado: string;
+      valores: string;
+      raw: Record<string, unknown>;
+    };
+    message: string;
+  }> {
+    try {
+      const result = await this.db.executeProcedure<any>(
+        'Rentas.ResolucionConvenio',
+        { buscar: 1, codigo, convenio },
+      );
+      const row = result.recordset?.[0] as Record<string, unknown> | undefined;
+      if (!row) {
+        return { success: false, message: 'Resolución no encontrada.' };
+      }
+      const get = (k: string): string => {
+        const direct = row[k];
+        if (direct !== undefined) return String(direct).trim();
+        const key = Object.keys(row).find(
+          (kk) => kk.toLowerCase() === k.toLowerCase(),
+        );
+        return key ? String(row[key]).trim() : '';
+      };
+      return {
+        success: true,
+        data: {
+          numero_documento: get('numero_documento'),
+          nombre_contribuyente: get('nombre_contribuyente'),
+          direcion: get('direcion'),
+          numero_cuotas: get('numero_cuotas'),
+          fecha_convenio: get('fecha_convenio'),
+          cuota_inicial: get('cuota_inicial'),
+          numero_letra: get('numero_letra'),
+          numero_ingreso: get('numero_ingreso'),
+          fecha_cancelado: get('fecha_cancelado'),
+          valores: get('valores'),
+          raw: row,
+        },
+        message: 'ok',
+      };
+    } catch (error) {
+      this.logger.error('Error al obtener los datos de la resolución:', error);
+      return {
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Error al obtener los datos de la resolución.',
+      };
+    }
+  }
+
+  /**
+   * Anula un convenio fraccionado (legacy: fraccionar/anularfrac).
+   * SP: Rentas.Anularconvenio con @codigo, @convenio, @operador, @estacion.
+   */
+  async anularConvenio(
+    codigo: string,
+    convenio: string,
+    operador: string,
+    estacion: string,
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      await this.db.executeProcedure<any>('Rentas.Anularconvenio', {
+        codigo,
+        convenio,
+        operador,
+        estacion,
+      });
+      return { success: true, message: 'Convenio anulado correctamente.' };
+    } catch (error) {
+      this.logger.error('Error al anular el convenio:', error);
+      return {
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Error al anular el convenio.',
+      };
+    }
+  }
+
+  /**
+   * Anula un convenio fraccionado sin cargos (legacy: fraccionar/anularfracsc).
+   * SP: Rentas.Anularconveniosc con @codigo, @convenio, @operador, @estacion.
+   */
+  async anularConvenioSc(
+    codigo: string,
+    convenio: string,
+    operador: string,
+    estacion: string,
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      await this.db.executeProcedure<any>('Rentas.Anularconveniosc', {
+        codigo,
+        convenio,
+        operador,
+        estacion,
+      });
+      return {
+        success: true,
+        message: 'Convenio anulado sin cargos correctamente.',
+      };
+    } catch (error) {
+      this.logger.error('Error al anular el convenio sin cargos:', error);
+      return {
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Error al anular el convenio sin cargos.',
+      };
+    }
   }
 }

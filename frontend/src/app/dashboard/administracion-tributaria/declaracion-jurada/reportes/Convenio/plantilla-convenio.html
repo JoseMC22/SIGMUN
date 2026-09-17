@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Convenio de Fraccionamiento</title>
+    <link rel="stylesheet" href="./estilos-convenio.css">
+</head>
+<body>
+    <div class="documento">
+        <!-- ══ Cabecera: logo + título ══ -->
+        <div class="conv-header">
+            <img src="{{logoUrl}}" class="conv-logo" alt="Logo SAT" />
+            <div class="conv-header-text">
+                <p class="conv-titulo">Solicitud - Convenio de Fraccionamiento N° {{convenio}}</p>
+                <p class="conv-fecha">Fecha del Convenio {{fecConve}}</p>
+            </div>
+        </div>
+        <hr class="conv-linea">
+
+        <table class="conv-datos">
+            <tbody>
+                <tr>
+                    <td class="conv-label">{{labelBloque1}}:</td>
+                    <td class="conv-codigo">{{codigo}}</td>
+                    <td class="conv-nombre">{{nombres}}</td>
+                    <td class="conv-label">Doc.:</td>
+                    <td class="conv-doc">{{documento}}</td>
+                </tr>
+                <tr>
+                    <td class="conv-label">Domicilio Fiscal:</td>
+                    <td colspan="4">{{dirfiscal}}</td>
+                </tr>
+            </tbody>
+        </table>
+
+        {{bloque2}}
+
+        <p class="conv-parrafo">
+            Por la presente solicito el fraccionamiento de las deudas {{tipoDeuda}}
+            ascendente a S/. {{deudaIni}} (son {{montoLetra}}) de acuerdo al siguiente detalle:
+        </p>
+
+        <!-- ══ Deuda de origen ══ -->
+        <table class="conv-tabla">
+            <thead>
+                <tr>
+                    <th>Año</th>
+                    <th>Concepto</th>
+                    <th>Detalle</th>
+                    <th>Predio/Veh.</th>
+                    <th>Periodos</th>
+                    <th class="th-monto">Monto</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{filasDeuda}}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="5" class="td-total-label">TOTAL:</td>
+                    <td class="td-total">S/. {{totalDeuda}}</td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <!-- ══ Párrafo de cuotas ══ -->
+        <p class="conv-parrafo">
+            Para acceder a dicho fraccionamiento se cumple con adjuntar los requisitos,
+            y por formato de fraccionamiento se pagará S/. 9.88 soles. El fraccionamiento
+            solicitado se pagará en {{numCuotas}} cuotas mensuales según el calendario de
+            vencimiento que se detalla a continuación:
+        </p>
+        <hr class="conv-linea">
+
+        <!-- ══ Cuotas generadas ══ -->
+        <table class="conv-tabla">
+            <thead>
+                <tr>
+                    <th>Cuota</th>
+                    <th>Fec. Venc.</th>
+                    <th>Amort.</th>
+                    <th>Interés</th>
+                    <th class="th-monto">Total</th>
+                    <th>Pagos (Recibos-Fecha)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{filasCuotas}}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="4" class="td-total-label">TOTAL:</td>
+                    <td class="td-total">S/. {{totalCuotas}}</td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <!-- ══ Notas legales ══ -->
+        <p class="conv-cancela">******* Cancelación sólo en la tesorería del SAT - ICA ********</p>
+        <p class="conv-nota">
+            En caso de no cumplir con las cuotas pactadas dentro de las fechas programadas,
+            se perderá el beneficio del fraccionamiento y la deuda será trasladada a su
+            cobranza por la vía coactiva.
+        </p>
+        <p class="conv-nota">
+            "En señal de aceptación a lo dispuesto en la directiva para el Fraccionamiento
+            del Pago de Deudas Tributarias y no Tributarias, <strong>Directiva Nº004-2019-SAT-ICA</strong>;
+            y de Conformidad a la presente liquidación, firman:"
+        </p>
+
+        <!-- ══ Firma ══ -->
+        <div class="conv-firma">
+            <div class="conv-firma-linea"></div>
+            <p class="conv-firma-nombre">{{firmaNombre}}</p>
+            <p class="conv-firma-doc">{{firmaDoc}}</p>
+        </div>
+
+        {{disposiciones}}
+    </div>
+
+    <div class="conv-footer">
+        <span>Elaborado por: {{funcionario}}</span>
+        <span>Impreso: {{ahora}}</span>
+    </div>
+</body>
+</html>

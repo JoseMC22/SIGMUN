@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Resolución de Gerencia</title>
+    <link rel="stylesheet" href="./estilos-resolucion.css">
+</head>
+<body>
+    <div class="documento">
+        <!-- ══ Cabecera: logo + institución + título ══ -->
+        <div class="resol-header">
+            <img src="{{logoUrl}}" class="resol-logo" alt="Logo SAT" />
+            <div class="resol-header-text">
+                <p class="resol-institucion">Servicio de Administración Tributaria de Ica</p>
+                <p class="resol-gerencia">GERENCIA DE RENTAS</p>
+            </div>
+        </div>
+        <hr class="resol-linea">
+
+        <!-- ══ Título y preámbulo ══ -->
+        <p class="resol-titulo">
+            RESOLUCIÓN DE GERENCIA N°_2007 - GAT/GM/MDI
+        </p>
+        <p class="resol-independencia">Independencia,</p>
+        <p class="resol-gerente">EL GERENTE DEL Servicio de Administración Tributaria de Ica.</p>
+
+        <!-- ══ Visto ══ -->
+        <p class="resol-parrafo">
+            Visto, el expediente N°_ seguido por el contribuyente
+            <strong>{{nombre_contribuyente}}</strong> identificado(a) con
+            {{numero_documento}}, domicilio fiscal en <strong>{{direcion}}</strong>
+            y código de contribuyente {{codigo}}, solicita fraccionamiento de pago
+            por su deuda tributaria por concepto de <strong>{{valores}}</strong>.
+        </p>
+
+        <!-- ══ Considerando ══ -->
+        <p class="resol-seccion">CONSIDERANDO:</p>
+        <p class="resol-parrafo">
+            Que, el Artículo 36° del D.S. 135-99-EF Texto Único Ordenado del Código
+            Tributario establece que la Administración Tributaria esta facultada a
+            conceder aplazamiento y/o fraccionamiento para el pago de la deuda
+            tributaria al deudor tributario que lo solicite, siempre que éste cumpla
+            requerimientos o garantías que aquella establezca mediante Ordenanza o
+            norma de rango similar.
+        </p>
+        <p class="resol-parrafo">
+            Que mediante Decreto de Alcaldía N° 0010-2003-MDI. se aprueba el
+            reglamento de Fraccionamiento de la Deuda Tributaria y no Tributaria,
+            estableciendo los requisitos, el procedimiento y demás aspectos referidos
+            para su aprobación.
+        </p>
+        <p class="resol-parrafo">
+            Que, el (la) recurrente adjunta a su solicitud, el Convenio y Solicitud de
+            Fraccionamiento N° Convenio de fecha <strong>{{fecha_convenio}}</strong>,
+            suscrito para el pago en ***<strong>{{numero_cuotas}}</strong> cuotas
+            mensuales por concepto de <strong>{{valores}}</strong> y ha cumplido con
+            cancelar la cuota inicial por S./ <strong>{{cuota_inicial}}</strong>
+            {{numero_letra}} según recibo N° <strong>{{convenio}}</strong> en fecha
+            <strong>{{fecha_cancelado}}</strong>, en consecuencia habiendo cumplido
+            con los requisitos establecidos da mérito a la aprobación del
+            fraccionamiento solicitado.
+        </p>
+        <p class="resol-parrafo">
+            Estando a lo informado por la Unidad de Recaudación y Fiscalización
+            Tributaria mediante Informe N°, y contando con su visación respectiva, en
+            uso de las facultades otorgadas por la Resolución de Alcaldía N°
+            0578-2004-MDI, de conformidad con las atribuciones conferidas por la Ley
+            Orgánica de Municipalidades Ley N° 27972.
+        </p>
+
+        <!-- ══ Se resuelve ══ -->
+        <p class="resol-seccion">SE RESUELVE:</p>
+        <p class="resol-parrafo">
+            <strong>ARTICULO 1°:</strong> Aprobar el Fraccionamiento de Pago,
+            solicitado por el contribuyente <strong>{{nombre_contribuyente}}</strong>,
+            en mérito a lo expuesto en la parte considerativa y de conformidad con el
+            cronograma de pago suscrito en fecha <strong>{{fecha_convenio}}</strong>,
+            mediante Solicitud de Fraccionamiento N° <strong>{{fecha_convenio}}</strong>
+            por concepto de <strong>{{valores}}</strong>.
+        </p>
+        <p class="resol-parrafo">
+            <strong>ARTICULO 2°:</strong> Encargar a la Sub Gerencia de Recaudación,
+            el cumplimiento de la presente resolución.
+        </p>
+        <p class="resol-registrese">Regístrese, comuníquese y Cúmplase.</p>
+    </div>
+
+    <div class="resol-footer">
+        <span>Elaborado por: {{funcionario}}</span>
+        <span>Impreso: {{ahora}}</span>
+    </div>
+</body>
+</html>

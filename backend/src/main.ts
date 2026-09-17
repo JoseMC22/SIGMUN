@@ -1,11 +1,16 @@
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser = require('cookie-parser');
+import { json } from 'express';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const isProduction = process.env.NODE_ENV === 'production';
+
+  // Payloads grandes: p.ej. "Generar Liquidación" con cientos/miles de
+  // recibos seleccionados (JSON de detalles). Default de Express = 100kb.
+  app.use(json({ limit: '10mb' }));
 
   // Prefijo global para todos los endpoints
   app.setGlobalPrefix('api');
