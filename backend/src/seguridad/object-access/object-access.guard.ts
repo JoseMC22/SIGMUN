@@ -40,10 +40,25 @@ export class ObjectAccessGuard implements CanActivate {
     );
 
     if (!idAcceso) {
-      idAcceso = request.body?.id_acceso ?? request.query?.id_acceso;
+      // Multipart requests: Guards run BEFORE multer (FileInterceptor), so
+      // request.body is always empty at this point — body-parser does not
+      // parse multipart/form-data. Fall back to an explicit header the client
+      // can set (authFetch sends x-id-acceso for the subir-cargo upload).
+      const headerAcceso = request.headers['x-id-acceso'];
+      idAcceso =
+        request.body?.id_acceso ??
+        request.query?.id_acceso ??
+        (typeof headerAcceso === 'string' ? headerAcceso : undefined);
     }
 
     if (!idAcceso) {
+      // Log BEFORE throwing: the guard runs before the controller (and before
+      // multer), so a rejection here is invisible in the backend logs otherwise.
+      this.logger.warn(
+        `[AccessGuard] id_acceso required for object ${idObjeto}; body fields: ${JSON.stringify(
+          Object.keys(request.body ?? {}),
+        )}`,
+      );
       throw new BadRequestException('id_acceso required');
     }
 

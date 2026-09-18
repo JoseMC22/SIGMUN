@@ -2,26 +2,24 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { 
-  ChevronDown, 
-  ChevronRight, 
+import { usePathname } from "next/navigation";
+import {
+  ChevronDown,
+  ChevronRight,
   LayoutDashboard,
-  LogOut,
-  User,
   ShieldCheck,
   Wallet,
   Search,
   HandCoins,
-  Lock,
-  KeyRound,
   Car,
   Map,
   Gavel,
   BarChart3,
   Receipt,
   UserCog,
-  Loader2
+  Loader2,
+  Scale,
+  type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAccess } from "@/lib/access-context";
@@ -44,7 +42,7 @@ interface SubmenuData {
 }
 import SatIcaLogo from "@/components/logo";
 
-const MODULE_ICONS: Record<string, any> = {
+const MODULE_ICONS: Record<string, LucideIcon> = {
   "Administración Tributaria": ShieldCheck,
   "Tesorería Municipal": Wallet,
   "Fiscalización Tributaria": Search,
@@ -56,6 +54,7 @@ const MODULE_ICONS: Record<string, any> = {
   "Reportes Gerenciales": BarChart3,
   Alcabala: Receipt,
   Notificaciones: UserCog,
+  "Asesoría Legal": Scale,
 };
 
 function getModuleIcon(title: string) {

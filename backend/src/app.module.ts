@@ -18,6 +18,8 @@ import { ReportesModule } from './reportes-gerenciales/reportes-gerenciales.modu
 import { MantenimientoUitModule } from './mantenimiento-tablas/mantenimiento-uit/mantenimiento-uit.module';
 import { ConvenioEstadoModule } from './mantenimiento-tablas/mantenimiento-estado-convenios/convenio-estado.module';
 import { PapeletaTransitoModule } from './papeleta-transito/papeleta-transito.module';
+import { AsesoriaLegalModule } from './asesoria-legal/asesoria-legal.module';
+import { StorageModule } from './storage/storage.module';
 
 @Module({
   imports: [
@@ -75,6 +77,10 @@ import { PapeletaTransitoModule } from './papeleta-transito/papeleta-transito.mo
     ConvenioEstadoModule,
     // Módulo de papeleta tránsito
     PapeletaTransitoModule,
+    // Módulo de Asesoría Legal
+    AsesoriaLegalModule,
+    // Módulo de Almacenamiento (NAS / Archivos)
+    StorageModule,
   ],
   controllers: [AppController],
   providers: [AppService],
