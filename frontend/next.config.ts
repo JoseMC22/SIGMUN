@@ -22,7 +22,6 @@ const nextConfig: NextConfig = {
   // `allowedDevOrigins` is used only in development to allow HMR websocket
   // cross-origin requests from other hosts on the LAN. Accepts both full
   // origins and bare hosts in the same list.
-  // @ts-ignore - Next exposes this option at runtime
   allowedDevOrigins: [
     ...devAllowedEntries,
     "http://localhost:3000",
