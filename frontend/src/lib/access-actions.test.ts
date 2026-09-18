@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { RequestCookie } from "next/dist/compiled/@edge-runtime/cookies";
+import type { ReadonlyRequestCookies } from "next/dist/server/web/spec-extension/adapters/request-cookies";
 
 vi.mock("next/headers", () => ({
   cookies: vi.fn(),
@@ -12,6 +14,23 @@ import { cookies } from "next/headers";
 
 const mockedCookies = vi.mocked(cookies);
 const API_BASE = "http://localhost:3001/api";
+
+const AUTH_COOKIE: RequestCookie = { name: "SIGMUN_AUTH", value: "test-token" };
+
+function createMockRequestCookies(): ReadonlyRequestCookies {
+  return {
+    get: () => AUTH_COOKIE,
+    getAll: () => [AUTH_COOKIE],
+    has: () => true,
+    set: vi.fn(),
+    delete: vi.fn(),
+    size: 0,
+    toString: () => "SIGMUN_AUTH=test-token",
+    [Symbol.iterator]() {
+      return new Map<string, RequestCookie>([["SIGMUN_AUTH", AUTH_COOKIE]]).entries();
+    },
+  };
+}
 
 describe("access-actions", () => {
   beforeEach(() => {
@@ -31,9 +50,7 @@ describe("access-actions", () => {
           ],
         }),
       });
-      mockedCookies.mockResolvedValue({
-        get: () => ({ value: "test-token" }),
-      });
+      mockedCookies.mockResolvedValue(createMockRequestCookies());
 
       await fetchObjectPermissionsAction("42");
 
@@ -57,9 +74,7 @@ describe("access-actions", () => {
           objects: [{ id_objeto: "btnGuardar", bacceso: 1 }],
         }),
       });
-      mockedCookies.mockResolvedValue({
-        get: () => ({ value: "test-token" }),
-      });
+      mockedCookies.mockResolvedValue(createMockRequestCookies());
 
       const result = await fetchObjectPermissionsAction("42");
 
@@ -76,9 +91,7 @@ describe("access-actions", () => {
         ok: false,
         json: vi.fn().mockResolvedValue({ message: "Not found" }),
       });
-      mockedCookies.mockResolvedValue({
-        get: () => ({ value: "test-token" }),
-      });
+      mockedCookies.mockResolvedValue(createMockRequestCookies());
 
       const result = await fetchObjectPermissionsAction("999");
 
@@ -92,9 +105,7 @@ describe("access-actions", () => {
       const mockFetch = vi.fn();
       global.fetch = mockFetch as any;
       mockFetch.mockRejectedValue(new Error("Network failure"));
-      mockedCookies.mockResolvedValue({
-        get: () => ({ value: "test-token" }),
-      });
+      mockedCookies.mockResolvedValue(createMockRequestCookies());
 
       const result = await fetchObjectPermissionsAction("42");
 
@@ -113,9 +124,7 @@ describe("access-actions", () => {
         ok: true,
         json: vi.fn().mockResolvedValue({}),
       });
-      mockedCookies.mockResolvedValue({
-        get: () => ({ value: "test-token" }),
-      });
+      mockedCookies.mockResolvedValue(createMockRequestCookies());
 
       await invalidateObjectPermissionsAction("42", ["alice", "bob"]);
 
@@ -139,9 +148,7 @@ describe("access-actions", () => {
         ok: true,
         json: vi.fn().mockResolvedValue({}),
       });
-      mockedCookies.mockResolvedValue({
-        get: () => ({ value: "test-token" }),
-      });
+      mockedCookies.mockResolvedValue(createMockRequestCookies());
 
       const result = await invalidateObjectPermissionsAction("42", ["alice"]);
 
@@ -155,9 +162,7 @@ describe("access-actions", () => {
         ok: false,
         json: vi.fn().mockResolvedValue({ message: "Forbidden" }),
       });
-      mockedCookies.mockResolvedValue({
-        get: () => ({ value: "test-token" }),
-      });
+      mockedCookies.mockResolvedValue(createMockRequestCookies());
 
       const result = await invalidateObjectPermissionsAction("42", ["alice"]);
 

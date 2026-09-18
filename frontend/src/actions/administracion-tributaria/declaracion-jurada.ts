@@ -1842,3 +1842,372 @@ export async function getDatosResolucionAction(
     return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
   }
 }
+
+// ─── Reporte Tesorería (legacy: fraccionar/reporteconsulta) ─────────────
+// Rentas.ImprimeConvenio @buscar=8 con desde/hasta/operador.
+
+export interface ReporteFraccionamientoRow {
+  codigo: string;
+  anno: string;
+  convenio: string;
+  estado: string;
+  fecha: string;
+  deudaIni: string;
+  cuotas: string;
+  cuotasCanceladas: string;
+  cuotasVencidas: string;
+  operador: string;
+}
+
+export interface ReporteFraccionamientosFiltros {
+  desde: string;
+  hasta: string;
+  usuarios: { value: string; label: string }[];
+}
+
+export async function getReporteFraccionamientosFiltrosAction(): Promise<
+  | { success: true; data: ReporteFraccionamientosFiltros }
+  | { success: false; error: string }
+> {
+  try {
+    const response = await authFetch(
+      '/declaracion-jurada/estado-cuenta/fraccionar/reporte-filtros',
+      { method: 'GET' },
+    );
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false as const,
+        error: errorData.error ?? errorData.message ?? `Error ${response.status}`,
+      };
+    }
+    const result = await response.json();
+    if (!result.success) {
+      return {
+        success: false as const,
+        error: result.error ?? 'Error al cargar los filtros del reporte.',
+      };
+    }
+    return { success: true as const, data: result.data as ReporteFraccionamientosFiltros };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+export async function getReporteFraccionamientosAction(
+  desde: string,
+  hasta: string,
+  operador: string,
+): Promise<
+  | { success: true; rows: ReporteFraccionamientoRow[] }
+  | { success: false; error: string }
+> {
+  try {
+    const response = await authFetch(
+      '/declaracion-jurada/estado-cuenta/fraccionar/reporte-consulta',
+      {
+        method: 'POST',
+        body: JSON.stringify({ desde, hasta, operador }),
+      },
+    );
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false as const,
+        error: errorData.error ?? errorData.message ?? `Error ${response.status}`,
+      };
+    }
+    const result = await response.json();
+    if (!result.success) {
+      return {
+        success: false as const,
+        error: result.error ?? 'Error al consultar el reporte de tesorería.',
+      };
+    }
+    return { success: true as const, rows: result.rows as ReporteFraccionamientoRow[] };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ═══ Períodos / Declaración Jurada (sp_rentasmain @buscar=1,2,4) ═══════════
+
+export interface PeriodoAnnoItem {
+  anno: string;
+}
+
+export interface PeriodoDetalleData {
+  codigo: string;
+  anno: string;
+  nroPredi: string;
+  totAutoavaluo: string;
+  baseImponible: string;
+  impAnual: string;
+  impTrime: string;
+  costoEmi: string;
+  porInafec: string;
+}
+
+export interface PredioDJItemData {
+  tipo: string;
+  codPred: string;
+  anexo: string;
+  direccion: string;
+  areaTerreno: string;
+  porcenPropiedad: string;
+  totalAutoavaluo: string;
+  arancel: string;
+  predioVendido: string;
+  uso: string;
+}
+
+export async function getPeriodosAction(
+  codigo: string,
+): Promise<{ success: true; data: PeriodoAnnoItem[] } | { success: false; error: string }> {
+  try {
+    const params = new URLSearchParams({ codigo });
+    const response = await authFetch(`/declaracion-jurada/periodos?${params}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.error ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    if (!result.success) return { success: false as const, error: result.error ?? 'Error al cargar períodos.' };
+    return { success: true as const, data: result.data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+export async function getPeriodoDetalleAction(
+  codigo: string,
+  anno: string,
+): Promise<{ success: true; data: PeriodoDetalleData } | { success: false; error: string }> {
+  try {
+    const params = new URLSearchParams({ codigo, anno });
+    const response = await authFetch(`/declaracion-jurada/periodo-detalle?${params}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.error ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    if (!result.success) return { success: false as const, error: result.error ?? 'Error al cargar detalle.' };
+    return { success: true as const, data: result.data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+export async function getPrediosDJAction(
+  codigo: string,
+  anno: string,
+): Promise<{ success: true; data: PredioDJItemData[] } | { success: false; error: string }> {
+  try {
+    const params = new URLSearchParams({ codigo, anno });
+    const response = await authFetch(`/declaracion-jurada/predios-dj?${params}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.error ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    if (!result.success) return { success: false as const, error: result.error ?? 'Error al cargar predios.' };
+    return { success: true as const, data: result.data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ═══ Hoja de Resumen predial (Rentas.sp_MHRpred) ═══════════
+
+export interface HrComboOption {
+  value: string;
+  label: string;
+}
+
+export interface HojaResumenCombosData {
+  regimen: HrComboOption[];
+  motivos: HrComboOption[];
+}
+
+export interface HojaResumenData {
+  codigo: string;
+  anno: string;
+  numResol: string;
+  fecResol: string;
+  nroExpediente: string;
+  baseLegal: string;
+  regimen: string;
+  motivo: string;
+  vigDesde: string;
+  vigHasta: string;
+  observacion: string;
+  bloquearEmi: string;
+  usuarioReg: string;
+  fechaReg: string;
+  estacionReg: string;
+  /** N° y fecha de la DJ (grupo Declaración Jurada). */
+  numDecla: string;
+  fecDecla: string;
+  /** Fechas de vigencia del registro (txtdesde/txthasta del legado). */
+  fecVigDesde: string;
+  fecVigHasta: string;
+  /** Totales de la DJ asociada (bloque readonly del modal). */
+  nroPredios: string;
+  totalAutovaluo: string;
+  baseImponible: string;
+  impAnual: string;
+  impTrimestral: string;
+  costoEmision: string;
+}
+
+export interface GrabarHrPayload {
+  action?: string;
+  codigo?: string;
+  anno?: string;
+  num_resol?: string;
+  fec_resol?: string;
+  nro_expediente?: string;
+  base_legal?: string;
+  regimen?: string;
+  motivo?: string;
+  vig_desde?: string;
+  vig_hasta?: string;
+  observacion?: string;
+  bloquear_emi?: string;
+  fec_decla?: string;
+  fec_vig_desde?: string;
+  fec_vig_hasta?: string;
+  operador?: string;
+  estacion?: string;
+}
+
+export interface GrabarHrResultData {
+  success: boolean;
+  mensaje: string;
+}
+
+export async function getCombosHrAction(): Promise<
+  | { success: true; data: HojaResumenCombosData }
+  | { success: false; error: string }
+> {
+  try {
+    const response = await authFetch('/declaracion-jurada/hoja-resumen/combos');
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.error ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    if (!result.success) return { success: false as const, error: result.error ?? 'Error al cargar combos.' };
+    return { success: true as const, data: result.data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+export async function obtenerHojaResumenAction(
+  codigo: string,
+  anno: string,
+): Promise<{ success: true; data: HojaResumenData } | { success: false; error: string }> {
+  try {
+    const params = new URLSearchParams({ codigo, anno });
+    const response = await authFetch(`/declaracion-jurada/hoja-resumen/editar?${params}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.error ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    if (!result.success) return { success: false as const, error: result.error ?? 'No existe Hoja de Resumen para el período seleccionado.' };
+    return { success: true as const, data: result.data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ═══ Determinación (Impuesto Predial / Arbitrios) ═══
+
+export interface DeterminacionIpPayload {
+  codigo: string;
+  anno: string;
+  /** '1' = Por Emisión, '2' = Por Fiscalización. */
+  tipodeterminacion: string;
+  operador: string;
+  estacion: string;
+}
+
+export interface DeterminacionPredioItem {
+  codigo: string;
+  anno: string;
+  cod_pred: string;
+  anexo: string;
+  sub_anexo: string;
+  tipodeterminacion: string;
+}
+
+export interface DeterminacionResultData {
+  success: boolean;
+  mensaje: string;
+}
+
+/** Determinación del IP — Rentas.predial_determinar (legacy: determinacionimpuesto4). */
+export async function calcularDeterminacionIpAction(
+  payload: DeterminacionIpPayload,
+): Promise<{ success: true; data: DeterminacionResultData } | { success: false; error: string }> {
+  try {
+    const response = await authFetch('/declaracion-jurada/determinacion/impuesto', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.error ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    if (!result.success) return { success: false as const, error: result.error ?? 'Error al calcular el IP.' };
+    return { success: true as const, data: result.data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+/** Determinación de Arbitrios por predio — Rentas.Calculo_inquilinos (legacy: determinacionarbitrio). */
+export async function calcularDeterminacionArbitriosAction(
+  predios: DeterminacionPredioItem[],
+  operador: string,
+  estacion: string,
+): Promise<{ success: true; data: DeterminacionResultData } | { success: false; error: string }> {
+  try {
+    const response = await authFetch('/declaracion-jurada/determinacion/arbitrios', {
+      method: 'POST',
+      body: JSON.stringify({ predios, operador, estacion }),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.error ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    if (!result.success) return { success: false as const, error: result.error ?? 'Error al calcular arbitrios.' };
+    return { success: true as const, data: result.data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+export async function grabarHrAction(
+  payload: GrabarHrPayload,
+): Promise<{ success: true; data: GrabarHrResultData } | { success: false; error: string }> {
+  try {
+    const response = await authFetch('/declaracion-jurada/hoja-resumen/guardar', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.error ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    if (!result.success) return { success: false as const, error: result.error ?? 'Error al guardar hoja de resumen.' };
+    return { success: true as const, data: result.data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}

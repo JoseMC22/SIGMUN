@@ -76,7 +76,7 @@ export default function NotificadorFormModal({
         mode === "nuevo"
           ? await guardarNotificadorAction({ iniciales: ini, notificador: nom })
           : await actualizarNotificadorAction({
-              id_notificador: initial.codigo_autoridad,
+              id_notificador: initial!.codigo_autoridad,
               notificador: nom,
             });
 

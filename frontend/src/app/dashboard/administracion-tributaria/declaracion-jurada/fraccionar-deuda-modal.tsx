@@ -27,6 +27,7 @@ import { getPcName } from "@/lib/api";
 import ReporteViewerModal from "@/components/reportes/reporte-viewer-modal";
 import ConfirmDialog from "@/components/confirm-dialog";
 import { useModalStack, isTopModal } from "@/hooks/use-modal-topmost";
+import { toNum } from "@/lib/num";
 
 // El técnica de teclado nativa del DOM es globalThis.KeyboardEvent.
 
@@ -135,10 +136,10 @@ export default function FraccionarDeudaModal({
       lastLookupRef.current = "";
       return;
     }
-    setTxtInicial(seed.montoInicial.toFixed(2));
+    setTxtInicial(toNum(seed.montoInicial).toFixed(2));
     setTxtNumero("4");
-    setTxtPorcentaje(seed.porcenInicial.toFixed(2));
-    setTxtSaldo(seed.saldo.toFixed(2));
+    setTxtPorcentaje(toNum(seed.porcenInicial).toFixed(2));
+    setTxtSaldo(toNum(seed.saldo).toFixed(2));
   }, [isOpen, seed]);
 
   // Modal-foco: solo el modal que esté en la cima de la pila global
@@ -157,11 +158,11 @@ export default function FraccionarDeudaModal({
 
   if (!isOpen || !seed) return null;
 
-  const totalpagar = seed.totalpagar;
+  const totalpagar = toNum(seed.totalpagar);
 
   // ─── Mirror de getporcentaje() del legado: onBlur de txtInicial ───
   const handleInicialBlur = () => {
-    const txtInicialN = Number(String(txtInicial).replace(",", "")) || 0;
+    const txtInicialN = toNum(txtInicial);
     const pct = totalpagar > 0 ? (txtInicialN / totalpagar) * 100 : 0;
     const saldo = totalpagar - txtInicialN;
 
@@ -186,8 +187,8 @@ export default function FraccionarDeudaModal({
   const handleCalcularCuotas = async () => {
     setError(null);
     setSuccess(null);
-    const cuotasN = Number(txtNumero) || 0;
-    const totalInicialN = Number(String(txtInicial).replace(",", "")) || 0;
+    const cuotasN = toNum(txtNumero);
+    const totalInicialN = toNum(txtInicial);
     const totalDeudaN = totalpagar;
 
     if (totalInicialN > totalDeudaN) {
@@ -226,9 +227,9 @@ export default function FraccionarDeudaModal({
       let conInteres = 0;
       let fact = 0;
       for (const r of rows) {
-        sinInteres += Number(r.montoCuota) || 0;
-        conInteres += Number(r.cuotas) || 0;
-        if (r.cuota === "01") fact = Number(r.intereses) || 0;
+        sinInteres += toNum(r.montoCuota);
+        conInteres += toNum(r.cuotas);
+        if (r.cuota === "01") fact = toNum(r.intereses);
       }
       setTxtSininteres(sinInteres.toFixed(2));
       setTxtConinteres(conInteres.toFixed(2));
@@ -320,7 +321,7 @@ export default function FraccionarDeudaModal({
       return;
     }
     // 3) Porcentaje mínimo (legacy: txtPorcentaje < porc_ini).
-    const pct = Number(String(txtPorcentaje).replace(",", "")) || 0;
+    const pct = toNum(txtPorcentaje);
     if (seed.porcIni > 0 && pct < seed.porcIni) {
       setError(`El porcentaje no puede ser menor al ${seed.porcIni}%.`);
       return;
@@ -335,11 +336,11 @@ export default function FraccionarDeudaModal({
     setLoadingSimulado(true);
     setError(null);
     try {
-      const totalInicialN = Number(String(txtInicial).replace(",", "")) || 0;
+      const totalInicialN = toNum(txtInicial);
       const result = await getSimuladoConvenioAction({
         deuda,
         codigo: codigoContribuyente ?? seed.codigo,
-        numeroCuotas: Number(txtNumero) || 0,
+        numeroCuotas: toNum(txtNumero),
         totalDeuda: totalpagar,
         totalInicial: totalInicialN,
         fecGen: seed.fecha,
@@ -387,7 +388,7 @@ export default function FraccionarDeudaModal({
       setError("Seleccione al menos un registro.");
       return;
     }
-    const pct = Number(String(txtPorcentaje).replace(",", "")) || 0;
+    const pct = toNum(txtPorcentaje);
     if (seed.porcIni > 0 && pct < seed.porcIni) {
       setError(`El porcentaje no puede ser menor al ${seed.porcIni}%.`);
       return;
@@ -404,11 +405,11 @@ export default function FraccionarDeudaModal({
     setError(null);
     setSuccess(null);
     try {
-      const totalInicialN = Number(String(txtInicial).replace(",", "")) || 0;
+      const totalInicialN = toNum(txtInicial);
       const gen = await generarConvenioAction({
         deuda,
         codigo: codigoContribuyente ?? seed.codigo,
-        numeroCuotas: Number(txtNumero) || 0,
+        numeroCuotas: toNum(txtNumero),
         totalDeuda: totalpagar,
         totalInicial: totalInicialN,
         fecGen: seed.fecha,
@@ -598,7 +599,7 @@ export default function FraccionarDeudaModal({
                   <label className={labelClass}>Monto Total a Fracc.</label>
                   <input
                     className={inputClass}
-                    value={seed.totalpagar.toFixed(2)}
+                    value={toNum(seed.totalpagar).toFixed(2)}
                     readOnly
                     tabIndex={-1}
                   />

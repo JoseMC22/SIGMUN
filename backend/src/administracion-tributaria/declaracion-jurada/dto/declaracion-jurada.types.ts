@@ -499,3 +499,89 @@ export interface GenerarDeudaConcepto {
   tipo: string;
   concepto: string;
 }
+
+// ═══ Períodos / Declaración Jurada (Rentas.sp_rentasmain @buscar=1,2,4) ═══
+
+/** @buscar=1 — Lista de períodos (años) del contribuyente */
+export interface PeriodoAnno {
+  anno: string;
+}
+
+/** @buscar=2 — Resumen de un período específico */
+export interface PeriodoDetalle {
+  codigo: string;
+  anno: string;
+  nroPredi: string;
+  totAutoavaluo: string;
+  baseImponible: string;
+  impAnual: string;
+  impTrime: string;
+  costoEmi: string;
+  porInafec: string;
+}
+
+/** @buscar=4 — Predios de un contribuyente en un período */
+export interface PredioDJItem {
+  tipo: string;
+  codPred: string;
+  anexo: string;
+  direccion: string;
+  areaTerreno: string;
+  porcenPropiedad: string;
+  totalAutoavaluo: string;
+  arancel: string;
+  predioVendido: string;
+  uso: string;
+}
+
+// ═══ Hoja de Resumen predial (Rentas.sp_MHRpred) ═══
+
+export interface HojaResumenComboOption { value: string; label: string }
+
+export interface HojaResumenCombosResult {
+  regimen: HojaResumenComboOption[];
+  motivos: HojaResumenComboOption[];
+}
+
+export interface HojaResumenEditarResult {
+  codigo: string;
+  anno: string;
+  numResol: string;
+  fecResol: string;
+  nroExpediente: string;
+  baseLegal: string;
+  regimen: string;
+  motivo: string;
+  vigDesde: string;
+  vigHasta: string;
+  observacion: string;
+  bloquearEmi: string;
+  usuarioReg: string;
+  fechaReg: string;
+  estacionReg: string;
+  /** N° y fecha de la DJ (grupo Declaración Jurada). */
+  numDecla: string;
+  fecDecla: string;
+  /** Fechas de vigencia del registro (txtdesde/txthasta del legado). */
+  fecVigDesde: string;
+  fecVigHasta: string;
+  /** Totales de la DJ asociada, para el bloque readonly del modal. */
+  nroPredios: string;
+  totalAutovaluo: string;
+  baseImponible: string;
+  impAnual: string;
+  impTrimestral: string;
+  costoEmision: string;
+}
+
+export interface GuardarHojaResumenResult {
+  success: boolean;
+  mensaje: string;
+}
+
+// ═══ Determinación (Impuesto Predial / Arbitrios) ═══
+
+export interface DeterminacionResult {
+  success: boolean;
+  mensaje: string;
+}

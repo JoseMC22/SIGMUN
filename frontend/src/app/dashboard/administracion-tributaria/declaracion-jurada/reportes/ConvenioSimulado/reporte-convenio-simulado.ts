@@ -6,13 +6,14 @@ import {
 } from "@/lib/reportes/reporte-service";
 import type { SimuladoConvenioData } from "@/actions/administracion-tributaria/declaracion-jurada";
 import type { PlantillaReporteData } from "@/actions/administracion-tributaria/reporte-convenio-simulado";
+import { toNum } from "@/lib/num";
 
 /**
  * Formato de montos del legacy: number_format(x, 2, ".", " ")
  * → "1 234.56" (espacio como separador de miles).
  */
 function fmtMonto(n: number): string {
-  const [entero, decimales] = (Number(n) || 0).toFixed(2).split(".");
+  const [entero, decimales] = toNum(n).toFixed(2).split(".");
   const conMiles = entero.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
   return `${conMiles}.${decimales}`;
 }

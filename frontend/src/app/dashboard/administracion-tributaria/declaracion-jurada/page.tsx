@@ -29,6 +29,7 @@ import { useAccess } from "@/lib/access-context";
 import ContribuyenteModal from "./contribuyente-modal";
 import RepresentantesModal from "./representantes-modal";
 import EstadoCuentaModal from "./estado-cuenta-modal";
+import DeclaracionJuradaDetalleModal from "./declaracion-jurada-detalle-modal";
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -135,6 +136,9 @@ export default function DeclaracionJuradaPage() {
 
   // ── Estado de Cuenta (modal) state ──
   const [estadoCuentaItem, setEstadoCuentaItem] = useState<ContribuyenteAnyItem | null>(null);
+
+  // ── Declaración Jurada Detalle (modal) state ──
+  const [djDetalleItem, setDjDetalleItem] = useState<ContribuyenteAnyItem | null>(null);
 
   const executeSearch = useCallback(
     async (pageNum: number, overrideFilters?: typeof filters) => {
@@ -760,7 +764,7 @@ export default function DeclaracionJuradaPage() {
                     <span className="pointer-events-none absolute -top-7 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-1.5 py-0.5 text-[9px] font-medium text-white opacity-0 shadow-lg transition group-hover:opacity-100">Eliminar</span>
                   </span>
                   <span className="group relative">
-                    <button type="button" onClick={() => alert("Por desarrollar")}
+                    <button type="button" onClick={() => setDjDetalleItem(item)}
                       className="inline-flex items-center justify-center rounded p-1 text-blue-600 transition hover:bg-blue-50 active:scale-95">
                       <FileText size={13} />
                     </button>
@@ -1035,6 +1039,29 @@ export default function DeclaracionJuradaPage() {
                   "",
               }
             : null
+        }
+      />
+
+      {/* Modal Declaración Jurada Detalle */}
+      <DeclaracionJuradaDetalleModal
+        isOpen={!!djDetalleItem}
+        onClose={() => setDjDetalleItem(null)}
+        contribuyente={
+          djDetalleItem
+            ? {
+                codigo: (djDetalleItem as any).codigo ?? "",
+                nombre:
+                  (djDetalleItem as any).nombresCompletos ??
+                  (djDetalleItem as any).nombre ??
+                  "",
+                documento:
+                  (djDetalleItem as any).numDoc ?? "",
+                domicilio:
+                  (djDetalleItem as any).direFis ??
+                  (djDetalleItem as any).direccion ??
+                  "",
+              }
+            : { codigo: "", nombre: "", documento: "", domicilio: "" }
         }
       />
 

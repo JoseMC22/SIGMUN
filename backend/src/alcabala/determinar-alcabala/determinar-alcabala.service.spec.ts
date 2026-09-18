@@ -295,6 +295,11 @@ describe('DeterminarAlcabalaService', () => {
         anio: '',
         codPred: '',
         tipoBusqueda: 'c',
+        nombres: '',
+        paterno: '',
+        materno: '',
+        numDoc: '',
+        razon: '',
         page: 1,
         pageSize: 15,
       });
@@ -308,11 +313,16 @@ describe('DeterminarAlcabalaService', () => {
     it('should call sp_DJAlcabala with buscar=3 and the mapped params', async () => {
       db.executeProcedure.mockResolvedValueOnce(mockSpResult([predioRow()]));
 
-      await service.searchPredios({
+await service.searchPredios({
         codigo: '0297596',
         anio: '2025',
         codPred: '',
         tipoBusqueda: 'c',
+        nombres: '',
+        paterno: '',
+        materno: '',
+        numDoc: '',
+        razon: '',
         page: 1,
         pageSize: 15,
       });
@@ -341,6 +351,11 @@ describe('DeterminarAlcabalaService', () => {
         anio: '2025',
         codPred: '',
         tipoBusqueda: 'c',
+        nombres: '',
+        paterno: '',
+        materno: '',
+        numDoc: '',
+        razon: '',
         page: 1,
         pageSize: 15,
       });
@@ -372,6 +387,11 @@ describe('DeterminarAlcabalaService', () => {
         anio: '2025',
         codPred: '',
         tipoBusqueda: 'c',
+        nombres: '',
+        paterno: '',
+        materno: '',
+        numDoc: '',
+        razon: '',
         page: 1,
         pageSize: 15,
       });
@@ -388,6 +408,11 @@ describe('DeterminarAlcabalaService', () => {
         anio: '2025',
         codPred: '',
         tipoBusqueda: 'c',
+        nombres: '',
+        paterno: '',
+        materno: '',
+        numDoc: '',
+        razon: '',
         page: 1,
         pageSize: 15,
       });
@@ -419,6 +444,11 @@ describe('DeterminarAlcabalaService', () => {
         anio: '2025',
         codPred: '',
         tipoBusqueda: 'c',
+        nombres: '',
+        paterno: '',
+        materno: '',
+        numDoc: '',
+        razon: '',
         page: 1,
         pageSize: 15,
       });

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   getOpPdfBase64Action,
-  getDeclaracionPdfBase64Action,
+  getDeclaracionHtmlAction,
 } from "./impresion-dj-alcabala";
 
 // Mock next/headers so the server action can run under Vitest (jsdom).
@@ -54,21 +54,22 @@ describe("getOpPdfBase64Action", () => {
   });
 });
 
-describe("getDeclaracionPdfBase64Action", () => {
+describe("getDeclaracionHtmlAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("returns a base64 string when the endpoint responds 200 with a PDF body", async () => {
+  it("returns the HTML string when the endpoint responds 200", async () => {
+    const declaracionHtml = "<html><body>Declaración de Alcabala</body></html>";
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
-      arrayBuffer: () => Promise.resolve(pdfBytes.buffer),
+      text: () => Promise.resolve(declaracionHtml),
     });
 
-    const result = await getDeclaracionPdfBase64Action(11772);
+    const result = await getDeclaracionHtmlAction(11772);
 
-    expect(result).toBe(expectedBase64);
+    expect(result).toBe(declaracionHtml);
     const callUrl = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
     expect(callUrl).toContain("/alcabala/impresion-dj-alcabala/declaracion-pdf/11772");
   });
@@ -77,10 +78,10 @@ describe("getDeclaracionPdfBase64Action", () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 404,
-      arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
+      json: vi.fn().mockRejectedValue(new Error("Not found")),
     });
 
-    const result = await getDeclaracionPdfBase64Action(999999);
+    const result = await getDeclaracionHtmlAction(999999);
 
     expect(result).toBeNull();
   });
@@ -88,7 +89,7 @@ describe("getDeclaracionPdfBase64Action", () => {
   it("returns null when the fetch throws", async () => {
     global.fetch = vi.fn().mockRejectedValue(new Error("Network failure"));
 
-    const result = await getDeclaracionPdfBase64Action(11772);
+    const result = await getDeclaracionHtmlAction(11772);
 
     expect(result).toBeNull();
   });

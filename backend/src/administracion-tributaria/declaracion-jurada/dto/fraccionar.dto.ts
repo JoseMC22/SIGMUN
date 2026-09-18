@@ -190,6 +190,18 @@ export const AnularConvenioSchema = z.object({
 });
 export type AnularConvenioDto = z.infer<typeof AnularConvenioSchema>;
 
+// ── 4f) reporte tesorería (Rentas.ImprimeConvenio @buscar=8) ─────────────
+/** Filtros del reporte de tesorería (consulta más amplia que el grid). */
+export const ReporteFraccionamientosConsultaSchema = z.object({
+  desde: z.string().min(1, 'La fecha desde es obligatoria.'),
+  hasta: z.string().min(1, 'La fecha hasta es obligatoria.'),
+  /** Usuario seleccionado en el combo ('' = todos los usuarios). */
+  operador: z.string().optional().default(''),
+});
+export type ReporteFraccionamientosConsultaDto = z.infer<
+  typeof ReporteFraccionamientosConsultaSchema
+>;
+
 
 
 // ── 5) lookup de apoderado ──────────────────────────────────────────────

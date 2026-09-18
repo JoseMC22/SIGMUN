@@ -10,6 +10,7 @@ import {
 } from "@/actions/administracion-tributaria/declaracion-jurada";
 import { getAnioOptions } from "@/lib/forms/anios";
 import { useModalStack, isTopModal } from "@/hooks/use-modal-topmost";
+import { toNum } from "@/lib/num";
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -181,7 +182,7 @@ export default function GenerarDeudaModal({
     Number.isFinite(anioDesdeNum) &&
     Number.isFinite(anioHastaNum) &&
     anioDesdeNum > anioHastaNum;
-  const montoNum = Number(form.monto);
+  const montoNum = toNum(form.monto);
   const montoInvalid = form.monto !== "" && (!Number.isFinite(montoNum) || montoNum <= 0);
   const formInvalid =
     !form.concepto ||
@@ -224,7 +225,7 @@ export default function GenerarDeudaModal({
         anio_desde: form.anioDesde,
         anio_hasta: form.anioHasta,
         codigo_infraccion: form.concepto,
-        monto_multa: Number(form.monto),
+        monto_multa: toNum(form.monto),
         fecha_multa: form.fecha,
         operador,
         estacion: estacionResolved,

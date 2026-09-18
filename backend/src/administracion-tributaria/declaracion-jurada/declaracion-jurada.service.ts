@@ -37,6 +37,14 @@ import {
   LiquidacionReporteDetalle,
   DeudaConsolidadoData,
   GenerarDeudaConcepto,
+  PeriodoAnno,
+  PeriodoDetalle,
+  PredioDJItem,
+  HojaResumenComboOption,
+  HojaResumenCombosResult,
+  HojaResumenEditarResult,
+  GuardarHojaResumenResult,
+  DeterminacionResult,
 } from './dto/declaracion-jurada.types';
 import { EstadoCuentaRecibosDto } from './dto/estado-cuenta-recibos.dto';
 import { DeudaConsolidadoDto } from './dto/deuda-consolidado.dto';
@@ -49,6 +57,11 @@ import { VincularRepresentanteDto } from './dto/vincular-representante.dto';
 import { EliminarContribuyenteDto } from './dto/eliminar-contribuyente.dto';
 import { EliminarRepresentanteDto } from './dto/eliminar-representante.dto';
 import type { SimuladoConvenioDto, GenerarConvenioDto } from './dto/fraccionar.dto';
+import { GuardarHojaResumenDto } from './dto/guardar-hoja-resumen.dto';
+import type {
+  DeterminacionIpDto,
+  DeterminacionArbitriosDto,
+} from './dto/determinacion.dto';
 
 @Injectable()
 export class DeclaracionJuradaService {
@@ -59,6 +72,8 @@ export class DeclaracionJuradaService {
   private readonly SP_TBLDISTRITO = 'Contenedor.SP_TblDistrito';
   private readonly SP_VW_MVIAS = 'Rentas.SP_vw_Mvias';
   private readonly SP_CAJA_FRAMEWORK = 'dbo.store_caja_framework';
+  private readonly SP_MHRPRED = 'Rentas.sp_MHRpred';
+  private readonly SP_LISTA_COMBO = 'Calculo.sp_ListaCombo';
   private readonly logger = new Logger(DeclaracionJuradaService.name);
 
   constructor(private readonly db: DatabaseService) {}
@@ -2742,5 +2757,446 @@ export class DeclaracionJuradaService {
             : 'Error al anular el convenio sin cargos.',
       };
     }
+  }
+
+  /**
+   * Reporte de tesorería de fraccionamientos (legacy: fraccionar/reporteconsulta).
+   * SP: Rentas.ImprimeConvenio @buscar=8 con @fech_inicio, @fech_fin, @operador.
+   * Mapeo por índice de columna (igual que el legacy):
+   *   [0] codigo | [1] anno | [2] convenio | [3] estado | [4] fecha |
+   *   [5] deuda_ini | [6] cuotas | [7] cuotas_canceladas |
+   *   [8] cuotas_vencidas | [9] operador
+   */
+  async getReporteFraccionamientos(dto: {
+    desde: string;
+    hasta: string;
+    operador: string;
+  }): Promise<{
+    success: boolean;
+    data?: Array<{
+      codigo: string;
+      anno: string;
+      convenio: string;
+      estado: string;
+      fecha: string;
+      deudaIni: string;
+      cuotas: string;
+      cuotasCanceladas: string;
+      cuotasVencidas: string;
+      operador: string;
+    }>;
+    message: string;
+  }> {
+    try {
+      const result = await this.db.executeProcedure<any>(
+        'Rentas.ImprimeConvenio',
+        {
+          buscar: 8,
+          fech_inicio: dto.desde,
+          fech_fin: dto.hasta,
+          operador: dto.operador,
+        },
+      );
+      const rows = (result.recordset ?? []) as Record<string, unknown>[];
+      const data = rows.map((row) => {
+        const v = Object.values(row).map((x) =>
+          x instanceof Date
+            ? x.toLocaleDateString('es-PE')
+            : String(x ?? '').trim(),
+        );
+        return {
+          codigo: v[0] ?? '',
+          anno: v[1] ?? '',
+          convenio: v[2] ?? '',
+          estado: v[3] ?? '',
+          fecha: v[4] ?? '',
+          deudaIni: v[5] ?? '',
+          cuotas: v[6] ?? '',
+          cuotasCanceladas: v[7] ?? '',
+          cuotasVencidas: v[8] ?? '',
+          operador: v[9] ?? '',
+        };
+      });
+      return { success: true, data, message: 'ok' };
+    } catch (error) {
+      this.logger.error('Error al consultar el reporte de tesorería:', error);
+      return {
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Error al consultar el reporte de tesorería.',
+      };
+    }
+  }
+
+  /**
+   * Filtros iniciales del reporte de tesorería (legacy: fraccionar/reportesAction):
+   *   - dbo.sp_getfecha → fecha del sistema (desde = hasta = hoy)
+   *   - Calculo.sp_ListaCombo @busc=8 → combo de usuarios
+   */
+  async getReporteFraccionamientosFiltros(): Promise<{
+    success: boolean;
+    data?: { desde: string; hasta: string; usuarios: Array<{ value: string; label: string }> };
+    message: string;
+  }> {
+    try {
+      const [fechaResult, combosResult] = await Promise.all([
+        this.db.executeProcedure<Record<string, unknown>>('dbo.sp_getfecha'),
+        this.db.executeProcedure<any>('Calculo.sp_ListaCombo', { busc: 8 }),
+      ]);
+      const fechaRow = fechaResult.recordset?.[0] as
+        | Record<string, unknown>
+        | undefined;
+      const fechaVal = fechaRow ? Object.values(fechaRow)[0] : undefined;
+      const fecha =
+        fechaVal instanceof Date
+          ? fechaVal.toLocaleDateString('es-PE')
+          : String(fechaVal ?? '');
+
+      const comboRows = (combosResult.recordset ?? []) as Record<string, unknown>[];
+      const usuarios = comboRows.map((row) => {
+        const v = Object.values(row).map((x) => String(x ?? '').trim());
+        return { value: v[0] ?? '', label: v[1] ?? v[0] ?? '' };
+      });
+
+      return {
+        success: true,
+        data: { desde: fecha, hasta: fecha, usuarios },
+        message: 'ok',
+      };
+    } catch (error) {
+      this.logger.error('Error al cargar los filtros del reporte:', error);
+      return {
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Error al cargar los filtros del reporte.',
+      };
+    }
+  }
+
+  // ═══ Períodos / Declaración Jurada (sp_rentasmain @buscar=1,2,4) ═══════════
+
+  /**
+   * Lista de períodos (años) de un contribuyente — @buscar=1.
+   */
+  async getPeriodos(codigo: string): Promise<PeriodoAnno[]> {
+    if (!codigo?.trim()) throw new Error('Código de contribuyente requerido.');
+    const result = await this.db.executeProcedure<any>(this.SP_RENTASMAIN, {
+      buscar: 1,
+      codigo: codigo.trim(),
+    });
+    const rows = (result.recordset ?? []) as Record<string, unknown>[];
+    return rows.map((row) => {
+      const v = Object.values(row).map((x) => String(x ?? '').trim());
+      return { anno: v[1] ?? v[0] ?? '' };
+    });
+  }
+
+  /**
+   * Resumen de un período — @buscar=2.
+   */
+  async getPeriodoDetalle(codigo: string, anno: string): Promise<PeriodoDetalle> {
+    if (!codigo?.trim()) throw new Error('Código de contribuyente requerido.');
+    if (!anno?.trim()) throw new Error('Período requerido.');
+    const result = await this.db.executeProcedure<any>(this.SP_RENTASMAIN, {
+      buscar: 2,
+      codigo: codigo.trim(),
+      anno: anno.trim(),
+    });
+    const row = (result.recordset?.[0] ?? {}) as Record<string, unknown>;
+    const v = Object.values(row).map((x) => String(x ?? '').trim());
+    return {
+      codigo: v[0] ?? '',
+      anno: v[1] ?? '',
+      nroPredi: v[8] ?? '0',
+      totAutoavaluo: v[2] ?? '0.00',
+      baseImponible: v[4] ?? '0.00',
+      impAnual: v[5] ?? '0.00',
+      impTrime: v[6] ?? '0.00',
+      costoEmi: v[9] ?? '0.00',
+      porInafec: v[13] ?? '',
+    };
+  }
+
+  /**
+   * Predios de un contribuyente en un período — @buscar=4.
+   */
+  async getPrediosDJ(codigo: string, anno: string): Promise<PredioDJItem[]> {
+    if (!codigo?.trim()) throw new Error('Código de contribuyente requerido.');
+    if (!anno?.trim()) throw new Error('Período requerido.');
+    const result = await this.db.executeProcedure<any>(this.SP_RENTASMAIN, {
+      buscar: 4,
+      codigo: codigo.trim(),
+      anno: anno.trim(),
+    });
+    const rows = (result.recordset ?? []) as Record<string, unknown>[];
+    return rows.map((row) => {
+      const v = Object.values(row).map((x) => String(x ?? '').trim());
+      // Prioriza columnas por nombre (aliases del SP); cae a posición si no hay nombre.
+      const get = (name: string, pos: number): string => {
+        const named = row[name];
+        return named !== undefined && named !== null
+          ? String(named).trim()
+          : v[pos] ?? '';
+      };
+      return {
+        tipo: get('tipo', 8),
+        codPred: get('cod_pred', 2),
+        // Defensa: si el anexo llegara con un sufijo separado por coma, se conserva solo la parte principal.
+        anexo: (get('anexo', 3) || '').split(',')[0],
+        direccion: get('direccion', 4),
+        areaTerreno: get('area_terreno', 5) || '0',
+        porcenPropiedad: get('porcen_propiedad', 6) || '0',
+        totalAutoavaluo: get('total_autoavaluo', 7) || '0.00',
+        arancel: get('arancel', 12),
+        predioVendido: get('predio_vendido', 11),
+        uso: get('uso', 13),
+      };
+    });
+  }
+
+  // ═══ Hoja de Resumen predial (Rentas.sp_MHRpred) ═══════════
+
+  /**
+   * Combos de la Hoja de Resumen — Calculo.sp_ListaCombo:
+   *   @busc=1 → régimen, @busc=2 → motivo.
+   */
+  async getHojaResumenCombos(): Promise<HojaResumenCombosResult> {
+    const [regRes, motRes] = await Promise.all([
+      this.db.executeProcedure<any>(this.SP_LISTA_COMBO, { busc: 1 }),
+      this.db.executeProcedure<any>(this.SP_LISTA_COMBO, { busc: 2 }),
+    ]);
+
+    const mapCombo = (rows: any[]): HojaResumenComboOption[] =>
+      rows.map((row) => {
+        const v = Object.values(row).map((x) => String(x ?? '').trim());
+        return { value: v[0] ?? '', label: v[1] ?? v[0] ?? '' };
+      });
+
+    return {
+      regimen: mapCombo(regRes.recordset ?? []),
+      motivos: mapCombo(motRes.recordset ?? []),
+    };
+  }
+
+  /**
+   * Hoja de Resumen existente para edición — Rentas.sp_MHRpred @busc=3.
+   * Si no existe, lanza Error (el controller lo devuelve como success:false).
+   */
+  async getHojaResumenEditar(codigo: string, anno: string): Promise<HojaResumenEditarResult> {
+    if (!codigo?.trim()) throw new Error('Código de contribuyente requerido.');
+    if (!anno?.trim()) throw new Error('Período requerido.');
+
+    const result = await this.db.executeProcedure<any>(this.SP_MHRPRED, {
+      busc: 3,
+      codigo: codigo.trim(),
+      anno: anno.trim(),
+    });
+
+    const row = result.recordset?.[0] as Record<string, unknown> | undefined;
+    if (!row) throw new Error('Hoja de Resumen no encontrada para el período seleccionado.');
+
+    // Columnas reales de Rentas.sp_MHRpred @busc=3 (verificadas contra el
+    // recordset del SP y el hrAction legado; posición 0-based como fallback):
+    //   [0] codigo        [1] anno          [2] num_decla   [3] fec_decla
+    //   [4] fec_ingre     [5] id_motivo     [6] id_inafec   [7] tot_autoavaluo
+    //   [8] porc_inafectac[9] base_imponible[10] imp_anual  [11] imp_trime
+    //   [12] afect_emi    [13] nro_predi    [14] costo_emi  [15] base_legal
+    //   [16] nume_resol   [17] expe_exone   [18] fech_resol [19] vigencia_desde
+    //   [20] vigencia_hasta [21] observacion [22] nestado   [23] operador
+    //   [24] estacion     [25] fech_ing     [26] nombres    [27] anno_hasta
+    //   [28] afectacion
+    const raw = Object.values(row);
+    const low: Record<string, unknown> = {};
+    for (const k of Object.keys(row)) low[k.toLowerCase()] = row[k];
+
+    const toText = (x: unknown): string => {
+      if (x === undefined || x === null) return '';
+      if (x instanceof Date) return Number.isNaN(x.getTime()) ? '' : x.toISOString().slice(0, 10);
+      return String(x).trim();
+    };
+    const txt = (name: string, pos: number): string => {
+      const named = low[name.toLowerCase()];
+      return named !== undefined ? toText(named) : toText(raw[pos]);
+    };
+    // Fecha → DD/MM/YYYY (lo que espera el frontend, que lo convierte a YYYY-MM-DD).
+    const toFecha = (x: unknown): string => {
+      if (x === undefined || x === null) return '';
+      const s = String(x instanceof Date ? x.toISOString().slice(0, 10) : String(x)).trim();
+      const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+      return s;
+    };
+    const fch = (name: string, pos: number): string => {
+      const named = low[name.toLowerCase()];
+      return toFecha(named !== undefined ? named : raw[pos]);
+    };
+    // Extrae el año (4 dígitos) de un valor que puede ser fecha o año plano.
+    const yr = (name: string, pos: number): string => {
+      const named = low[name.toLowerCase()];
+      const x = named !== undefined ? named : raw[pos];
+      if (x === undefined || x === null) return '';
+      if (x instanceof Date) return String(x.getFullYear());
+      const m = String(x).match(/\b(\d{4})\b/);
+      return m ? m[1] : '';
+    };
+
+    // afect_emi viene como 'Checked'/'Unchecked' (puede variar a 1/0 según driver).
+    const emi = txt('afect_emi', 12).toLowerCase();
+
+    return {
+      codigo: txt('codigo', 0),
+      anno: txt('anno', 1),
+      numResol: txt('nume_resol', 16),
+      fecResol: fch('fech_resol', 18),
+      nroExpediente: txt('expe_exone', 17),
+      baseLegal: txt('base_legal', 15),
+      regimen: txt('id_inafec', 6),
+      motivo: txt('id_motivo', 5),
+      // Años de vigencia (txthrdesde/txthrhasta en el legado): el desde es el
+      // año de la propia HR; el hasta es anno_hasta. Si vienen vacíos se deriva
+      // de las fechas vigencia_desde/vigencia_hasta.
+      vigDesde: yr('anno', 1) || yr('vigencia_desde', 19),
+      vigHasta: yr('anno_hasta', 27) || yr('vigencia_hasta', 20),
+      observacion: txt('observacion', 21),
+      bloquearEmi: emi === '1' || emi === 'checked' || emi === 'true' ? '1' : '',
+      usuarioReg: txt('operador', 23),
+      fechaReg: fch('fech_ing', 25),
+      estacionReg: txt('estacion', 24),
+      numDecla: txt('num_decla', 2),
+      fecDecla: fch('fec_decla', 3),
+      fecVigDesde: fch('vigencia_desde', 19),
+      fecVigHasta: fch('vigencia_hasta', 20),
+      // Totales de la DJ asociada (bloque readonly "Datos para el registro
+      // de la DDJJ"); se devuelven formateados igual que el legado.
+      nroPredios: txt('nro_predi', 13),
+      totalAutovaluo: txt('tot_autoavaluo', 7),
+      baseImponible: txt('base_imponible', 9),
+      impAnual: txt('imp_anual', 10),
+      impTrimestral: txt('imp_trime', 11),
+      costoEmision: txt('costo_emi', 14),
+    };
+  }
+
+  /**
+   * Guardar Hoja de Resumen — Rentas.generahr (grabarAction del legado).
+   * El mismo SP crea y actualiza (upsert por codigo+anno); no hay switch
+   * de acción. afect_emi se manda como 'true'/'false', igual que el
+   * checkbox jQuery del formulario legado.
+   * Devuelve { success, mensaje } con la primera columna del result set,
+   * o el mensaje genérico del legado si el SP no retorna filas.
+   */
+  async grabarHojaResumen(dto: GuardarHojaResumenDto): Promise<GuardarHojaResumenResult> {
+    // Fechas en formato no ambiguo YYYYMMDD: si van como varchar con
+    // DD/MM/YYYY, SQL Server las convierte a smalldatetime según el
+    // DATEFORMAT de la sesión (mdy por defecto) y falla con días > 12.
+    const iso = (v: string): string => {
+      const s = (v ?? '').trim();
+      if (!s) return '';
+      const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      if (m) return `${m[3]}${m[2]}${m[1]}`;
+      const ymd = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (ymd) return `${ymd[1]}${ymd[2]}${ymd[3]}`;
+      return s;
+    };
+
+    const result = await this.db.executeProcedure<any>('Rentas.generahr', {
+      desde: dto.vig_desde ?? '',
+      hasta: dto.vig_hasta ?? '',
+      codigo: dto.codigo ?? '',
+      anno: dto.anno ?? '',
+      operador: dto.operador ?? '',
+      estacion: dto.estacion ?? '',
+      fech_resol: iso(dto.fec_resol ?? ''),
+      base_legal: dto.base_legal ?? '',
+      vigencia_desde: iso(dto.fec_vig_desde ?? ''),
+      vigencia_hasta: iso(dto.fec_vig_hasta ?? ''),
+      expe_exone: dto.nro_expediente ?? '',
+      id_motivo: dto.motivo ?? '',
+      id_inafec: dto.regimen ?? '',
+      nume_resol: dto.num_resol ?? '',
+      observacion: dto.observacion ?? '',
+      afect_emi: dto.bloquear_emi === '1' ? 'true' : 'false',
+    });
+
+    const row = result.recordset?.[0] as { [key: string]: unknown } | undefined;
+    const mensaje = row ? String(Object.values(row)[0] ?? '').trim() : '';
+
+    const esError = /no se pudo|error|no existe|no encontrad|duplicad/i.test(mensaje);
+
+    return { success: !esError, mensaje };
+  }
+
+  // ═══ Determinación (Impuesto Predial / Arbitrios) ═══════════
+
+  /**
+   * Determinación del Impuesto Predial — [Rentas].[predial_determinar]
+   * (legacy: determinacionimpuesto4Action, siempre msquery=1, calculo='1').
+   * El mensaje de salida viene en la segunda columna del primer recordset.
+   */
+  async calcularDeterminacionIp(dto: DeterminacionIpDto): Promise<DeterminacionResult> {
+    if (!dto.codigo?.trim()) throw new Error('Código de contribuyente requerido.');
+    if (!dto.anno?.trim()) throw new Error('Período requerido.');
+
+    const result = await this.db.executeProcedure<any>('[Rentas].[predial_determinar]', {
+      msquery: 1,
+      codigo: dto.codigo.trim(),
+      anno: dto.anno.trim(),
+      calculo: '1',
+      operador: dto.operador ?? '',
+      estacion: dto.estacion ?? '',
+      tipo_calculo: dto.tipodeterminacion ?? '1',
+    });
+
+    const row = result.recordset?.[0] as Record<string, unknown> | undefined;
+    const mensaje = row ? String(Object.values(row)[1] ?? '').trim() : '';
+    if (!row || /problema|error|no se pudo/i.test(mensaje)) {
+      return { success: false, mensaje: mensaje || 'Ocurrió un problema al generar el IP.' };
+    }
+    return { success: true, mensaje };
+  }
+
+  /**
+   * Determinación de Arbitrios por predio — Rentas.Calculo_inquilinos
+   * (legacy: determinacionarbitrioAction, un exec por predio seleccionado).
+   * Devuelve el mensaje del último cálculo y el detalle por predio.
+   */
+  async calcularDeterminacionArbitrios(
+    dto: DeterminacionArbitriosDto,
+  ): Promise<DeterminacionResult> {
+    if (!dto.predios?.length) throw new Error('Debe seleccionar al menos un predio.');
+
+    const detalles: { codPred: string; mensaje: string }[] = [];
+    let ultimoMensaje = '';
+
+    for (const p of dto.predios) {
+      const result = await this.db.executeProcedure<any>('Rentas.Calculo_inquilinos', {
+        codigo: p.codigo ?? '',
+        ano_s: p.anno ?? '',
+        cod_pred: p.cod_pred ?? '',
+        anexo: p.anexo ?? '',
+        sub_anexo: p.sub_anexo ?? '',
+        operador: dto.operador ?? '',
+        estacion: dto.estacion ?? '',
+        tipo_calculo: p.tipodeterminacion ?? '1',
+      });
+
+      const row = result.recordset?.[0] as Record<string, unknown> | undefined;
+      const mensaje = row ? String(Object.values(row)[1] ?? '').trim() : '';
+      const ok = !!row && !/problema|error|no se pudo/i.test(mensaje);
+      detalles.push({
+        codPred: p.cod_pred ?? '',
+        mensaje: ok ? mensaje || 'Calculado.' : mensaje || 'Ocurrió un problema al calcular.',
+      });
+      if (!ok) {
+        return { success: false, mensaje: mensaje || 'Ocurrió un problema al generar los arbitrios.' };
+      }
+      if (mensaje) ultimoMensaje = mensaje;
+    }
+
+    return { success: true, mensaje: ultimoMensaje || 'Se generaron los arbitrios correctamente.' };
   }
 }

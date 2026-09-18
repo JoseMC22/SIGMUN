@@ -74,7 +74,7 @@ export default function BajaAlcabalaModal({
     try {
       const result = await onConfirm(motivo.trim());
       const success =
-        result && typeof result === "object" ? result.success : result !== false;
+        result && typeof result === "object" ? result.success : result !== undefined;
       if (!success) {
         const backendError =
           result && typeof result === "object" ? result.error : undefined;

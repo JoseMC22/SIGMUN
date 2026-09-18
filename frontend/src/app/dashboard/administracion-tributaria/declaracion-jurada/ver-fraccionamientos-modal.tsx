@@ -15,6 +15,7 @@ import {
 } from "./reportes/Convenio/reporte-convenio";
 import ReporteViewerModal from "@/components/reportes/reporte-viewer-modal";
 import DetalleConvenioModal from "./detalle-convenio-modal";
+import ReporteFraccionamientosModal from "./reporte-fraccionamientos-modal";
 import { useModalStack, isTopModal } from "@/hooks/use-modal-topmost";
 
 interface Props {
@@ -41,6 +42,8 @@ export default function VerFraccionamientosModal({
   > | null>(null);
   // Detalle de convenio (legacy: fraccionar/resolfracc) por fila
   const [detalleConvenio, setDetalleConvenio] = useState<string | null>(null);
+  // Reporte Tesorería (legacy: fraccionar/reportes — botón "Reporte")
+  const [isReporteFraccOpen, setIsReporteFraccOpen] = useState(false);
 
   // Modal-foco: solo el modal en la cima de la pila responde al Escape.
   const modalId = useModalStack(isOpen);
@@ -275,13 +278,24 @@ export default function VerFraccionamientosModal({
             <div className="min-w-0 flex-1">
               {error && <p className="text-[10px] text-red-600">{error}</p>}
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded border border-slate-300 bg-white px-3 py-1 text-[11px] font-medium text-slate-700 transition hover:bg-slate-50"
-            >
-              Salir
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                hidden
+                onClick={() => setIsReporteFraccOpen(true)}
+                title="Reporte de Tesorería — fraccionamientos emitidos por rango de fechas."
+                className="rounded border border-slate-300 bg-white px-3 py-1 text-[11px] font-medium text-slate-700 transition hover:bg-slate-50"
+              >
+                Reporte
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded border border-slate-300 bg-white px-3 py-1 text-[11px] font-medium text-slate-700 transition hover:bg-slate-50"
+              >
+                Salir
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -304,6 +318,12 @@ export default function VerFraccionamientosModal({
         codigoContribuyente={codigoContribuyente}
         nombreContribuyente={nombreContribuyente}
         convenio={detalleConvenio ?? undefined}
+      />
+
+      {/* ══ Reporte Tesorería (legacy: fraccionar/reportes) ══ */}
+      <ReporteFraccionamientosModal
+        isOpen={isReporteFraccOpen}
+        onClose={() => setIsReporteFraccOpen(false)}
       />
     </>
   );

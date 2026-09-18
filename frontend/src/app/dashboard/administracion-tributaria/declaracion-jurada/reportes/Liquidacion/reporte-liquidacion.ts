@@ -5,11 +5,12 @@ import {
 } from '@/lib/reportes/reporte-service';
 import type { LiquidacionReporteData } from '@/actions/administracion-tributaria/declaracion-jurada';
 import type { PlantillaReporteData } from '@/actions/administracion-tributaria/reporte-liquidacion';
+import { toNum } from '@/lib/num';
 
 // ─── Helpers ───────────────────────────────────────────────
 
-const fmt = (n: number) =>
-  n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmt = (n: unknown) =>
+  toNum(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 // ─── HTML (vista previa + impresión) ───────────────────────
 

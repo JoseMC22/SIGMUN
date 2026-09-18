@@ -179,7 +179,7 @@ describe("AccessContext", () => {
       expect(result.current.permissions.size).toBe(1);
 
       act(() => {
-        result.current.invalidatePermissions("42");
+        result.current.invalidatePermissions();
       });
 
       expect(result.current.permissions.size).toBe(0);

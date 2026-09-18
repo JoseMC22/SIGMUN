@@ -29,6 +29,7 @@ import { getStoredUser } from "@/lib/api";
 import ReporteViewerModal from "@/components/reportes/reporte-viewer-modal";
 import ConfirmDialog from "@/components/confirm-dialog";
 import type { ReportePdfConfig } from "@/lib/reportes/reporte-service";
+import { toNum } from "@/lib/num";
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -484,11 +485,11 @@ export default function EstadoCuentaModal({
 
   // ── Derived sums for selected rows ──
   const selected = rows.filter((r) => r.selected);
-  const sumInsol = selected.reduce((s, r) => s + r.impInsol, 0);
-  const sumReaj = selected.reduce((s, r) => s + r.impReaj, 0);
-  const sumInteres = selected.reduce((s, r) => s + r.interes, 0);
-  const sumCosto = selected.reduce((s, r) => s + r.costoEmision, 0);
-  const sumTotal = selected.reduce((s, r) => s + r.total, 0);
+  const sumInsol = selected.reduce((s, r) => toNum(s) + toNum(r.impInsol), 0);
+  const sumReaj = selected.reduce((s, r) => toNum(s) + toNum(r.impReaj), 0);
+  const sumInteres = selected.reduce((s, r) => toNum(s) + toNum(r.interes), 0);
+  const sumCosto = selected.reduce((s, r) => toNum(s) + toNum(r.costoEmision), 0);
+  const sumTotal = selected.reduce((s, r) => toNum(s) + toNum(r.total), 0);
 
   // ── Grid checkbox toggle (idrecibo is unique per row) ──
   const toggleRow = (idrecibo: string) =>
@@ -506,7 +507,7 @@ export default function EstadoCuentaModal({
 
   // ── "Mostrar": query debt receipts (sp_EstCta_Rentas family) ──
   // Collects every checked filter value and posts it to the backend.
-  const fmt = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmt = (n: unknown) => toNum(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const collectChecked = (
     items: GroupItem[],
     values: Record<string, boolean>,
@@ -883,7 +884,7 @@ export default function EstadoCuentaModal({
         parts[5] ?? '',
       ];
 
-      if (totalpagar < Number(montoMin)) {
+      if (toNum(totalpagar) < toNum(montoMin)) {
         setDeudaError(
           `La deuda a fraccionar no puede ser menor al ${porcFracc}% de la UIT actual.`,
         );

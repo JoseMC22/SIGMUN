@@ -33,6 +33,13 @@ import {
   VerPagosData,
   DeudaConsolidadoData,
   GenerarDeudaConcepto,
+  PeriodoAnno,
+  PeriodoDetalle,
+  PredioDJItem,
+  HojaResumenCombosResult,
+  HojaResumenEditarResult,
+  GuardarHojaResumenResult,
+  DeterminacionResult,
 } from './dto/declaracion-jurada.types';
 import {
   EstadoCuentaRecibosSchema,
@@ -73,6 +80,8 @@ import {
   ListadoFraccDto,
   AnularConvenioSchema,
   AnularConvenioDto,
+  ReporteFraccionamientosConsultaSchema,
+  ReporteFraccionamientosConsultaDto,
 } from './dto/fraccionar.dto';
 import {
   GuardarContribuyenteSchema,
@@ -94,6 +103,16 @@ import {
   EliminarRepresentanteSchema,
   EliminarRepresentanteDto,
 } from './dto/eliminar-representante.dto';
+import {
+  GuardarHojaResumenSchema,
+  GuardarHojaResumenDto,
+} from './dto/guardar-hoja-resumen.dto';
+import {
+  DeterminacionIpSchema,
+  DeterminacionIpDto,
+  DeterminacionArbitriosSchema,
+  DeterminacionArbitriosDto,
+} from './dto/determinacion.dto';
 
 @Controller('declaracion-jurada')
 @UseGuards(JwtAuthGuard)
@@ -1213,6 +1232,93 @@ export class DeclaracionJuradaController {
     }
   }
 
+  @Post('estado-cuenta/fraccionar/reporte-consulta')
+  async fraccionarReporteConsulta(
+    @Body() dto: ReporteFraccionamientosConsultaDto,
+  ): Promise<
+    | {
+        success: true;
+        rows: Array<{
+          codigo: string;
+          anno: string;
+          convenio: string;
+          estado: string;
+          fecha: string;
+          deudaIni: string;
+          cuotas: string;
+          cuotasCanceladas: string;
+          cuotasVencidas: string;
+          operador: string;
+        }>;
+      }
+    | { success: false; error: string }
+  > {
+    let parsed: ReporteFraccionamientosConsultaDto;
+    try {
+      parsed = ReporteFraccionamientosConsultaSchema.parse(dto);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const messages = error.issues.map((i) => i.message).join(', ');
+        throw new BadRequestException({
+          success: false,
+          error: messages || 'Datos de entrada inválidos.',
+        });
+      }
+      throw new BadRequestException({
+        success: false,
+        error: 'Datos de entrada inválidos.',
+      });
+    }
+    try {
+      const r = await this.service.getReporteFraccionamientos({
+        desde: parsed.desde,
+        hasta: parsed.hasta,
+        operador: parsed.operador,
+      });
+      if (!r.success || !r.data) {
+        return { success: false, error: r.message };
+      }
+      return { success: true, rows: r.data };
+    } catch (error) {
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Error al consultar el reporte de tesorería.',
+      };
+    }
+  }
+
+  @Get('estado-cuenta/fraccionar/reporte-filtros')
+  async fraccionarReporteFiltros(): Promise<
+    | {
+        success: true;
+        data: {
+          desde: string;
+          hasta: string;
+          usuarios: Array<{ value: string; label: string }>;
+        };
+      }
+    | { success: false; error: string }
+  > {
+    try {
+      const r = await this.service.getReporteFraccionamientosFiltros();
+      if (!r.success || !r.data) {
+        return { success: false, error: r.message };
+      }
+      return { success: true, data: r.data };
+    } catch (error) {
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Error al cargar los filtros del reporte.',
+      };
+    }
+  }
+
   @Post('estado-cuenta/fraccionar/apoderado')
   async fraccionarApoderado(
     @Body() dto: FraccionarApoderadoDto,
@@ -1249,6 +1355,152 @@ export class DeclaracionJuradaController {
           error instanceof Error
             ? error.message
             : 'Error al consultar el apoderado.',
+      };
+    }
+  }
+
+  // ═══ Períodos / Declaración Jurada (sp_rentasmain @buscar=1,2,4) ═══════════
+
+  @Get('periodos')
+  async getPeriodos(
+    @Query('codigo') codigo: string,
+  ): Promise<{ success: true; data: PeriodoAnno[] } | { success: false; error: string }> {
+    try {
+      const data = await this.service.getPeriodos(codigo ?? '');
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error al cargar períodos.' };
+    }
+  }
+
+  @Get('periodo-detalle')
+  async getPeriodoDetalle(
+    @Query('codigo') codigo: string,
+    @Query('anno') anno: string,
+  ): Promise<{ success: true; data: PeriodoDetalle } | { success: false; error: string }> {
+    try {
+      const data = await this.service.getPeriodoDetalle(codigo ?? '', anno ?? '');
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error al cargar detalle del período.' };
+    }
+  }
+
+  @Get('predios-dj')
+  async getPrediosDJ(
+    @Query('codigo') codigo: string,
+    @Query('anno') anno: string,
+  ): Promise<{ success: true; data: PredioDJItem[] } | { success: false; error: string }> {
+    try {
+      const data = await this.service.getPrediosDJ(codigo ?? '', anno ?? '');
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error al cargar predios.' };
+    }
+  }
+
+  // ═══ Hoja de Resumen predial (Rentas.sp_MHRpred) ═══════════
+
+  @Get('hoja-resumen/combos')
+  async getHojaResumenCombos(): Promise<{ success: true; data: HojaResumenCombosResult } | { success: false; error: string }> {
+    try {
+      const data = await this.service.getHojaResumenCombos();
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error al cargar combos.' };
+    }
+  }
+
+  @Get('hoja-resumen/editar')
+  async getHojaResumenEditar(
+    @Query('codigo') codigo: string,
+    @Query('anno') anno: string,
+  ): Promise<{ success: true; data: HojaResumenEditarResult } | { success: false; error: string }> {
+    try {
+      const data = await this.service.getHojaResumenEditar(codigo ?? '', anno ?? '');
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error al obtener hoja de resumen.' };
+    }
+  }
+
+  @Post('hoja-resumen/guardar')
+  async guardarHojaResumen(
+    @Body() dto: GuardarHojaResumenDto,
+  ): Promise<{ success: true; data: GuardarHojaResumenResult } | { success: false; error: string }> {
+    let parsed: GuardarHojaResumenDto;
+    try {
+      parsed = GuardarHojaResumenSchema.parse(dto);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const messages = error.issues.map((issue) => issue.message).join(', ');
+        throw new BadRequestException({
+          success: false,
+          error: messages || 'Datos de entrada inválidos.',
+        });
+      }
+      throw new BadRequestException({
+        success: false,
+        error: 'Datos de entrada inválidos.',
+      });
+    }
+    try {
+      const data = await this.service.grabarHojaResumen(parsed);
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error al guardar hoja de resumen.',
+      };
+    }
+  }
+
+  // ═══ Determinación (Impuesto Predial / Arbitrios) ═══════════
+
+  @Post('determinacion/impuesto')
+  async determinacionImpuesto(
+    @Body() dto: DeterminacionIpDto,
+  ): Promise<{ success: true; data: DeterminacionResult } | { success: false; error: string }> {
+    let parsed: DeterminacionIpDto;
+    try {
+      parsed = DeterminacionIpSchema.parse(dto);
+    } catch (error) {
+      throw new BadRequestException({
+        success: false,
+        error: error instanceof ZodError ? error.issues.map((i) => i.message).join(', ') : 'Datos de entrada inválidos.',
+      });
+    }
+    try {
+      const data = await this.service.calcularDeterminacionIp(parsed);
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error al calcular el IP.',
+      };
+    }
+  }
+
+  @Post('determinacion/arbitrios')
+  async determinacionArbitrios(
+    @Body() dto: DeterminacionArbitriosDto,
+  ): Promise<{ success: true; data: DeterminacionResult } | { success: false; error: string }> {
+    let parsed: DeterminacionArbitriosDto;
+    try {
+      parsed = DeterminacionArbitriosSchema.parse(dto);
+    } catch (error) {
+      throw new BadRequestException({
+        success: false,
+        error: error instanceof ZodError ? error.issues.map((i) => i.message).join(', ') : 'Datos de entrada inválidos.',
+      });
+    }
+    try {
+      const data = await this.service.calcularDeterminacionArbitrios(parsed);
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error al calcular arbitrios.',
       };
     }
   }

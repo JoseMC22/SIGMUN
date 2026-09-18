@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { X, Search, Loader2, ChevronLeft, ChevronRight, MapPin } from "lucide-react";
 import { searchViasAction, type MviaItem } from "@/actions/administracion-tributaria/declaracion-jurada";
+import { toNum } from "@/lib/num";
 
 interface Props {
   isOpen: boolean;
@@ -183,7 +184,7 @@ export default function ViaBusquedaModal({ isOpen, onClose, onSelect }: Props) {
                       <td className="px-2.5 py-1.5 text-center text-slate-600">{via.nCuadra}</td>
                       <td className="px-2.5 py-1.5 text-center text-slate-600">{via.nLado}</td>
                        <td className="px-2.5 py-1.5 text-right font-mono text-slate-700">
-                         {Number(via.arancel).toLocaleString("es-PE", {
+                         {toNum(via.arancel).toLocaleString("es-PE", {
                            minimumFractionDigits: 2,
                            maximumFractionDigits: 2,
                          })}

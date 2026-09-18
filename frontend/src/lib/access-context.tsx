@@ -40,7 +40,7 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
       if (result.success && result.data) {
         const map = new Map<string, boolean>();
         for (const p of result.data) {
-          map.set(p.id_objeto, p.bacceso === 1 || p.bacceso === true);
+          map.set(p.id_objeto, Boolean(p.bacceso));
         }
         setPermissions(map);
       } else {

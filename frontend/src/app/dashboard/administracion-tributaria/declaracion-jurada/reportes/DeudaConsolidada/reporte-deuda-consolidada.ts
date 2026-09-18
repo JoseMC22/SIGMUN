@@ -8,11 +8,12 @@ import type {
   DeudaConsolidadoFila,
 } from '@/actions/administracion-tributaria/declaracion-jurada';
 import type { PlantillaReporteData } from '@/actions/administracion-tributaria/reporte-deuda-consolidada';
+import { toNum } from '@/lib/num';
 
 // ─── Helpers ───────────────────────────────────────────────
 
-const fmt = (n: number) =>
-  n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmt = (n: unknown) =>
+  toNum(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 /**
  * Agrupa las filas por año (como el reporte legacy) y construye el HTML.
@@ -74,7 +75,7 @@ export function construirHtmlDeudaConsolidada(
   let totalGeneral = 0;
 
   for (const [anno, group] of yearGroups) {
-    const subtotal = group.reduce((s, f) => s + f.saldo, 0);
+    const subtotal = group.reduce((s, f) => toNum(s) + toNum(f.saldo), 0);
     totalGeneral += subtotal;
 
     const detailRows = group
