@@ -863,3 +863,32 @@ export async function importarExcelAction(registros: ImportarExcelRegistro[]) {
     return { success: false as const, error: error instanceof Error ? error.message : "Error de conexión" };
   }
 }
+
+// ── Historial de Modificaciones (Auditoría) ─────────────
+
+export interface HistorialModificacionItem {
+  id: string;
+  fechaHora: string;
+  usuario: string;
+  estacion: string;
+  campo: string;
+  valorAnterior: string;
+  valorNuevo: string;
+  observacion: string;
+}
+
+export async function obtenerHistorialModificacionesAction(ninfrac: string) {
+  try {
+    const response = await authFetch(`/papeleta-transito/acciones/historial-modificaciones/${encodeURIComponent(ninfrac)}`, {
+      method: "GET",
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      return { success: false as const, error: (err as { message?: string }).message ?? `Error ${response.status}` };
+    }
+    const json = await response.json();
+    return { success: true as const, data: (json.data ?? []) as HistorialModificacionItem[] };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : "Error de conexión" };
+  }
+}

@@ -190,6 +190,20 @@ export class AccionesInfraccionService {
         params.xfecharesolucion = dto.fechaResolucion ?? '';
       }
 
+      // Consultar registro previo oficial si es edición para auditoría
+      let prevRecord: any = null;
+      const papeletaId = String(dto.papeleta ?? '').trim();
+      if (dto.operacion === 1 && papeletaId) {
+        try {
+          const detailRes = await this.cargarDetalleInfraccion({ ninfrac: papeletaId });
+          if (detailRes.success && detailRes.data) {
+            prevRecord = detailRes.data;
+          }
+        } catch (errDet) {
+          this.logger.warn('Error obteniendo detalle previo para auditoría:', errDet);
+        }
+      }
+
       const result = await this.db.executeProcedure('papeleta.ingreso_papeleta', params);
       const row = result.recordset?.[0];
       const vals = row ? Object.values(row) : [];
@@ -199,6 +213,60 @@ export class AccionesInfraccionService {
       if (code === 'XXX' || mensaje.includes('No tiene Acceso')) {
         this.logger.warn(`Infracción no grabada por SP: ${mensaje}`);
         return { success: false, message: mensaje };
+      }
+
+      // Grabar auditoría de cambios si es edición (operacion === 1)
+      if (dto.operacion === 1 && papeletaId) {
+        const cambios: string[] = [];
+        if (prevRecord) {
+          const oldDosaje = String(prevRecord.dosaje ?? '').trim();
+          const newDosaje = String(dto.dosaje ?? '').trim();
+          if (oldDosaje !== newDosaje) {
+            cambios.push(`Dosaje: ${oldDosaje || '0'} → ${newDosaje}`);
+          }
+          const oldInfr = String(prevRecord.codigoInfraccion ?? '').trim();
+          const newInfr = String(dto.codigoInfraccion ?? '').trim();
+          if (oldInfr !== newInfr && newInfr !== '') {
+            cambios.push(`Infracción: ${oldInfr} → ${newInfr}`);
+          }
+          const oldPlaca = String(prevRecord.numeroPlaca ?? prevRecord.placa ?? '').trim();
+          const newPlaca = String(dto.placa ?? '').trim();
+          if (oldPlaca !== newPlaca && newPlaca !== '') {
+            cambios.push(`Placa: ${oldPlaca} → ${newPlaca}`);
+          }
+          const oldGrado = String(prevRecord.grado ?? '').trim();
+          const newGrado = String(dto.grado ?? '').trim();
+          if (oldGrado !== newGrado) {
+            cambios.push(`Grado: ${oldGrado || '0'} → ${newGrado}`);
+          }
+          const oldObs = String(prevRecord.detalle ?? prevRecord.detalleInfraccion ?? '').trim();
+          const newObs = String(dto.detalle ?? dto.detalleInfraccion ?? '').trim();
+          if (oldObs !== newObs && newObs !== '') {
+            cambios.push(`Observaciones: ${oldObs || 'Sin obs'} → ${newObs}`);
+          }
+        }
+
+        if (cambios.length === 0) {
+          cambios.push(`Modificación general de papeleta`);
+        }
+
+        try {
+          const pInt = parseInt(papeletaId, 10);
+          await this.db.query(
+            `INSERT INTO papeleta.notificacion (indice, numero, fecha, obs, usuario, ws, fechaingr, idestado)
+             VALUES (@papeletaVal, 'MODIF', GETDATE(), @obs, @usuario, @ws, GETDATE(), ISNULL(@idestado, '01'))`,
+            {
+              papeletaVal: isNaN(pInt) ? papeletaId : pInt,
+              idestado: String(prevRecord?.idEstado ?? prevRecord?.estadoAnterior ?? '01'),
+              usuario: userFinal,
+              ws: 'NIMAGEN01',
+              obs: cambios.join(' ; '),
+            },
+          );
+          this.logger.log(`Auditoría registrada exitosamente para papeleta ${papeletaId}: ${cambios.join(' ; ')}`);
+        } catch (errAudit) {
+          this.logger.error('No se pudo registrar en auditoría:', errAudit);
+        }
       }
 
       this.logger.log(`Infracción grabada exitosamente: ${dto.placa} - ${dto.codigoInfraccion} por ${userFinal}`);
@@ -2192,6 +2260,163 @@ export class AccionesInfraccionService {
       /\b(January|February|March|April|May|June|July|August|September|October|November|December)\b/g,
       (mes) => meses[mes] ?? mes,
     );
+  }
+
+  /**
+   * Obtiene el historial de modificaciones / auditoría de una papeleta.
+   */
+  async obtenerHistorialModificaciones(
+    ninfrac: string,
+  ): Promise<{
+    success: boolean;
+    data?: Array<{
+      id: string;
+      fechaHora: string;
+      usuario: string;
+      estacion: string;
+      campo: string;
+      valorAnterior: string;
+      valorNuevo: string;
+      observacion: string;
+    }>;
+    message: string;
+  }> {
+    try {
+      const cleanNinfrac = (ninfrac ?? '').trim();
+      if (!cleanNinfrac) {
+        return { success: false, message: 'Número de papeleta no válido.' };
+      }
+
+      // Obtener mapeo de estados
+      let estadoMap: Record<string, string> = {};
+      try {
+        const estRes = await this.listarEstados();
+        if (estRes.success && estRes.data) {
+          estadoMap = estRes.data.reduce((acc, item) => {
+            acc[item.id] = item.nombre;
+            return acc;
+          }, {} as Record<string, string>);
+        }
+      } catch {
+        // ignora si falla
+      }
+
+      const isOnlyDigits = /^\d+$/.test(cleanNinfrac);
+      const pInt = isOnlyDigits ? parseInt(cleanNinfrac, 10) : 0;
+      const numnpapVal = cleanNinfrac.includes('-') ? cleanNinfrac.split('-').pop()! : cleanNinfrac;
+
+      let resolvedIndice: string | null = null;
+      try {
+        const tramRes = await this.db.query<any>(
+          `SELECT TOP 1 Indice FROM papeleta.tramctas 
+           WHERE CAST(Indice AS VARCHAR) = @cleanNinfrac 
+              OR numnpap = @numnpapVal
+              OR (numapap + '-' + talonario + '-' + numnpap) = @cleanNinfrac`,
+          { cleanNinfrac, numnpapVal },
+        );
+        if (tramRes.recordset?.[0]?.Indice != null) {
+          resolvedIndice = String(tramRes.recordset[0].Indice).trim();
+        }
+      } catch {
+        // ignora si falla
+      }
+
+      const resolvedInt = resolvedIndice ? parseInt(resolvedIndice, 10) : 0;
+
+      const queryResult = await this.db.query<any>(
+        `SELECT DISTINCT
+          n.id,
+          ISNULL(n.fechaingr, n.fecha) AS sortFecha,
+          ISNULL(CONVERT(VARCHAR(10), ISNULL(n.fechaingr, n.fecha), 103) + ' ' + CONVERT(VARCHAR(8), ISNULL(n.fechaingr, n.fecha), 108), '') AS fechaHora,
+          ISNULL(n.usuario, 'SISTEMA') AS usuario,
+          ISNULL(n.ws, 'ESTACION-01') AS estacion,
+          ISNULL(n.idestado, '') AS idestado,
+          ISNULL(n.obs, '') AS observacion,
+          ISNULL(n.numero, '') AS numeroResolucion
+        FROM papeleta.notificacion n
+        WHERE (n.indice = @pInt AND @pInt > 0)
+           OR (n.indice = @resolvedInt AND @resolvedInt > 0)
+           OR CAST(n.indice AS VARCHAR) = @cleanNinfrac
+           OR (@resolvedIndice IS NOT NULL AND CAST(n.indice AS VARCHAR) = @resolvedIndice)
+        ORDER BY sortFecha DESC, n.id DESC`,
+        { pInt, resolvedInt, cleanNinfrac, resolvedIndice: resolvedIndice ?? '' },
+      );
+
+      const rows = queryResult.recordset ?? [];
+
+      const data = rows.map((r: any, idx: number) => {
+        const nextRow = rows[idx + 1];
+        const numRes = String(r.numeroResolucion ?? '').trim().toUpperCase();
+        const estadoDesc = estadoMap[String(r.idestado ?? '').trim()] || String(r.idestado ?? '');
+
+        if (numRes === 'MODIF') {
+          const obsStr = String(r.observacion ?? '').trim();
+          // Separar múltiples cambios si vinieran en la misma observación
+          const firstChange = obsStr.split(' ; ')[0] ?? obsStr;
+          const colonIdx = firstChange.indexOf(':');
+          
+          let campoNombre = 'Edición de Infracción';
+          let valAnt = 'ANTERIOR';
+          let valNue = firstChange;
+
+          if (colonIdx !== -1) {
+            campoNombre = firstChange.substring(0, colonIdx).trim();
+            const rest = firstChange.substring(colonIdx + 1).trim();
+            const parts = rest.split(/→|\?|->/);
+            if (parts.length >= 2) {
+              valAnt = parts[0].trim();
+              valNue = parts[1].trim();
+            } else {
+              valNue = rest;
+            }
+          } else {
+            const parts = firstChange.split(/→|\?|->/);
+            if (parts.length >= 2) {
+              valAnt = parts[0].trim();
+              valNue = parts[1].trim();
+            }
+          }
+
+          return {
+            id: String(r.id ?? idx),
+            fechaHora: String(r.fechaHora ?? ''),
+            usuario: String(r.usuario ?? '').trim(),
+            estacion: String(r.estacion ?? '').trim(),
+            campo: campoNombre,
+            valorAnterior: valAnt,
+            valorNuevo: valNue,
+            observacion: obsStr,
+          };
+        }
+
+        const nextEstadoDesc = nextRow
+          ? (estadoMap[String(nextRow.idestado ?? '').trim()] || String(nextRow.idestado ?? 'INICIAL'))
+          : 'REGISTRO INICIAL';
+
+        return {
+          id: String(r.id ?? idx),
+          fechaHora: String(r.fechaHora ?? ''),
+          usuario: String(r.usuario ?? '').trim(),
+          estacion: String(r.estacion ?? '').trim(),
+          campo: r.numeroResolucion ? `Resolución (${r.numeroResolucion}) / Estado` : 'Estado Infracción',
+          valorAnterior: String(nextEstadoDesc).trim(),
+          valorNuevo: String(estadoDesc || r.idestado).trim(),
+          observacion: String(r.observacion ?? '').trim(),
+        };
+      });
+
+      return {
+        success: true,
+        data,
+        message: data.length > 0 ? 'Historial obtenido correctamente.' : 'No se registraron modificaciones previas.',
+      };
+    } catch (error) {
+      this.logger.error('Error al obtener historial de modificaciones:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Error al consultar historial.',
+      };
+    }
   }
 }
 
