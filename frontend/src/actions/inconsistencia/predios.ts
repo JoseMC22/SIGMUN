@@ -110,7 +110,7 @@ export async function getUsosPredioAction(): Promise<
 export async function searchInconsistenciasAction(
   filters: InconsistenciaPrediosFilters,
   page: number = 1,
-  pageSize: number = 20,
+  pageSize: number = 10,
 ) {
   try {
     const body = {

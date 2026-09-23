@@ -13,7 +13,7 @@ import {
 // ── Constantes de paginación, exportación y mapeo ──
 
 /** Filas por página de la grilla. Fijo por contrato. */
-export const GRID_PAGE_SIZE = 20;
+export const GRID_PAGE_SIZE = 10;
 /** Tope de filas para la re-consulta completa de la exportación. */
 export const EXPORT_MAX_ROWS = 100000;
 /** @msquery de la llamada de total (no respeta el tipo de inconsistencia). */
@@ -45,7 +45,7 @@ export function resolveMsquery(idAcceso: string): number | undefined {
   return TIPO_MSQUERY_MAP[idAcceso];
 }
 
-/** Rango de filas de la grilla (siempre 20 por página): p1 → 1..20, p2 → 21..40. */
+/** Rango de filas de la grilla (siempre 10 por página): p1 → 1..10, p2 → 11..20. */
 export function gridRange(page: number): { inicio: number; final: number } {
   return {
     inicio: (page - 1) * GRID_PAGE_SIZE + 1,

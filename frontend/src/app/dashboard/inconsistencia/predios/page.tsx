@@ -25,7 +25,7 @@ import { PrediosPagination } from "./components/predios-pagination";
 import { PrediosHeader } from "./components/predios-header";
 
 /** Filas por página de la grilla (fijo). */
-const GRID_PAGE_SIZE = 20;
+const GRID_PAGE_SIZE = 10;
 /** Tope de filas de la re-consulta de exportación (igual al DTO del backend). */
 const EXPORT_MAX_ROWS = 100000;
 
