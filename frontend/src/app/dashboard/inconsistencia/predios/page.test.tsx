@@ -8,6 +8,18 @@ vi.mock("@/actions/inconsistencia/predios", () => ({
   getUsosPredioAction: vi.fn(),
 }));
 
+// Mock xlsx (dynamic import) so the export never touches the filesystem
+vi.mock("xlsx", () => ({
+  utils: {
+    json_to_sheet: vi.fn(() => ({})),
+    book_new: vi.fn(() => ({})),
+    book_append_sheet: vi.fn(),
+  },
+  writeFile: vi.fn(),
+}));
+
+import * as XLSX from "xlsx";
+
 import {
   searchInconsistenciasAction,
   getTiposInconsistenciaAction,
@@ -260,6 +272,38 @@ describe("InconsistenciaPrediosPage", () => {
       });
       expect(screen.getByText("C-NUEVO")).toBeInTheDocument();
     });
+
+    it("exporta con los filtros de la última búsqueda, no los del combo editado sin buscar", async () => {
+      render(<InconsistenciaPrediosPage />);
+      await screen.findByTestId("inconsistencia-predios-grid");
+
+      mockedSearch.mockClear();
+      mockedSearch.mockResolvedValue({
+        success: true as const,
+        data: mockRows,
+        total: 1,
+        page: 1,
+        pageSize: 100000,
+        totalPages: 1,
+      });
+
+      // Cambia el combo de tipo SIN ejecutar Buscar
+      fireEvent.change(screen.getByTestId("control-tipo"), {
+        target: { value: "30.01.02" },
+      });
+      fireEvent.click(screen.getByTestId("control-exportar"));
+
+      await waitFor(() => {
+        expect(XLSX.utils.json_to_sheet).toHaveBeenCalled();
+      });
+
+      // El export usa la última búsqueda (30.01.01), no el combo editado (30.01.02)
+      expect(mockedSearch).toHaveBeenCalledWith(
+        { idAcceso: "30.01.01", anno: CURRENT_YEAR },
+        1,
+        100000,
+      );
+    });
   });
 
   // ── Fallo de combos en bootstrap (R4 W1) ────────────────
@@ -387,6 +431,70 @@ describe("InconsistenciaPrediosPage", () => {
         expect(screen.getByRole("button", { name: "Siguiente" })).toBeDisabled();
       });
       expect(screen.getByRole("button", { name: "Anterior" })).toBeEnabled();
+    });
+  });
+
+  // ── Exportar a Excel ─────────────────────────────────
+
+  describe("exportación a Excel", () => {
+    it("re-consulta el filtro completo y exporta TODAS las filas, no solo la página", async () => {
+      const exportRows: PredioInconsistenciaRow[] = [
+        mockRows[0],
+        { ...mockRows[0], codigo: "C-002", cod_pred: "P-002", ROW: 2 },
+      ];
+
+      // El mount usa el valor por defecto de `beforeEach`; la exportación usa
+      // el valor base reasignado abajo. `mockClear` NO vacía la cola de
+      // `mockResolvedValueOnce`, por eso no se encola ninguna aquí.
+      render(<InconsistenciaPrediosPage />);
+      await screen.findByTestId("inconsistencia-predios-grid");
+
+      // Aísla la llamada de exportación de la del mount.
+      vi.mocked(XLSX.utils.json_to_sheet).mockClear();
+      mockedSearch.mockClear();
+      mockedSearch.mockResolvedValue({
+        success: true as const,
+        data: exportRows,
+        total: 2,
+        page: 1,
+        pageSize: 100000,
+        totalPages: 1,
+      });
+
+      fireEvent.click(screen.getByTestId("control-exportar"));
+
+      await waitFor(() => {
+        expect(XLSX.utils.json_to_sheet).toHaveBeenCalled();
+      });
+
+      // La re-consulta usa el rango completo (pageSize=EXPORT_MAX_ROWS)
+      expect(mockedSearch).toHaveBeenCalledWith(
+        { idAcceso: "30.01.01", anno: CURRENT_YEAR },
+        1,
+        100000,
+      );
+
+      // El filtro enviado al action NUNCA incluye el uso
+      expect(mockedSearch.mock.calls[0][0]).not.toHaveProperty("uso");
+
+      // Se exportan las 2 filas del filtro completo, no la única de la página
+      const exportedRows = vi.mocked(XLSX.utils.json_to_sheet).mock
+        .calls[0][0] as unknown[];
+      expect(exportedRows).toHaveLength(2);
+    });
+
+    it("genera el nombre de archivo con año y tipo de inconsistencia", async () => {
+      render(<InconsistenciaPrediosPage />);
+      await screen.findByTestId("inconsistencia-predios-grid");
+
+      fireEvent.click(screen.getByTestId("control-exportar"));
+
+      await waitFor(() => {
+        expect(XLSX.writeFile).toHaveBeenCalledWith(
+          expect.anything(),
+          `inconsistencia-predios-${CURRENT_YEAR}-30.01.01.xlsx`,
+        );
+      });
     });
   });
 });
