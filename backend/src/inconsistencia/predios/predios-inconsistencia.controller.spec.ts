@@ -90,6 +90,84 @@ describe('PrediosInconsistenciaController', () => {
       expect(mockService.search).not.toHaveBeenCalled();
     });
 
+    it('rejects pageSize 20 with BadRequestException (explicit mode selector: only 10 or 100000)', async () => {
+      await expect(
+        controller.search({ idAcceso: '30.01.01', anno: 2026, pageSize: 20 }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(mockService.search).not.toHaveBeenCalled();
+    });
+
+    it('accepts pageSize 100000 (export re-query) and delegates to the service', async () => {
+      const expected: PaginatedResponse<PredioInconsistenciaRow> = {
+        data: [],
+        total: 0,
+        page: 1,
+        pageSize: 100000,
+        totalPages: 0,
+      };
+      mockService.search.mockResolvedValue(expected);
+
+      const result = await controller.search({
+        idAcceso: '30.01.01',
+        anno: 2026,
+        pageSize: 100000,
+      });
+
+      expect(result).toEqual(expected);
+      expect(mockService.search).toHaveBeenCalledWith({
+        idAcceso: '30.01.01',
+        anno: 2026,
+        page: 1,
+        pageSize: 100000,
+      });
+    });
+
+    it('accepts anno 2100 (upper bound inclusive) and delegates to the service', async () => {
+      const expected: PaginatedResponse<PredioInconsistenciaRow> = {
+        data: [],
+        total: 0,
+        page: 1,
+        pageSize: 10,
+        totalPages: 0,
+      };
+      mockService.search.mockResolvedValue(expected);
+
+      const result = await controller.search({
+        idAcceso: '30.01.01',
+        anno: 2100,
+      });
+
+      expect(result).toEqual(expected);
+      expect(mockService.search).toHaveBeenCalledWith({
+        idAcceso: '30.01.01',
+        anno: 2100,
+        page: 1,
+        pageSize: 10,
+      });
+    });
+
+    it('rejects anno above 2100 with BadRequestException', async () => {
+      await expect(
+        controller.search({ idAcceso: '30.01.01', anno: 2101 }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(mockService.search).not.toHaveBeenCalled();
+    });
+
+    it('rejects an anno beyond the mssql int range with 400 validation_error (not a 500)', async () => {
+      await expect(
+        controller.search({ idAcceso: '30.01.01', anno: 9999999999 }),
+      ).rejects.toMatchObject({
+        response: {
+          code: 'validation_error',
+          message: 'Validation failed',
+        },
+      });
+
+      expect(mockService.search).not.toHaveBeenCalled();
+    });
+
     it('returns the canonical validation_error envelope on invalid input', async () => {
       await expect(
         controller.search({ idAcceso: '', anno: 2026 }),

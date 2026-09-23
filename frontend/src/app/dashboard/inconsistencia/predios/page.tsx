@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   getTiposInconsistenciaAction,
   getUsosPredioAction,
@@ -47,11 +47,27 @@ export default function InconsistenciaPrediosPage() {
   const [tipos, setTipos] = useState<TipoInconsistenciaOption[]>([]);
   const [usos, setUsos] = useState<UsoPredioOption[]>([]);
   const [exporting, setExporting] = useState(false);
+  // Fallo de combos durante el bootstrap → estado de error con Reintentar que
+  // re-ejecuta TODO el bootstrap (combos + primera búsqueda), nunca un search suelto.
+  const [combosError, setCombosError] = useState<string | null>(null);
+  // Combos cargaron pero no hay tipos → mensaje honesto, no el vacío de búsqueda.
+  const [noTipos, setNoTipos] = useState(false);
+
+  // Guarda de respuestas obsoletas: cada búsqueda/export captura un token; si al
+  // resolver ya no es el último, la respuesta se ignora (una respuesta lenta vieja
+  // nunca sobrescribe resultados más nuevos).
+  const searchSeq = useRef(0);
+  const exportSeq = useRef(0);
+  // Filtros de la ÚLTIMA búsqueda efectuada: la exportación usa estos (los que la
+  // grilla muestra), no los del combo si el usuario los editó sin buscar.
+  const lastSearchedFilters = useRef<InconsistenciaPrediosFilters | null>(null);
 
   // ── Búsqueda ───────────────────────────────────────────
 
   const runSearch = useCallback(
     async (activeFilters: InconsistenciaPrediosFilters, pageNum: number) => {
+      const token = ++searchSeq.current;
+      lastSearchedFilters.current = activeFilters;
       setLoading(true);
       setError(null);
       try {
@@ -60,6 +76,7 @@ export default function InconsistenciaPrediosPage() {
           pageNum,
           pageSize,
         );
+        if (token !== searchSeq.current) return; // respuesta obsoleta → ignorar
         if (result.success) {
           setData(result.data);
           setTotal(result.total);
@@ -70,11 +87,14 @@ export default function InconsistenciaPrediosPage() {
           setData([]);
         }
       } catch {
+        if (token !== searchSeq.current) return;
         setError("Error de conexión");
         setData([]);
       } finally {
-        setLoading(false);
-        setInitialLoading(false);
+        if (token === searchSeq.current) {
+          setLoading(false);
+          setInitialLoading(false);
+        }
       }
     },
     [pageSize],
@@ -89,38 +109,48 @@ export default function InconsistenciaPrediosPage() {
     [filters, runSearch],
   );
 
-  // ── Carga inicial (combos + primera búsqueda) ──────────
+  // ── Bootstrap (combos + primera búsqueda) ──────────────
 
-  useEffect(() => {
-    let cancelled = false;
+  const runBootstrap = useCallback(async () => {
+    setCombosError(null);
+    setNoTipos(false);
+    setInitialLoading(true);
+    setError(null);
 
-    async function bootstrap() {
-      const [tiposRes, usosRes] = await Promise.all([
-        getTiposInconsistenciaAction(),
-        getUsosPredioAction(),
-      ]);
-      if (cancelled) return;
+    const [tiposRes, usosRes] = await Promise.all([
+      getTiposInconsistenciaAction(),
+      getUsosPredioAction(),
+    ]);
 
-      const tiposData = tiposRes.success ? tiposRes.data : [];
-      if (tiposRes.success) setTipos(tiposRes.data);
-      if (usosRes.success) setUsos(usosRes.data);
-
-      const initialYear = new Date().getFullYear();
-      const firstId = tiposData.length > 0 ? tiposData[0].id_acceso : "";
-      setFilters({ idAcceso: firstId, anno: String(initialYear), uso: "" });
-
-      if (firstId) {
-        await runSearch({ idAcceso: firstId, anno: initialYear }, 1);
-      } else {
-        setInitialLoading(false);
-      }
+    if (!tiposRes.success) {
+      setCombosError(tiposRes.error);
+      setInitialLoading(false);
+      return;
+    }
+    if (!usosRes.success) {
+      setCombosError(usosRes.error);
+      setInitialLoading(false);
+      return;
     }
 
-    bootstrap();
-    return () => {
-      cancelled = true;
-    };
+    setTipos(tiposRes.data);
+    setUsos(usosRes.data);
+
+    const initialYear = new Date().getFullYear();
+    const firstId = tiposRes.data.length > 0 ? tiposRes.data[0].id_acceso : "";
+    setFilters({ idAcceso: firstId, anno: String(initialYear), uso: "" });
+
+    if (firstId) {
+      await runSearch({ idAcceso: firstId, anno: initialYear }, 1);
+    } else {
+      setNoTipos(true);
+      setInitialLoading(false);
+    }
   }, [runSearch]);
+
+  useEffect(() => {
+    runBootstrap();
+  }, [runBootstrap]);
 
   // ── Handlers ───────────────────────────────────────────
 
@@ -132,6 +162,10 @@ export default function InconsistenciaPrediosPage() {
     executeSearch(1);
   };
 
+  const handleCombosRetry = () => {
+    runBootstrap();
+  };
+
   const handlePageChange = (newPage: number) => {
     if (newPage < 1 || newPage > totalPages) return;
     executeSearch(newPage);
@@ -141,25 +175,35 @@ export default function InconsistenciaPrediosPage() {
 
   /**
    * Re-consulta el filtro COMPLETO (no la página visible) para exportar todos
-   * los registros que cumplen el filtro actual.
+   * los registros que cumplen el filtro de la ÚLTIMA búsqueda (lo que la grilla
+   * muestra), no los del combo si el usuario los editó sin buscar.
    */
-  const fetchAllFilteredRecords = useCallback(async (): Promise<
-    PredioInconsistenciaRow[]
-  > => {
-    const result = await searchInconsistenciasAction(
-      { idAcceso: filters.idAcceso, anno: Number(filters.anno) },
-      1,
-      EXPORT_MAX_ROWS,
-    );
-    if (!result.success) throw new Error(result.error);
-    return result.data;
-  }, [filters]);
+  const fetchAllFilteredRecords = useCallback(
+    async (exportFilters: InconsistenciaPrediosFilters): Promise<
+      PredioInconsistenciaRow[]
+    > => {
+      const result = await searchInconsistenciasAction(
+        exportFilters,
+        1,
+        EXPORT_MAX_ROWS,
+      );
+      if (!result.success) throw new Error(result.error);
+      return result.data;
+    },
+    [],
+  );
 
   const exportToExcel = useCallback(async () => {
+    const token = ++exportSeq.current;
+    const exportFilters =
+      lastSearchedFilters.current ?? {
+        idAcceso: filters.idAcceso,
+        anno: Number(filters.anno) || new Date().getFullYear(),
+      };
     setExporting(true);
     setError(null);
     try {
-      const allData = await fetchAllFilteredRecords();
+      const allData = await fetchAllFilteredRecords(exportFilters);
       const XLSX = await import("xlsx");
       const ws = XLSX.utils.json_to_sheet(
         allData.map((r) => ({
@@ -182,12 +226,12 @@ export default function InconsistenciaPrediosPage() {
       XLSX.utils.book_append_sheet(wb, ws, "Inconsistencia de Predios");
       XLSX.writeFile(
         wb,
-        `inconsistencia-predios-${filters.anno}-${filters.idAcceso}.xlsx`,
+        `inconsistencia-predios-${exportFilters.anno}-${exportFilters.idAcceso}.xlsx`,
       );
     } catch {
-      setError("Error al exportar Excel");
+      if (token === exportSeq.current) setError("Error al exportar Excel");
     } finally {
-      setExporting(false);
+      if (token === exportSeq.current) setExporting(false);
     }
   }, [fetchAllFilteredRecords, filters]);
 
@@ -208,7 +252,7 @@ export default function InconsistenciaPrediosPage() {
       />
 
       {/* Info de resultados */}
-      {!loading && !error && !initialLoading && data.length > 0 && (
+      {!loading && !error && !combosError && !initialLoading && data.length > 0 && (
         <div className="flex items-center justify-between">
           <PrediosResultsBar total={total} />
         </div>
@@ -238,18 +282,31 @@ export default function InconsistenciaPrediosPage() {
         </div>
       )}
 
-      {/* Error */}
-      {!loading && error && (
+      {/* Error de combos — Reintentar re-ejecuta TODO el bootstrap */}
+      {!loading && combosError && (
+        <PrediosErrorState message={combosError} onRetry={handleCombosRetry} />
+      )}
+
+      {/* Combos cargados sin tipos — mensaje honesto, no el vacío de búsqueda */}
+      {!loading && !combosError && noTipos && (
+        <PrediosEmptyState
+          title="No hay tipos de inconsistencia disponibles"
+          hint="Revise la configuración de los accesos 30.01.x"
+        />
+      )}
+
+      {/* Error de búsqueda */}
+      {!loading && !combosError && error && (
         <PrediosErrorState message={error} onRetry={handleSearch} />
       )}
 
       {/* Vacío */}
-      {!loading && !error && data.length === 0 && !initialLoading && (
+      {!loading && !error && !combosError && !noTipos && data.length === 0 && !initialLoading && (
         <PrediosEmptyState />
       )}
 
       {/* Con datos */}
-      {!loading && !error && data.length > 0 && (
+      {!loading && !error && !combosError && !noTipos && data.length > 0 && (
         <>
           <PrediosGrid data={data} />
           <PrediosPagination

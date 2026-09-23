@@ -135,18 +135,20 @@ export function PrediosGrid({ data }: { data: PredioInconsistenciaRow[] }) {
 
 // ── Estado vacío ─────────────────────────────────────────
 
-export function PrediosEmptyState() {
+export function PrediosEmptyState({
+  title = "No se encontraron resultados",
+  hint = "Intente ajustar los filtros de búsqueda",
+}: {
+  title?: string;
+  hint?: string;
+}) {
   return (
     <div className="animate-fade-in flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-200 bg-white py-16">
       <div className="mb-3 rounded-full bg-slate-100 p-3">
         <SearchX size={24} className="text-slate-300" />
       </div>
-      <p className="text-sm font-medium text-slate-500">
-        No se encontraron resultados
-      </p>
-      <p className="mt-1 text-xs text-slate-400">
-        Intente ajustar los filtros de búsqueda
-      </p>
+      <p className="text-sm font-medium text-slate-500">{title}</p>
+      <p className="mt-1 text-xs text-slate-400">{hint}</p>
     </div>
   );
 }

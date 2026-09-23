@@ -13,16 +13,9 @@ import {
 // ── Constantes de paginación, exportación y mapeo ──
 
 /** Filas por página de la grilla. Fijo por contrato. */
-export const GRID_PAGE_SIZE = 10;
+export const GRID_PAGE_SIZE = 10 as const;
 /** Tope de filas para la re-consulta completa de la exportación. */
-export const EXPORT_MAX_ROWS = 100000;
-/**
- * Q1: enviar {anno, inicio, final} junto con el @msquery de conteo (espeja el legacy).
- * Confirmado contra la BD real (Base_sigmun, anno=2026): los branches de COUNT del SP
- * ignoran @inicio/@final (el WHERE de rango está comentado en el conteo) y sí usan @anno
- * (por defecto, el año vigente si llega vacío). Enviarlos es inofensivo.
- */
-export const TOTAL_CALL_INCLUDE_FILTERS = true;
+export const EXPORT_MAX_ROWS = 100000 as const;
 
 const SP_INCONSISTENCIAS = '[Rentas].[sp_inconsistencias]';
 
@@ -83,7 +76,11 @@ export function exportRange(): { inicio: number; final: number } {
   return { inicio: 1, final: EXPORT_MAX_ROWS };
 }
 
-/** Único punto de selección de rango; discrimina por el `pageSize` recibido. */
+/**
+ * Único punto de selección de rango; discrimina por el `pageSize` recibido.
+ * El DTO admite SOLO dos valores legales: 10 (grilla) y 100000 (export) — por eso
+ * `pageSize > GRID_PAGE_SIZE` sigue siendo el discriminador correcto.
+ */
 export function resolveRange(
   page: number,
   pageSize: number,
@@ -92,20 +89,24 @@ export function resolveRange(
 }
 
 /**
- * Parámetros de la llamada de total. Recibe el @msquery de datos YA resuelto del tipo
- * (select) y usa su branch de conteo: `selectMsquery + 1`. El total es independiente de
- * la página, por eso se envía siempre el rango completo (no el rango de la página).
+ * Parámetros de la llamada de total. Resuelve el branch de COUNT del tipo vía
+ * `resolveTotalMsquery(idAcceso)` — la ÚNICA expresión de la regla `select + 1`
+ * es `TOTAL_MSQUERY_MAP` (derivado de `TIPO_MSQUERY_MAP`), así ambos nunca divergen.
+ * `undefined` no llega aquí: `search()` ya lanzó 400 para idAcceso no mapeado.
+ *
+ * Siempre envía `{ anno, inicio, final }` junto al COUNT: confirmado contra la BD real
+ * (Base_sigmun, anno=2026), los branches de COUNT ignoran `@inicio`/`@final` (el WHERE
+ * de rango está comentado en el conteo) y sí usan `@anno` (año vigente si vacío) —
+ * enviarlos es inofensivo y espeja el legacy.
  */
-function buildTotalParams(
-  selectMsquery: number,
+export function buildTotalParams(
+  idAcceso: string,
   anno: number,
 ): Record<string, number> {
-  if (!TOTAL_CALL_INCLUDE_FILTERS) {
-    return { msquery: selectMsquery + 1 };
-  }
+  const countMsquery = resolveTotalMsquery(idAcceso)!; // search() garantiza idAcceso mapeado
   const range = exportRange();
   return {
-    msquery: selectMsquery + 1,
+    msquery: countMsquery,
     anno,
     inicio: range.inicio,
     final: range.final,
@@ -174,7 +175,7 @@ export class PrediosInconsistenciaService {
 
     const totalResult = await this.db.executeProcedure<Record<string, unknown>>(
       SP_INCONSISTENCIAS,
-      buildTotalParams(msquery, anno),
+      buildTotalParams(idAcceso, anno),
     );
 
     const total = readTotal(totalResult);

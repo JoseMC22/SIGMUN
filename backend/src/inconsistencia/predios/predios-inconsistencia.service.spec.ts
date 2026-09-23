@@ -9,6 +9,7 @@ import {
   TOTAL_MSQUERY_MAP,
   resolveMsquery,
   resolveTotalMsquery,
+  buildTotalParams,
   gridRange,
   exportRange,
   resolveRange,
@@ -110,6 +111,37 @@ describe('PrediosInconsistenciaService', () => {
     });
   });
 
+  // ── buildTotalParams (regla +1 con fuente única de verdad) ─────────
+
+  describe('buildTotalParams', () => {
+    it.each([
+      ['30.01.01', 2],
+      ['30.01.02', 4],
+      ['30.01.03', 6],
+      ['30.01.04', 8],
+      ['30.01.05', 10],
+    ])(
+      'resolves the COUNT @msquery for %s from the map (single source of truth, no inline +1)',
+      (idAcceso, countMsquery) => {
+        expect(buildTotalParams(idAcceso, 2026)).toEqual({
+          msquery: countMsquery,
+          anno: 2026,
+          inicio: 1,
+          final: EXPORT_MAX_ROWS,
+        });
+      },
+    );
+
+    it('always sends the full filter set { msquery, anno, inicio, final } with the COUNT call', () => {
+      expect(buildTotalParams('30.01.05', 1998)).toEqual({
+        msquery: 10,
+        anno: 1998,
+        inicio: 1,
+        final: EXPORT_MAX_ROWS,
+      });
+    });
+  });
+
   // ── rangos de paginación ─────────────────────────────
 
   describe('gridRange / exportRange / resolveRange', () => {
@@ -206,6 +238,25 @@ describe('PrediosInconsistenciaService', () => {
         final: EXPORT_MAX_ROWS,
       });
       expect(result.total).toBe(16);
+    });
+
+    it('routes the total call through resolveTotalMsquery(idAcceso) for EVERY tipo (single source of truth)', async () => {
+      const tipos = Object.keys(TIPO_MSQUERY_MAP);
+      expect(tipos.length).toBeGreaterThan(0); // guards the loop below from being a ghost loop
+      for (const idAcceso of tipos) {
+        db.executeProcedure
+          .mockReset()
+          .mockResolvedValueOnce(mockSpResult([]))
+          .mockResolvedValueOnce(mockSpResult([{ total: 1 }]));
+
+        await service.search({ ...baseDto, idAcceso });
+
+        expect(db.executeProcedure).toHaveBeenNthCalledWith(
+          2,
+          SP,
+          expect.objectContaining({ msquery: resolveTotalMsquery(idAcceso) }),
+        );
+      }
     });
 
     it('page 2 requests rows 11..20 and keeps the total range page-independent', async () => {

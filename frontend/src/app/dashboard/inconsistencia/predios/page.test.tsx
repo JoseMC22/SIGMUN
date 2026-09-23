@@ -32,6 +32,8 @@ const mockedSearch = vi.mocked(searchInconsistenciasAction);
 const mockedTipos = vi.mocked(getTiposInconsistenciaAction);
 const mockedUsos = vi.mocked(getUsosPredioAction);
 
+type SearchResult = Awaited<ReturnType<typeof searchInconsistenciasAction>>;
+
 const CURRENT_YEAR = new Date().getFullYear();
 
 const mockRows: PredioInconsistenciaRow[] = [
@@ -212,6 +214,149 @@ describe("InconsistenciaPrediosPage", () => {
       await waitFor(() => {
         expect(mockedSearch).toHaveBeenCalledTimes(1);
       });
+    });
+  });
+
+  // ── Guarda de respuestas obsoletas (R3 W3 / R4 W2) ─────
+
+  describe("guarda de respuestas obsoletas", () => {
+    it("ignora la respuesta vieja que resuelve después de una más nueva", async () => {
+      let resolveOld!: (v: SearchResult) => void;
+      let resolveNew!: (v: SearchResult) => void;
+
+      // Búsqueda de montaje (la MÁS VIEJA) queda en vuelo
+      mockedSearch.mockReturnValueOnce(
+        new Promise<SearchResult>((res) => {
+          resolveOld = res;
+        }),
+      );
+
+      render(<InconsistenciaPrediosPage />);
+      await waitFor(() => {
+        expect(mockedSearch).toHaveBeenCalledTimes(1);
+      });
+
+      // El usuario dispara una NUEVA búsqueda mientras la primera sigue en vuelo
+      mockedSearch.mockReturnValueOnce(
+        new Promise<SearchResult>((res) => {
+          resolveNew = res;
+        }),
+      );
+      fireEvent.click(screen.getByTestId("control-buscar"));
+      await waitFor(() => {
+        expect(mockedSearch).toHaveBeenCalledTimes(2);
+      });
+
+      // Resuelve primero la NUEVA → la grilla muestra sus filas
+      resolveNew({
+        success: true as const,
+        data: [{ ...mockRows[0], codigo: "C-NUEVO" }],
+        total: 1,
+        page: 1,
+        pageSize: 10,
+        totalPages: 1,
+      });
+      expect(await screen.findByText("C-NUEVO")).toBeInTheDocument();
+
+      // Resuelve DESPUÉS la VIEJA (más lenta) → debe ignorarse
+      resolveOld({
+        success: true as const,
+        data: [{ ...mockRows[0], codigo: "C-VIEJO" }],
+        total: 1,
+        page: 1,
+        pageSize: 10,
+        totalPages: 1,
+      });
+      await waitFor(() => {
+        expect(screen.queryByText("C-VIEJO")).not.toBeInTheDocument();
+      });
+      expect(screen.getByText("C-NUEVO")).toBeInTheDocument();
+    });
+
+    it("exporta con los filtros de la última búsqueda, no los del combo editado sin buscar", async () => {
+      render(<InconsistenciaPrediosPage />);
+      await screen.findByTestId("inconsistencia-predios-grid");
+
+      mockedSearch.mockClear();
+      mockedSearch.mockResolvedValue({
+        success: true as const,
+        data: mockRows,
+        total: 1,
+        page: 1,
+        pageSize: 100000,
+        totalPages: 1,
+      });
+
+      // Cambia el combo de tipo SIN ejecutar Buscar
+      fireEvent.change(screen.getByTestId("control-tipo"), {
+        target: { value: "30.01.02" },
+      });
+      fireEvent.click(screen.getByTestId("control-exportar"));
+
+      await waitFor(() => {
+        expect(XLSX.utils.json_to_sheet).toHaveBeenCalled();
+      });
+
+      // El export usa la última búsqueda (30.01.01), no el combo editado (30.01.02)
+      expect(mockedSearch).toHaveBeenCalledWith(
+        { idAcceso: "30.01.01", anno: CURRENT_YEAR },
+        1,
+        100000,
+      );
+    });
+  });
+
+  // ── Fallo de combos en bootstrap (R4 W1) ────────────────
+
+  describe("fallo de combos en bootstrap", () => {
+    it("muestra el estado de error si los combos fallan y Reintentar re-ejecuta TODO el bootstrap", async () => {
+      mockedTipos.mockResolvedValueOnce({
+        success: false as const,
+        error: "Error cargando tipos",
+      });
+      mockedUsos.mockResolvedValue({
+        success: true as const,
+        data: [{ id_uso: "1", uso: "CASA HABITACION" }],
+      });
+
+      render(<InconsistenciaPrediosPage />);
+
+      expect(
+        await screen.findByText(/error cargando tipos/i),
+      ).toBeInTheDocument();
+      // NUNCA una búsqueda con idAcceso:"" (el bug del Retry roto → 400 garantizado)
+      expect(mockedSearch).not.toHaveBeenCalled();
+
+      // Reintentar: los combos se recuperan y el bootstrap re-corre completo
+      mockedTipos.mockResolvedValue({
+        success: true as const,
+        data: [{ id_acceso: "30.01.01", nombre: "OMISION DE PREDIO" }],
+      });
+      mockedSearch.mockResolvedValue(defaultSearchResponse);
+
+      fireEvent.click(screen.getByRole("button", { name: /reintentar/i }));
+
+      await waitFor(() => {
+        expect(mockedSearch).toHaveBeenCalledTimes(1); // la primera búsqueda del bootstrap
+      });
+      expect(mockedTipos).toHaveBeenCalledTimes(2); // ambas acciones de combos
+      expect(mockedUsos).toHaveBeenCalledTimes(2);
+      expect(screen.queryByText(/error cargando tipos/i)).not.toBeInTheDocument();
+    });
+
+    it("muestra un mensaje honesto (no el vacío de búsqueda) cuando los combos cargan sin tipos", async () => {
+      mockedTipos.mockResolvedValue({ success: true as const, data: [] });
+      mockedUsos.mockResolvedValue({ success: true as const, data: [] });
+
+      render(<InconsistenciaPrediosPage />);
+
+      expect(
+        await screen.findByText(/no hay tipos de inconsistencia/i),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByText(/no se encontraron resultados/i),
+      ).not.toBeInTheDocument();
+      expect(mockedSearch).not.toHaveBeenCalled();
     });
   });
 
