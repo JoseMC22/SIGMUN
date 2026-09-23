@@ -2,7 +2,7 @@
 
 ## Technical Approach
 
-Reemplazar el scaffold placeholder por una implementación real que replica el patrón de `reportes-gerenciales/predios-por-uso`: controller NestJS (`@Post('search')` + combos bajo `JwtAuthGuard`), service que invoca `[Rentas].[sp_inconsistencias]` (datos con paginación server-side por rango de filas y total con `@msquery=2`), Zod DTO en `dto/`, y página Next.js `"use client"` con server action como proxy autenticado. El módulo `inconsistencia/` ya está registrado en `app.module.ts`; no se toca.
+Reemplazar el scaffold placeholder por una implementación real que replica el patrón de `reportes-gerenciales/predios-por-uso`: controller NestJS (`@Post('search')` + combos bajo `JwtAuthGuard`), service que invoca `[Rentas].[sp_inconsistencias]` (datos con paginación server-side por rango de filas y total con el **branch de COUNT del tipo**: `selectMsquery + 1`), Zod DTO en `dto/`, y página Next.js `"use client"` con server action como proxy autenticado. El módulo `inconsistencia/` ya está registrado en `app.module.ts`; no se toca.
 
 **Exportación a Excel:** la grilla queda fija en 10 filas por página; el botón exporta **todos los registros que cumplen el filtro actual**, no la página visible. Para eso la exportación re-consulta el SP con un rango completo (`@inicio=1`, `@final=EXPORT_MAX_ROWS`), igual que el `fetchAllRecords()` de `predios-por-uso/page.tsx`.
 
@@ -16,7 +16,7 @@ Reemplazar el scaffold placeholder por una implementación real que replica el p
 | `pageSize` del DTO | `z.coerce.number().int().min(1).max(100000).default(10)` | Se elimina el tope 20 (contradecía la exportación). Se alinea con el reference (`.max(100000)`); el default de grilla es 10. |
 | `totalPages` | `ceil(total / GRID_PAGE_SIZE)` siempre con 10, aun si `pageSize=EXPORT_MAX_ROWS` | La paginación es del grid; no debe depender del tamaño de la re-consulta. |
 | `idAcceso → @msquery` | `TIPO_MSQUERY_MAP` + `resolveMsquery()` pura; fuera del mapa → `BadRequestException`, sin invocar el SP | El mapeo es dominio, no presentación. |
-| Llamada de total (Q1) | Enviar el set completo `{ msquery: TOTAL_MSQUERY, anno, inicio, final }` (espeja el legacy), gobernado por `TOTAL_CALL_INCLUDE_FILTERS` | Decisión explícita, no pregunta abierta. Fallback de una línea documentado abajo. |
+| Llamada de total (Q1, corregida) | Enviar el set completo `{ msquery: selectMsquery + 1, anno, inicio, final }` (branch de COUNT del tipo), gobernado por `TOTAL_CALL_INCLUDE_FILTERS` | **Corregido 2026-09-23 con evidencia de BD real**: el total ya NO es fijo `@msquery=2`; cada tipo tiene su propio COUNT (`select+1`). El COUNT ignora `@inicio`/`@final` (rango comentado) y usa `@anno`. Ver Decisions Log #9. |
 | Columna de total (Q2) | Lectura **posicional**: `Object.values(recordset[0])[0]` (primer valor del primer registro) | Mecanismo único y defensivo; no se usa lookup por nombre para el total. |
 | Combos (Q3) | SQL estático sin parámetros vía `DatabaseService.query` | Sin input de usuario → sin concatenación. Si existe SP equivalente, se prefiere (cambio localizado). |
 | Ayudante de columnas | `col<T>(row: Record<string, unknown>, name: string): T \| undefined` genérico y case-insensitive | Cumple `CODING.md` (prohibido `any`). Solo para las 13 columnas de datos. |
@@ -34,7 +34,7 @@ Reemplazar el scaffold placeholder por una implementación real que replica el p
             resolveMsquery(idAcceso)                        // fuera del mapa → 400, sin SP
             resolveRange(page, 10) = gridRange(page)        // p1: 1–10 · p2: 11–20
             exec sp_inconsistencias {msquery, anno, inicio, final}   → data rows
-            exec sp_inconsistencias buildTotalParams()               → total (posicional)
+            exec sp_inconsistencias buildTotalParams(msquery, anno)  → total (posicional, COUNT del tipo)
             totalPages = ceil(total / GRID_PAGE_SIZE)
        → { data, total, page, pageSize, totalPages }
   └→ renderGrid + renderPagination
@@ -87,30 +87,32 @@ export interface UsoPredioOption { id_uso: string; uso: string }
 // service.ts (constantes, helpers y firma)
 const GRID_PAGE_SIZE = 10;        // grilla: 10 filas por página
 const EXPORT_MAX_ROWS = 100000;   // export: rango completo del filtro
-const TOTAL_MSQUERY = 2;
-const TOTAL_CALL_INCLUDE_FILTERS = true; // Q1: enviar {anno,inicio,final} junto con msquery:2
+// COUNT del total por tipo = selectMsquery + 1 (2, 4, 6, 8, 10); derivado de TIPO_MSQUERY_MAP
+const TOTAL_MSQUERY_MAP = derive(TIPO_MSQUERY_MAP, +1);
+const TOTAL_CALL_INCLUDE_FILTERS = true; // Q1 resuelto: enviar {anno,inicio,final} junto al msquery de COUNT (inofensivo)
 
 const TIPO_MSQUERY_MAP: Record<string, number> = {
   '30.01.01': 1, '30.01.02': 3, '30.01.03': 5, '30.01.04': 7, '30.01.05': 9,
 };
 
-export function resolveMsquery(idAcceso: string): number;      // fuera del mapa → undefined
+export function resolveMsquery(idAcceso: string): number | undefined;      // fuera del mapa → undefined
+export function resolveTotalMsquery(idAcceso: string): number | undefined; // branch de COUNT del tipo; undefined si no está mapeado
 export function gridRange(page: number): { inicio: number; final: number };   // (page-1)*10+1 .. page*10
 export function exportRange(): { inicio: number; final: number };             // 1 .. EXPORT_MAX_ROWS
 export function resolveRange(page: number, pageSize: number): { inicio: number; final: number };
-function buildTotalParams(anno: number, range: { inicio: number; final: number }): Record<string, number>;
+function buildTotalParams(selectMsquery: number, anno: number): Record<string, number>; // total-msquery = selectMsquery + 1
 function readTotal(result: { recordset?: Record<string, unknown>[] }): number;
 function col<T>(row: Record<string, unknown>, name: string): T | undefined;
 async search(dto: SearchInconsistenciaPrediosDto): Promise<PaginatedResponse<PredioInconsistenciaRow>>;
 ```
 
-`buildTotalParams` — decisión Q1 con fallback de una línea:
+`buildTotalParams` — recibe el `@msquery` de datos YA resuelto del tipo y usa su branch de COUNT; fallback de una línea:
 
 ```typescript
-function buildTotalParams(anno, range) {
+function buildTotalParams(selectMsquery, anno) {
   return TOTAL_CALL_INCLUDE_FILTERS
-    ? { msquery: TOTAL_MSQUERY, anno, inicio: range.inicio, final: range.final } // espeja el legacy
-    : { msquery: TOTAL_MSQUERY };                                               // fallback mínimo
+    ? { msquery: selectMsquery + 1, anno, inicio: 1, final: EXPORT_MAX_ROWS } // branch de COUNT del tipo
+    : { msquery: selectMsquery + 1 };                                          // fallback mínimo
 }
 ```
 
@@ -172,7 +174,7 @@ Paginador: Anterior `disabled={page <= 1}`; Siguiente `disabled={page >= totalPa
 
 | Capa | Archivo | Qué verifica |
 |---|---|---|
-| Backend service | `predios-inconsistencia.service.spec.ts` | `resolveMsquery` (5 casos) y `idAcceso` fuera del mapa → `BadRequestException` con `executeProcedure` NO llamado; `gridRange`: p1 `inicio=1,final=10`, p2 `11,20`; `resolveRange(1, EXPORT_MAX_ROWS)` → `inicio=1,final=100000`; `resolveRange(1, 10)` → grilla (no export); params de datos `{msquery,anno,inicio,final}`; `buildTotalParams` con `TOTAL_CALL_INCLUDE_FILTERS=true`; `totalPages=ceil(total/10)` aun con `pageSize=100000`; `readTotal` posicional (columna con nombre arbitrario); mapeo 13 columnas con `direcion`; SQL de combos estático. |
+| Backend service | `predios-inconsistencia.service.spec.ts` | `resolveMsquery` (5 casos) y `idAcceso` fuera del mapa → `BadRequestException` con `executeProcedure` NO llamado; `resolveTotalMsquery`/`TOTAL_MSQUERY_MAP` (5 casos: total = select + 1) y `undefined` fuera del mapa; `gridRange`: p1 `inicio=1,final=10`, p2 `11,20`; `resolveRange(1, EXPORT_MAX_ROWS)` → `inicio=1,final=100000`; `resolveRange(1, 10)` → grilla (no export); params de datos `{msquery,anno,inicio,final}`; `buildTotalParams(selectMsquery, anno)` → `msquery = selectMsquery + 1` con `TOTAL_CALL_INCLUDE_FILTERS=true`; `totalPages=ceil(total/10)` aun con `pageSize=100000`; `readTotal` posicional (columna con nombre arbitrario); mapeo 13 columnas con `direcion`; SQL de combos estático. |
 | Backend controller | `predios-inconsistencia.controller.spec.ts` | `TestingModule` + `overrideGuard(JwtAuthGuard)`; body inválido (`page:0`, `anno` no numérico, `pageSize:100001`) → `BadRequestException`; body válido delega al service; combos → `{success:true,data}`; propaga `BadRequestException` del service. |
 | Frontend page | `page.test.tsx` | Mock del módulo de actions; orden de controles; años (primero=actual, último=1998); `uso` nunca enviado al action; 13 columnas incl. `direcion`; loading/empty/error+Reintentar; cambio de página re-invoca el action con `page=2`. |
 | Frontend paginación (Warning 3) | `page.test.tsx` | Límites: Anterior deshabilitado en p1 y Siguiente deshabilitado en la última página. |
@@ -208,17 +210,19 @@ No migration required. Sin cambios de BD (SP de solo lectura). La exportación d
 
 1. **Export Excel = todos los registros del filtro actual.** Se re-consulta el SP con rango completo (`1..EXPORT_MAX_ROWS`), erradicando el tope de 20 y el alcance página-solo. Esto resuelve el BLOCKER 1 y alinea con la spec (L133), el proposal (L99) y el `fetchAllRecords()` del reference. Ya no es una open question.
 2. **Grilla fija en 10.** El DTO permite `pageSize` hasta 100000 solo para habilitar la re-consulta de exportación; la grilla siempre envía 10 y `totalPages` siempre divide por 10. Los dos rangos tienen helpers separados (`gridRange`/`exportRange`) y `resolveRange` es el único punto de selección → no se confunden.
-3. **Total no respeta el tipo (legacy).** Se replica: el paginador usa `total` de `@msquery=2`; la grilla puede mostrar menos filas que el tamaño de página. Comportamiento esperado por el PO.
-4. **Q1 — parámetros de la llamada de total.** Decisión aceptada: enviar el set completo `{ msquery: TOTAL_MSQUERY, anno, inicio, final }` (espeja el legacy), detrás de `TOTAL_CALL_INCLUDE_FILTERS`. Si `verify` comprueba que `@msquery=2` solo necesita `msquery`, el cambio es esa única constante a `false` (fallback `{ msquery: TOTAL_MSQUERY }`). Es un ítem de verificación, no una open question.
+3. ~~**Total no respeta el tipo (legacy).** Se replica: el paginador usa `total` de `@msquery=2`; la grilla puede mostrar menos filas que el tamaño de página. Comportamiento esperado por el PO.~~ **SUPERSEDED por la #9** (evidencia real de BD: cada tipo tiene su COUNT).
+4. ~~**Q1 — parámetros de la llamada de total.** Decisión aceptada: enviar el set completo `{ msquery: TOTAL_MSQUERY, anno, inicio, final }` (espeja el legacy), detrás de `TOTAL_CALL_INCLUDE_FILTERS`. Si `verify` comprueba que `@msquery=2` solo necesita `msquery`, el cambio es esa única constante a `false` (fallback `{ msquery: TOTAL_MSQUERY }`). Es un ítem de verificación, no una open question.~~ **SUPERSEDED por la #9.**
 5. **Q2 — columna de total.** Lectura posicional única (`Object.values(recordset[0])[0]`); no se mezcla con lookup por nombre. `col<T>` queda reservado a las columnas de datos.
 6. **401 — desviación conocida.** El `JwtAuthGuard` real responde HTTP 401 con `{ authenticated:false, errorCode:'AUTH_SESSION_MISSING'|'AUTH_SESSION_INVALID', message }` — **no** emite `code:'auth_invalid'` ni el envelope canónico. El escenario "Acceso sin token" de la spec es una desviación conocida que se reportará en `verify`; alinear el guard global está fuera del alcance de este cambio.
 7. **`anno` en el DTO.** Se mantiene `min(1998)` (límite inferior del combo de años según la spec) y se **elimina** `.max(2100)` por no estar respaldado por la spec ni el proposal. El SP valida el rango efectivo.
 8. **Sin `any`.** `col<T>` es genérico y el recordset se tipa como `Record<string, unknown>[]`; se cumple `CODING.md`.
+9. **Corrección 2026-09-23 — total por tipo (real-DB).** Evidencia de `Base_sigmun`, anno=2026: cada tipo tiene SU branch de COUNT — datos→conteo: `30.01.01→2` (2290 filas), `30.01.02→4` (54), `30.01.03→6` (16), `30.01.04→8` (346), `30.01.05→10` (139) — siempre `selectMsquery + 1`. Se elimina el `TOTAL_MSQUERY = 2` fijo (causaba 229 páginas para cualquier tipo; correcto solo para `30.01.01`); `TOTAL_MSQUERY_MAP` se deriva de `TIPO_MSQUERY_MAP` y `buildTotalParams` recibe el `@msquery` de datos resuelto y envía `select + 1`. `TOTAL_CALL_INCLUDE_FILTERS` se mantiene `true`: el COUNT ignora `@inicio`/`@final` (el WHERE de rango está comentado en el SP) y usa `@anno` (año vigente si vacío) — enviarlos es inofensivo y espeja el legacy. La columna del COUNT no tiene nombre → lectura posicional confirmada. **Supersede #3 y #4.**
 
-## Verification Items (para `verify`)
+## Verification Items (para `verify`) — resueltos con evidencia real de BD (Base_sigmun, anno=2026)
 
-- [ ] `@msquery=2` acepta (o requiere) `@anno`, `@inicio`, `@final`; si requiere solo `@msquery`, poner `TOTAL_CALL_INCLUDE_FILTERS = false`.
-- [ ] Nombre real de la columna de conteo de `@msquery=2` (hoy irrelevante por lectura posicional; confirmar que el primer valor es el total).
+- [x] Parámetros del COUNT: ignora `@inicio`/`@final` (rango comentado) y usa `@anno` → `TOTAL_CALL_INCLUDE_FILTERS = true` se mantiene (inofensivo, espeja el legacy).
+- [x] Columna de conteo del total: **sin nombre** → lectura posicional confirmada como mecanismo correcto.
+- [x] Total por tipo: cada tipo tiene su COUNT (`select + 1`: 2, 4, 6, 8, 10); implementado y testeado en la corrección 2026-09-23 (v. Decisions Log #9).
 - [ ] La exportación devuelve efectivamente todos los registros del filtro con datos reales.
 - [ ] El escenario 401 de la spec es desviación conocida (`JwtAuthGuard` global, fuera de alcance).
 

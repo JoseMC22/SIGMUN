@@ -6,8 +6,9 @@ import {
   TIPO_MSQUERY_MAP,
   GRID_PAGE_SIZE,
   EXPORT_MAX_ROWS,
-  TOTAL_MSQUERY,
+  TOTAL_MSQUERY_MAP,
   resolveMsquery,
+  resolveTotalMsquery,
   gridRange,
   exportRange,
   resolveRange,
@@ -70,6 +71,45 @@ describe('PrediosInconsistenciaService', () => {
     });
   });
 
+  // ── resolveTotalMsquery / TOTAL_MSQUERY_MAP ──────────
+
+  describe('resolveTotalMsquery / TOTAL_MSQUERY_MAP', () => {
+    it.each([
+      ['30.01.01', 2],
+      ['30.01.02', 4],
+      ['30.01.03', 6],
+      ['30.01.04', 8],
+      ['30.01.05', 10],
+    ])(
+      'maps idAcceso %s to total count @msquery %i (select + 1)',
+      (idAcceso, expected) => {
+        expect(resolveTotalMsquery(idAcceso)).toBe(expected);
+      },
+    );
+
+    it('total count is select @msquery + 1 for every tipo in TIPO_MSQUERY_MAP', () => {
+      const entries = Object.entries(TIPO_MSQUERY_MAP);
+      expect(entries.length).toBeGreaterThan(0); // guards the loop below from being a ghost loop
+      for (const [idAcceso, selectMsquery] of entries) {
+        expect(resolveTotalMsquery(idAcceso)).toBe(selectMsquery + 1);
+      }
+    });
+
+    it('TOTAL_MSQUERY_MAP pins the five count branches of the SP', () => {
+      expect(TOTAL_MSQUERY_MAP).toEqual({
+        '30.01.01': 2,
+        '30.01.02': 4,
+        '30.01.03': 6,
+        '30.01.04': 8,
+        '30.01.05': 10,
+      });
+    });
+
+    it('returns undefined for an idAcceso outside the mapping table', () => {
+      expect(resolveTotalMsquery('30.01.99')).toBeUndefined();
+    });
+  });
+
   // ── rangos de paginación ─────────────────────────────
 
   describe('gridRange / exportRange / resolveRange', () => {
@@ -106,7 +146,7 @@ describe('PrediosInconsistenciaService', () => {
   // ── search ───────────────────────────────────────────
 
   describe('search', () => {
-    it('calls the SP with the mapped @msquery and page range, then the total with @msquery=2', async () => {
+    it('calls the SP with the mapped @msquery and page range, then the total with the tipo count branch (select + 1)', async () => {
       db.executeProcedure
         .mockResolvedValueOnce(mockSpResult([]))
         .mockResolvedValueOnce(mockSpResult([{ total: 5 }]));
@@ -120,14 +160,14 @@ describe('PrediosInconsistenciaService', () => {
         final: 10,
       });
       expect(db.executeProcedure).toHaveBeenNthCalledWith(2, SP, {
-        msquery: TOTAL_MSQUERY,
+        msquery: 2, // 30.01.01: select @msquery=1 → count branch @msquery=2
         anno: 2026,
         inicio: 1,
         final: EXPORT_MAX_ROWS,
       });
     });
 
-    it('maps 30.01.05 to @msquery=9 for the data call', async () => {
+    it('maps 30.01.05 to @msquery=9 for the data call and total count @msquery=10', async () => {
       db.executeProcedure
         .mockResolvedValueOnce(mockSpResult([]))
         .mockResolvedValueOnce(mockSpResult([{ total: 0 }]));
@@ -139,6 +179,33 @@ describe('PrediosInconsistenciaService', () => {
         SP,
         expect.objectContaining({ msquery: 9 }),
       );
+      expect(db.executeProcedure).toHaveBeenNthCalledWith(
+        2,
+        SP,
+        expect.objectContaining({ msquery: 10 }),
+      );
+    });
+
+    it('uses the tipo count branch for the total call (30.01.03 → data @msquery=5, total @msquery=6)', async () => {
+      db.executeProcedure
+        .mockResolvedValueOnce(mockSpResult([]))
+        .mockResolvedValueOnce(mockSpResult([{ total: 16 }]));
+
+      const result = await service.search({ ...baseDto, idAcceso: '30.01.03' });
+
+      expect(db.executeProcedure).toHaveBeenNthCalledWith(1, SP, {
+        msquery: 5,
+        anno: 2026,
+        inicio: 1,
+        final: 10,
+      });
+      expect(db.executeProcedure).toHaveBeenNthCalledWith(2, SP, {
+        msquery: 6, // 30.01.03: select @msquery=5 → count branch @msquery=6
+        anno: 2026,
+        inicio: 1,
+        final: EXPORT_MAX_ROWS,
+      });
+      expect(result.total).toBe(16);
     });
 
     it('page 2 requests rows 11..20 and keeps the total range page-independent', async () => {
@@ -158,7 +225,7 @@ describe('PrediosInconsistenciaService', () => {
         2,
         SP,
         expect.objectContaining({
-          msquery: TOTAL_MSQUERY,
+          msquery: 2, // 30.01.01: count branch = select + 1
           anno: 2026,
           inicio: 1,
           final: EXPORT_MAX_ROWS,

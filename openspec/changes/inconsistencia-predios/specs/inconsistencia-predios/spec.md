@@ -88,19 +88,29 @@ El combo DEBE poblarse con `SELECT id_uso, uso FROM Contenedor.TblUsoPredio WHER
 
 ### Requirement: Cálculo del total
 
-El total DEBE obtenerse con una segunda llamada a `Rentas.sp_inconsistencias` con `@msquery = 2`, **sin** el tipo de inconsistencia, y usarse para `totalPages = ceil(total / 10)`. **Limitación conocida:** el total NO respeta el filtro de tipo (se replica el legacy por confirmación del PO), por lo que puede discrepar del conteo real de la grilla.
+El total DEBE obtenerse con una segunda llamada a `Rentas.sp_inconsistencias` usando el **branch de COUNT del tipo** de inconsistencia seleccionado. Cada tipo tiene su propio par datos→conteo, siempre `selectMsquery + 1`:
 
-#### Scenario: Total independiente del tipo
+| tipo | `@msquery` datos | `@msquery` COUNT (total) |
+|------|------------------|--------------------------|
+| `30.01.01` | 1 | 2 |
+| `30.01.02` | 3 | 4 |
+| `30.01.03` | 5 | 6 |
+| `30.01.04` | 7 | 8 |
+| `30.01.05` | 9 | 10 |
 
-- GIVEN una búsqueda de tipo `30.01.02` con datos en la grilla
+El total se usa para `totalPages = ceil(total / 10)`. Confirmado contra la BD real (Base_sigmun, anno=2026): conteos 2290, 54, 16, 346 y 139 respectivamente. Los branches de COUNT **ignoran** `@inicio`/`@final` (el WHERE de rango está comentado en el conteo) y **sí usan** `@anno` (año vigente si llega vacío).
+
+#### Scenario: Total por tipo
+
+- GIVEN una búsqueda de tipo `30.01.03` con datos en la grilla
 - WHEN se calcula el total
-- THEN se llama al SP con `@msquery=2` sin el tipo y `totalPages` se deriva de ese valor
+- THEN se llama al SP con el branch de COUNT del tipo (`@msquery=6`, es decir el de datos + 1) y `totalPages` se deriva de ese valor
 
-#### Scenario: Discrepancia documentada
+#### Scenario: El conteo es del tipo seleccionado
 
-- GIVEN el total de `@msquery=2` es mayor que las filas filtradas
-- WHEN el paginador renderiza
-- THEN usa `totalPages` del total y la discrepancia se considera comportamiento esperado
+- GIVEN una búsqueda de tipo `30.01.04` (branch de datos `@msquery=7`)
+- WHEN se calcula el total
+- THEN el conteo proviene de `@msquery=8` y refleja el volumen real de ese tipo (346 filas en 2026), por lo que el paginador coincide con la grilla
 
 ### Requirement: Grilla de resultados
 
@@ -219,13 +229,13 @@ Cada escenario DEBE ser verificable por tests: backend Jest en `*.spec.ts` coloc
 
 | SP | Params | Result Columns |
 |----|--------|----------------|
-| `Rentas.sp_inconsistencias` (datos) | `@msquery`, `@anno`, `@inicio`, `@final` | `codigo, nombre, cod_pred, anexo, sub_anexo, direcion, uso, area_terreno, porcen_propiedad, val_total_terreno, val_total_constru, total_autoavaluo, ROW` |
-| `Rentas.sp_inconsistencias` (total) | `@msquery=2` | Columna de conteo (nombre por confirmar) |
+| `Rentas.sp_inconsistencias` (datos) | `@msquery` (mapeo del tipo: 1, 3, 5, 7, 9), `@anno`, `@inicio`, `@final` | `codigo, nombre, cod_pred, anexo, sub_anexo, direcion, uso, area_terreno, porcen_propiedad, val_total_terreno, val_total_constru, total_autoavaluo, ROW` |
+| `Rentas.sp_inconsistencias` (total) | `@msquery = msquery_datos + 1` (branch de COUNT por tipo: 2, 4, 6, 8, 10), `@anno` (el COUNT lo usa; `@inicio`/`@final` son ignorados) | Columna de conteo **sin nombre** → lectura posicional (primer valor del primer registro) |
 
 ## Assumptions / Constraints
 
-- **Nombre de la columna de total (Q2):** desconocido. El servicio DEBE leer defensivamente el primer valor del primer registro (lookup case-insensitive), como el helper `col()` de `predios-por-uso`.
-- **Parámetros de la llamada de total (Q1):** se asume que `@msquery=2` no requiere `@anno` ni `@inicio`/`@final`; el diseño DEBE confirmarlo contra la BD. Si los requiere, se reutilizan los del filtro actual.
+- **Nombre de la columna de total (Q2):** RESUELTO contra la BD real. El branch de COUNT devuelve una columna **sin nombre**; el servicio DEBE leer el primer valor del primer registro (lectura posicional `Object.values(recordset[0])[0]`).
+- **Parámetros de la llamada de total (Q1):** RESUELTO contra la BD real. Los branches de COUNT ignoran `@inicio`/`@final` (rango comentado) y usan `@anno` (año vigente por defecto). Se envían `{ msquery: select+1, anno, inicio, final }` — inofensivo y espeja el legacy.
 - **Combos (Q3):** se asume SQL estático parametrizado vía `DatabaseService.query` (sin input de usuario); se preferirá un SP equivalente si existe.
 - **Tipo obligatorio (Q4):** el tipo de inconsistencia es obligatorio; no hay valor "todos"/default.
 - **id_acceso fuera del mapa (Q5):** error de validación (`validation_error`), no se llama al SP.
@@ -233,5 +243,5 @@ Cada escenario DEBE ser verificable por tests: backend Jest en `*.spec.ts` coloc
 
 ## Open Questions
 
-- [ ] Confirmar el nombre exacto de la columna de conteo de `@msquery=2`
-- [ ] Confirmar si `@msquery=2` requiere `@anno` y/o `@inicio`/`@final`
+- [x] Nombre exacto de la columna de conteo del total — **Resuelto**: la columna no tiene nombre; lectura posicional.
+- [x] Si el COUNT requiere `@anno` y/o `@inicio`/`@final` — **Resuelto**: usa `@anno` (año vigente si vacío) e ignora el rango; se envían igual (inofensivo).

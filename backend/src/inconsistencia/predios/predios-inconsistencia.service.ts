@@ -16,9 +16,12 @@ import {
 export const GRID_PAGE_SIZE = 10;
 /** Tope de filas para la re-consulta completa de la exportación. */
 export const EXPORT_MAX_ROWS = 100000;
-/** @msquery de la llamada de total (no respeta el tipo de inconsistencia). */
-export const TOTAL_MSQUERY = 2;
-/** Q1: enviar {anno, inicio, final} junto con @msquery=2 (espeja el legacy). */
+/**
+ * Q1: enviar {anno, inicio, final} junto con el @msquery de conteo (espeja el legacy).
+ * Confirmado contra la BD real (Base_sigmun, anno=2026): los branches de COUNT del SP
+ * ignoran @inicio/@final (el WHERE de rango está comentado en el conteo) y sí usan @anno
+ * (por defecto, el año vigente si llega vacío). Enviarlos es inofensivo.
+ */
 export const TOTAL_CALL_INCLUDE_FILTERS = true;
 
 const SP_INCONSISTENCIAS = '[Rentas].[sp_inconsistencias]';
@@ -32,6 +35,20 @@ export const TIPO_MSQUERY_MAP: Record<string, number> = {
   '30.01.05': 9,
 };
 
+/**
+ * Mapeo del id_acceso al @msquery del branch de COUNT del SP. Evidencia real
+ * (Base_sigmun, anno=2026): cada tipo tiene SU PROPIO branch de conteo, siempre
+ * `selectMsquery + 1` — 30.01.01→2 (2290 filas), 30.01.02→4 (54), 30.01.03→6 (16),
+ * 30.01.04→8 (346), 30.01.05→10 (139). Se deriva del mapa de datos para que ambos
+ * nunca diverjan.
+ */
+export const TOTAL_MSQUERY_MAP: Record<string, number> = Object.fromEntries(
+  Object.entries(TIPO_MSQUERY_MAP).map(([idAcceso, msquery]) => [
+    idAcceso,
+    msquery + 1,
+  ]),
+);
+
 // SQL estático (sin input de usuario → sin concatenación).
 const TIPOS_INCONSISTENCIA_SQL =
   "SELECT id_acceso, nombre FROM Acceso.Macceso WHERE id_acceso LIKE '30.01.%' AND nestado = '3'";
@@ -43,6 +60,14 @@ const USOS_PREDIO_SQL =
 /** Resuelve el @msquery del tipo de inconsistencia; `undefined` si no está mapeado. */
 export function resolveMsquery(idAcceso: string): number | undefined {
   return TIPO_MSQUERY_MAP[idAcceso];
+}
+
+/**
+ * Resuelve el @msquery del branch de COUNT del tipo (total); `undefined` si no está
+ * mapeado. El total SIEMPRE es el branch de conteo del tipo: `selectMsquery + 1`.
+ */
+export function resolveTotalMsquery(idAcceso: string): number | undefined {
+  return TOTAL_MSQUERY_MAP[idAcceso];
 }
 
 /** Rango de filas de la grilla (siempre 10 por página): p1 → 1..10, p2 → 11..20. */
@@ -67,16 +92,20 @@ export function resolveRange(
 }
 
 /**
- * Parámetros de la llamada de total. El total debe ser independiente de la
- * página, por eso se envía siempre el rango completo (no el rango de la página).
+ * Parámetros de la llamada de total. Recibe el @msquery de datos YA resuelto del tipo
+ * (select) y usa su branch de conteo: `selectMsquery + 1`. El total es independiente de
+ * la página, por eso se envía siempre el rango completo (no el rango de la página).
  */
-function buildTotalParams(anno: number): Record<string, number> {
+function buildTotalParams(
+  selectMsquery: number,
+  anno: number,
+): Record<string, number> {
   if (!TOTAL_CALL_INCLUDE_FILTERS) {
-    return { msquery: TOTAL_MSQUERY };
+    return { msquery: selectMsquery + 1 };
   }
   const range = exportRange();
   return {
-    msquery: TOTAL_MSQUERY,
+    msquery: selectMsquery + 1,
     anno,
     inicio: range.inicio,
     final: range.final,
@@ -145,7 +174,7 @@ export class PrediosInconsistenciaService {
 
     const totalResult = await this.db.executeProcedure<Record<string, unknown>>(
       SP_INCONSISTENCIAS,
-      buildTotalParams(anno),
+      buildTotalParams(msquery, anno),
     );
 
     const total = readTotal(totalResult);
