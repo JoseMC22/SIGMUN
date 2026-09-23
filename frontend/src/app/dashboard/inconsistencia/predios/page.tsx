@@ -26,6 +26,8 @@ import { PrediosHeader } from "./components/predios-header";
 
 /** Filas por página de la grilla (fijo). */
 const GRID_PAGE_SIZE = 20;
+/** Tope de filas de la re-consulta de exportación (igual al DTO del backend). */
+const EXPORT_MAX_ROWS = 100000;
 
 export default function InconsistenciaPrediosPage() {
   const [filters, setFilters] = useState<PrediosFilterValues>({
@@ -44,6 +46,7 @@ export default function InconsistenciaPrediosPage() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [tipos, setTipos] = useState<TipoInconsistenciaOption[]>([]);
   const [usos, setUsos] = useState<UsoPredioOption[]>([]);
+  const [exporting, setExporting] = useState(false);
 
   // ── Búsqueda ───────────────────────────────────────────
 
@@ -134,6 +137,60 @@ export default function InconsistenciaPrediosPage() {
     executeSearch(newPage);
   };
 
+  // ── Exportación a Excel (client-side) ──────────────────
+
+  /**
+   * Re-consulta el filtro COMPLETO (no la página visible) para exportar todos
+   * los registros que cumplen el filtro actual.
+   */
+  const fetchAllFilteredRecords = useCallback(async (): Promise<
+    PredioInconsistenciaRow[]
+  > => {
+    const result = await searchInconsistenciasAction(
+      { idAcceso: filters.idAcceso, anno: Number(filters.anno) },
+      1,
+      EXPORT_MAX_ROWS,
+    );
+    if (!result.success) throw new Error(result.error);
+    return result.data;
+  }, [filters]);
+
+  const exportToExcel = useCallback(async () => {
+    setExporting(true);
+    setError(null);
+    try {
+      const allData = await fetchAllFilteredRecords();
+      const XLSX = await import("xlsx");
+      const ws = XLSX.utils.json_to_sheet(
+        allData.map((r) => ({
+          "Código": r.codigo,
+          "Nombre": r.nombre,
+          "Cód. Pred": r.cod_pred,
+          "Anexo": r.anexo,
+          "Sub Anexo": r.sub_anexo,
+          "Dirección": r.direcion,
+          "Uso": r.uso,
+          "Área Terreno": r.area_terreno,
+          "% Propiedad": r.porcen_propiedad,
+          "Val. Terreno": r.val_total_terreno,
+          "Val. Constru.": r.val_total_constru,
+          "Total Autoavalúo": r.total_autoavaluo,
+          "ROW": r.ROW,
+        })),
+      );
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Inconsistencia de Predios");
+      XLSX.writeFile(
+        wb,
+        `inconsistencia-predios-${filters.anno}-${filters.idAcceso}.xlsx`,
+      );
+    } catch {
+      setError("Error al exportar Excel");
+    } finally {
+      setExporting(false);
+    }
+  }, [fetchAllFilteredRecords, filters]);
+
   // ── Render principal ───────────────────────────────────
 
   return (
@@ -146,6 +203,8 @@ export default function InconsistenciaPrediosPage() {
         filters={filters}
         onFilterChange={handleFilterChange}
         onSearch={handleSearch}
+        onExport={exportToExcel}
+        exporting={exporting}
       />
 
       {/* Info de resultados */}
