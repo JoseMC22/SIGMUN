@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useEffect, useTransition, useRef } from "react";
 import { X, Save, Loader2, Search, ChevronLeft, ChevronRight, Pencil } from "lucide-react";
 import {
   nuevaInfraccionAction,
@@ -285,6 +285,8 @@ export default function NuevaInfraccionModal({ isOpen, onClose, onSuccess, editD
   const upd = (field: string, value: string | boolean) =>
     setForm((prev) => ({ ...prev, [field]: value ?? "" }));
 
+  const initialFormRef = useRef<Record<string, any> | null>(null);
+
   useEffect(() => {
     if (isOpen && editData) {
       const formatToDateInput = (val?: unknown) => {
@@ -308,7 +310,7 @@ export default function NuevaInfraccionModal({ isOpen, onClose, onSuccess, editD
         return false;
       };
 
-      setForm({
+      const loadedForm = {
         acta: parseBooleanFlag(editData.acta),
         seriePapel: String(editData.seriePapel ?? new Date().getFullYear().toString()),
         taloPapel: String(editData.taloPapel ?? "01"),
@@ -352,7 +354,12 @@ export default function NuevaInfraccionModal({ isOpen, onClose, onSuccess, editD
         tipoPropiedad: String(editData.tipoPropiedad ?? ""),
         direccionPropietario: String(editData.direccionPropietario ?? ""),
         estadoAnterior: String(editData.estadoAnterior ?? ""),
-      });
+      };
+
+      setForm(loadedForm);
+      initialFormRef.current = loadedForm;
+    } else if (isOpen && !editData) {
+      initialFormRef.current = null;
     }
   }, [isOpen, editData]);
 
@@ -650,6 +657,16 @@ export default function NuevaInfraccionModal({ isOpen, onClose, onSuccess, editD
       setError("N° de Papeleta, Placa, fecha de infracción, código de infracción y monto son requeridos.");
       return;
     }
+    if (editData && initialFormRef.current) {
+      const isUnchanged = Object.keys(initialFormRef.current).every(
+        (key) => (form as any)[key] === (initialFormRef.current as any)[key]
+      );
+      if (isUnchanged) {
+        setError("No se detectaron cambios en la infracción. No se realizó ninguna grabación.");
+        return;
+      }
+    }
+
     setError(null);
     startTransition(async () => {
       const horaMin = `${form.hora}:${form.minuto}`;
