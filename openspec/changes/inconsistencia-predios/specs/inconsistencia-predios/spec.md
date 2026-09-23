@@ -120,7 +120,7 @@ El paginador DEBE navegar con Anterior/Siguiente y páginas; al cambiar de pági
 
 - GIVEN el usuario está en la página 1
 - WHEN hace clic en Siguiente
-- THEN se invoca el SP con `@inicio=21, @final=40`
+- THEN se invoca el SP con `@inicio=11, @final=20`
 
 #### Scenario: Límites
 

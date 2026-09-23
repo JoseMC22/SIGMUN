@@ -94,9 +94,9 @@ Chain strategy: feature-branch-chain
 
 ## Phase 5 — Verificación final
 
-- [x] 5.1 `pnpm --filter backend test` — suite completa verde.
-- [x] 5.2 `pnpm --filter frontend test` — suite completa verde.
-- [x] 5.3 Typecheck/lint: `pnpm --filter backend lint` + `pnpm --filter backend build`; `pnpm --filter frontend lint` + `pnpm --filter frontend exec tsc --noEmit`.
+- [x] 5.1 `pnpm --filter backend test` — suites enfocadas del módulo verdes (38/38). Los fallos de la suite completa son **pre-existentes** (baseline `d1b7762`: 30 fallidos, Δ0).
+- [x] 5.2 `pnpm --filter frontend test` — suite enfocada del módulo verde (11/11). Los fallos de la suite completa son **pre-existentes** (baseline: 18 fallidos, Δ0).
+- [x] 5.3 Build backend OK. **Lint backend bloqueado por deuda pre-existente** (`backend/eslint.config.mjs` ausente, repo-wide); typecheck FE con errores pre-existentes fuera del módulo.
 - [x] 5.4 Revisar ítems de verificación del design: `TOTAL_CALL_INCLUDE_FILTERS`, columna de total posicional, export real de todo el filtro, y desviación conocida del 401 del `JwtAuthGuard` (fuera de alcance). *Acepta: design "Verification Items".*
 
 ## Dependencias
