@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import {
   Users,
   Play,
@@ -10,6 +10,7 @@ import {
   RotateCcw,
   ChevronLeft,
   ChevronRight,
+  FileDown,
 } from "lucide-react";
 import {
   searchMaestroContribuyentesAction,
@@ -17,6 +18,9 @@ import {
 } from "@/actions/administracion-tributaria/maestro-contribuyentes";
 
 // ─── Helpers ────────────────────────────────────────────────
+
+// Tope de filas de la re-consulta de exportación (igual al pageSize que maneja la vista).
+const EXPORT_MAX_ROWS = 100000;
 
 // Formatea importes con separador de miles (es-PE) y hasta 2 decimales; 0 → "0".
 const formatNumber = (value: number) =>
@@ -109,6 +113,8 @@ export default function MaestroContribuyentesPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const exportSeq = useRef(0);
 
   const executeSearch = useCallback(
     async (pageNum: number) => {
@@ -145,6 +151,46 @@ export default function MaestroContribuyentesPage() {
     if (newPage < 1 || newPage > totalPages) return;
     executeSearch(newPage);
   };
+
+  // ── Exportar a Excel: re-consulta el listado COMPLETO (no la página visible) ──
+
+  const exportToExcel = useCallback(async () => {
+    const token = ++exportSeq.current;
+    setExporting(true);
+    setError(null);
+    try {
+      const result = await searchMaestroContribuyentesAction(1, EXPORT_MAX_ROWS);
+      if (!result.success) throw new Error(result.error ?? "Error al exportar Excel");
+      const XLSX = await import("xlsx");
+      const ws = XLSX.utils.json_to_sheet(
+        result.data.map((r) => ({
+          "Código": r.codigo,
+          "Nombre": r.nombre,
+          "Dirección": r.direccion,
+          "Junta": r.junta,
+          "DNI": r.dni,
+          "Correo": r.correo,
+          "Id Vía": r.idVia,
+          "Teléfono": r.telefono1,
+          "Base Imponible": r.baseImponible,
+          "Inafecto": r.inafecto,
+          "Categoría": r.categoria,
+          "Gestor": r.gestor,
+          "Imp. Anual": r.impAnual,
+          "Imp. Trim.": r.impTrime,
+          "Costo Emis.": r.costoEmi,
+          "Imp. Total": r.impTotal,
+        })),
+      );
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Maestro de Contribuyentes");
+      XLSX.writeFile(wb, `maestro-contribuyentes-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    } catch {
+      if (token === exportSeq.current) setError("Error al exportar Excel");
+    } finally {
+      if (token === exportSeq.current) setExporting(false);
+    }
+  }, []);
 
   // ── Sección 1: botón Procesar ───────────────────────────
 
@@ -372,13 +418,33 @@ export default function MaestroContribuyentesPage() {
           </span>
         </div>
         {!loading && !error && hasSearched && data.length > 0 && (
-          <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
-            <Users size={12} className="text-slate-400" />
-            <span>
-              Se encontraron{" "}
-              <span className="font-semibold text-slate-700">{total}</span>{" "}
-              {total === 1 ? "contribuyente" : "contribuyentes"}
-            </span>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+              <Users size={12} className="text-slate-400" />
+              <span>
+                Se encontraron{" "}
+                <span className="font-semibold text-slate-700">{total}</span>{" "}
+                {total === 1 ? "contribuyente" : "contribuyentes"}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={exportToExcel}
+              disabled={exporting}
+              className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-sat-cyan/30 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {exporting ? (
+                <>
+                  <Loader2 size={13} className="animate-spin" />
+                  Exportando...
+                </>
+              ) : (
+                <>
+                  <FileDown size={13} className="text-sat-cyan" />
+                  Exportar a Excel
+                </>
+              )}
+            </button>
           </div>
         )}
       </div>
