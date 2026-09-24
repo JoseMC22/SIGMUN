@@ -9,23 +9,29 @@ import {
 
 @Injectable()
 export class MaestroContribuyentesService {
+  /**
+   * Branch de consulta del maestro consolidado dentro de Rentas.sp_Mcontribuyente.
+   * `@busc=28` → `GOTO maestro_contribuyentes` → SELECT las 16 columnas desde
+   * REPORTS.VW_LISTACONTRIBUYENTE (mismas columnas/orden que la query directa
+   * previa, ahora centralizada en el SP).
+   */
+  private readonly SP_MCONTRIBUYENTE = 'Rentas.sp_Mcontribuyente';
+
   constructor(private readonly db: DatabaseService) {}
 
   /**
-   * Consulta el listado completo de contribuyentes desde la vista consolidada
-   * REPORTS.VW_LISTACONTRIBUYENTE (primera consulta al schema REPORTS del repo).
-   * La vista no recibe parámetros: se traen todas las filas y se pagina en memoria.
+   * Consulta el listado completo de contribuyentes ejecutando
+   * `Rentas.sp_Mcontribuyente @busc=28`. El SP no recibe parámetros de filtro:
+   * se traen todas las filas y se pagina en memoria.
    */
   async search(
     dto: SearchMaestroContribuyentesDto,
   ): Promise<PaginatedResponse<ContribuyenteRow>> {
     const { page, pageSize } = dto;
 
-    const result = await this.db.query<SpListaContribuyenteRow>(
-      `SELECT wc.CODIGO, wc.NOMBRE, wc.DIRECCION, wc.JUNTA, wc.DNI, wc.CORREO, wc.ID_VIA,
-              wc.TELEFONO1, wc.BASE_IMPONIBLE, wc.INAFECTO, wc.CATEGORIA, wc.GESTOR,
-              wc.IMP_ANUAL, wc.IMP_TRIME, wc.COSTO_EMI, wc.IMPTOTAL
-       FROM REPORTS.VW_LISTACONTRIBUYENTE wc`,
+    const result = await this.db.executeProcedure<SpListaContribuyenteRow>(
+      this.SP_MCONTRIBUYENTE,
+      { busc: 28 },
     );
 
     const allRows = result.recordset ?? [];
