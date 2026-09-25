@@ -19,18 +19,20 @@ export class PrediosContribuyentesService {
   constructor(private readonly db: DatabaseService) {}
 
   /**
-   * Consulta el listado completo de predios por contribuyente ejecutando
-   * `Rentas.sp_Mcontribuyente @busc=29`. El SP no recibe parámetros de filtro:
-   * se traen todas las filas y se pagina en memoria.
+   * Consulta el listado de predios por contribuyente ejecutando
+   * `Rentas.sp_Mcontribuyente @busc=29` con el parámetro `@categoria`
+   * (PRICO/MECO/PECO; '' = TODOS). La rama 29 filtra por
+   * `(@categoria = '' OR RENTAS.GET_TIPO_CONTRIBUYENTE(wc.codigo) = @categoria)`;
+   * se traen todas las filas coincidentes y se pagina en memoria.
    */
   async search(
     dto: SearchPrediosContribuyentesDto,
   ): Promise<PaginatedResponse<PredioContribuyenteRow>> {
-    const { page, pageSize } = dto;
+    const { page, pageSize, categoria } = dto;
 
     const result = await this.db.executeProcedure<SpPredioContribuyenteRow>(
       this.SP_MCONTRIBUYENTE,
-      { busc: 29 },
+      { busc: 29, categoria },
     );
 
     const allRows = result.recordset ?? [];

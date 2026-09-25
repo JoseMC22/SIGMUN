@@ -21,6 +21,7 @@ import {
 
 // Tope de filas de la re-consulta de exportación (igual al pageSize que maneja la vista).
 const EXPORT_MAX_ROWS = 100000;
+type CategoryFilter = "TODOS" | "PRICO" | "MECO" | "PECO";
 
 // ─── Columnas de la tabla ──────────────────────────────────
 
@@ -96,6 +97,8 @@ export default function PrediosContribuyentesPage() {
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [categoria, setCategoria] = useState<CategoryFilter>("TODOS");
+  const categoriaParam = categoria === "TODOS" ? "" : categoria;
   const exportSeq = useRef(0);
 
   const executeSearch = useCallback(
@@ -103,7 +106,11 @@ export default function PrediosContribuyentesPage() {
       setLoading(true);
       setError(null);
       try {
-        const result = await searchPrediosContribuyentesAction(pageNum, pageSize);
+        const result = await searchPrediosContribuyentesAction(
+          pageNum,
+          pageSize,
+          categoriaParam,
+        );
         if (result.success) {
           setData(result.data);
           setTotal(result.total);
@@ -121,7 +128,7 @@ export default function PrediosContribuyentesPage() {
         setHasSearched(true);
       }
     },
-    [pageSize],
+    [categoriaParam, pageSize],
   );
 
   const handleProcesar = () => {
@@ -141,7 +148,11 @@ export default function PrediosContribuyentesPage() {
     setExporting(true);
     setError(null);
     try {
-      const result = await searchPrediosContribuyentesAction(1, EXPORT_MAX_ROWS);
+      const result = await searchPrediosContribuyentesAction(
+        1,
+        EXPORT_MAX_ROWS,
+        categoriaParam,
+      );
       if (!result.success) throw new Error(result.error ?? "Error al exportar Excel");
       const XLSX = await import("xlsx");
       const ws = XLSX.utils.json_to_sheet(
@@ -159,12 +170,13 @@ export default function PrediosContribuyentesPage() {
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Predios por Contribuyentes");
       XLSX.writeFile(wb, `predios-contribuyentes-${new Date().toISOString().slice(0, 10)}.xlsx`);
-    } catch {
-      if (token === exportSeq.current) setError("Error al exportar Excel");
+    } catch (err) {
+      if (token === exportSeq.current)
+        setError(err instanceof Error ? err.message : "Error al exportar Excel");
     } finally {
       if (token === exportSeq.current) setExporting(false);
     }
-  }, []);
+  }, [categoriaParam]);
 
   // ── Sección 1: botón Procesar ───────────────────────────
 
@@ -190,24 +202,47 @@ export default function PrediosContribuyentesPage() {
             </p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={handleProcesar}
-          disabled={loading}
-          className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-4 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {loading ? (
-            <>
-              <Loader2 size={14} className="animate-spin" />
-              Procesando...
-            </>
-          ) : (
-            <>
-              <Play size={14} />
-              Procesar
-            </>
-          )}
-        </button>
+        <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-end">
+          <div>
+            <label
+              htmlFor="categoria"
+              className="mb-1 block text-[9px] font-semibold uppercase tracking-wider text-slate-400"
+            >
+              Categoría
+            </label>
+            <select
+              id="categoria"
+              value={categoria}
+              onChange={(event) =>
+                setCategoria(event.target.value as CategoryFilter)
+              }
+              className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-[11px] text-slate-700 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none"
+            >
+              <option value="TODOS">TODOS</option>
+              <option value="PRICO">PRICO</option>
+              <option value="MECO">MECO</option>
+              <option value="PECO">PECO</option>
+            </select>
+          </div>
+          <button
+            type="button"
+            onClick={handleProcesar}
+            disabled={loading}
+            className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-4 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {loading ? (
+              <>
+                <Loader2 size={14} className="animate-spin" />
+                Procesando...
+              </>
+            ) : (
+              <>
+                <Play size={14} />
+                Procesar
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -244,7 +279,7 @@ export default function PrediosContribuyentesPage() {
               {columns.map((col) => (
                 <td
                   key={col.key}
-                  className={`px-3 py-2 text-[11px] truncate text-left ${
+                  className={`px-3 py-2 text-[11px] truncate text-left text-slate-600 ${
                     col.mono ? "font-mono " : ""
                   }`}
                 >

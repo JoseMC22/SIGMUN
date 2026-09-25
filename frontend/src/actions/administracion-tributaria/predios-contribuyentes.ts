@@ -45,11 +45,12 @@ export type SearchPrediosContribuyentesResult =
 export async function searchPrediosContribuyentesAction(
   page: number = 1,
   pageSize: number = 20,
+  categoria: '' | 'PRICO' | 'MECO' | 'PECO' = '',
 ): Promise<SearchPrediosContribuyentesResult> {
   try {
     const response = await authFetch('/administracion-tributaria/predios-contribuyentes/search', {
       method: 'POST',
-      body: JSON.stringify({ page, pageSize }),
+      body: JSON.stringify({ page, pageSize, categoria }),
     });
 
     if (!response.ok) {
