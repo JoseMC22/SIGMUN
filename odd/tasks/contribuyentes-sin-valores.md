@@ -70,7 +70,7 @@ HTTP y construir la vista.
       Combo de años 2026→2000 descendente, default año actual, enviado en Procesar y Export.
       Checks: tsc 12 = baseline (0 nuevos), eslint 0, vitest 18/203 = baseline (sin regresión),
       `npm run build` compiled (36/36 páginas), spot check orquestador. Autorizado.
-      Commit: work-unit en rama `feat/contribuyentes-sin-valores`.
+      Commit `e0ac571` (3 archivos, 668 líneas, rama feat/contribuyentes-sin-valores).
 
 ## Route declaration
 - Exploración: orquestador inline (SP verificado en BD, menú 04.13.00 verificado, patrón frontend leído).
