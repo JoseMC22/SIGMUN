@@ -90,7 +90,26 @@ HTTP y construir la vista.
   (el runtime opencode no ofrece transporte de revisión inmutable; soportados: claude-code, codex).
   Sin reintento ni handoff (falla del runtime cliente, no de Gentle AI). Entrega por política
   ordinaria; el inventario untracked `odd/` creció con `contribuyentes-sin-valores.md`.
+- **Candidato acumulado T1+T2 (base `286594a`)**: assess → `high` (`unassessable`: el runtime activo
+  no es elegible para review inmutable). Entregas por política ordinaria del repo; commits
+  `2e2821d`, `e0ac571`, `a6c39fa` en `feat/contribuyentes-sin-valores`.
+
+## Route declaration
+- Exploración: orquestador inline (SP verificado en BD, menú 04.13.00 verificado, patrón frontend leído).
+- T1: delegated writer (general) — 6 archivos (5 nuevos + app.module). Commit `2e2821d`.
+- T2: delegated writer (general) — 2 archivos. Commit `e0ac571` + doc `a6c39fa`.
+
+## Acceptance criteria
+- La consulta devuelve las 11 columnas del SP en el orden dado, paginada. ✅
+- La página muestra botón Procesar, combo de años 2000→año actual descendente, tabla de
+  resultados paginada y export Excel. ✅
+- Backend protegido con JwtAuthGuard; respuestas con contrato `{ success, data/error }`. ✅
+- Tests backend verdes; frontend compila y pasa lint. ✅
 
 ## Next step
 - T1 ✅ `2e2821d` (backend, 309 líneas / 7 archivos, spec 10/10, build OK).
-- T2 pendiente de ejecución (frontend: action + página con combo años 2026→2000, 11 columnas, export).
+- T2 ✅ `e0ac571` (frontend, 654 líneas / 2 archivos, tsc 12 baseline, eslint 0, vitest 18/203, build OK).
+- Próximo (decisión del usuario): publicar rama `feat/contribuyentes-sin-valores` en origin y crear
+  PR → DEV (mismo flujo que predios). El menú `04.13.00` YA está en BD con la ruta
+  `cobranza/contribuyentes_sin_valores` (perfil 0000001 con acceso); verificar que el perfil del
+  usuario tenga `04.13.00` asignado si no lo ve en el sidebar.
