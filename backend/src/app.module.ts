@@ -16,6 +16,7 @@ import { InconsistenciaModule } from './inconsistencia/inconsistencia.module';
 import { MantenimientoViasModule } from './administracion-tributaria/mantenimiento-vias/mantenimiento-vias.module';
 import { DeclaracionJuradaModule } from './administracion-tributaria/declaracion-jurada/declaracion-jurada.module';
 import { MaestroContribuyentesModule } from './administracion-tributaria/maestro-contribuyentes/maestro-contribuyentes.module';
+import { PrediosContribuyentesModule } from './administracion-tributaria/predios-contribuyentes/predios-contribuyentes.module';
 import { ReportesModule } from './reportes-gerenciales/reportes-gerenciales.module';
 import { MantenimientoUitModule } from './mantenimiento-tablas/mantenimiento-uit/mantenimiento-uit.module';
 import { ConvenioEstadoModule } from './mantenimiento-tablas/mantenimiento-estado-convenios/convenio-estado.module';
@@ -65,6 +66,8 @@ import { StorageModule } from './storage/storage.module';
     DeclaracionJuradaModule,
     // Módulo de administración tributaria - maestro de contribuyentes
     MaestroContribuyentesModule,
+    // Módulo de administración tributaria - predios por contribuyente
+    PrediosContribuyentesModule,
     // Módulo de reportes gerenciales
     ReportesModule,
     // Módulo de impuestos vehicular
