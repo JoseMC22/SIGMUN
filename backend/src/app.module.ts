@@ -17,6 +17,7 @@ import { MantenimientoViasModule } from './administracion-tributaria/mantenimien
 import { DeclaracionJuradaModule } from './administracion-tributaria/declaracion-jurada/declaracion-jurada.module';
 import { MaestroContribuyentesModule } from './administracion-tributaria/maestro-contribuyentes/maestro-contribuyentes.module';
 import { PrediosContribuyentesModule } from './administracion-tributaria/predios-contribuyentes/predios-contribuyentes.module';
+import { ContribuyentesSinValoresModule } from './cobranza/contribuyentes-sin-valores/contribuyentes-sin-valores.module';
 import { ReportesModule } from './reportes-gerenciales/reportes-gerenciales.module';
 import { MantenimientoUitModule } from './mantenimiento-tablas/mantenimiento-uit/mantenimiento-uit.module';
 import { ConvenioEstadoModule } from './mantenimiento-tablas/mantenimiento-estado-convenios/convenio-estado.module';
@@ -68,6 +69,8 @@ import { StorageModule } from './storage/storage.module';
     MaestroContribuyentesModule,
     // Módulo de administración tributaria - predios por contribuyente
     PrediosContribuyentesModule,
+    // Módulo de cobranza - contribuyentes sin valores tributarios
+    ContribuyentesSinValoresModule,
     // Módulo de reportes gerenciales
     ReportesModule,
     // Módulo de impuestos vehicular
