@@ -63,13 +63,14 @@ HTTP y construir la vista.
       `executeProcedure('Rentas.sp_Mvalores', { msquery: 13, ano_val })`).
       Checks: jest spec local 10/10 pass (spot check orquestador), `npm run build` exit 0,
       tsc 0 nuevos (backend baseline 25), eslint 0 en archivos nuevos. Autorizado.
-      Commit: work-unit en rama `feat/contribuyentes-sin-valores`.
-- [ ] **T2 — Frontend contribuyentes-sin-valores**: server action + página con sección botón
+      Commit `2e2821d` (7 archivos, 309 líneas, rama feat/contribuyentes-sin-valores).
+- [x] **T2 — Frontend contribuyentes-sin-valores**: server action + página con sección botón
       Procesar y sección tabla resultados (11 columnas) + paginación + botón Exportar a Excel
       (re-consulta completa con 100000, `xlsx` dynamic import, `exportSeq` anti-carrera).
       Combo de años 2026→2000 descendente, default año actual, enviado en Procesar y Export.
-      Checks: tsc 12 errores = baseline (0 nuevos), eslint 0 en archivos nuevos, vitest 18/203
-      = baseline (sin regresión), spot check orquestador. Commit work-unit en la rama.
+      Checks: tsc 12 = baseline (0 nuevos), eslint 0, vitest 18/203 = baseline (sin regresión),
+      `npm run build` compiled (36/36 páginas), spot check orquestador. Autorizado.
+      Commit: work-unit en rama `feat/contribuyentes-sin-valores`.
 
 ## Route declaration
 - Exploración: orquestador inline (SP verificado en BD, menú 04.13.00 verificado, patrón frontend leído).
@@ -83,5 +84,13 @@ HTTP y construir la vista.
 - Backend protegido con JwtAuthGuard; respuestas con contrato `{ success, data/error }`.
 - Tests backend verdes; frontend compila y pasa lint.
 
+## Review result (RDD, candidato base-diff desde merge-base DEV `286594a`)
+- **Commit `2e2821d` (T1 backend)**: assess → `high` (`unassessable`: untracked requieren declaración
+  explícita; mismo patrón que predios). STATUS preflight → `immutable_review_transport_unsupported`
+  (el runtime opencode no ofrece transporte de revisión inmutable; soportados: claude-code, codex).
+  Sin reintento ni handoff (falla del runtime cliente, no de Gentle AI). Entrega por política
+  ordinaria; el inventario untracked `odd/` creció con `contribuyentes-sin-valores.md`.
+
 ## Next step
-- T1 y T2 pendientes de ejecución (rama `feat/contribuyentes-sin-valores` creada desde DEV).
+- T1 ✅ `2e2821d` (backend, 309 líneas / 7 archivos, spec 10/10, build OK).
+- T2 pendiente de ejecución (frontend: action + página con combo años 2026→2000, 11 columnas, export).
