@@ -28,6 +28,10 @@ import {
   GrabarCargoDto,
 } from './dto/grabar-cargo.dto';
 import {
+  BuscarContribuyenteSchema,
+  BuscarContribuyenteDto,
+} from './dto/buscar-contribuyente.dto';
+import {
   TipoValorComboResult,
   NotificadoresComboResult,
   ParentescosComboResult,
@@ -36,6 +40,7 @@ import {
   GrabarCargoResult,
   SubirCargoResult,
   NasUploadFile,
+  ContribuyenteResult,
 } from './cargos-notificaciones.types';
 import { z } from 'zod';
 
@@ -112,6 +117,22 @@ export class CargosNotificacionesController {
       );
     }
     return this.service.detalleCargo(dto);
+  }
+
+  /** Busca un contribuyente por código (rentas.mcontribuyente, nestado='1'). */
+  @Post('contribuyente')
+  @HttpCode(HttpStatus.OK)
+  async contribuyente(@Body() body: unknown): Promise<ContribuyenteResult> {
+    let dto: BuscarContribuyenteDto;
+    try {
+      dto = BuscarContribuyenteSchema.parse(body);
+    } catch (error) {
+      return this.validationError<ContribuyenteResult>(
+        error,
+        { success: false, data: null, error: 'Parámetros inválidos' },
+      );
+    }
+    return this.service.buscarContribuyente(dto);
   }
 
   /** Registra un cargo de notificación (SP @busc=2). */
