@@ -44,7 +44,10 @@ El tipo de valor existe en BD pero la pantalla lo trata como un valor tributario
 ## Progreso
 - T1–T4 implementados y verificados (28/28 tests backend incl. 3 nuevos; backend build OK; frontend tsc sin errores nuevos — siguen solo los 12 del baseline).
 - Desviación de ruta: el task tool reportó "Bad Request: big-pickle" pero el subagent **sí se ejecutó en paralelo**, escribiendo el spec completo; además se aplicaron edits inline del orquestador → el subagent y el orquestador escribieron la misma feature en paralelo (duplicados en service/controller/types/actions/spec, + JSX faltante). Resuelto: se eliminaron los duplicados y se completaron inline los edits JSX faltantes (Validar disabled, Nro/Año Cargo editables, Monto `montoDisplay`, Código + botón Buscar). Queda pendiente de reportar al usuario el problema de modelo en el dispatch de subagents.
-- Commit: aún no — el usuario decide commit/push/PR a DEV.
+- Commit: hecho en la rama `feat/cargo-notificacion-resolucion-gerencia` (base `DEV` @ `174297a`), en dos work units. Push y PR siguen siendo decisión del usuario.
+- Verificación re-corrida al momento del commit: backend `npx jest --testPathPatterns cargos-notificaciones` → 28/28; `npm run build` (backend) exit 0; frontend `npx tsc --noEmit` → los mismos 12 errores baseline, 0 en `cargos-notificaciones`; `npm run lint` (backend) falla con exit 2 por el config renombrado `backend/--eslint.config.mjs` (pre-existente en la base, no causado por este cambio).
+- Review nativo: no se pudo ejecutar. `gentle-ai review assess` devolvió `risk: high` con razón única `unassessable` y `changed_paths: 0`, y el preflight `gentle-ai review status` devolvió `immutable_review_transport_unsupported` con `next_action: stop` y `mutation_outcome: not_started` en build `3.7.0` stable. Ocurrencia reportada en Gentleman-Programming/gentle-ai#4984 con el consentimiento del usuario. Sin mutación de lifecycle, sin START, sin lineage, sin receipt.
+- Gotcha registrado: el script `npm run lint` del backend incluye `--fix`, así que es una operación de escritura. Para lint read-only usar `npx eslint <patrón> --no-fix` con `--config` explícito.
 
 ## Evidencia
 - T1: `backend/src/.../dto/buscar-contribuyente.dto.ts` (nuevo), types `ContribuyenteRow`/`ContribuyenteResult`, service `buscarContribuyente`, controller `POST contribuyente` — `npm run build` OK.
