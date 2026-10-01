@@ -1,15 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
-import { SearchConstanciaNoAdeudosDto } from './dto/search-constancia-no-adeudos.dto';
+import { SearchConstanciaNoAdeudoDto } from './dto/search-constancia-no-adeudo.dto';
 import {
   ConstanciaNoAdeudoResult,
   ConstanciaNoAdeudoRow,
-} from './reporte-constancia-no-adeudos.types';
+} from './reporte-constancia-no-adeudo.types';
 
 @Injectable()
-export class ReporteConstanciaNoAdeudosService {
+export class ReporteConstanciaNoAdeudoService {
   private readonly SP_NAME = 'Certificado.sp_certificado';
-  private readonly logger = new Logger(ReporteConstanciaNoAdeudosService.name);
+  private readonly logger = new Logger(ReporteConstanciaNoAdeudoService.name);
 
   constructor(private readonly db: DatabaseService) {}
 
@@ -18,7 +18,7 @@ export class ReporteConstanciaNoAdeudosService {
    * con @BUSC = '5', @Codigo (opcional), @fini, @ffin (opcional).
    * El SP no tiene paginación → se traen todas las filas y se pagina en memoria.
    */
-  async search(dto: SearchConstanciaNoAdeudosDto): Promise<ConstanciaNoAdeudoResult> {
+  async search(dto: SearchConstanciaNoAdeudoDto): Promise<ConstanciaNoAdeudoResult> {
     const { page, pageSize, Codigo, fini, ffin } = dto;
 
     const spParams: Record<string, any> = {
@@ -29,7 +29,7 @@ export class ReporteConstanciaNoAdeudosService {
     };
 
     this.logger.log(
-      `[ReporteConstanciaNoAdeudos] SP params: ${JSON.stringify(spParams)}`,
+      `[ReporteConstanciaNoAdeudo] SP params: ${JSON.stringify(spParams)}`,
     );
 
     try {
@@ -39,7 +39,7 @@ export class ReporteConstanciaNoAdeudosService {
       );
       const allRows = (result.recordset ?? []) as any[];
       this.logger.log(
-        `[ReporteConstanciaNoAdeudos] SP returned ${allRows.length} rows`,
+        `[ReporteConstanciaNoAdeudo] SP returned ${allRows.length} rows`,
       );
 
       // Mapeo a ConstanciaNoAdeudoRow: respetar casing literal, mapear null → ''
@@ -73,7 +73,7 @@ export class ReporteConstanciaNoAdeudosService {
       };
     } catch (err) {
       this.logger.error(
-        `[ReporteConstanciaNoAdeudos] search SP error: ${err}`,
+        `[ReporteConstanciaNoAdeudo] search SP error: ${err}`,
       );
       return {
         success: false,

@@ -1,4 +1,4 @@
-// ── SP result interfaces for Reporte de Constancia de No Adeudos ──
+// ── SP result interfaces for Reporte de Constancia de No Adeudo ──
 
 /**
  * Fila del SP Certificado.sp_certificado con @BUSC=5.

@@ -18,6 +18,7 @@ import { DeclaracionJuradaModule } from './administracion-tributaria/declaracion
 import { MaestroContribuyentesModule } from './administracion-tributaria/maestro-contribuyentes/maestro-contribuyentes.module';
 import { PrediosContribuyentesModule } from './administracion-tributaria/predios-contribuyentes/predios-contribuyentes.module';
 import { ContribuyentesSinValoresModule } from './cobranza/contribuyentes-sin-valores/contribuyentes-sin-valores.module';
+import { ReporteConstanciaNoAdeudoModule } from './cobranza/reporte-constancia-no-adeudo/reporte-constancia-no-adeudo.module';
 import { ReportesModule } from './reportes-gerenciales/reportes-gerenciales.module';
 import { MantenimientoUitModule } from './mantenimiento-tablas/mantenimiento-uit/mantenimiento-uit.module';
 import { ConvenioEstadoModule } from './mantenimiento-tablas/mantenimiento-estado-convenios/convenio-estado.module';
@@ -71,6 +72,8 @@ import { StorageModule } from './storage/storage.module';
     PrediosContribuyentesModule,
     // Módulo de cobranza - contribuyentes sin valores tributarios
     ContribuyentesSinValoresModule,
+    // Módulo de cobranza - reporte de constancias de no adeudo
+    ReporteConstanciaNoAdeudoModule,
     // Módulo de reportes gerenciales
     ReportesModule,
     // Módulo de impuestos vehicular

@@ -13,11 +13,11 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { searchConstanciaNoAdeudosAction } from "@/actions/notificaciones/reporte-constancia-no-adeudos";
+import { searchConstanciaNoAdeudoAction } from "@/actions/cobranza/reporte-constancia-no-adeudo";
 import type {
   ConstanciaNoAdeudoRow,
-} from "@/actions/notificaciones/reporte-constancia-no-adeudos";
-import { useConstanciaNoAdeudosExport } from "@/app/dashboard/notificaciones/reporte-constancia-no-adeudos/export-utils";
+} from "@/actions/cobranza/reporte-constancia-no-adeudo";
+import { useConstanciaNoAdeudoExport } from "@/app/dashboard/cobranza/reporte-constancia-no-adeudo/export-utils";
 
 // Pad código a 7 dígitos con ceros a la izquierda
 
@@ -67,7 +67,7 @@ function TableSkeleton() {
 
 // Main Page
 
-export default function ReporteConstanciaNoAdeudosPage() {
+export default function ReporteConstanciaNoAdeudoPage() {
   // Filters
 
   const [codigo, setCodigo] = useState("");
@@ -103,7 +103,7 @@ export default function ReporteConstanciaNoAdeudosPage() {
       setLoading(true);
       setError(null);
       try {
-        const result = await searchConstanciaNoAdeudosAction(
+        const result = await searchConstanciaNoAdeudoAction(
           buildFilters(),
           pageNum,
           pageSize,
@@ -164,7 +164,7 @@ export default function ReporteConstanciaNoAdeudosPage() {
 
   // Export helpers
 
-  const { exportToExcel } = useConstanciaNoAdeudosExport({
+    const { exportToExcel } = useConstanciaNoAdeudoExport({
     filters: buildFilters(),
     setExporting,
     setError,
@@ -332,7 +332,7 @@ export default function ReporteConstanciaNoAdeudosPage() {
       <div className="overflow-x-auto">
         <table
           className="w-full border-collapse"
-          data-testid="reporte-constancia-no-adeudos-grid"
+          data-testid="reporte-constancia-no-adeudo-grid"
           role="grid"
         >
           <thead className="bg-gradient-to-r from-sat-navy to-[#1e3050]">

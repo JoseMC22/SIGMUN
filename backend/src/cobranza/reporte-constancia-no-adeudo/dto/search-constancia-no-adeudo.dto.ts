@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /**
- * Esquema de búsqueda de Constancias de No Adeudos.
+ * Esquema de búsqueda de Constancias de No Adeudo.
  *
  * pageSize es el selector de modo: 10 = grilla (vista principal con paginación),
  * 100000 = exportación (re-consulta completa para Excel).
@@ -14,7 +14,7 @@ import { z } from 'zod';
  * - fini: fecha desde en formato YYYY-MM-DD (opcional). Si viene vacío, se pasa como ''
  * - ffin: fecha hasta en formato YYYY-MM-DD (opcional). Si viene vacío, se pasa como ''
  */
-export const SearchConstanciaNoAdeudosSchema = z.object({
+export const SearchConstanciaNoAdeudoSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce
     .number()
@@ -36,6 +36,6 @@ export const SearchConstanciaNoAdeudosSchema = z.object({
     .transform((v) => v ?? ''),
 });
 
-export type SearchConstanciaNoAdeudosDto = z.infer<
-  typeof SearchConstanciaNoAdeudosSchema
+export type SearchConstanciaNoAdeudoDto = z.infer<
+  typeof SearchConstanciaNoAdeudoSchema
 >;

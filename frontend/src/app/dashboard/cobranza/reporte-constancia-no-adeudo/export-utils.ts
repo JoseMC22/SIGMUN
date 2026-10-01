@@ -1,13 +1,13 @@
 "use client";
 
 import { useCallback, useRef } from "react";
-import { searchConstanciaNoAdeudosAction } from "@/actions/notificaciones/reporte-constancia-no-adeudos";
+import { searchConstanciaNoAdeudoAction } from "@/actions/cobranza/reporte-constancia-no-adeudo";
 import type {
   ConstanciaNoAdeudoRow,
   ConstanciaNoAdeudoFilters,
-} from "@/actions/notificaciones/reporte-constancia-no-adeudos";
+} from "@/actions/cobranza/reporte-constancia-no-adeudo";
 
-interface UseConstanciaNoAdeudosExportArgs {
+interface UseConstanciaNoAdeudoExportArgs {
   filters: ConstanciaNoAdeudoFilters;
   setExporting: (value: boolean) => void;
   setError: (value: string | null) => void;
@@ -17,17 +17,17 @@ interface UseConstanciaNoAdeudosExportArgs {
  * Hook de exportación para el "Reporte de Constancia de No Adeudos".
  * Excel se genera pidiendo todos los registros con los filtros actuales.
  */
-export function useConstanciaNoAdeudosExport({
+export function useConstanciaNoAdeudoExport({
   filters,
   setExporting,
   setError,
-}: UseConstanciaNoAdeudosExportArgs) {
+}: UseConstanciaNoAdeudoExportArgs) {
   const exportSeq = useRef(0);
 
   const fetchAllRecords = useCallback(async (): Promise<
     ConstanciaNoAdeudoRow[]
   > => {
-    const result = await searchConstanciaNoAdeudosAction(
+    const result = await searchConstanciaNoAdeudoAction(
       filters,
       1,
       100000,
@@ -60,7 +60,7 @@ export function useConstanciaNoAdeudosExport({
       const ws = XLSX.utils.json_to_sheet(wsData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Constancias No Adeudos");
-      XLSX.writeFile(wb, "reporte-constancia-no-adeudos.xlsx");
+      XLSX.writeFile(wb, "reporte-constancia-no-adeudo.xlsx");
     } catch {
       if (token === exportSeq.current) {
         setError("Error al exportar Excel");

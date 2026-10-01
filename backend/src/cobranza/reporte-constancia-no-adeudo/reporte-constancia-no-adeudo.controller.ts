@@ -7,26 +7,28 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { ReporteConstanciaNoAdeudosService } from './reporte-constancia-no-adeudos.service';
+import { ReporteConstanciaNoAdeudoService } from './reporte-constancia-no-adeudo.service';
 import {
-  SearchConstanciaNoAdeudosSchema,
-  SearchConstanciaNoAdeudosDto,
-} from './dto/search-constancia-no-adeudos.dto';
-import { ConstanciaNoAdeudoResult } from './reporte-constancia-no-adeudos.types';
+  SearchConstanciaNoAdeudoSchema,
+  SearchConstanciaNoAdeudoDto,
+} from './dto/search-constancia-no-adeudo.dto';
+import { ConstanciaNoAdeudoResult } from './reporte-constancia-no-adeudo.types';
 import { z } from 'zod';
 
-@Controller('notificaciones/reporte-constancia-no-adeudos')
+@Controller('cobranza/reporte-constancia-no-adeudo')
 @UseGuards(JwtAuthGuard)
-export class ReporteConstanciaNoAdeudosController {
-  constructor(private readonly service: ReporteConstanciaNoAdeudosService) {}
+export class ReporteConstanciaNoAdeudoController {
+  constructor(
+    private readonly service: ReporteConstanciaNoAdeudoService,
+  ) {}
 
   /** Búsqueda del reporte (SP Certificado.sp_certificado @BUSC='5'). */
   @Post('search')
   @HttpCode(HttpStatus.OK)
   async search(@Body() body: unknown): Promise<ConstanciaNoAdeudoResult> {
-    let dto: SearchConstanciaNoAdeudosDto;
+    let dto: SearchConstanciaNoAdeudoDto;
     try {
-      dto = SearchConstanciaNoAdeudosSchema.parse(body);
+      dto = SearchConstanciaNoAdeudoSchema.parse(body);
     } catch (error) {
       if (error instanceof z.ZodError) {
         const errorMsg =

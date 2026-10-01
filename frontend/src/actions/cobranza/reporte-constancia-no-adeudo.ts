@@ -40,11 +40,11 @@ export interface ConstanciaNoAdeudoFilters {
   fhasta?: string;
 }
 
-const BASE = "/notificaciones/reporte-constancia-no-adeudos";
+const BASE = "/cobranza/reporte-constancia-no-adeudo";
 
 // Server Action
 
-export async function searchConstanciaNoAdeudosAction(
+export async function searchConstanciaNoAdeudoAction(
   filters: ConstanciaNoAdeudoFilters,
   page: number = 1,
   pageSize: number = 10,
