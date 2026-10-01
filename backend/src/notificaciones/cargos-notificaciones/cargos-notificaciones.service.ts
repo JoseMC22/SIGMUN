@@ -6,6 +6,7 @@ import smb2 from '@awo00/smb2';
 import { DatabaseService } from '../../database/database.service';
 import { ValidarValorDto } from './dto/validar-valor.dto';
 import { GrabarCargoDto } from './dto/grabar-cargo.dto';
+import { BuscarContribuyenteDto } from './dto/buscar-contribuyente.dto';
 import {
   TipoValorComboResult,
   NotificadoresComboResult,
@@ -15,9 +16,10 @@ import {
   GrabarCargoResult,
   SubirCargoResult,
   NasUploadFile,
-  TipoValorOption,
+TipoValorOption,
   NotificadorOption,
   ParentescoOption,
+  ContribuyenteResult,
 } from './cargos-notificaciones.types';
 
 // ── Case-insensitive column accessor (mssql v12+ preserves SP casing) ──
@@ -286,6 +288,39 @@ export class CargosNotificacionesService {
         })}`,
       );
       return { success: false, error: 'Error al grabar el cargo de notificación' };
+    }
+  }
+
+  /**
+   * Busca un contribuyente por código (rentas.mcontribuyente, nestado='1').
+   * Query provista por el usuario: la tabla y las funciones RENTAS.GETNOMBRES /
+   * RENTAS.GETDIRFISCA son las de producción; se agregan alias explícitos para
+   * que mssql devuelva nombres de columna estables.
+   */
+  async buscarContribuyente(
+    dto: BuscarContribuyenteDto,
+  ): Promise<ContribuyenteResult> {
+    const { codigo } = dto;
+    try {
+      const sql =
+        `SELECT codigo, RENTAS.GETNOMBRES(codigo) AS contribuyente, ` +
+        `NUM_DOC AS nro_documento, RENTAS.GETDIRFISCA(codigo) AS direccion ` +
+        `FROM rentas.mcontribuyente WHERE codigo = @codigo AND nestado = '1'`;
+      const result = await this.db.query<any>(sql, { codigo });
+      const row = result.recordset?.[0];
+      if (!row) return { success: true, data: null };
+      return {
+        success: true,
+        data: {
+          codigo: String(col(row, 'codigo') ?? ''),
+          contribuyente: String(col(row, 'contribuyente') ?? ''),
+          nro_documento: String(col(row, 'nro_documento') ?? ''),
+          direccion: String(col(row, 'direccion') ?? ''),
+        },
+      };
+    } catch (err) {
+      this.logger.error(`[CargosNotificaciones] buscarContribuyente error: ${err}`);
+      return { success: false, data: null, error: 'Error al buscar el contribuyente' };
     }
   }
 
