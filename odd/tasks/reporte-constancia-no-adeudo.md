@@ -104,6 +104,9 @@ como texto, sin parsear. Ninguna otra columna necesita formateo.
   **vitest 18 fail / 203 pass = baseline**. Cualquier cantidad distinta = regresión introducida.
 - Baseline backend: **26 errores de tsc, todos en `notificaciones/mantenimiento-notificadores/`**
   (`Logger` con constructor de Nest desactualizado en los specs) = preexistente, no tocar.
+- A partir de **T13** los `*.spec.ts` de este módulo **sí se versionan** (negación puntual en
+  `.gitignore`). Antes corrían solo en local. Ojo: el backend tiene Jest configurado y los specs lo
+  toman bien, pero **el repo no tiene CI**, así que versionarlos preserva la regresión, no la ejecuta.
 
 ## Tasks
 - [x] **T1 — Backend `reporte-constancia-no-adeudos`** (ubicación original `notificaciones/`):
@@ -239,6 +242,29 @@ como texto, sin parsear. Ninguna otra columna necesita formateo.
       y el export la mostraban vacía. `Numero` ya trae el año concatenado (`00007-2026`), que es
       lo que se ve en la columna `N° Const.`.
 
+- [x] **T12 — UX del filtro excluyente** (cierra el hueco reportado en el PR #117): cuando hay
+      código, la UI **deshabilita** los dos `input type="date"` (con estilo atenuado) y muestra un
+      aviso ámbar: *"Buscando por código: el rango de fechas se ignora y se muestra todas las
+      constancias del contribuyente."* El aviso vive en el panel de criterios, no sobre la grilla.
+      - La condición sale de `codigoActivo = codigo.trim() !== ""`, **el mismo criterio que usa el
+        service**, para que la UI no prometa un filtrado que el backend no hace.
+      - Los valores de fecha **no se borran**: quedan en el estado, así que al limpiar el código
+        el rango vuelve intacto. Se descartó limpiarlos por ser destructivo.
+      - Bug colateral encontrado al derivar `codigoActivo`: `padCodigo("   ")` devolvía `"0000000"`,
+        convirtiendo un campo de solo espacios en un código real. Ahora devuelve `""` cuando no hay
+        dígitos, que es lo que el service espera.
+      - Checks: tsc frontend **12 = baseline, 0 en `page.tsx`**; eslint **0 errores, 0 warnings**.
+
+- [x] **T13 — Specs versionados** (cierra el segundo pendiente del PR #117): `.gitignore` ignoraba
+      `*.spec.ts` con el comentario *"Test files (all current and future)"*. Desbloquear la regla
+      global habría metido **43** specs de golpe, así que se agregó una negación quirúrgica:
+      ```gitignore
+      !backend/src/cobranza/reporte-constancia-no-adeudo/**/*.spec.ts
+      ```
+      - Verificado con `git check-ignore -q`: los 2 specs del módulo salen con exit 1 (no ignorados)
+        y un spec de otro módulo sigue con exit 0 (ignorado). Sin regresión de alcance.
+      - Los 16 tests quedan ahora en el PR: `jest` **2 suites / 16 tests pass**.
+
 ## Route declaration
 - T1: delegated writer (general) — **primera delegación de frontend falló** (worker `general` reportó
   archivos que nunca escribió + verificaciones que no corrió; `git status` limpio). Corregido con
@@ -248,13 +274,17 @@ como texto, sin parsear. Ninguna otra columna necesita formateo.
   Lección: **`Set-Content` de PowerShell 5.1 destruyó la codificación UTF-8** (acentos → `?`) y el
   `-replace` case-insensitive comió la `S` de `Service`/`Schema`. Todo el contenido de texto debe
   editarse con las herramientas `read`/`edit`/`write`, nunca con `Set-Content`/`-replace`.
+- T12, T13: **directo inline del orquestador**. Los dos cambios son de una solaconcern sobre archivos
+  ya leídos y entendidos en esta sesión, con verificación reproducible; delegar habría exigido
+  re-transmitir el contexto del SP y del service sin agregar señal.
 
 ## Acceptance criteria
 - La consulta devuelve las 6 columnas del SP, en orden, paginadas de a 20.
 - El panel superior busca por código y por rango de fechas; **Procesar** dispara la consulta.
 - La tabla muestra `Numero, Fecha, codigo, Nombre, concepto` con headers en español (`N° Const.`,
-  `Fecha`, `Código`, `Nombre`, `Concepto`), precedidas por la columna de índice global `#`. El SP
-  sigue devolviendo `Año` pero no se presenta en grilla ni en export.
+`Fecha`, `Código`, `Nombre`, `Concepto`), precedidas por la columna de índice global `#`. El
+    resultset real del SP **no incluye `Año`** (está comentada en el `SELECT` de `@busc=5`) y por eso
+    no se presenta en grilla ni en export.
 - **La fecha se muestra exactamente como la devuelve el SP (`dd/mm/yyyy`), sin invertir.**
 - Export a Excel trae **todas** las filas de los filtros actuales (no solo la página visible).
 - Backend protegido con `JwtAuthGuard`; contrato `{ success, data, total, page, pageSize, totalPages }`.
@@ -262,8 +292,19 @@ como texto, sin parsear. Ninguna otra columna necesita formateo.
 - **La implementación vive bajo `cobranza/reporte-constancia-no-adeudo` en backend y frontend.**
 
 ## Known unknowns / next step
-- Pendiente de confirmación del DBA: el `INSERT` de menú con la ruta
-  `dashboard/cobranza/reporte-constancia-no-adeudo`. Sin eso la pantalla no aparece en el sidebar.
-- Pendiente del usuario: confirmación de si la rama `@BUSC='5'` filtra por `@fini`/`@ffin` de verdad o
-  sólo por `@Codigo` (no hay fuente legacy del SP en el repo). Si `@fini`/`@ffin` se ignoran en el SP,
-  la grilla devuelve todo y hay que avisarlo explícitamente en la UI.
+
+- **Único pendiente real:** alta del menú por parte del DBA con la ruta
+  `dashboard/cobranza/reporte-constancia-no-adeudo`. Sin eso la pantalla no aparece en el sidebar,
+  aunque la ruta funciona. La caché de menú dura 30 minutos, así que hay que esperar o reiniciar sesión.
+- ~~¿La rama `@BUSC='5'` filtra por `@fini`/`@ffin`?~~ **Resuelto en T9/T10.** Verificado contra la BD
+  real: con `@Codigo` informado el SP ignera el rango, y con cadena vacía en las fechas devuelve 0
+  filas porque concatena sin guarda. La UI ahora lo dice explícitamente (T12).
+- ~~Los tests no tienen cobertura en CI.~~ **Resuelto en T13.** Los 16 tests del módulo están
+  versionados; el resto de los specs del repo sigue ignorado a propósito.
+
+## Pendientes fuera de este PR
+
+- El repo **no tiene workflows de CI** (`.github/workflows` vacío): versionar los specs evita que se
+  pierdan, pero no los ejecuta nadie hasta que se defina un pipeline.
+- Desbloquear los specs del resto del repo (~41 archivos más) es un PR aparte, no algo que deba
+  colarse acá.

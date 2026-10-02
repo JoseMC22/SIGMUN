@@ -12,6 +12,7 @@ import {
   Loader2,
   ChevronLeft,
   ChevronRight,
+  Info,
 } from "lucide-react";
 import { searchConstanciaNoAdeudoAction } from "@/actions/cobranza/reporte-constancia-no-adeudo";
 import type {
@@ -23,6 +24,9 @@ import { useConstanciaNoAdeudoExport } from "@/app/dashboard/cobranza/reporte-co
 
 function padCodigo(value: string): string {
   const digits = value.replace(/\D/g, "").slice(0, 7);
+  // Sin digitos no hay codigo que rellenar. Devolver "" evita inventar un
+  // "0000000" que el backend tomaria como una busqueda real.
+  if (!digits) return "";
   return digits.padStart(7, "0");
 }
 
@@ -95,6 +99,11 @@ export default function ReporteConstanciaNoAdeudoPage() {
       fhasta,
     };
   }, [codigo, fdesde, fhasta]);
+
+  // El service ignora el rango de fechas cuando @Codigo viene informado y
+  // manda un rango abierto. Derivamos del mismo criterio que el backend para
+  // que la UI no prometa un filtrado que despues no ocurre.
+  const codigoActivo = codigo.trim() !== "";
 
   // executeSearch
 
@@ -220,7 +229,8 @@ export default function ReporteConstanciaNoAdeudoPage() {
               value={fdesde}
               onChange={(e) => setFdesde(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] text-slate-700 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none"
+              disabled={codigoActivo}
+              className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] text-slate-700 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
             />
           </div>
 
@@ -238,7 +248,8 @@ export default function ReporteConstanciaNoAdeudoPage() {
               value={fhasta}
               onChange={(e) => setFhasta(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] text-slate-700 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none"
+              disabled={codigoActivo}
+              className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] text-slate-700 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
             />
           </div>
 
@@ -254,6 +265,19 @@ export default function ReporteConstanciaNoAdeudoPage() {
             </button>
           </div>
         </div>
+
+        {/* El backend ignora el rango cuando hay codigo: hay que decirlo, o la
+            grilla aparenta filtrar por fechas cuando no lo hace. */}
+        {codigoActivo && (
+          <p className="mt-2 flex items-center gap-1.5 text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1">
+            <Info size={11} className="shrink-0" />
+            <span>
+              Buscando por codigo: el rango de fechas se ignora y se muestra
+              <span className="font-semibold"> todas </span>
+              las constancias del contribuyente.
+            </span>
+          </p>
+        )}
       </div>
     </div>
   );
