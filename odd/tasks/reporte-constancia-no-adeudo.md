@@ -55,7 +55,7 @@ como texto, sin parsear. Ninguna otra columna necesita formateo.
 - **Frontend**:
   - `frontend/src/actions/cobranza/reporte-constancia-no-adeudo.ts` (server action, `authFetch`).
   - `frontend/src/app/dashboard/cobranza/reporte-constancia-no-adeudo/page.tsx`
-    (panel de criterios, botón Procesar, botón Exportar a Excel, tabla 6 columnas, paginación 20).
+    (panel de criterios, botón Procesar, botón Exportar a Excel, tabla 7 columnas, paginación 20).
   - `frontend/src/app/dashboard/cobranza/reporte-constancia-no-adeudo/export-utils.ts`
     (Excel, re-consulta completa con `pageSize` export, `exportSeq` anti-carrera).
 - **Identificadores en singular** (`NoAdeudo`, no `NoAdeudos`): clases, DTO/schema, action y hook.
@@ -150,6 +150,29 @@ como texto, sin parsear. Ninguna otra columna necesita formateo.
       `useState(20)` + `z.union([z.literal(20), z.literal(100000)]).default(20)` + 2 fallbacks del
       controller + spec recalculado (25 filas → página 1 de 20, página 2 de 5, `totalPages` 2).
       Checks: jest **6/6 pass**; tsc **12 = baseline**; eslint **0 errores, 1 warning**.
+- [x] **T6 — Restaurar la columna de índice global `#`** (el usuario la había ocultado en T4 y
+      volvió a pedirla): se repone el `<th>#</th>` y el `<td>` con `(page - 1) * pageSize + idx + 1`,
+      y el esqueleto vuelve a `grid-cols-7`/`Array(7)`. La tabla queda con **7 columnas**:
+      `# | N°(Numero) | Año | Fecha | Código | Nombre | Concepto`.
+      **No se revierte** el espaciado compacto (`py-1`) ni el `pageSize` de 20, que son ajustes
+      separados y pedidos explícitamente.
+      Checks: 7 `<th>` y 7 `<td>` alineados; tsc **12 = baseline**; eslint **0 errores, 1 warning**.
+- [x] **T7 — Verificar el envío del parámetro `@Codigo` al SP** (revisión, sin cambio de
+      comportamiento): se recorrió la cadena input → `buildFilters` → body del server action →
+      DTO → `spParams` → `executeProcedure`. Confirmado que `Codigo` viaja con **C mayúscula** en
+      todos los saltos y que `executeProcedure` es genérico (`request.input(key, ...)` sobre todas
+      las claves), sin lista blanca que pueda dropearlo.
+      Se agregaron 6 tests de contrato en `dto/search-constancia-no-adeudo.dto.spec.ts` (12/12 en el
+      módulo) que documentan dos trampas:
+      - **zod descarta claves desconocidas en silencio**: mandar `codigo` en minúscula dejaría
+        `Codigo: ''` → el SP traería todo sin mostrar error. El nombre de la clave debe coincidir
+        exactamente entre el action y el DTO.
+      - **Ceros a la izquierda**: `padCodigo` genera `0000000`; `inferSqlType` devuelve `VarChar`
+        para strings (no `Int`), así que `0282418` se manda como texto y conserva el cero.
+      Pendiente sin resolver: **no hay fuente del SP en el repo**, así que no se pudo confirmar si
+      el parámetro se declara `@Codigo` o `@codigo`. SQL Server suele ligar sin distinguir mayúsculas
+      por collation, pero si la búsqueda por código devuelve todo sin filtrar, es el primer lugar
+      donde mirar.
 
 ## Route declaration
 - T1: delegated writer (general) — **primera delegación de frontend falló** (worker `general` reportó
@@ -164,8 +187,8 @@ como texto, sin parsear. Ninguna otra columna necesita formateo.
 ## Acceptance criteria
 - La consulta devuelve las 6 columnas del SP, en orden, paginadas de a 20.
 - El panel superior busca por código y por rango de fechas; **Procesar** dispara la consulta.
-- La tabla muestra `Numero, Año, Fecha, codigo, Nombre, concepto` con headers en español, **sin la
-  columna de índice global `#`**.
+- La tabla muestra `Numero, Año, Fecha, codigo, Nombre, concepto` con headers en español,
+  precedidas por la columna de índice global `#`.
 - **La fecha se muestra exactamente como la devuelve el SP (`dd/mm/yyyy`), sin invertir.**
 - Export a Excel trae **todas** las filas de los filtros actuales (no solo la página visible).
 - Backend protegido con `JwtAuthGuard`; contrato `{ success, data, total, page, pageSize, totalPages }`.
