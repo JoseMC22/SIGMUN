@@ -207,6 +207,38 @@ como texto, sin parsear. Ninguna otra columna necesita formateo.
       `pasa Codigo y rango de fechas al SP cuando se proveen` **se reemplazó** porque afirmaba
       el comportamiento contrario al nuevo.
 
+- [x] **T10 — Corrección de T9: el rango vacío NO desactiva el filtro, lo rompe** (bug propio,
+      detectado probando contra la BD real). Leyendo el fuente del SP en `sys.sql_modules`:
+      ```sql
+      WHERE (@codigo IS NULL OR @codigo = '' OR cab.codigo = @codigo)
+        AND cab.fec_impresion >= @fini + ' 00:00:00'
+        AND cab.fec_impresion <= @ffin + ' 23:59:59'
+      ```
+      El SP **no tiene guarda** del tipo `@fini = '' OR ...`. Como concatena, mandar `''` produce
+      `' 00:00:00'` y `' 23:59:59'`, que SQL Server convierte a `1900-01-01 00:00:00` y
+      `1900-01-01 23:59:59` — **ambos extremos quedan fijados en 1900** y solo|matchearían
+      constancias de ese año. T9 hacía que **toda** búsqueda por código devolviera 0 filas.
+      **Arreglo: rango abierto explícito** `1900-01-01`..`9999-12-31` en vez de cadena vacía.
+      Extendido a un segundo agujero del mismo tipo: si el rango viene **incompleto** (solo uno de
+      los dos extremos) también cae al rango abierto, porque con un extremo vacío el SP devuelve
+      0 filas en silencio.
+      **No hubo que cambiar el SP** (el usuario preguntó si hacía falta): el SP es compartido con
+      el sistema legado (ramas `@busc=1..4`) y tocarlo exigiría un despliegue de objetos de BD.
+      Ajustar el cliente es seguro y reversible.
+      Verificación: unit **16/16** + un spec de integración temporal contra la BD real
+      (`192.168.3.205`) que corrió el service real y devolvió las **4** constancias de `0270801`
+      con el rango `2026-10-01..2026-10-01` pedido, confirmando que las fechas se ignoran. Ese
+      spec se eliminó después: requiere BD y no debe quedar como test que falla sin acceso.
+      Se dejó un test de invariante (`nunca manda @fini ni @ffin vacios al SP`) que corre siempre
+      sin BD y cubre justamente esta clase de regresión.
+
+- [x] **T11 — Hallazgo sobre la columna `Año`** (explica por qué el usuario la quitó): el SP tiene
+      la columna **comentada** en el `SELECT` de `@busc=5`
+      (`--cab.NUMCERTIF AS Numero,cab.CERT_ANIO AS [Año]`). El resultset real es
+      `Numero, Fecha, codigo, Nombre, concepto`. **`Año` nunca volvió del SP**, por eso la grilla
+      y el export la mostraban vacía. `Numero` ya trae el año concatenado (`00007-2026`), que es
+      lo que se ve en la columna `N° Const.`.
+
 ## Route declaration
 - T1: delegated writer (general) — **primera delegación de frontend falló** (worker `general` reportó
   archivos que nunca escribió + verificaciones que no corrió; `git status` limpio). Corregido con
