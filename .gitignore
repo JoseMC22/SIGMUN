@@ -50,6 +50,11 @@ coverage/
 *.test.ts
 *.test.tsx
 
+# Excepcion: los specs de reporte-constancia-no-adeudo SI se versionan, para
+# que la regresion del rango de fechas con codigo quede cubierta en el PR.
+# El resto del repo sigue ignorado a proposito (serian ~43 archivos).
+!backend/src/cobranza/reporte-constancia-no-adeudo/**/*.spec.ts
+
 # Auto-generated / workspace
 pnpm-lock.yaml
 frontend/pnpm-lock.yaml
