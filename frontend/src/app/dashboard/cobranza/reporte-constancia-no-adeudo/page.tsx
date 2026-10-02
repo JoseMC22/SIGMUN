@@ -79,7 +79,7 @@ export default function ReporteConstanciaNoAdeudoPage() {
   const [data, setData] = useState<ConstanciaNoAdeudoRow[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [pageSize] = useState(15);
+  const [pageSize] = useState(20);
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
