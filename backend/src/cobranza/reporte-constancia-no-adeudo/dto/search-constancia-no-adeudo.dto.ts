@@ -3,13 +3,13 @@ import { z } from 'zod';
 /**
  * Esquema de búsqueda de Constancias de No Adeudo.
  *
- * pageSize es el selector de modo: 10 = grilla (vista principal con paginación),
+ * pageSize es el selector de modo: 15 = grilla (vista principal con paginación),
  * 100000 = exportación (re-consulta completa para Excel).
  * Patrón canónico del repo: nunca usar .max(100). Union de literales estricta.
  *
  * Criterios:
  * - page: número de página (1-based), default 1
- * - pageSize: selector de modo (10 | 100000), default 10
+ * - pageSize: selector de modo (15 | 100000), default 15
  * - Codigo: código opcional (máx. 20 caracteres). Si viene vacío, el service lo pasa como ''
  * - fini: fecha desde en formato YYYY-MM-DD (opcional). Si viene vacío, se pasa como ''
  * - ffin: fecha hasta en formato YYYY-MM-DD (opcional). Si viene vacío, se pasa como ''
@@ -19,8 +19,8 @@ export const SearchConstanciaNoAdeudoSchema = z.object({
   pageSize: z.coerce
     .number()
     .int()
-    .pipe(z.union([z.literal(10), z.literal(100000)]))
-    .default(10),
+    .pipe(z.union([z.literal(15), z.literal(100000)]))
+    .default(15),
   Codigo: z
     .string()
     .max(20)

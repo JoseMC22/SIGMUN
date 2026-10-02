@@ -38,7 +38,7 @@ export class ReporteConstanciaNoAdeudoController {
           data: [],
           total: 0,
           page: 1,
-          pageSize: 10,
+          pageSize: 15,
           totalPages: 0,
           error: errorMsg,
         };
@@ -48,7 +48,7 @@ export class ReporteConstanciaNoAdeudoController {
         data: [],
         total: 0,
         page: 1,
-        pageSize: 10,
+        pageSize: 15,
         totalPages: 0,
         error: 'Parámetros inválidos',
       };

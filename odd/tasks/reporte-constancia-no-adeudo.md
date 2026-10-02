@@ -4,7 +4,7 @@
 Construir la pantalla "Reporte de Constancia de No Adeudos" dentro de **Cobranza**
 (`cobranza/reporte-constancia-no-adeudo`): panel superior con criterios de búsqueda por
 **Código** y **rango de fechas (desde/hasta)**, botón **Procesar**, botón **Exportar a Excel**, y
-tabla central de resultados con **paginación de 10**.
+tabla central de resultados con **paginación de 15**.
 
 ## Problem / Why
 El usuario necesita listar las constancias de no adeudos emitidas. La consulta ya existe
@@ -55,7 +55,7 @@ como texto, sin parsear. Ninguna otra columna necesita formateo.
 - **Frontend**:
   - `frontend/src/actions/cobranza/reporte-constancia-no-adeudo.ts` (server action, `authFetch`).
   - `frontend/src/app/dashboard/cobranza/reporte-constancia-no-adeudo/page.tsx`
-    (panel de criterios, botón Procesar, botón Exportar a Excel, tabla 7 columnas, paginación 10).
+    (panel de criterios, botón Procesar, botón Exportar a Excel, tabla 6 columnas, paginación 15).
   - `frontend/src/app/dashboard/cobranza/reporte-constancia-no-adeudo/export-utils.ts`
     (Excel, re-consulta completa con `pageSize` export, `exportSeq` anti-carrera).
 - **Identificadores en singular** (`NoAdeudo`, no `NoAdeudos`): clases, DTO/schema, action y hook.
@@ -77,8 +77,9 @@ como texto, sin parsear. Ninguna otra columna necesita formateo.
 - **`exportSeq` anti-carrera** → `predios-contribuyentes/page.tsx` líneas 102/147/174.
 
 ## Constraints
-- `pageSize` del DTO = **selector de modo**: `10` grilla / `100000` export. Union de literales en zod,
+- `pageSize` del DTO = **selector de modo**: `15` grilla / `100000` export. Union de literales en zod,
   **NUNCA `.max(100)`** (patrón canónico predios-contribuyentes / maestro-contribuyentes).
+  El conjunto aceptado es `{15, 100000}`: cualquier otro valor (incluido `10`) es rechazado por zod.
 - Llama al SP **solo** vía `this.db.executeProcedure('Certificado.sp_certificado', {...})`. Sin query crudo.
 - Mapa `null → ''` para que el frontend no reciba null.
 - Backend con `JwtAuthGuard`; errores como `{ success: false, error }` (no throw).
@@ -90,8 +91,8 @@ como texto, sin parsear. Ninguna otra columna necesita formateo.
 
 ## Delivery strategy
 - Branch: `feat/reporte-constancia-no-adeudo` desde `DEV` (renombrada en T3; sin upstream, no pusheada).
-- Commits work-unit: **T1 backend**, **T2 frontend**, **T3 reubicación a Cobranza**, cada uno
-  autocontenido y revisable.
+- Commits work-unit: **T1 backend**, **T2 frontend**, **T3 reubicación a Cobranza**, **T4 ajuste de grilla**,
+  cada uno autocontenido y revisable.
 - Forecast: backend ~290 líneas (incl. spec) + frontend ~470 → **~760 authored lines, excede el
   presupuesto de 400** → si el usuario pide PR, encadenar slices BE/FE (`feature-branch-chain`).
   Push / PR / merge quedan como decisión del usuario bajo política ordinaria del repo.
@@ -132,6 +133,18 @@ como texto, sin parsear. Ninguna otra columna necesita formateo.
       frontend tsc **12 = baseline, 0 nuevos**; eslint **0 errores, 1 warning** (patrón gemelo);
       vitest **18 fail / 203 pass = baseline**; búsqueda case-sensitive de
       `reporte-constancia-no-adeudos` / `NoAdeudos` → **0 resultados**.
+- [x] **T4 — Ajustes de grilla pedidos por el usuario**:
+      - Ocultar la columna de índice global `#` (era `(page - 1) * pageSize + idx + 1`). La tabla
+        queda con **6 columnas**: `N°(Numero) | Año | Fecha | Código | Nombre | Concepto`.
+        Se ajustó el esqueleto de `grid-cols-7`/`Array(7)` a `6`.
+      - Ampliar la grilla de **10 a 15 registros por página**: `useState(15)` en el frontend y
+        `z.union([z.literal(15), z.literal(100000)]).default(15)` en el DTO, más los dos fallbacks
+        `pageSize` del controller y el spec del service.
+      - Reducir el espaciado vertical de las filas: `py-1.5` → `py-1` en las 6 celdas, y el
+        esqueleto de `py-3` → `py-2` para que carga y tabla cargada no desarmen.
+      Checks: jest **6/6 pass**; frontend tsc **12 = baseline**; eslint **0 errores, 1 warning**;
+      6 `<th>` y 6 `<td>` alineados; sin restos de `pageSize: 10` en el flujo (solo la grilla
+      manda 15 y el export 100000).
 
 ## Route declaration
 - T1: delegated writer (general) — **primera delegación de frontend falló** (worker `general` reportó
@@ -144,9 +157,10 @@ como texto, sin parsear. Ninguna otra columna necesita formateo.
   editarse con las herramientas `read`/`edit`/`write`, nunca con `Set-Content`/`-replace`.
 
 ## Acceptance criteria
-- La consulta devuelve las 6 columnas del SP, en orden, paginadas de a 10.
+- La consulta devuelve las 6 columnas del SP, en orden, paginadas de a 15.
 - El panel superior busca por código y por rango de fechas; **Procesar** dispara la consulta.
-- La tabla muestra `Numero, Año, Fecha, codigo, Nombre, concepto` con headers en español.
+- La tabla muestra `Numero, Año, Fecha, codigo, Nombre, concepto` con headers en español, **sin la
+  columna de índice global `#`**.
 - **La fecha se muestra exactamente como la devuelve el SP (`dd/mm/yyyy`), sin invertir.**
 - Export a Excel trae **todas** las filas de los filtros actuales (no solo la página visible).
 - Backend protegido con `JwtAuthGuard`; contrato `{ success, data, total, page, pageSize, totalPages }`.
