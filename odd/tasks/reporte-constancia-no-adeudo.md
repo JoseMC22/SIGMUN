@@ -189,6 +189,24 @@ como texto, sin parsear. Ninguna otra columna necesita formateo.
       Checks: **6 `<th>` / 6 `<td>` / 6 skeleton alineados**; tsc **12 = baseline**; eslint
       **0 errores, 1 warning**.
 
+- [x] **T9 — Precedencia del filtro: el código anula el rango de fechas** (pedido del usuario):
+      cuando `@Codigo` viene informado, el service manda `@fini` y `@ffin` **vacíos** al SP, así
+      una búsqueda por código no queda acotada por fechas.
+      **Por qué en el backend y no en la grilla:** la regla vive en
+      `reporte-constancia-no-adeudo.service.ts`, el único punto que decide qué llega al SP. Si
+      estuviera en `buildFilters()` del frontend, cualquier otro cliente (Postman, otro reporte)
+      seguiría mandando el rango. Evitar dos fuentes de verdad para una misma regla.
+      Se usa `(Codigo ?? '').trim() !== ''` para que un código compuesto solo por espacios se
+      trate como ausente y no desactive el rango por accidente. Cuando se descartan fechas que sí
+      venían informadas queda un `logger.log` con los valores ignorados, para poder diagnosticar
+      por qué una búsqueda por código trae registros fuera del rango visible.
+      El frontend **no se modificó**: sigue mandando las fechas y el backend las normaliza. La UI
+      todavía muestra los campos de fecha sin marcar que van a ser ignorados (ver pendientes).
+      Checks: jest **14/14 pass** en el módulo (8 del service + 6 del DTO); tsc backend con **0
+      errores en el módulo** (total 25, baseline preexistente de mantenimiento); el test previo
+      `pasa Codigo y rango de fechas al SP cuando se proveen` **se reemplazó** porque afirmaba
+      el comportamiento contrario al nuevo.
+
 ## Route declaration
 - T1: delegated writer (general) — **primera delegación de frontend falló** (worker `general` reportó
   archivos que nunca escribió + verificaciones que no corrió; `git status` limpio). Corregido con
