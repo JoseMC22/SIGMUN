@@ -50,8 +50,7 @@ export function useConstanciaNoAdeudoExport({
       }
       const XLSX = await import("xlsx");
       const wsData = allData.map((r) => ({
-        "N°": r["Numero"] ?? "",
-        "Año": r["Año"] ?? "",
+        "N° Const.": r["Numero"] ?? "",
         "Fecha": r["Fecha"] ?? "",
         "Código": r["codigo"] ?? "",
         "Nombre": r["Nombre"] ?? "",

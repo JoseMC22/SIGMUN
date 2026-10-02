@@ -55,7 +55,7 @@ como texto, sin parsear. Ninguna otra columna necesita formateo.
 - **Frontend**:
   - `frontend/src/actions/cobranza/reporte-constancia-no-adeudo.ts` (server action, `authFetch`).
   - `frontend/src/app/dashboard/cobranza/reporte-constancia-no-adeudo/page.tsx`
-    (panel de criterios, botón Procesar, botón Exportar a Excel, tabla 7 columnas, paginación 20).
+    (panel de criterios, botón Procesar, botón Exportar a Excel, tabla 6 columnas, paginación 20).
   - `frontend/src/app/dashboard/cobranza/reporte-constancia-no-adeudo/export-utils.ts`
     (Excel, re-consulta completa con `pageSize` export, `exportSeq` anti-carrera).
 - **Identificadores en singular** (`NoAdeudo`, no `NoAdeudos`): clases, DTO/schema, action y hook.
@@ -174,6 +174,21 @@ como texto, sin parsear. Ninguna otra columna necesita formateo.
       por collation, pero si la búsqueda por código devuelve todo sin filtrar, es el primer lugar
       donde mirar.
 
+- [x] **T8 — Sincronizar grilla y export tras un ajuste manual del usuario**: el usuario editó
+      `page.tsx` fuera de esta sesión y quitó la columna `Año` de la grilla, renombrando `N°` a
+      `N° Const.`. La revisión detectó dos desincronizaciones que la foto de columnas de T4 no
+      cubría:
+      1. **Esqueleto desfasado** — la tabla bajó a 6 columnas pero el skeleton seguía en
+         `grid-cols-7`/`Array(7)`, generando una columna fantasma durante la carga. Corregido a 6.
+      2. **Export desfasado** — `export-utils.ts` seguía emitiendo `Año` y con header `N°`. Por
+         decisión explícita del usuario se quitó `Año` del Excel y el header pasó a `N° Const.`,
+         dejando grilla y export con las mismas 5 columnas de datos.
+      `Año` **se mantiene** en `reporte-constancia-no-adeudo.types.ts` y en el mapeo del service
+      porque el SP sigue devolviendo la columna: el tipo describe la fila real, solo se decidió no
+      presentarla. La columna `#` no se exporta por ser un índice visual de la grilla.
+      Checks: **6 `<th>` / 6 `<td>` / 6 skeleton alineados**; tsc **12 = baseline**; eslint
+      **0 errores, 1 warning**.
+
 ## Route declaration
 - T1: delegated writer (general) — **primera delegación de frontend falló** (worker `general` reportó
   archivos que nunca escribió + verificaciones que no corrió; `git status` limpio). Corregido con
@@ -187,8 +202,9 @@ como texto, sin parsear. Ninguna otra columna necesita formateo.
 ## Acceptance criteria
 - La consulta devuelve las 6 columnas del SP, en orden, paginadas de a 20.
 - El panel superior busca por código y por rango de fechas; **Procesar** dispara la consulta.
-- La tabla muestra `Numero, Año, Fecha, codigo, Nombre, concepto` con headers en español,
-  precedidas por la columna de índice global `#`.
+- La tabla muestra `Numero, Fecha, codigo, Nombre, concepto` con headers en español (`N° Const.`,
+  `Fecha`, `Código`, `Nombre`, `Concepto`), precedidas por la columna de índice global `#`. El SP
+  sigue devolviendo `Año` pero no se presenta en grilla ni en export.
 - **La fecha se muestra exactamente como la devuelve el SP (`dd/mm/yyyy`), sin invertir.**
 - Export a Excel trae **todas** las filas de los filtros actuales (no solo la página visible).
 - Backend protegido con `JwtAuthGuard`; contrato `{ success, data, total, page, pageSize, totalPages }`.
