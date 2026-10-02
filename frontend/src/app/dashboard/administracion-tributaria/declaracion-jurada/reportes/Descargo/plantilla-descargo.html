@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Descargo de Baja de Predio</title>
+    <link rel="stylesheet" href="./estilos-descargo.css">
+</head>
+<body>
+    <div class="descargo-page">
+        <!-- ── Encabezado: logo + títulos ── -->
+        <div class="encabezado">
+            <img class="logo" src="/logo_sat_2026.jpeg" alt="Logo SAT">
+            <div class="titulos">
+                <h4>Servicio de Administración Tributaria de ICA</h4>
+                <h5>Declaración Jurada Predial {{anno}} (Descargo)</h5>
+                <p class="nro-declaracion">Nro : {{nroDeclaracion}}</p>
+            </div>
+        </div>
+
+        <!-- ── Datos del contribuyente ── -->
+        <div class="seccion">
+            <h5 class="titulo-seccion">DATOS DEL CONTRIBUYENTE</h5>
+            <table class="tabla-datos">
+                <tr>
+                    <td class="label">Código:</td>
+                    <td class="valor">{{codigo}}</td>
+                </tr>
+                <tr>
+                    <td class="label">Apellido y Nombre / Razón Social:</td>
+                    <td class="valor">{{nombre}}</td>
+                </tr>
+                <tr>
+                    <td class="label">Tipo Docu:</td>
+                    <td class="valor">{{documento}}</td>
+                    <td class="label">Num Docu:</td>
+                    <td class="valor">{{numDoc}}</td>
+                </tr>
+                <tr>
+                    <td class="label">Tipo de Contribuyente:</td>
+                    <td class="valor">{{tipoDetalle}}</td>
+                </tr>
+                <tr>
+                    <td class="label">Sub Tipo de Contribuyente:</td>
+                    <td class="valor">{{subtipoDetalle}}</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- ── Datos de la declaración ── -->
+        <div class="seccion">
+            <h5 class="titulo-seccion">DATOS DE LA DECLARACION</h5>
+            <table class="tabla-datos">
+                <tr>
+                    <td class="label">Tipo Predio:</td>
+                    <td class="valor">{{tipoPred}}</td>
+                </tr>
+                <tr>
+                    <td class="label">Motivo Descargo:</td>
+                    <td class="valor">{{descargo}}</td>
+                    <td class="label">Porcentaje Propiedad Descargo:</td>
+                    <td class="valor">{{porcPropiedad}} (%)</td>
+                </tr>
+                <tr>
+                    <td class="label">Fecha Declaración:</td>
+                    <td class="valor">{{fechDeclaracion}}</td>
+                    <td class="label">Fecha Transferencia:</td>
+                    <td class="valor">{{fechaTransferencia}}</td>
+                </tr>
+                <tr>
+                    <td class="label">Glosa:</td>
+                    <td class="valor glosa" colspan="3">{{observacion}}</td>
+                </tr>
+                <tr>
+                    <td class="label sub-titulo" colspan="4">Adquiriente/Comprador</td>
+                </tr>
+                <tr>
+                    <td class="label">Código Adquiriere:</td>
+                    <td class="valor">{{codigoAdquiriente}}</td>
+                </tr>
+                <tr>
+                    <td class="label">Tipo Persona:</td>
+                    <td class="valor">{{tipoDetalleAdquiriente}}</td>
+                    <td class="label">Sub Tipo Persona:</td>
+                    <td class="valor">{{subtipoDetalleAdquiriente}}</td>
+                </tr>
+                <tr>
+                    <td class="label">Tipo Documento:</td>
+                    <td class="valor">{{documentoAdquiriente}}</td>
+                    <td class="label">Nro Documento:</td>
+                    <td class="valor">{{numDocAdquiriente}}</td>
+                </tr>
+                <tr>
+                    <td class="label">Ape y Nombres:</td>
+                    <td class="valor" colspan="3">{{adquiriente}}</td>
+                </tr>
+                <tr>
+                    <td class="label">Notaria:</td>
+                    <td class="valor" colspan="3">{{notaria}}</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- ── Dirección del predio ── -->
+        <div class="seccion">
+            <h5 class="titulo-seccion">DIRECCION DEL PREDIO</h5>
+            <p class="direccion">{{direccionPredio}}</p>
+        </div>
+
+        <!-- ── Firma ── -->
+        <div class="firma">
+            <div class="linea-firma"></div>
+            <p class="nombre-firma">{{nombre}}</p>
+        </div>
+
+        <!-- ── Pie ── -->
+        <div class="footer">
+            <span>Registrado por {{operador}} el {{fechaRegistro}} e Impreso el {{fechaImpresion}}</span>
+        </div>
+    </div>
+</body>
+</html>

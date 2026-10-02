@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useModalStack, isTopModal } from "@/hooks/use-modal-topmost";
 import {
   Search,
   Pencil,
@@ -224,6 +225,17 @@ export default function UsuariosPage() {
   const handleDeleteCancel = useCallback(() => {
     if (!deleting) setDeleteTarget(null);
   }, [deleting]);
+
+  // ── Confirmación de eliminación: overlay propio en la pila de modales ──
+  const deleteModalId = useModalStack(deleteTarget !== null);
+  useEffect(() => {
+    if (deleteTarget === null) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isTopModal(deleteModalId)) handleDeleteCancel();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [deleteTarget, deleteModalId, handleDeleteCancel]);
 
   // Initial search on mount
   useEffect(() => {
@@ -651,8 +663,6 @@ export default function UsuariosPage() {
       {deleteTarget !== null && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in"
-          onClick={(e) => { if (e.target === e.currentTarget) handleDeleteCancel(); }}
-          onKeyDown={(e) => { if (e.key === "Escape") handleDeleteCancel(); }}
           tabIndex={-1}
         >
           <div className="w-full max-w-sm rounded-xl bg-white shadow-2xl border border-slate-200">

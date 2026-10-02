@@ -704,7 +704,6 @@ export default function NuevaInfraccionModal({ isOpen, onClose, onSuccess, editD
   return (
     <div
       className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-xs p-2"
-      onClick={(e) => { if (e.target === e.currentTarget && !loading) onClose(); }}
     >
       <div className="relative w-full max-w-4xl rounded-xl bg-white shadow-2xl border border-slate-200 overflow-hidden flex flex-col text-[11px]">
 

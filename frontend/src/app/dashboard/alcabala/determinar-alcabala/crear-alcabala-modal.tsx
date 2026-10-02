@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useModalStack, isTopModal } from "@/hooks/use-modal-topmost";
 import { X, ChevronDown, ChevronRight, Search, Loader2 } from "lucide-react";
 import { crearAlcabalaAction } from "@/actions/alcabala/crear-alcabala";
 import {
@@ -150,16 +151,15 @@ function ContribuyenteSearchPopup({ target, initialFechaContrato = "", onSelect,
     setSearched(false);
   }, [target]);
 
+  // Escape cierra SOLO este popup si es el tope de la pila (montado = abierto).
+  const modalId = useModalStack(true);
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        onClose();
-      }
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isTopModal(modalId)) onClose();
     };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [modalId, onClose]);
 
   // Cancelled flag — prevents state updates after unmount.
   // Reset to false on mount: React StrictMode double-invokes effects in dev
@@ -698,18 +698,16 @@ export default function CrearAlcabalaModal({
     };
   }, [open, predio.fechaContrato]);
 
-  // ── Escape key ──
+  // ── Escape key: cierra SOLO este modal si es el tope de la pila ──
+  const modalId = useModalStack(open);
   useEffect(() => {
     if (!open) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        onClose();
-      }
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isTopModal(modalId)) onClose();
     };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, onClose]);
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [open, modalId, onClose]);
 
   // ── Search popup handlers ──
   const openSearch = (target: SearchTarget) => {

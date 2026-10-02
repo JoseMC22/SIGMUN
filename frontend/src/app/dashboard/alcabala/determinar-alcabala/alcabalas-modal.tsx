@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useModalStack, isTopModal } from "@/hooks/use-modal-topmost";
 import { X } from "lucide-react";
 import AlcabalasTable from "./alcabalas-table";
 import type {
@@ -41,20 +42,16 @@ export default function AlcabalasModal({
   onEliminar,
   blockEscapeClose = false,
 }: AlcabalasModalProps) {
-  // ── Escape key handler (stops propagation to parent) ──
+  // ── Escape key handler: cierra SOLO si es el tope de la pila ──
+  const modalId = useModalStack(open);
   useEffect(() => {
     if (!open) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        if (!blockEscapeClose) {
-          onClose();
-        }
-      }
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !blockEscapeClose && isTopModal(modalId)) onClose();
     };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, onClose, blockEscapeClose]);
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [open, modalId, onClose, blockEscapeClose]);
 
   if (!open) return null;
 
@@ -62,7 +59,6 @@ export default function AlcabalasModal({
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <div
         className="fixed inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
         aria-hidden="true"
       />
 

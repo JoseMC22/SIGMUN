@@ -534,6 +534,36 @@ export interface PredioDJItem {
   uso: string;
 }
 
+/** @buscar=9 — Historial de Declaraciones Juradas por predio (legacy historicopredio) */
+export interface HistorialPredioItem {
+  codigo: string;
+  cod_pred: string;
+  anexo: string;
+  sub_anexo: string;
+  dj_predial: string;
+  anno: string;
+  motivo_declaracion: string;
+  condicion_propiedad: string;
+  tipo_adquisicion: string;
+  fecha: string;
+  porc_propiedad: string;
+  area_terreno: string;
+  registrado: string;
+  fiscalizado: string;
+}
+
+export interface HistorialPredioHeader {
+  codigo: string;
+  nombre: string;
+  documento: string;
+  direccion: string;
+}
+
+export interface HistorialPredioResult {
+  header: HistorialPredioHeader;
+  rows: HistorialPredioItem[];
+}
+
 // ═══ Hoja de Resumen predial (Rentas.sp_MHRpred) ═══
 
 export interface HojaResumenComboOption { value: string; label: string }
@@ -584,4 +614,306 @@ export interface GuardarHojaResumenResult {
 export interface DeterminacionResult {
   success: boolean;
   mensaje: string;
+}
+
+// ═══ Predio — Primera Inscripción / mantenimiento (Rentas/gpredios) ═══
+
+export interface GuardarPredioResult {
+  success: boolean;
+  mensaje: string;
+  codigo: string;
+  codPred: string;
+  anexo: string;
+  subAnexo: string;
+}
+
+export interface PredioComboOption {
+  value: string;
+  label: string;
+}
+
+/** Combos del formulario de predio (1ra. Inscripción / mantenimiento).
+ *  Reúne todos los selects que el legado pinta en prediosAction. */
+export interface PredioCombosResult {
+  cmbUso: PredioComboOption[];
+  cmbTipPredio: PredioComboOption[];
+  cmbEstadoConst: PredioComboOption[];
+  cmbCondicion: PredioComboOption[];
+  cmbCondicionpredio: PredioComboOption[];
+  cmbInterior: PredioComboOption[];
+  cmbSituacionPredio: PredioComboOption[];
+  cmbTipoEdificio: PredioComboOption[];
+  cmbTipoIngreso: PredioComboOption[];
+  cmbTipoAgrupamiento: PredioComboOption[];
+  cmbTipoAdqui: PredioComboOption[];
+  cmbMotivoReg: PredioComboOption[];
+  cmbMotivoDec: PredioComboOption[];
+  cb_notaria: PredioComboOption[];
+  cb_motivodescargo: PredioComboOption[];
+  /** Usos de arbitrios por año: limpieza 11.01, barrido 11.02, parque 11.03, serenazgo 11.04. */
+  cb_limpieza: PredioComboOption[];
+  cb_barrido: PredioComboOption[];
+  cb_parque: PredioComboOption[];
+  cb_serenazgo: PredioComboOption[];
+  /** Combos de la grilla de Construcciones (Rentas.caracteristicas_piso). */
+  cb_tiponivel: PredioComboOption[];
+  cb_material: PredioComboOption[];
+  cb_estado: PredioComboOption[];
+  cb_clasifica: PredioComboOption[];
+  cb_unidad_medida: PredioComboOption[];
+  /** Combo "detalle instalación" de la grilla de Instalaciones (sp_MInstalacion @busc=5). */
+  detalle_inst: PredioComboOption[];
+  /** Valor viene como "codigo|unid-medida" para autocompletar med., como el legado. */
+}
+
+// ── Baja de Predio (descargo) — [Rentas].[BajasPredio] ──
+export interface BajaPredioResult {
+  success: boolean;
+  mensaje: string;
+}
+
+// ── Buscador de Adquirientes (Baja de Predio) — Rentas.sp_Mcontribuyentebaja ──
+// Legacy: frmbusbajapre popup + consultaAction (gridBajapred).
+// Positional mapping from muestraDatosBajaPred / grid columns:
+//   0 codigo, 3 documento, 4+5+6 nombres, 15 direccion,
+//   25 tipodoc, 26 tipopersona, 27 subpersona.
+export interface AdquirienteGridItem {
+  codigo: string;
+  nombres: string;
+  documento: string;
+  direccion: string;
+  tipodoc: string;
+  tipopersona: string;
+  subpersona: string;
+}
+
+// ── Post-save grid reload (Primera Inscripción modal) ──
+// Legacy: gridpisosAction / gridinstalAction / griddocAction Zend controllers.
+// Positional mapping over the SP recordsets (Object.values order); fields
+// match the modal's local PisoRow / InstalRow / DocRow interfaces exactly.
+
+/**
+ * Piso valuation — legacy Rentas/valorpisoAction → rentas.calculo_piso @msquery=1.
+ * Positional map (legacy echo): col[0]=valorUnit, col[1]=incremento,
+ * col[2]=depreciacion, col[3]=valorUnitDeprec, col[4]=valorAreaConst.
+ */
+export interface ValorPisoResult {
+  valorUnit: string;
+  incremento: string;
+  depreciacion: string;
+  valorUnitDeprec: string;
+  valorAreaConst: string;
+}
+
+/** [Rentas].[sp_VistaPred] @msquery=2 — one row per Construcción (piso). */
+export interface PredioPisoGridItem {
+  idpisos: string;
+  cidindi: string;
+  nropiso: string;
+  mescons: string;
+  aniocons: string;
+  iddepcl: string;
+  iddepma: string;
+  iddepco: string;
+  esmuros: string;
+  estecho: string;
+  acapiso: string;
+  acapuer: string;
+  acareve: string;
+  acabanio: string;
+  instele: string;
+  arconde: string;
+  uconant: string;
+  umedida: string;
+  referencia: string;
+}
+
+/** [Rentas].[sp_MInstalacion] @busc=4 — one row per Instalación. */
+export interface PredioInstalGridItem {
+  idinsta: string;
+  cidindi: string;
+  cidinst: string;
+  cidnomb: string;
+  mescons: string;
+  aniocons: string;
+  iddepcl: string;
+  iddepma: string;
+  iddepco: string;
+  dmlargo: string;
+  dmancho: string;
+  dmaltos: string;
+  protota: string;
+  vunimed: string;
+  vdescri: string;
+  referenciainst: string;
+}
+
+/** [Rentas].[sp_Docu] @msquery=4 — one row per Documento. */
+export interface PredioDocGridItem {
+  iddoc: string;
+  idreg: string;
+  docnombre: string;
+  docdetalle: string;
+}
+
+export interface BuscarAdquirientesParams {
+  tipo_busqueda: string;
+  codigo: string;
+  nombres: string;
+  paterno: string;
+  materno: string;
+  razon: string;
+  num_doc: string;
+  page: number;
+  limit: number;
+}
+
+/**
+ * Legacy Rentas.sp_Verbaja @busc=5 — frmbajapredio "Ver Baja Predio" grid.
+ * One row per baja registered for the contribuyente. All fields are strings
+ * (positional map from the SP's SELECT; legacy used utf8_encode = no-op).
+ */
+export interface VerBajaPredioItem {
+  codigo: string;
+  anno: string;
+  cod_pred: string;
+  anexo: string;
+  sub_anexo: string;
+  direccion: string;
+  fechdescargo: string;
+  fech_declaracion: string;
+  dj_predial: string;
+  codhistorial: string;
+}
+
+/**
+ * Legacy rptdescargo Jasper report — [Rentas].[BajasPredio] @buscar=2.
+ * One row with every field needed to print the "Descargo de Baja de Predio".
+ * All fields are strings (trimmed; null-safe -> '').
+ */
+export interface ReporteDescargoData {
+  codigo: string;
+  anno: string;
+  cod_pred: string;
+  tipo_pred: string;
+  anexo: string;
+  sub_anexo: string;
+  descargo: string;
+  porc_propiedad: string;
+  observacion: string;
+  fecha_transferencia: string;
+  notaria: string;
+  codigo_adquiriente: string;
+  direccion_predio: string;
+  fech_declaracion: string;
+  nombre: string;
+  tipo_detalle: string;
+  subtipo_detalle: string;
+  documento: string;
+  num_doc: string;
+  adquiriente: string;
+  num_doc_adquiriente: string;
+  documento_adquiriente: string;
+  tipo_detalle_adquiriente: string;
+  subtipo_detalle_adquiriente: string;
+  nro_declaracion: string;
+  fecha_registro: string;
+  operador: string;
+  estacion: string;
+  fecha_impresion: string;
+}
+
+// ── Historial Baja Predio (legacy rentas/historicobajapredio) — cabecera ──
+// Header of the "Historial Baja de Predios" popup. nombre comes from
+// Rentas.sp_rentasmain @buscar=3 (positional row[1]) and direccion from
+// @buscar=9 (positional row[0]); the rest echoes the ver-baja row keys.
+export interface HistorialBajaCabecera {
+  codigo: string;
+  nombre: string;
+  cod_pred: string;
+  anexo: string;
+  sub_anexo: string;
+  direccion: string;
+  anno: string;
+  codhistorial: string;
+}
+
+// ── Historial Baja Predio — grids (legacy rentas/historicobajapredio) ──
+// All fields are strings (positional mapping, trimmed; null-safe -> '').
+// PU uses the legacy controller key `porc_propiedad` (row[15]). The phase-1
+// scaffold named it `porcen_propiedad`, which the legacy grid silently
+// displayed blank because the SQL payload never carries that name; this
+// drift fix is intentional.
+export interface HistorialPuGridItem {
+  anno: string;
+  uso: string;
+  condi: string;
+  estado: string;
+  tipo: string;
+  num_pisos: string;
+  frontis: string;
+  total_area_constru: string;
+  area_terreno: string;
+  area_comun: string;
+  arancel: string;
+  val_total_terreno: string;
+  val_total_constru: string;
+  val_total_instala: string;
+  val_autoavaluo: string;
+  porc_propiedad: string;
+  total_autoavaluo: string;
+  fecha_de_baja: string;
+  cod_baja: string;
+}
+
+export interface HistorialPisoGridItem {
+  anno: string;
+  niv_piso: string;
+  ano_cons: string;
+  anno_antig: string;
+  depcla: string;
+  depmat: string;
+  depcon: string;
+  cate_muros: string;
+  cate_techos: string;
+  cate_pisos: string;
+  cate_puert: string;
+  cate_reves: string;
+  cate_banno: string;
+  cate_insel: string;
+  val_unitar: string;
+  incremento: string;
+  por_deprec: string;
+  val_deprec: string;
+  val_un_dep: string;
+  area_const: string;
+  valo_const: string;
+  const_afec: string;
+  porc_propiedad: string;
+  fecha_de_baja: string;
+  cod_baja: string;
+}
+
+export interface HistorialInstalacionGridItem {
+  anno: string;
+  item_instalacion: string;
+  descri_gener: string;
+  ano_cons: string;
+  anno_antig: string;
+  depcla: string;
+  depmat: string;
+  depcon: string;
+  alto: string;
+  largo: string;
+  ancho: string;
+  val_estima: string;
+  val_unitar: string;
+  por_deprec: string;
+  val_deprec: string;
+  val_un_dep: string;
+  cantidad: string;
+  val_instalac: string;
+  insta_afect: string;
+  fecha_de_baja: string;
+  cod_baja: string;
 }

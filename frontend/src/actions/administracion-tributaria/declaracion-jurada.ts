@@ -1313,8 +1313,22 @@ export async function getCuotasConvenioAction(
         error: errorData.error ?? errorData.message ?? `Error ${response.status}`,
       };
     }
-    const result = await response.json();
-    return { success: true as const, data: result.data as FraccionarCuotasRow[] };
+    const result = (await response.json()) as {
+      success?: boolean;
+      data?: FraccionarCuotasRow[];
+      error?: string;
+      message?: string;
+    };
+    // El backend puede responder HTTP 200 con `{success:false}` (SP que
+    // devuelve excepción/error). Confiar solo en response.ok → data:undefined
+    // → setCuotas(undefined) → crash en `cuotas.length`.
+    if (result.success === false || !Array.isArray(result.data)) {
+      return {
+        success: false as const,
+        error: result.error ?? result.message ?? 'No se pudieron obtener las cuotas.',
+      };
+    }
+    return { success: true as const, data: result.data };
   } catch (error) {
     return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
   }
@@ -1952,6 +1966,7 @@ export interface PredioDJItemData {
   tipo: string;
   codPred: string;
   anexo: string;
+  sub_anexo: string;
   direccion: string;
   areaTerreno: string;
   porcenPropiedad: string;
@@ -1960,6 +1975,38 @@ export interface PredioDJItemData {
   predioVendido: string;
   uso: string;
 }
+
+// ═══ Historial de Declaraciones Juradas (sp_rentasmain @buscar=9) ═══
+
+export interface HistorialPredioHeaderData {
+  codigo: string;
+  nombre: string;
+  documento: string;
+  direccion: string;
+}
+
+export interface HistorialPredioItemData {
+  codigo: string;
+  cod_pred: string;
+  anexo: string;
+  sub_anexo: string;
+  dj_predial: string;
+  anno: string;
+  motivo_declaracion: string;
+  condicion_propiedad: string;
+  tipo_adquisicion: string;
+  fecha: string;
+  porc_propiedad: string;
+  area_terreno: string;
+  registrado: string;
+  fiscalizado: string;
+}
+
+export interface HistorialPredioDataResult {
+  header: HistorialPredioHeaderData;
+  rows: HistorialPredioItemData[];
+}
+
 
 export async function getPeriodosAction(
   codigo: string,
@@ -2017,7 +2064,78 @@ export async function getPrediosDJAction(
   }
 }
 
-// ═══ Hoja de Resumen predial (Rentas.sp_MHRpred) ═══════════
+
+
+export async function getHistorialPredioAction(
+  codigo: string,
+  anno: string,
+  codPred: string,
+  anexo: string,
+  subAnexo: string,
+): Promise<{ success: true; data: HistorialPredioDataResult } | { success: false; error: string }> {
+  try {
+    const params = new URLSearchParams({ codigo, anno, cod_pred: codPred, anexo, sub_anexo: subAnexo });
+    const response = await authFetch(`/declaracion-jurada/historial-predio?${params}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.error ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    if (!result.success) return { success: false as const, error: result.error ?? 'Error al cargar historial de predio.' };
+    return { success: true as const, data: result.data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+
+export async function getReportePredioAction(
+  codigo: string,
+  anno: string,
+  codPred: string,
+  anexo: string,
+  subAnexo: string,
+  djNro?: string,
+): Promise<{ success: true; data: Record<string, unknown>[] } | { success: false; error: string }> {
+  try {
+    const params = new URLSearchParams({ codigo, anno, cod_pred: codPred, anexo, sub_anexo: subAnexo, dj_nro: djNro ?? '' });
+    const response = await authFetch(`/declaracion-jurada/historial-predio/reporte?${params}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.error ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    if (!result.success) return { success: false as const, error: result.error ?? 'Error al cargar reporte.' };
+    return { success: true as const, data: result.data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+
+export async function getSubreporteDocumentosAction(
+  codigo: string,
+  anno: string,
+  codPred: string,
+  anexo: string,
+  subAnexo: string,
+): Promise<{ success: true; data: Record<string, unknown>[] } | { success: false; error: string }> {
+  try {
+    const params = new URLSearchParams({ codigo, anno, cod_pred: codPred, anexo, sub_anexo: subAnexo });
+    const response = await authFetch(`/declaracion-jurada/historial-predio/reporte-sub?${params}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.error ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    if (!result.success) return { success: false as const, error: result.error ?? 'Error al cargar subreporte.' };
+    return { success: true as const, data: result.data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ═══ Hoja de Resumen predial (Rentas.sp_MHRpred) ═══
 
 export interface HrComboOption {
   value: string;
@@ -2210,4 +2328,869 @@ export async function grabarHrAction(
   } catch (error) {
     return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
   }
+}
+
+// ═══ Predio — Primera Inscripción (legacy Rentas/gpredios) ═══
+
+// Los campos replican los ids del formulario legado (frmpredios) y de las
+// grillas Ext (Const / Instal / Doc) para mantener el mapeo 1:1 con
+// gprediosAction. Los checkboxes se envían '1' | ''.
+
+export interface PredioPisoItem {
+  idpisos?: string;
+  cidindi?: string;
+  nropiso?: string;
+  mescons?: string;
+  aniocons?: string;
+  iddepcl?: string;
+  iddepma?: string;
+  iddepco?: string;
+  esmuros?: string;
+  estecho?: string;
+  acapiso?: string;
+  acapuer?: string;
+  acareve?: string;
+  acabanio?: string;
+  instele?: string;
+  arconde?: string;
+  uconant?: string;
+  umedida?: string;
+  referencia?: string;
+}
+
+export interface PredioInstalItem {
+  idinsta?: string;
+  cidindi?: string;
+  cidinst?: string;
+  cidnomb?: string;
+  mescons?: string;
+  aniocons?: string;
+  iddepcl?: string;
+  iddepma?: string;
+  iddepco?: string;
+  dmlargo?: string;
+  dmancho?: string;
+  dmaltos?: string;
+  protota?: string;
+  vunimed?: string;
+  vdescri?: string;
+  referenciainst?: string;
+}
+
+export interface PredioDocItem {
+  iddoc?: string;
+  idreg?: string;
+  docnombre?: string;
+  docdetalle?: string;
+}
+
+export interface GuardarPredioPayload {
+  tipo_mov?: string;
+  codigo: string;
+  anno: string;
+  operador: string;
+  estacion: string;
+  // Claves del predio (vacías en alta tipo_mov=N)
+  hd_codigo?: string;
+  hd_idanexo?: string;
+  hd_anexo?: string;
+  hd_subanexo?: string;
+  hd_codigo2?: string;
+  hd_idanexo2?: string;
+  hd_anexo2?: string;
+  hd_subanexo2?: string;
+  // Ubicación
+  cbtipopredio?: string;
+  txtCp?: string;
+  txtVia?: string;
+  txtCvia?: string;
+  txtDir?: string;
+  txtNro?: string;
+  txtDpto?: string;
+  txtMza?: string;
+  txtLte?: string;
+  txtSubLte?: string;
+  txtFrontis?: string;
+  txtNro2?: string;
+  txtLetra?: string;
+  txtLetra2?: string;
+  txtFondo?: string;
+  txtUbiPar?: string;
+  // Características
+  cmbUso?: string;
+  cmbTipPredio?: string;
+  cmbEstadoConst?: string;
+  cmbCondicion?: string;
+  cmbCondicionpredio?: string;
+  cmbInterior?: string;
+  cmbSituacionPredio?: string;
+  txtNroPiso?: string;
+  txtNroCond?: string;
+  txtAreaTerreno?: string;
+  txtAreaComun?: string;
+  txtPorcenPropiedad?: string;
+  txtPorcenConstruccion?: string;
+  txtAreaUso?: string;
+  txtFecAdqui?: string;
+  txtFecTrans?: string;
+  txtLuz?: string;
+  txtAgua?: string;
+  txtObs?: string;
+  txtObservacionPredio?: string;
+  chAfectoPred?: string;
+  chbVendido?: string;
+  chbLicencia?: string;
+  chbConformidad?: string;
+  chbDeclaracionFab?: string;
+  // Condición especial / situación / fiscalización
+  txtDocEspecial?: string;
+  txtNroDocEspecial?: string;
+  txtFechDocEspecial?: string;
+  txtFechDocEspecialInicial?: string;
+  txtFechDocEspecialFinal?: string;
+  txtSituacionDocumento?: string;
+  txtSituacionNroDoc?: string;
+  txtSituacionFechDoc?: string;
+  txtFechaFisca?: string;
+  txtNroFisca?: string;
+  // Edificio / ingreso / agrupamiento
+  cmbTipoEdificio?: string;
+  txtNomEdificio?: string;
+  txtPiso?: string;
+  txtNumeroInterno?: string;
+  txtLetraInterno?: string;
+  cmbTipoIngreso?: string;
+  txtNomIngreso?: string;
+  cmbTipoAgrupamiento?: string;
+  txtNomAgrupamiento?: string;
+  // Arbitrios
+  txtArbAfecto?: string;
+  cbAfectMesDesde?: string;
+  cbAfectAnnoDesde?: string;
+  cbAfectMesHasta?: string;
+  cbAfectAnnoHasta?: string;
+  txtArbObs?: string;
+  cb_limpieza?: string;
+  cb_barrido?: string;
+  cb_parque?: string;
+  cb_serenazgo?: string;
+  // Adquisición / motivos
+  cmbTipoAdqui?: string;
+  cmbMotivoReg?: string;
+  cmbMotivoDec?: string;
+  cb_notaria?: string;
+  cb_motivodescargo?: string;
+  txtObservacionDescargo?: string;
+  chCalPredial?: string;
+  chCalArbitrio?: string;
+  // Grillas
+  Const?: PredioPisoItem[];
+  Instal?: PredioInstalItem[];
+  Doc?: PredioDocItem[];
+}
+
+export interface GuardarPredioResultData {
+  success: boolean;
+  mensaje: string;
+  codigo: string;
+  codPred: string;
+  anexo: string;
+  subAnexo: string;
+}
+
+export interface PredioComboOptionData {
+  value: string;
+  label: string;
+}
+
+export interface PredioCombosData {
+  cmbUso: PredioComboOptionData[];
+  cmbTipPredio: PredioComboOptionData[];
+  cmbEstadoConst: PredioComboOptionData[];
+  cmbCondicion: PredioComboOptionData[];
+  cmbCondicionpredio: PredioComboOptionData[];
+  cmbInterior: PredioComboOptionData[];
+  cmbSituacionPredio: PredioComboOptionData[];
+  cmbTipoEdificio: PredioComboOptionData[];
+  cmbTipoIngreso: PredioComboOptionData[];
+  cmbTipoAgrupamiento: PredioComboOptionData[];
+  cmbTipoAdqui: PredioComboOptionData[];
+  cmbMotivoReg: PredioComboOptionData[];
+  cmbMotivoDec: PredioComboOptionData[];
+  cb_notaria: PredioComboOptionData[];
+  cb_motivodescargo: PredioComboOptionData[];
+  cb_limpieza: PredioComboOptionData[];
+  cb_barrido: PredioComboOptionData[];
+  cb_parque: PredioComboOptionData[];
+  cb_serenazgo: PredioComboOptionData[];
+  cb_tiponivel: PredioComboOptionData[];
+  cb_material: PredioComboOptionData[];
+  cb_estado: PredioComboOptionData[];
+  cb_clasifica: PredioComboOptionData[];
+  cb_unidad_medida: PredioComboOptionData[];
+  detalle_inst: PredioComboOptionData[];
+}
+
+export async function getCombosPredioAction(
+  anno: string,
+): Promise<{ success: true; data: PredioCombosData } | { success: false; error: string }> {
+  try {
+    const params = new URLSearchParams({ anno: anno ?? '' });
+    const response = await authFetch(`/declaracion-jurada/predio/combos?${params}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.error ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    if (!result.success) return { success: false as const, error: result.error ?? 'Error al cargar combos del predio.' };
+    return { success: true as const, data: result.data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+export async function guardarPredioAction(
+  payload: GuardarPredioPayload,
+): Promise<{ success: true; data: GuardarPredioResultData } | { success: false; error: string }> {
+  try {
+    const response = await authFetch('/declaracion-jurada/predio/guardar', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.error ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    if (!result.success) return { success: false as const, error: result.error ?? 'Error al guardar el predio.' };
+    if (result.data && !result.data.success) {
+      return { success: false as const, error: result.data.mensaje || 'No se pudo guardar el predio.' };
+    }
+    return { success: true as const, data: result.data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ═══ Predio — post-save grid reload (Primera Inscripción modal) ═══
+// Keys match the backend grid item types and the modal's row interfaces.
+
+export interface PredioPisoGridItem {
+  idpisos: string;
+  cidindi: string;
+  nropiso: string;
+  mescons: string;
+  aniocons: string;
+  iddepcl: string;
+  iddepma: string;
+  iddepco: string;
+  esmuros: string;
+  estecho: string;
+  acapiso: string;
+  acapuer: string;
+  acareve: string;
+  acabanio: string;
+  instele: string;
+  arconde: string;
+  uconant: string;
+  umedida: string;
+  referencia: string;
+}
+
+export interface PredioInstalGridItem {
+  idinsta: string;
+  cidindi: string;
+  cidinst: string;
+  cidnomb: string;
+  mescons: string;
+  aniocons: string;
+  iddepcl: string;
+  iddepma: string;
+  iddepco: string;
+  dmlargo: string;
+  dmancho: string;
+  dmaltos: string;
+  protota: string;
+  vunimed: string;
+  vdescri: string;
+  referenciainst: string;
+}
+
+export interface PredioDocGridItem {
+  iddoc: string;
+  idreg: string;
+  docnombre: string;
+  docdetalle: string;
+}
+
+interface PredioGridParams {
+  codigo: string;
+  anno: string;
+  codPred: string;
+  anexo: string;
+  subAnexo: string;
+}
+
+async function getPredioGrid<T>(
+  endpoint: string,
+  p: PredioGridParams,
+  fallbackError: string,
+): Promise<{ success: true; data: T[] } | { success: false; error: string }> {
+  try {
+    const params = new URLSearchParams({
+      codigo: p.codigo ?? '',
+      anno: p.anno ?? '',
+      cod_pred: p.codPred ?? '',
+      anexo: p.anexo ?? '',
+      sub_anexo: p.subAnexo ?? '',
+    });
+    const response = await authFetch(`/declaracion-jurada/${endpoint}?${params}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.error ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    if (!result.success) return { success: false as const, error: result.error ?? fallbackError };
+    return { success: true as const, data: result.data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+export interface ValorPisoParams {
+  nivel: string; idDepcla: string; idDepmat: string; idDepcon: string;
+  muros: string; techos: string; pisos: string; puertas: string;
+  revestim: string; banos: string; instElect: string;
+  areaConst: string; areaComun: string; anoc: string; anno: string;
+}
+
+export interface ValorPisoResult {
+  valorUnit: string;
+  incremento: string;
+  depreciacion: string;
+  valorUnitDeprec: string;
+  valorAreaConst: string;
+}
+
+/** Valorización del piso — legacy Rentas/valorpiso → rentas.calculo_piso @msquery=1. */
+export async function getValorPisoAction(
+  p: ValorPisoParams,
+): Promise<{ success: true; data: ValorPisoResult | { incomplete: true } } | { success: false; error: string }> {
+  try {
+    const params = new URLSearchParams({
+      nivel: p.nivel ?? '', id_depcla: p.idDepcla ?? '', id_depmat: p.idDepmat ?? '',
+      id_depcon: p.idDepcon ?? '', muros: p.muros ?? '', techos: p.techos ?? '',
+      pisos: p.pisos ?? '', puertas: p.puertas ?? '', revestim: p.revestim ?? '',
+      banos: p.banos ?? '', inst_elect: p.instElect ?? '', area_const: p.areaConst ?? '',
+      area_comun: p.areaComun ?? '', anoc: p.anoc ?? '', anno: p.anno ?? '',
+    });
+    const response = await authFetch(`/declaracion-jurada/predio/valorpiso?${params}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.error ?? `Error ${response.status}` };
+    }
+    const data = await response.json();
+    return { success: true, data };
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : 'Error al calcular el valor del piso.' };
+  }
+}
+
+export async function getPredioPisosAction(
+  p: PredioGridParams,
+): Promise<{ success: true; data: PredioPisoGridItem[] } | { success: false; error: string }> {
+  return getPredioGrid<PredioPisoGridItem>('predio/pisos', p, 'Error al cargar los pisos del predio.');
+}
+
+export async function getPredioInstalacionesAction(
+  p: PredioGridParams,
+): Promise<{ success: true; data: PredioInstalGridItem[] } | { success: false; error: string }> {
+  return getPredioGrid<PredioInstalGridItem>('predio/instalaciones', p, 'Error al cargar las instalaciones del predio.');
+}
+
+export async function getPredioDocumentosAction(
+  p: PredioGridParams,
+): Promise<{ success: true; data: PredioDocGridItem[] } | { success: false; error: string }> {
+  return getPredioGrid<PredioDocGridItem>('predio/documentos', p, 'Error al cargar los documentos del predio.');
+}
+
+// ═══ Buscador de Adquirientes (Baja de Predio) — Rentas.sp_Mcontribuyentebaja ═══
+// Legacy: frmbusbajapre popup + consultaAction (gridBajapred).
+// @busc=6 total / @busc=5 rows. rdCriteriobus: 0=Código, 1=Nombre, 2=Razón, 3=Documento.
+
+export interface AdquirienteGridItem {
+  codigo: string;
+  nombres: string;
+  documento: string;
+  direccion: string;
+  tipodoc: string;
+  tipopersona: string;
+  subpersona: string;
+}
+
+export interface BuscarAdquirientesCriterios {
+  tipo_busqueda: string;
+  codigo?: string;
+  nombres?: string;
+  paterno?: string;
+  materno?: string;
+  razon?: string;
+  num_doc?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface AdquirientesPaginatedResponse {
+  data: AdquirienteGridItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export async function buscarAdquirientesGridAction(
+  criterios: BuscarAdquirientesCriterios,
+): Promise<{ success: true } & AdquirientesPaginatedResponse | { success: false; error: string }> {
+  try {
+    const params = new URLSearchParams({
+      tipo_busqueda: criterios.tipo_busqueda ?? '',
+      codigo: criterios.codigo ?? '',
+      nombres: criterios.nombres ?? '',
+      paterno: criterios.paterno ?? '',
+      materno: criterios.materno ?? '',
+      razon: criterios.razon ?? '',
+      num_doc: criterios.num_doc ?? '',
+      page: String(criterios.page ?? 1),
+      limit: String(criterios.limit ?? 10),
+    });
+    const response = await authFetch(`/declaracion-jurada/buscar-adquirientes?${params}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.message ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    return { success: true as const, ...result };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ═══ Baja de Predio (descargo) — [Rentas].[BajasPredio] ═════════==
+
+export type BajaPredioComboOption = { value: string; label: string };
+
+export async function getMotivoDescargoComboAction(): Promise<
+  { success: true; data: BajaPredioComboOption[] } | { success: false; error: string }
+> {
+  try {
+    const response = await authFetch('/declaracion-jurada/combo-motivo-descargo');
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.error ?? errorData.message ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    if (!result.success) return { success: false as const, error: result.error ?? 'Error al cargar motivos de descargo.' };
+    return { success: true as const, data: result.data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+export async function getNotariaComboAction(): Promise<
+  { success: true; data: BajaPredioComboOption[] } | { success: false; error: string }
+> {
+  try {
+    const response = await authFetch('/declaracion-jurada/combo-notaria');
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.error ?? errorData.message ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    if (!result.success) return { success: false as const, error: result.error ?? 'Error al cargar notarías.' };
+    return { success: true as const, data: result.data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+export interface BajaPredioPayload {
+  codigo: string;
+  anno: string;
+  cod_pred: string;
+  anexo: string;
+  sub_anexo: string;
+  direccion_predio?: string;
+  id_motivo_descargo: string;
+  porc_propiedad?: string;
+  observacion?: string;
+  fech_transparencia?: string;
+  id_notaria?: string;
+  codigo_adquiriente?: string;
+  operador?: string;
+  estacion?: string;
+  tipo_pred?: string;
+}
+
+export async function guardarBajaPredioAction(
+  payload: BajaPredioPayload,
+): Promise<{ success: true; data: { success: boolean; mensaje: string } } | { success: false; error: string }> {
+  try {
+    const response = await authFetch('/declaracion-jurada/baja-predio', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.error ?? errorData.message ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    if (!result.success) return { success: false as const, error: result.error ?? 'Error al registrar la baja.' };
+    return { success: true as const, data: result.data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ═══ Ver Baja Predio — frmbajapredio (Rentas.sp_Verbaja @busc=5) ═══════
+
+export interface VerBajaPredioItem {
+  codigo: string;
+  anno: string;
+  cod_pred: string;
+  anexo: string;
+  sub_anexo: string;
+  direccion: string;
+  fechdescargo: string;
+  fech_declaracion: string;
+  dj_predial: string;
+  codhistorial: string;
+}
+
+export async function getBajasPredioAction(
+  codigo: string,
+): Promise<{ success: true; data: VerBajaPredioItem[] } | { success: false; error: string }> {
+  try {
+    const params = new URLSearchParams({ codigo: codigo ?? '' });
+    const response = await authFetch(`/declaracion-jurada/baja-predio/lista?${params}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.error ?? errorData.message ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    if (!result.success) return { success: false as const, error: result.error ?? 'Error al cargar predios dados de baja.' };
+    return { success: true as const, data: result.data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ═══ Historial Baja Predio — cabecera (legacy rentas/historicobajapredio) ═══
+
+export interface HistorialBajaCabecera {
+  codigo: string;
+  nombre: string;
+  cod_pred: string;
+  anexo: string;
+  sub_anexo: string;
+  direccion: string;
+  anno: string;
+  codhistorial: string;
+}
+
+export async function getHistorialBajaCabeceraAction(
+  params: {
+    codigo: string;
+    codPred: string;
+    anno: string;
+    anexo: string;
+    subAnexo: string;
+    codhistorial: string;
+  },
+): Promise<{ success: true; data: HistorialBajaCabecera } | { success: false; error: string }> {
+  try {
+    const query = new URLSearchParams({
+      codigo: params.codigo ?? '',
+      cod_pred: params.codPred ?? '',
+      anno: params.anno ?? '',
+      anexo: params.anexo ?? '',
+      sub_anexo: params.subAnexo ?? '',
+      codhistorial: params.codhistorial ?? '',
+    });
+    const response = await authFetch(`/declaracion-jurada/baja-predio/historial-cabecera?${query}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.error ?? errorData.message ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    if (!result.success) return { success: false as const, error: result.error ?? 'Error al cargar la cabecera del historial.' };
+    return { success: true as const, data: result.data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ═══ Historial Baja Predio — grids + restaurar (legacy cargarhistorial*) ═══
+
+// PU uses the legacy key porc_propiedad (row[15]); the phase-1 scaffold
+// named it porcen_propiedad, which the legacy grid silently blanked.
+export interface HistorialPuGridItem {
+  anno: string;
+  uso: string;
+  condi: string;
+  estado: string;
+  tipo: string;
+  num_pisos: string;
+  frontis: string;
+  total_area_constru: string;
+  area_terreno: string;
+  area_comun: string;
+  arancel: string;
+  val_total_terreno: string;
+  val_total_constru: string;
+  val_total_instala: string;
+  val_autoavaluo: string;
+  porc_propiedad: string;
+  total_autoavaluo: string;
+  fecha_de_baja: string;
+  cod_baja: string;
+}
+
+export interface HistorialPisoGridItem {
+  anno: string;
+  niv_piso: string;
+  ano_cons: string;
+  anno_antig: string;
+  depcla: string;
+  depmat: string;
+  depcon: string;
+  cate_muros: string;
+  cate_techos: string;
+  cate_pisos: string;
+  cate_puert: string;
+  cate_reves: string;
+  cate_banno: string;
+  cate_insel: string;
+  val_unitar: string;
+  incremento: string;
+  por_deprec: string;
+  val_deprec: string;
+  val_un_dep: string;
+  area_const: string;
+  valo_const: string;
+  const_afec: string;
+  porc_propiedad: string;
+  fecha_de_baja: string;
+  cod_baja: string;
+}
+
+export interface HistorialInstalacionGridItem {
+  anno: string;
+  item_instalacion: string;
+  descri_gener: string;
+  ano_cons: string;
+  anno_antig: string;
+  depcla: string;
+  depmat: string;
+  depcon: string;
+  alto: string;
+  largo: string;
+  ancho: string;
+  val_estima: string;
+  val_unitar: string;
+  por_deprec: string;
+  val_deprec: string;
+  val_un_dep: string;
+  cantidad: string;
+  val_instalac: string;
+  insta_afect: string;
+  fecha_de_baja: string;
+  cod_baja: string;
+}
+
+export async function getHistorialPuAction(
+  codhistorial: string,
+): Promise<{ success: true; data: HistorialPuGridItem[] } | { success: false; error: string }> {
+  try {
+    const params = new URLSearchParams({ codhistorial: codhistorial ?? '' });
+    const response = await authFetch(`/declaracion-jurada/baja-predio/historial-pu?${params}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.error ?? errorData.message ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    if (!result.success) return { success: false as const, error: result.error ?? 'Error al cargar el historial PU.' };
+    return { success: true as const, data: result.data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+export async function getHistorialPisosAction(
+  codhistorial: string,
+): Promise<{ success: true; data: HistorialPisoGridItem[] } | { success: false; error: string }> {
+  try {
+    const params = new URLSearchParams({ codhistorial: codhistorial ?? '' });
+    const response = await authFetch(`/declaracion-jurada/baja-predio/historial-pisos?${params}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.error ?? errorData.message ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    if (!result.success) return { success: false as const, error: result.error ?? 'Error al cargar el historial de pisos.' };
+    return { success: true as const, data: result.data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+export async function getHistorialInstalacionesAction(
+  codhistorial: string,
+): Promise<{ success: true; data: HistorialInstalacionGridItem[] } | { success: false; error: string }> {
+  try {
+    const params = new URLSearchParams({ codhistorial: codhistorial ?? '' });
+    const response = await authFetch(`/declaracion-jurada/baja-predio/historial-instalaciones?${params}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.error ?? errorData.message ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    if (!result.success) return { success: false as const, error: result.error ?? 'Error al cargar el historial de instalaciones.' };
+    return { success: true as const, data: result.data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// Legacy rentas/restaurarregistro: one POST per selected PU row.
+export interface RestaurarBajaPayload {
+  cod_baja: string;
+  anno: string;
+  cod_pred: string;
+  anexo?: string;
+  sub_anexo?: string;
+  codigo: string;
+  annobaja: string;
+  usuariorestaura?: string;
+  pcrestaura?: string;
+}
+
+export async function restaurarBajaPredioAction(
+  payload: RestaurarBajaPayload,
+): Promise<{ success: true; data: { mensaje: string } } | { success: false; error: string }> {
+  try {
+    const response = await authFetch('/declaracion-jurada/baja-predio/restaurar', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.error ?? errorData.message ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    if (!result.success) return { success: false as const, error: result.error ?? 'Error al restaurar el registro.' };
+    return { success: true as const, data: result.data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+// ═══ Reporte Descargo de Baja de Predio — legacy rptdescargo ═══════
+
+/**
+ * Datos del reporte "Descargo de Baja de Predio" (legacy rptdescargo).
+ * Mismo contrato del backend [Rentas].[BajasPredio] @buscar=2.
+ */
+export interface ReporteDescargoData {
+  codigo: string;
+  anno: string;
+  cod_pred: string;
+  tipo_pred: string;
+  anexo: string;
+  sub_anexo: string;
+  descargo: string;
+  porc_propiedad: string;
+  observacion: string;
+  fecha_transferencia: string;
+  notaria: string;
+  codigo_adquiriente: string;
+  direccion_predio: string;
+  fech_declaracion: string;
+  nombre: string;
+  tipo_detalle: string;
+  subtipo_detalle: string;
+  documento: string;
+  num_doc: string;
+  adquiriente: string;
+  num_doc_adquiriente: string;
+  documento_adquiriente: string;
+  tipo_detalle_adquiriente: string;
+  subtipo_detalle_adquiriente: string;
+  nro_declaracion: string;
+  fecha_registro: string;
+  operador: string;
+  estacion: string;
+  fecha_impresion: string;
+}
+
+export async function getReporteDescargoAction(
+  params: {
+    codigo: string;
+    anno: string;
+    cod_pred: string;
+    anexo: string;
+    sub_anexo: string;
+    dj_predial: string;
+  },
+): Promise<{ success: true; data: ReporteDescargoData } | { success: false; error: string }> {
+  try {
+    const query = new URLSearchParams({
+      codigo: params.codigo ?? '',
+      anno: params.anno ?? '',
+      cod_pred: params.cod_pred ?? '',
+      anexo: params.anexo ?? '',
+      sub_anexo: params.sub_anexo ?? '',
+      dj_predial: params.dj_predial ?? '',
+    });
+    const response = await authFetch(`/declaracion-jurada/baja-predio/reporte-descargo?${query}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.error ?? errorData.message ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    if (!result.success) return { success: false as const, error: result.error ?? 'Error al cargar el reporte de descargo.' };
+    return { success: true as const, data: result.data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
+
+export async function getSubreporteCaracteristicasAction(
+  codigo: string, anno: string, codPred: string, anexo: string, subAnexo: string,
+) {
+  try {
+    const url = new URL(`${API_BASE}/declaracion-jurada/historial-predio/reporte-caracteristicas`);
+    url.searchParams.set('codigo', codigo || ''); url.searchParams.set('anno', anno || '');
+    url.searchParams.set('cod_pred', codPred || ''); url.searchParams.set('anexo', anexo || ''); url.searchParams.set('sub_anexo', subAnexo || '');
+    const res = await authFetch(url.pathname + url.search);
+    if (!res.ok) return { success: false, data: [], error: `HTTP ${res.status}` };
+    const body = await res.json();
+    if (!body?.success) return { success: false, data: [], error: body?.error || 'Error' };
+    return { success: true, data: Array.isArray(body.data) ? body.data : [] };
+  } catch (e) { return { success: false, data: [], error: String(e) }; }
+}
+
+export async function getSubreporteInstalacionesAction(
+  codigo: string, anno: string, codPred: string, anexo: string, subAnexo: string,
+) {
+  try {
+    const url = new URL(`${API_BASE}/declaracion-jurada/historial-predio/reporte-instalaciones`);
+    url.searchParams.set('codigo', codigo || ''); url.searchParams.set('anno', anno || '');
+    url.searchParams.set('cod_pred', codPred || ''); url.searchParams.set('anexo', anexo || ''); url.searchParams.set('sub_anexo', subAnexo || '');
+    const res = await authFetch(url.pathname + url.search);
+    if (!res.ok) return { success: false, data: [], error: `HTTP ${res.status}` };
+    const body = await res.json();
+    if (!body?.success) return { success: false, data: [], error: body?.error || 'Error' };
+    return { success: true, data: Array.isArray(body.data) ? body.data : [] };
+  } catch (e) { return { success: false, data: [], error: String(e) }; }
 }

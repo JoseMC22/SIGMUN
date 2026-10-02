@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Declaración Jurada Predial</title>
+<link rel="stylesheet" href="./estilos-declaracion-predio.css">
+</head>
+<body>
+<div class="page">
+  <header class="header">
+    <img class="logo" src="/logo_sat_2026.jpeg" alt="Logo SAT">
+    <div class="header-text">
+      <h2>Servicio de Administración Tributaria de ICA</h2>
+      <h1>Declaración Jurada Predial {{anno}}</h1>
+      <p>Nro: <span>{{dj_nro}}</span></p>
+    </div>
+  </header>
+
+  <section class="section">
+    <h3>DATOS DEL CONTRIBUYENTE</h3>
+    <table class="data-table">
+      <tr><th>Código</th><td>{{codigo}}</td></tr>
+      <tr><th>Nombre</th><td>{{nombre}}</td></tr>
+      <tr><th>Tipo Doc.</th><td>{{tipo_doc}}</td><th>Nro. Doc.</th><td>{{dni}}</td></tr>
+      <tr><th>Tipo Contribuyente</th><td>{{tipo_contri}}</td>
+          <th>Subtipo</th><td>{{subtipo_contri}}</td></tr>
+      <tr><th>Domicilio Fiscal</th><td colspan="3">{{direcion_fiscal}}</td></tr>
+    </table>
+  </section>
+
+  <section class="section">
+    <h3>DATOS DEL PREDIO</h3>
+    <table class="data-table">
+      <tr><th>Cod. Predio</th><td>{{cod_pred}}</td><th>Anexo</th><td>{{anexo}}</td></tr>
+      <tr><th>Estado</th><td>{{estado}}</td><th>Tipo Predio</th><td>{{tipo_predio}}</td></tr>
+      <tr><th>Motivo Declaración</th><td colspan="3">{{Motivo_Declaracion}}</td></tr>
+      <tr><th>Condición Propiedad</th><td>{{condicion}}</td>
+          <th>Tipo Adquisición</th><td>{{tipo_adquisicion}}</td></tr>
+      <tr><th>Porc. Propiedad</th><td>{{porcen_propiedad}}</td>
+          <th>Fecha Adquisición</th><td>{{fecha_adquisicion}}</td></tr>
+      <tr><th>Fecha Afectación</th><td>{{fecha_afectacion}}</td>
+          <th>Arancel</th><td>{{arancel}}</td></tr>
+      <tr><th>Área Terreno</th><td>{{area_terreno}}</td>
+          <th>Área Común</th><td>{{area_comun}}</td></tr>
+      <tr><th>Dirección Predio</th><td colspan="3">{{direccion_predio}}</td></tr>
+      <tr><th>Ubicación Predio</th><td colspan="3">{{Ubicacion_predio}}</td></tr>
+      <tr><th>Uso</th><td>{{uso}}</td><th>Área Uso</th><td>{{Area_uso}}</td></tr>
+      <tr><th>Periodo</th><td>{{anno}}</td>
+          <th>Mes Inicio</th><td>{{Mes_inicio}}</td>
+          <th>Mes Fin</th><td>{{Mes_hasta}}</td></tr>
+    </table>
+  </section>
+
+  <section class="section">
+    <h3>CARACTERÍSTICAS DEL PREDIO</h3>
+    <table class="data-table">
+      <tr><th>Área Terreno (m²)</th><td>{{area_terreno}}</td></tr>
+      <tr><th>Frente (mt)</th><td>{{Frente}}</td></tr>
+      <tr><th>Fondo (mt)</th><td>{{fondo}}</td></tr>
+      <tr><th>Uso(s) Predio</th><td colspan="3">{{uso}} — Área Uso: {{Area_uso}} m²</td></tr>
+    </table>
+  </section>
+
+  <section class="section" style="margin-top:16px;">
+    <h3>DOCUMENTOS ANEXOS</h3>
+    <table class="sub-table">
+      <thead>
+        <tr><th>Tipo Documento</th><th>Referencia</th></tr>
+      </thead>
+      <tbody>
+        {{docs_table}}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="section">
+    <h3>DATOS ADICIONALES</h3>
+    <table class="data-table">
+      <tr><th>Glosa Fiscalización</th><td>{{fecha_fiscalizacion}} — Ficha: {{nro_ficha_fizcalizacion}}</td></tr>
+      <tr><th>Glosa Motivo Registro</th><td>{{Motivo_Registro}}</td></tr>
+      <tr><th>Glosa</th><td>{{Glosa}}</td></tr>
+      <tr><th>Operador</th><td>{{operador}}</td></tr>
+      <tr><th>Situación Predio</th><td>{{situacion_predio}}</td></tr>
+      <tr><th>Condición Especial</th><td>{{condicion_especial}}</td></tr>
+    </table>
+  </section>
+
+  <footer class="footer">
+    <p>Reporte generado por SP [Historial].[Reporte] @busc=1 — {{fecha_impresion}}</p>
+  </footer>
+</div>
+</body>
+</html>

@@ -114,7 +114,6 @@ export default function CambioEstadoModal({ isOpen, ninfrac, editable = true, on
   return (
     <div
       className="fixed inset-0 z-[70] flex items-center justify-center bg-black/30 backdrop-blur-xs p-4"
-      onClick={(e) => { if (e.target === e.currentTarget && !loading && !saving) onClose(); }}
     >
       <div className="w-full max-w-[560px] rounded-xl bg-white shadow-2xl border border-slate-300 animate-fade-in overflow-hidden flex flex-col">
         {/* Header Modal */}

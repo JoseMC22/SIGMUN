@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, FormEvent } from "react";
+import { useState, useEffect, FormEvent } from "react";
+import { useModalStack, isTopModal } from "@/hooks/use-modal-topmost";
 import { X, Loader2, Save, Settings } from "lucide-react";
 import { getViaAction, createViaAction, updateViaAction, getTiposViaAction, getUrbanizacionesAction, getZonasAction, type TipoViaOption, type UrbanizacionOption, type ZonaOption } from "@/actions/administracion-tributaria/mantenimiento-vias";
 import { getStoredUser, getPcName, fetchPcName, setPcName } from "@/lib/api";
@@ -166,13 +167,16 @@ export default function ViaCrudModal({ isOpen, onClose, mode, codVia, onSaved }:
     }
   }, [isOpen, isEdit, codVia]);
 
-  // ── Keyboard ──
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    },
-    [onClose],
-  );
+  // ── Keyboard: Escape cierra SOLO este modal si es el tope de la pila ──
+  const modalId = useModalStack(isOpen);
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isTopModal(modalId)) onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [isOpen, modalId, onClose]);
 
   // ── Field change ──
   const handleChange = (field: keyof ViaFormData, value: string) => {
@@ -281,8 +285,6 @@ export default function ViaCrudModal({ isOpen, onClose, mode, codVia, onSaved }:
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      onKeyDown={handleKeyDown}
       tabIndex={-1}
     >
       <div

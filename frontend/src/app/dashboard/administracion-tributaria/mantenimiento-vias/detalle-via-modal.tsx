@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback } from "react";
+import { useEffect } from "react";
 import { X } from "lucide-react";
+import { useModalStack, isTopModal } from "@/hooks/use-modal-topmost";
 
 interface Props {
   isOpen: boolean;
@@ -9,20 +10,22 @@ interface Props {
 }
 
 export default function DetalleViaModal({ isOpen, onClose }: Props) {
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    },
-    [onClose],
-  );
+  // Escape cierra SOLO este modal si es el tope de la pila.
+  const modalId = useModalStack(isOpen);
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isTopModal(modalId)) onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [isOpen, modalId, onClose]);
 
   if (!isOpen) return null;
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      onKeyDown={handleKeyDown}
       tabIndex={-1}
     >
       <div

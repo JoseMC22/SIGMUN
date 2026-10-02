@@ -67,7 +67,6 @@ export default function DetalleInfraccionModal({ isOpen, ninfrac, editable = fal
   return (
     <div
       className="fixed inset-0 z-[70] flex items-center justify-center bg-black/30 backdrop-blur-sm"
-      onClick={(e) => { if (e.target === e.currentTarget && !loading) onClose(); }}
     >
       <div className="w-full max-w-4xl rounded-xl bg-white shadow-2xl border border-slate-200 animate-fade-in max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between rounded-t-xl bg-gradient-to-r from-sat-navy via-[#1b2b4a] to-slate-800 px-4 py-3 shrink-0">

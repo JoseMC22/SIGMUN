@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, FormEvent } from "react";
+import { useState, useEffect, FormEvent } from "react";
+import { useModalStack, isTopModal } from "@/hooks/use-modal-topmost";
 import { X, Loader2, Save, Settings } from "lucide-react";
 import {
   getTiposUrbanizacionAction,
@@ -122,13 +123,16 @@ export default function UrbanizacionCrudModal({ isOpen, onClose, mode, idUrba, o
     }
   }, [isOpen, isEdit, idUrba]);
 
-  // ── Keyboard ──
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    },
-    [onClose],
-  );
+  // ── Keyboard: Escape cierra SOLO este modal si es el tope de la pila ──
+  const modalId = useModalStack(isOpen);
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isTopModal(modalId)) onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [isOpen, modalId, onClose]);
 
   // ── Field change ──
   const handleChange = (field: keyof UrbanizacionFormData, value: string) => {
@@ -230,8 +234,6 @@ export default function UrbanizacionCrudModal({ isOpen, onClose, mode, idUrba, o
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      onKeyDown={handleKeyDown}
       tabIndex={-1}
     >
       <div

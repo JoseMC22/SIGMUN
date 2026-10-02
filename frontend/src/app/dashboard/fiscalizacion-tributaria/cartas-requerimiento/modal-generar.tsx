@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useModalStack, isTopModal } from "@/hooks/use-modal-topmost";
 import { X, UserX, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   getContribuyenteAction,
@@ -112,24 +113,17 @@ export default function ModalGenerar({ open, onClose, codigo }: ModalGenerarProp
     fetchCartas(codigo, page);
   }, [page, open, codigo, fetchCartas]);
 
-  // ── Escape key handler ──
-
+  // ── Escape key handler: cierra SOLO si es el tope de la pila ──
+  // (ModalNuevaCarta está registrada en la pila y cierra primero cuando está abierta).
+  const modalId = useModalStack(open);
   useEffect(() => {
     if (!open) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        // If nueva-carta modal is open, only close that one
-        if (nuevaCartaOpen) {
-          setNuevaCartaOpen(false);
-          setEditingCartaId(null);
-        } else {
-          onClose();
-        }
-      }
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isTopModal(modalId)) onClose();
     };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, onClose, nuevaCartaOpen]);
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [open, modalId, onClose]);
 
   // ── Don't render when closed ──
 

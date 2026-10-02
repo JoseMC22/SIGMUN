@@ -141,7 +141,6 @@ export default function VerFraccionamientoModal({ isOpen, codigo, propietarioNom
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-xs p-4"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       tabIndex={-1}
     >
       <div className="w-full max-w-4xl rounded-xl bg-white shadow-2xl border border-slate-200 animate-fade-in overflow-hidden flex flex-col max-h-[90vh]">

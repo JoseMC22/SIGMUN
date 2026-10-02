@@ -17,6 +17,7 @@ import {
 import type { ReportePdfConfig } from "@/lib/reportes/reporte-service";
 import RepresentanteFormModal from "./representante-form-modal";
 import ReporteViewerModal from "@/components/reportes/reporte-viewer-modal";
+import { useModalStack, isTopModal } from "@/hooks/use-modal-topmost";
 
 // ─── FieldGroup ────────────────────────────────────────────
 
@@ -139,16 +140,27 @@ export default function RepresentantesModal({ isOpen, onClose, codigo }: Props) 
     }
   };
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Escape") {
-        // Solo cerrar este modal activo; no propagar a modales padres (si existieran).
-        e.stopPropagation();
-        onClose();
-      }
-    },
-    [onClose],
-  );
+  // ── Escape cierra SOLO este modal si es el tope de la pila ──
+  const modalId = useModalStack(isOpen);
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isTopModal(modalId)) onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [isOpen, modalId, onClose]);
+
+  // ── Confirmación de eliminación: overlay propio en la pila ──
+  const deleteModalId = useModalStack(!!eliminandoRep);
+  useEffect(() => {
+    if (!eliminandoRep) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !eliminarLoading && isTopModal(deleteModalId)) setEliminandoRep(null);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [eliminandoRep, deleteModalId, eliminarLoading]);
 
   // ── Foco: al abrirse, este modal toma el foco para que Escape cierre SOLO este modal ──
   const rootRef = useRef<HTMLDivElement>(null);
@@ -172,10 +184,6 @@ export default function RepresentantesModal({ isOpen, onClose, codigo }: Props) 
     <div
       ref={rootRef}
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !loading) onClose();
-      }}
-      onKeyDown={handleKeyDown}
       tabIndex={-1}
     >
       <div className="relative flex max-h-[90vh] w-full max-w-4xl flex-col rounded-xl border border-slate-200 bg-white shadow-2xl">
@@ -389,16 +397,6 @@ export default function RepresentantesModal({ isOpen, onClose, codigo }: Props) 
         <div
           ref={deleteRef}
           className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in p-4"
-          onClick={(e) => {
-            if (e.target === e.currentTarget && !eliminarLoading) setEliminandoRep(null);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Escape" && !eliminarLoading) {
-              // Solo cerrar este modal; no propagar al modal de representantes.
-              e.stopPropagation();
-              setEliminandoRep(null);
-            }
-          }}
           tabIndex={-1}
         >
           <div className="relative w-full max-w-md rounded-xl border border-slate-200 bg-white shadow-2xl">

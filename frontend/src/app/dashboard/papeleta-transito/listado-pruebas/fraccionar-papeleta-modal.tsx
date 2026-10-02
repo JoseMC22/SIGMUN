@@ -280,9 +280,6 @@ export default function FraccionarPapeletaModal({ isOpen, infraccion, onClose, o
     <>
       <div
         className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-xs p-3"
-        onClick={(e) => {
-          if (e.target === e.currentTarget && !loading) onClose();
-        }}
         tabIndex={-1}
       >
         <div className="w-full max-w-4xl rounded-xl bg-white shadow-2xl border border-slate-300 animate-fade-in overflow-hidden flex flex-col max-h-[92vh]">
@@ -577,9 +574,6 @@ export default function FraccionarPapeletaModal({ isOpen, infraccion, onClose, o
       {showSimuladoModal && (
         <div
           className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setShowSimuladoModal(false);
-          }}
         >
           <div className="w-full max-w-3xl rounded-xl bg-white shadow-2xl border border-slate-300 animate-fade-in overflow-hidden flex flex-col max-h-[90vh]">
             <div className="flex items-center justify-between bg-gradient-to-r from-sat-navy via-[#1b2b4a] to-slate-800 px-4 py-2 text-white">
