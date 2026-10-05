@@ -19,6 +19,7 @@ import { MaestroContribuyentesModule } from './administracion-tributaria/maestro
 import { PrediosContribuyentesModule } from './administracion-tributaria/predios-contribuyentes/predios-contribuyentes.module';
 import { ContribuyentesSinValoresModule } from './cobranza/contribuyentes-sin-valores/contribuyentes-sin-valores.module';
 import { ReporteConstanciaNoAdeudoModule } from './cobranza/reporte-constancia-no-adeudo/reporte-constancia-no-adeudo.module';
+import { ReporteFraccCuotasImpagasModule } from './cobranza/reporte-fracc-cuotas-impagas/reporte-fracc-cuotas-impagas.module';
 import { ReportesModule } from './reportes-gerenciales/reportes-gerenciales.module';
 import { MantenimientoUitModule } from './mantenimiento-tablas/mantenimiento-uit/mantenimiento-uit.module';
 import { ConvenioEstadoModule } from './mantenimiento-tablas/mantenimiento-estado-convenios/convenio-estado.module';
@@ -74,6 +75,8 @@ import { StorageModule } from './storage/storage.module';
     ContribuyentesSinValoresModule,
     // Módulo de cobranza - reporte de constancias de no adeudo
     ReporteConstanciaNoAdeudoModule,
+    // Módulo de cobranza - reporte de fraccionamientos con cuotas impagadas
+    ReporteFraccCuotasImpagasModule,
     // Módulo de reportes gerenciales
     ReportesModule,
     // Módulo de impuestos vehicular

@@ -55,6 +55,12 @@ coverage/
 # El resto del repo sigue ignorado a proposito (serian ~43 archivos).
 !backend/src/cobranza/reporte-constancia-no-adeudo/**/*.spec.ts
 
+# Excepcion: los specs de reporte-fracc-cuotas-impagas SI se versionan. El SP
+# (@BUSC=42) tiene trampas documentadas —codigo exacto en vez de LIKE, codigo
+# vacio que devuelve 0 filas, fecha de corte que el SP ignora— y estos tests son
+# la unica red que las mantiene bajo control si alguien toca el codigo.
+!backend/src/cobranza/reporte-fracc-cuotas-impagas/**/*.spec.ts
+
 # Auto-generated / workspace
 pnpm-lock.yaml
 frontend/pnpm-lock.yaml
