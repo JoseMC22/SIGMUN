@@ -61,6 +61,12 @@ coverage/
 # la unica red que las mantiene bajo control si alguien toca el codigo.
 !backend/src/cobranza/reporte-fracc-cuotas-impagas/**/*.spec.ts
 
+# Excepcion: los specs de consulta-valores SI se versionan. El SP
+# (SP_Consultadocu @msquery=1) mezcla exacto (=) para codigo y num_val con LIKE
+# para nombre, pagina server-side 1-based, y el COUNT va por @msquery=2: estos
+# tests son la unica red si alguien toca el mapeo.
+!backend/src/cobranza/consulta-valores/**/*.spec.ts
+
 # Auto-generated / workspace
 pnpm-lock.yaml
 frontend/pnpm-lock.yaml
