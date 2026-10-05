@@ -58,6 +58,18 @@ function padCodigo(value: string): string {
   return digits.padStart(7, "0");
 }
 
+// Normaliza el valor según el criterio ANTES de mandarlo al SP, no solo al
+// perder el foco: si se escribe y se pulsa Enter o Procesar sin tabular, el
+// onBlur llega tarde (o no llega) y el SP recibiría el valor sin rellenar.
+// Código y Nro Valor son exactos de 7 dígitos en el SP: sin los ceros a la
+// izquierda no matchean y devuelven 0 filas.
+function normalizeValor(tipo: TipoCriterio, value: string): string {
+  if ((tipo === "codigo" || tipo === "num_val") && value) {
+    return padCodigo(value);
+  }
+  return value;
+}
+
 /** Los montos llegan como number; en la grilla van con 2 decimales. */
 function celda(row: ConsultaValoresRow, col: (typeof COLUMNAS)[number]) {
   const raw = row[col.key];
@@ -128,10 +140,13 @@ export default function ConsultaValoresPage() {
   const buildFilters = useCallback(() => {
     // Solo viaja lleno el criterio elegido; los otros dos van vacíos y el SP
     // los ignora. Si llegaran dos llenos, el SP los combina con AND.
+    // El valor se normaliza acá (no solo en onBlur) para que el SP siempre
+    // reciba los 7 dígitos aunque no se haya perdido el foco antes de buscar.
+    const v = normalizeValor(tipo, valor);
     return {
-      codigo: tipo === "codigo" ? valor || undefined : undefined,
-      nombre: tipo === "nombre" ? valor || undefined : undefined,
-      numVal: tipo === "num_val" ? valor || undefined : undefined,
+      codigo: tipo === "codigo" ? v || undefined : undefined,
+      nombre: tipo === "nombre" ? v || undefined : undefined,
+      numVal: tipo === "num_val" ? v || undefined : undefined,
     };
   }, [tipo, valor]);
 
@@ -185,11 +200,8 @@ export default function ConsultaValoresPage() {
   };
 
   const handleBlurPad = () => {
-    // Código y Nro Valor son exactos de 7 dígitos en el SP: se rellenan para no
-    // perder los ceros de la izquierda. Nombre es LIKE libre, no se toca.
-    if ((tipo === "codigo" || tipo === "num_val") && valor) {
-      setValor(padCodigo(valor));
-    }
+    // Reflejo visual del mismo normalizeValor que se aplica al buscar.
+    if (valor) setValor(normalizeValor(tipo, valor));
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -232,26 +244,24 @@ export default function ConsultaValoresPage() {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
           {/* Selector de criterio */}
           <div className="md:col-span-4">
-            <span className="block text-[9px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5 leading-none">
+            <label
+              htmlFor="tipoCriterio"
+              className="block text-[9px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5 leading-none"
+            >
               Buscar por
-            </span>
-            <div className="flex rounded-md border border-slate-300 overflow-hidden">
+            </label>
+            <select
+              id="tipoCriterio"
+              value={tipo}
+              onChange={(e) => handleTipoChange(e.target.value as TipoCriterio)}
+              className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] text-slate-700 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none"
+            >
               {CRITERIOS.map((c) => (
-                <button
-                  key={c.value}
-                  type="button"
-                  onClick={() => handleTipoChange(c.value)}
-                  aria-pressed={tipo === c.value}
-                  className={`flex-1 px-2 py-1.5 text-[11px] font-medium transition ${
-                    tipo === c.value
-                      ? "bg-sat-cyan text-white"
-                      : "bg-white text-slate-600 hover:bg-slate-50"
-                  }`}
-                >
+                <option key={c.value} value={c.value}>
                   {c.label}
-                </button>
+                </option>
               ))}
-            </div>
+            </select>
           </div>
 
           {/* Valor del criterio */}
