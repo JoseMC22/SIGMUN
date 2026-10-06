@@ -116,3 +116,23 @@ export async function obtenerPlantillaRecordAction(): Promise<PlantillaResult> {
     return { success: false, error: "No se pudo cargar la plantilla de Récord Pendiente." };
   }
 }
+
+// ─── Costas Procesales ────────────────────────────────────────────────────────
+
+/**
+ * Lee plantilla-costas.html + estilos-costas.css
+ * del directorio reportes/Costas/.
+ */
+export async function obtenerPlantillaCostasAction(): Promise<PlantillaResult> {
+  try {
+    const dir = path.join(REPORTES_BASE_DIR, "Costas");
+    const [html, css] = await Promise.all([
+      readFile(path.join(dir, "plantilla-costas.html"), "utf8"),
+      readFile(path.join(dir, "estilos-costas.css"), "utf8"),
+    ]);
+    return { success: true, data: { html, css } };
+  } catch (error) {
+    console.error("[ReporteInfracciones] Error leyendo plantilla Costas:", error);
+    return { success: false, error: "No se pudo cargar la plantilla de Costas Procesales." };
+  }
+}

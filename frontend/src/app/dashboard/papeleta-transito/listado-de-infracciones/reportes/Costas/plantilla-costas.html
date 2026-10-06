@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Liquidación Deuda de Cobranza Coactiva</title>
+  <link rel="stylesheet" href="./estilos-costas.css">
+</head>
+<body>
+  <div class="page">
+
+    <!-- HEADER: Logo + Info institución -->
+    <div class="header">
+      <div class="logo-cell">
+        <div class="logo-badge">
+          <div class="logo-sat">SAT <span class="logo-ica">ICA</span></div>
+          <div class="logo-subtext">SERVICIO DE ADMINISTRACIÓN<br>TRIBUTARIA DE ICA</div>
+        </div>
+      </div>
+      <div class="inst-cell">
+        <div class="inst-name">SERVICIO DE ADMINISTRACIÓN TRIBUTARIA</div>
+        <div class="inst-dept">Departamento de Ejecutoria Coactiva</div>
+        <div class="inst-web">www.satica.gob.pe</div>
+      </div>
+    </div>
+
+    <!-- TÍTULO -->
+    <div class="titulo">LIQUIDACION DEUDA DE COBRANZA COACTIVA</div>
+
+    <!-- DATOS DEL CONTRIBUYENTE -->
+    <table class="datos-table">
+      <tr>
+        <td class="lbl">CODIGO</td>
+        <td class="val">: {{codigo}}</td>
+        <td class="lbl-r">EXPEDIENTE</td>
+        <td class="val-r bold">: {{expediente}}</td>
+      </tr>
+      <tr>
+        <td class="lbl">CONTRIBUYENTE</td>
+        <td class="val" colspan="3">: {{nombreInfractor}}</td>
+      </tr>
+      <tr>
+        <td class="lbl">DIRECCION</td>
+        <td class="val" colspan="3">: {{domicilio}}</td>
+      </tr>
+    </table>
+
+    <!-- COSTAS TOTAL -->
+    <div class="costas-row">
+      <span class="costas-lbl">COSTAS TOTAL</span>
+      <span class="costas-sep">:</span>
+      <span class="costas-val">{{totalCostas}}</span>
+    </div>
+
+    <!-- SON EN LETRAS -->
+    <div class="son-row">
+      <span class="son-lbl">SON:</span>
+      <span class="son-val">{{montoLetras}}</span>
+    </div>
+
+  </div>
+</body>
+</html>

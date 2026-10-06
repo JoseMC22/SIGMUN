@@ -48,6 +48,14 @@ import {
   ReporteGravamenDto,
   ReporteResolucionSancionSchema,
   ReporteResolucionSancionDto,
+  ListarCostasSchema,
+  ListarCostasDto,
+  GrabarCostaSchema,
+  GrabarCostaDto,
+  EliminarCostasSchema,
+  EliminarCostasDto,
+  AutocompletarConceptoCostasSchema,
+  AutocompletarConceptoCostasDto,
 } from './dto/acciones-infraccion.dto';
 
 @Controller('papeleta-transito/acciones')
@@ -298,5 +306,43 @@ export class AccionesInfraccionController {
   @Get('historial-modificaciones/:ninfrac')
   async obtenerHistorialModificaciones(@Param('ninfrac') ninfrac: string) {
     return this.accionesService.obtenerHistorialModificaciones(ninfrac);
+  }
+
+  // ── Costas de Infracción ──────────────────────────────────
+
+  @Post('consultar-bandeja-costas')
+  async consultarBandejaCostas(@Body() dto: { codigo: string }) {
+    return this.accionesService.consultarBandejaCostas(dto.codigo || '');
+  }
+
+  @Post('listar-costas')
+  async listarCostas(@Body() dto: ListarCostasDto) {
+    const parsed = ListarCostasSchema.parse(dto);
+    return this.accionesService.listarCostas(parsed.codigo, parsed.expediente);
+  }
+
+  @Post('grabar-costa')
+  async grabarCosta(@Request() req: any, @Body() dto: GrabarCostaDto) {
+    const parsed = GrabarCostaSchema.parse(dto);
+    const usuario = req.user?.username || req.user?.sub || 'SISTEMA';
+    return this.accionesService.grabarCosta(parsed, usuario, 'SIGMUN-API');
+  }
+
+  @Post('eliminar-costas')
+  async eliminarCostas(@Request() req: any, @Body() dto: EliminarCostasDto) {
+    const parsed = EliminarCostasSchema.parse(dto);
+    const usuario = req.user?.username || req.user?.sub || 'SISTEMA';
+    return this.accionesService.eliminarCostas(parsed.items, usuario, 'SIGMUN-API');
+  }
+
+  @Post('autocompletar-concepto-costas')
+  async autocompletarConceptoCostas(@Body() dto: AutocompletarConceptoCostasDto) {
+    const parsed = AutocompletarConceptoCostasSchema.parse(dto);
+    return this.accionesService.autocompletarConceptoCostas(parsed.termino);
+  }
+
+  @Post('datos-contribuyente-costas')
+  async datosContribuyenteCostas(@Body() dto: { codigo: string; num_docu?: string }) {
+    return this.accionesService.obtenerDatosContribuyenteCostas(dto.codigo || '', dto.num_docu || '');
   }
 }
