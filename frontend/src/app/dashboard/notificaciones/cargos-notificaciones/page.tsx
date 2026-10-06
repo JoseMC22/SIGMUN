@@ -20,6 +20,7 @@ import {
   detalleCargoAction,
   grabarCargoAction,
   subirCargoNotificacionAction,
+  buscarContribuyenteAction,
   type TipoValorOption,
   type NotificadorOption,
   type ParentescoOption,
@@ -59,6 +60,15 @@ function getField(
 function padNumValor(value: string): string {
   const digits = value.replace(/\D/g, "").slice(0, 7);
   return digits.padStart(7, "0");
+}
+
+/** Normaliza texto para comparar sin diferir por tildes/mayúsculas ni espacios. */
+function normalizarTexto(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
 }
 
 /** Normaliza fechas del SP ('dd/MM/yyyy hh:mm:ss tt' o ISO) a 'yyyy-mm-dd'. */
@@ -107,12 +117,22 @@ export default function CargosNotificacionesPage() {
   const [anoCargo, setAnoCargo] = useState("");
   const [cargoExistente, setCargoExistente] = useState(false);
 
-  // Nro Cargo = idTipoValor + 5 dígitos derechos de numValor
-  const numCargo = idValor && numValor ? `${idValor}${numValor.padStart(5, "0").slice(-5)}` : "";
+  // Nro Cargo manual (solo para Resolución de Gerencia)
+  const [numCargoManual, setNumCargoManual] = useState("");
 
   // ── Detalle del valor (rellenado por Validar) ─────────────
   const [detalle, setDetalle] = useState(EMPTY_DETALLE);
   const [tributos, setTributos] = useState<Record<string, unknown>[]>([]);
+
+  // Nro Cargo: derivado (idTipoValor + 5 dígitos derechos de numValor) salvo para
+  // Resolución de Gerencia, donde el usuario lo digita manualmente.
+  const tipoSeleccionado = tiposValor.find((t) => t.id_valor === idValor);
+  const esResolucionGerencia =
+    normalizarTexto(tipoSeleccionado?.nomb_val ?? "") === "resolucion de gerencia";
+  const numCargoDerivado =
+    idValor && numValor ? `${idValor}${numValor.padStart(5, "0").slice(-5)}` : "";
+  const numCargo = esResolucionGerencia ? numCargoManual : numCargoDerivado;
+  const montoDisplay = esResolucionGerencia ? "0" : detalle.monto;
 
   // ── Situación / Visita ────────────────────────────────────
   const [situacion, setSituacion] = useState("");
@@ -168,6 +188,7 @@ export default function CargosNotificacionesPage() {
   }, [allowedTab, activeTab]);
 
   const [saving, setSaving] = useState(false);
+  const [buscandoContribuyente, setBuscandoContribuyente] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -202,6 +223,12 @@ export default function CargosNotificacionesPage() {
     setCargoExistente(false);
     if (!idValor) {
       setError("Debe seleccionar un Tipo de Valor");
+      return;
+    }
+    if (esResolucionGerencia) {
+      setError(
+        "Para Resolución de Gerencia no se valida un valor: ingrese Nro y Año de Resolución, el Nro y Año de Cargo, y use la búsqueda del Código.",
+      );
       return;
     }
     setValidando(true);
@@ -276,7 +303,39 @@ export default function CargosNotificacionesPage() {
     } finally {
       setValidando(false);
     }
-  }, [idValor, numValor, anoValor]);
+  }, [idValor, numValor, anoValor, esResolucionGerencia]);
+
+  // ── Buscar contribuyente por código (Resolución de Gerencia) ──
+  const handleBuscarContribuyente = useCallback(async () => {
+    setError(null);
+    setSuccess(null);
+    const codigo = detalle.codigo.trim();
+    if (!codigo) {
+      setError("Ingrese un Código de Contribuyente");
+      return;
+    }
+    setBuscandoContribuyente(true);
+    try {
+      const res = await buscarContribuyenteAction(codigo);
+      if (res.success && res.data) {
+        const row = res.data;
+        setDetalle((d) => ({
+          ...d,
+          contribuyente: row.contribuyente,
+          doc_identidad: row.nro_documento,
+          direccion: row.direccion,
+        }));
+      } else {
+        // Sin resultado: no dejar datos de un código distinto al digitado.
+        setDetalle((d) => ({ ...d, contribuyente: "", doc_identidad: "", direccion: "" }));
+        setError(res.error ?? "No se encontró el contribuyente");
+      }
+    } catch {
+      setError("Error de conexión con el servidor");
+    } finally {
+      setBuscandoContribuyente(false);
+    }
+  }, [detalle.codigo]);
 
   // ── Grabar cargo ──────────────────────────────────────────
   const buildCargoPayload = useCallback(() => {
@@ -289,7 +348,7 @@ export default function CargosNotificacionesPage() {
       num_cargo: numCargo,
       ano_cargo: anoCargo ? Number(anoCargo) : undefined,
       id_notificador: idNotificador ? Number(idNotificador) : undefined,
-      monto: detalle.monto ? Number(detalle.monto) : undefined,
+      monto: esResolucionGerencia ? 0 : detalle.monto ? Number(detalle.monto) : undefined,
       flg_situacion: situacion || undefined,
       nro_visita: nroVisita || undefined,
       f_visita1: fVisita1 || undefined,
@@ -313,7 +372,7 @@ export default function CargosNotificacionesPage() {
       direc_fiscal: direcFiscal || undefined,
       observacion: observacion || undefined,
     };
-  }, [detalle, idValor, numValor, anoValor, numCargo, anoCargo, idNotificador,
+  }, [detalle, idValor, numValor, anoValor, numCargo, anoCargo, esResolucionGerencia, idNotificador,
     situacion, nroVisita, fNotifica, parentesco, nombres, docIdentidad, firma,
     direcFiscal, observacion, cargoExistente, fVisita1, hVisita1, fVisita2, hVisita2,
     fCedulon, hCedulon, dirCedulon, nPisos, cFachada, nSuministro, obsCedulon,
@@ -328,7 +387,9 @@ export default function CargosNotificacionesPage() {
     if (!numValor) faltantes.push("Nro Valor");
     if (!anoValor) faltantes.push("Año Valor");
     if (!idNotificador) faltantes.push("Notificador");
-    if (!detalle.codigo) faltantes.push("valor validado");
+    if (!detalle.codigo) faltantes.push(esResolucionGerencia ? "Código de Contribuyente" : "valor validado");
+    if (esResolucionGerencia && !numCargoManual) faltantes.push("Nro Cargo");
+    if (esResolucionGerencia && !anoCargo) faltantes.push("Año Cargo");
     if (!situacion) faltantes.push("Situación");
     if (!nroVisita) faltantes.push("Nro Visita");
     if (!fNotifica) faltantes.push("Fecha Notificación");
@@ -364,7 +425,7 @@ export default function CargosNotificacionesPage() {
     }
   }, [detalle, idValor, numValor, anoValor, idNotificador, situacion, nroVisita,
     fNotifica, parentesco, nombres, docIdentidad, firma, direcFiscal,
-    buildCargoPayload]);
+    buildCargoPayload, esResolucionGerencia, numCargoManual, anoCargo]);
 
   const resetForm = () => {
     setCargoExistente(false);
@@ -373,6 +434,7 @@ export default function CargosNotificacionesPage() {
     setAnoValor("");
     setIdNotificador("");
     setAnoCargo("");
+    setNumCargoManual("");
     setDetalle(EMPTY_DETALLE);
     setTributos([]);
     setSituacion("");
@@ -496,7 +558,7 @@ export default function CargosNotificacionesPage() {
                   <option key={t.id_valor} value={t.id_valor}>{t.nomb_val}</option>
                 ))}
               </select>
-              {label("Nro Valor", "w-auto pl-2")}
+              {label(esResolucionGerencia ? "Nro Resol." : "Nro Valor", "w-auto pl-2")}
               <input
                 type="text"
                 value={numValor}
@@ -510,7 +572,7 @@ export default function CargosNotificacionesPage() {
                 placeholder="999999"
                 maxLength={7}
               />
-              {label("Año Valor", "w-auto pl-2")}
+              {label(esResolucionGerencia ? "Año Resol." : "Año Valor", "w-auto pl-2")}
               <input
                 type="text"
                 value={anoValor}
@@ -526,7 +588,8 @@ export default function CargosNotificacionesPage() {
               <button
                 type="button"
                 onClick={handleValidar}
-                disabled={validando}
+                disabled={validando || esResolucionGerencia}
+                title={esResolucionGerencia ? "Para Resolución de Gerencia use la búsqueda del Código en lugar de Validar" : undefined}
                 className="inline-flex items-center gap-1.5 rounded bg-gray-50 border border-gray-300 px-4 py-1 hover:bg-gray-100 text-gray-700 shadow-sm disabled:opacity-50"
               >
                 {validando ? <Loader2 size={13} className="animate-spin" /> : <Search size={13} />}
@@ -554,23 +617,27 @@ export default function CargosNotificacionesPage() {
               <input
                 type="text"
                 value={numCargo}
-                readOnly
-                className={`${inputCls} w-24 text-center font-mono bg-gray-50`}
+                onChange={(e) => setNumCargoManual(e.target.value.replace(/\D/g, "").slice(0, 7))}
+                readOnly={!esResolucionGerencia}
+                className={`${inputCls} w-24 text-center font-mono ${!esResolucionGerencia && "bg-gray-50"}`}
                 placeholder="999999"
+                maxLength={7}
               />
               <span className="text-slate-600 ml-2">Año Cargo</span>
               <input
                 type="text"
                 value={anoCargo}
-                readOnly
-                className={`${inputCls} w-16 text-center font-mono bg-gray-50`}
+                onChange={(e) => setAnoCargo(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                readOnly={!esResolucionGerencia}
+                className={`${inputCls} w-16 text-center font-mono ${!esResolucionGerencia && "bg-gray-50"}`}
                 placeholder="9999"
+                maxLength={4}
               />
               <span className="mx-2 text-gray-400">...</span>
               <span className="text-slate-600 ml-auto">Monto Valor</span>
               <input
                 type="text"
-                value={detalle.monto}
+                value={montoDisplay}
                 readOnly
                 className={`${inputCls} w-32 bg-gray-50 text-right`}
                 placeholder="999999"
@@ -596,7 +663,24 @@ export default function CargosNotificacionesPage() {
             <div className="flex flex-wrap items-center gap-x-[10px] gap-y-2">
               <div className="flex items-center gap-2">
                 <span className="text-slate-600 whitespace-nowrap">Código</span>
-                <input type="text" value={detalle.codigo} readOnly className={`${inputCls} w-22 bg-gray-50`} />
+                <input
+                  type="text"
+                  value={detalle.codigo}
+                  onChange={(e) => setDetalle((d) => ({ ...d, codigo: e.target.value.replace(/\D/g, "").slice(0, 11) }))}
+                  readOnly={!esResolucionGerencia}
+                  className={`${inputCls} w-22 ${!esResolucionGerencia && "bg-gray-50"}`}
+                />
+                {esResolucionGerencia && (
+                  <button
+                    type="button"
+                    onClick={handleBuscarContribuyente}
+                    disabled={buscandoContribuyente}
+                    className="inline-flex items-center gap-1.5 rounded bg-gray-50 border border-gray-300 px-4 py-1 hover:bg-gray-100 text-gray-700 shadow-sm disabled:opacity-50"
+                  >
+                    {buscandoContribuyente ? <Loader2 size={13} className="animate-spin" /> : <Search size={13} />}
+                    Buscar
+                  </button>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-slate-600 whitespace-nowrap">Contribuyente</span>

@@ -43,7 +43,6 @@ export function construirHtmlReportePredio(
     motivo_registro: v("Motivo_Registro"),
     glosa: v("Glosa"),
     operador: v("operador"),
-    tipo_doc: v("tipo_doc"),
     condicion_especial: v("condicion_especial"),
     situacion_predio: v("situacion_predio"),
     fecha_fiscalizacion: v("fecha_fiscalizacion"),

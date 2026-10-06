@@ -50,6 +50,23 @@ coverage/
 *.test.ts
 *.test.tsx
 
+# Excepcion: los specs de reporte-constancia-no-adeudo SI se versionan, para
+# que la regresion del rango de fechas con codigo quede cubierta en el PR.
+# El resto del repo sigue ignorado a proposito (serian ~43 archivos).
+!backend/src/cobranza/reporte-constancia-no-adeudo/**/*.spec.ts
+
+# Excepcion: los specs de reporte-fracc-cuotas-impagas SI se versionan. El SP
+# (@BUSC=42) tiene trampas documentadas —codigo exacto en vez de LIKE, codigo
+# vacio que devuelve 0 filas, fecha de corte que el SP ignora— y estos tests son
+# la unica red que las mantiene bajo control si alguien toca el codigo.
+!backend/src/cobranza/reporte-fracc-cuotas-impagas/**/*.spec.ts
+
+# Excepcion: los specs de consulta-valores SI se versionan. El SP
+# (SP_Consultadocu @msquery=1) mezcla exacto (=) para codigo y num_val con LIKE
+# para nombre, pagina server-side 1-based, y el COUNT va por @msquery=2: estos
+# tests son la unica red si alguien toca el mapeo.
+!backend/src/cobranza/consulta-valores/**/*.spec.ts
+
 # Auto-generated / workspace
 pnpm-lock.yaml
 frontend/pnpm-lock.yaml

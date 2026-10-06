@@ -24,6 +24,7 @@ import {
   Layers,
   Send,
   Trash2,
+  History,
 } from "lucide-react";
 import { checkSessionAction } from "@/actions/auth/auth";
 import { searchInfraccionesAction, obtenerDatosReporteEstadoCuentaAction, obtenerDatosReporteResolucionSancionAction } from "@/actions/papeleta-transito/listado-de-infracciones";
@@ -44,6 +45,7 @@ import CambioEstadoModal from "./cambio-estado-modal";
 import CertGravamenModal from "./cert-gravamen-modal";
 import CertGravamenSinPlacaModal from "./cert-gravamen-sin-placa-modal";
 import EnvioCoactivoModal from "./envio-coactivo-modal";
+import HistorialModificacionesModal from "./historial-modificaciones-modal";
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -184,6 +186,8 @@ export default function ListadoDeInfraccionesPage() {
   const [showCertGravamenSinPlaca, setShowCertGravamenSinPlaca] = useState(false);
   const [gravamenSinPlacaValor, setGravamenSinPlacaValor] = useState("0");
   const [showEnvioCoactivo, setShowEnvioCoactivo] = useState(false);
+  const [showHistorialModificaciones, setShowHistorialModificaciones] = useState(false);
+  const [historialTargetRow, setHistorialTargetRow] = useState<InfraccionRow | null>(null);
   const [editData, setEditData] = useState<Record<string, string> | undefined>(undefined);
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -900,6 +904,16 @@ export default function ListadoDeInfraccionesPage() {
                 className={`rounded p-1 transition ${row.edt === "N" ? "text-slate-300 cursor-not-allowed" : "text-slate-400 hover:bg-slate-100 hover:text-sat-cyan"}`}>
                 <Pencil size={13} />
               </button>
+              <button type="button" title="Historial de Modificaciones"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedRowId(row.id);
+                  setHistorialTargetRow(row);
+                  setShowHistorialModificaciones(true);
+                }}
+                className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-sat-cyan transition">
+                <History size={13} />
+              </button>
               {/* TODO: Ocultar temporalmente — Resolución de Sanción no está lista para producción
               <button type="button" title="Imprimir Resolución de Sanción"
                 onClick={(e) => { e.stopPropagation(); setSelectedRowId(row.id); handleImprimirResolucionSancion(row); }}
@@ -1230,6 +1244,16 @@ export default function ListadoDeInfraccionesPage() {
         ninfrac={selectedRow?.id ?? null}
         onClose={() => setShowEnvioCoactivo(false)}
         onSuccess={() => executeSearch(page)}
+      />
+      <HistorialModificacionesModal
+        isOpen={showHistorialModificaciones}
+        ninfrac={historialTargetRow?.id ?? selectedRow?.id ?? null}
+        numeroPapeleta={historialTargetRow?.codigoInfraccion ?? selectedRow?.codigoInfraccion}
+        placa={historialTargetRow?.placa ?? selectedRow?.placa}
+        onClose={() => {
+          setShowHistorialModificaciones(false);
+          setHistorialTargetRow(null);
+        }}
       />
 
       {/* ── Reporte viewer (Estado de Cuenta / Resolución de Sanción) ── */}

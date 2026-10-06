@@ -34,6 +34,8 @@ const nextConfig: NextConfig = {
     ...devAllowedEntries,
     "http://localhost:3000",
     "localhost",
+    "http://192.168.3.28:3000",
+    "192.168.3.28",
   ],
   // Silence Turbopack workspace root warning in monorepo
   turbopack: {

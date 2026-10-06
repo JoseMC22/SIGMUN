@@ -341,3 +341,40 @@ export async function listarParentescosAction(): Promise<ParentescosResult> {
     return { success: false, data: [], error: "Error de conexión con el servidor" };
   }
 }
+
+export interface ContribuyenteRow {
+  codigo: string;
+  contribuyente: string;
+  nro_documento: string;
+  direccion: string;
+}
+
+export interface BuscarContribuyenteResult {
+  success: boolean;
+  data: ContribuyenteRow | null;
+  error?: string;
+}
+
+export async function buscarContribuyenteAction(
+  codigo: string,
+): Promise<BuscarContribuyenteResult> {
+  try {
+    const response = await authFetch(`${BASE}/contribuyente`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ codigo }),
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      return { success: false, data: null, error: text || `Error ${response.status}` };
+    }
+    const json = await response.json();
+    if (!json.success) {
+      return { success: false, data: null, error: json.error ?? "Error al buscar el contribuyente" };
+    }
+    return { success: true, data: json.data ?? null };
+  } catch {
+    return { success: false, data: null, error: "Error de conexión con el servidor" };
+  }
+}

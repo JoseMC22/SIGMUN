@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Get, Request } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Get, Request, Param } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { AccionesInfraccionService } from './acciones-infraccion.service';
 import {
@@ -293,5 +293,10 @@ export class AccionesInfraccionController {
   async reporteResolucionSancion(@Body() dto: ReporteResolucionSancionDto) {
     const parsed = ReporteResolucionSancionSchema.parse(dto);
     return this.accionesService.obtenerDatosReporteResolucionSancion(parsed);
+  }
+
+  @Get('historial-modificaciones/:ninfrac')
+  async obtenerHistorialModificaciones(@Param('ninfrac') ninfrac: string) {
+    return this.accionesService.obtenerHistorialModificaciones(ninfrac);
   }
 }
