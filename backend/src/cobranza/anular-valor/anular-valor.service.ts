@@ -3,6 +3,8 @@ import { DatabaseService } from '../../database/database.service';
 import {
   AnularValorContribuyenteRow,
   AnularValorResult,
+  ValorEmitidoRow,
+  ValoresResult,
 } from './anular-valor.types';
 import { SearchAnularValorDto } from './dto/search-anular-valor.dto';
 
@@ -100,4 +102,65 @@ export class AnularValorService {
       };
     }
   }
+
+  /**
+   * Valores emitidos de un contribuyente.
+   * Fuente: Rentas.ssp_Consultadocu @msquery=3 con @codigo exacto. Sin
+   * paginación (un contribuyente trae decenas, no miles): inicio=0/final=0.
+   */
+  async getValores(codigo: string): Promise<ValoresResult> {
+    try {
+      const result = await this.db.executeProcedure(
+        'Rentas.ssp_Consultadocu',
+        { msquery: 3, codigo: codigo ?? '', inicio: 0, final: 0 },
+      );
+      const data: ValorEmitidoRow[] = (result.recordset ?? []).map(mapValor);
+      return { success: true, data, total: data.length };
+    } catch (error) {
+      this.logger.error(
+        `[AnularValor] getValores SP error: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return {
+        success: false,
+        data: [],
+        total: 0,
+        error: 'Error al consultar los valores',
+      };
+    }
+  }
+}
+
+/**
+ * Mapea una fila cruda de @msquery=3. Descarta ROW; null → ''.
+ * fecha '1900-01-01' (isnull sin registro de motivo) se mapea a ''.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapValor(raw: any): ValorEmitidoRow {
+  const pick = (key: string): string => {
+    const v = raw?.[key];
+    return v === null || v === undefined ? '' : String(v).trim();
+  };
+  const monto = raw?.MontoTotal;
+  const fechaRaw = pick('fecha');
+  return {
+    codigo: pick('codigo'),
+    nombre: pick('nombre'),
+    nomb_val: pick('nomb_val'),
+    num_val: pick('num_val'),
+    ano_val: pick('ano_val'),
+    MontoTotal:
+      monto === null || monto === undefined || monto === ''
+        ? 0
+        : Number(monto),
+    fec_val: pick('fec_val'),
+    id_valor: pick('id_valor'),
+    num_exp: pick('num_exp'),
+    ano_exp: pick('ano_exp'),
+    nestado: pick('nestado'),
+    fec_vence: pick('fec_vence'),
+    id_mvalores: Number(raw?.id_mvalores ?? 0),
+    motivo: pick('motivo'),
+    operador: pick('operador'),
+    fecha: fechaRaw.startsWith('1900') ? '' : fechaRaw,
+  };
 }

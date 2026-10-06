@@ -11,12 +11,14 @@ import {
   ChevronLeft,
   ChevronRight,
   Info,
+  Eye,
 } from "lucide-react";
 import {
   searchAnularValorAction,
   type AnularValorRow,
   type TipoBusqueda,
 } from "@/actions/cobranza/anular-valor";
+import ValoresModal from "@/app/dashboard/cobranza/anular-valor/valores-modal";
 
 // Registros por página.
 
@@ -37,6 +39,10 @@ const COLUMNAS: { header: string; key: string }[] = [
 ];
 
 const NUM_COLS = COLUMNAS.length;
+
+// La grilla tiene una columna más que COLUMNAS: la de Acción (botón por fila).
+// El skeleton la cuenta para no desincronizar el ancho.
+const GRID_COLS = NUM_COLS + 1;
 
 const TIPOS: { value: TipoBusqueda; label: string }[] = [
   { value: "C", label: "Código" },
@@ -64,10 +70,10 @@ function TableSkeleton() {
           <div
             className="grid gap-4"
             style={{
-              gridTemplateColumns: `repeat(${NUM_COLS}, minmax(0, 1fr))`,
+              gridTemplateColumns: `repeat(${GRID_COLS}, minmax(0, 1fr))`,
             }}
           >
-            {[...Array(NUM_COLS)].map((_, i) => (
+            {[...Array(GRID_COLS)].map((_, i) => (
               <div key={i} className="h-3 bg-slate-200 rounded w-3/4" />
             ))}
           </div>
@@ -77,10 +83,10 @@ function TableSkeleton() {
             <div
               className="grid gap-4"
               style={{
-                gridTemplateColumns: `repeat(${NUM_COLS}, minmax(0, 1fr))`,
+                gridTemplateColumns: `repeat(${GRID_COLS}, minmax(0, 1fr))`,
               }}
             >
-              {[...Array(NUM_COLS)].map((_, j) => (
+              {[...Array(GRID_COLS)].map((_, j) => (
                 <div
                   key={j}
                   className="h-3.5 bg-slate-100 rounded"
@@ -120,6 +126,12 @@ export default function AnularValorPage() {
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Modal de valores emitidos (se abre con el botón de cada fila).
+  const [modal, setModal] = useState<{
+    codigo: string;
+    nombre: string;
+  } | null>(null);
 
   const buildFilters = useCallback(() => {
     // Solo viaja lleno lo del criterio elegido; el resto va vacío y el SP lo
@@ -465,6 +477,9 @@ export default function AnularValorPage() {
                   {col.header}
                 </th>
               ))}
+              <th className="text-left text-[9px] font-semibold text-white/90 uppercase px-2 py-2 border-b border-white/5 whitespace-nowrap">
+                Acción
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -483,6 +498,23 @@ export default function AnularValorPage() {
                     {String(row[col.key] ?? "")}
                   </td>
                 ))}
+                <td className="px-2 py-1 whitespace-nowrap">
+                  <button
+                    type="button"
+                    title="Ver valores emitidos"
+                    aria-label={`Ver valores de ${row.codigo}`}
+                    onClick={() =>
+                      setModal({
+                        codigo: String(row.codigo ?? ""),
+                        nombre: String(row.nombres ?? ""),
+                      })
+                    }
+                    className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-medium text-slate-600 transition hover:bg-sat-cyan hover:text-white hover:border-sat-cyan focus:outline-none focus:ring-2 focus:ring-sat-cyan/40"
+                  >
+                    <Eye size={11} />
+                    Valores
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -591,6 +623,15 @@ export default function AnularValorPage() {
           {renderGrid()}
           {renderPagination()}
         </>
+      )}
+
+      {/* Modal de valores emitidos por fila */}
+      {modal && (
+        <ValoresModal
+          codigo={modal.codigo}
+          nombre={modal.nombre}
+          onClose={() => setModal(null)}
+        />
       )}
     </div>
   );

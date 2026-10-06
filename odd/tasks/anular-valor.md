@@ -18,6 +18,19 @@ usuario se cambió a **`Rentas.ssp_Mcontribuyente @busc=5`** (rama `msconsulta`,
 nuevo creado el 2026-10-06), que filtra por `@tipo_busqueda` y devuelve ~29 columnas
 de las que se muestran 8 identificatorias.
 
+## Modal de valores emitidos (botón por fila)
+
+Cada fila tiene un botón "Valores" que abre un modal con los valores emitidos del
+código (`Rentas.ssp_Consultadocu @msquery=3`, verificado: 41 filas para `'0279126'`).
+La grilla del modal muestra 5 columnas pedidas por el usuario: tipo de documento
+(`nomb_val`), número (`num_val`), año (`ano_val`), monto (`MontoTotal` 2 dec),
+estado (`nestado` con descripción resuelta, no el int).
+
+El backend expone `POST /cobranza/anular-valor/valores` con `{ Codigo }` (sin
+paginación: un contribuyente trae decenas). Viajan en datos `id_mvalores` (PK, la
+necesitará la fase 2), `motivo`/`operador`/`fecha` (vacíos si no hay anulación;
+`fecha` '1900-01-01' se mapea a ''). No se muestran en la grilla del modal.
+
 ## Decisión de diseño: filtros por tipo_busqueda (verificado contra la BD)
 
 | Tipo | Params que viajan | Comportamiento medido del SP |

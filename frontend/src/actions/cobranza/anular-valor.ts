@@ -121,3 +121,61 @@ export async function searchAnularValorAction(
     };
   }
 }
+
+export interface ValorEmitido {
+  [key: string]: string | number | null;
+}
+
+export interface ValoresResult {
+  success: boolean;
+  data: ValorEmitido[];
+  total: number;
+  error?: string;
+}
+
+// Valores emitidos de un contribuyente (modal por fila)
+
+export async function getValoresByCodigoAction(
+  codigo: string,
+): Promise<ValoresResult> {
+  try {
+    const response = await authFetch(`${BASE}/valores`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ Codigo: codigo }),
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      return {
+        success: false,
+        data: [],
+        total: 0,
+        error: text || `Error ${response.status}`,
+      };
+    }
+
+    const json = await response.json();
+    if (!json.success) {
+      return {
+        success: false,
+        data: [],
+        total: 0,
+        error: json.error ?? "Error al consultar los valores",
+      };
+    }
+    return {
+      success: true,
+      data: json.data ?? [],
+      total: json.total ?? 0,
+    };
+  } catch {
+    return {
+      success: false,
+      data: [],
+      total: 0,
+      error: "Error de conexión con el servidor",
+    };
+  }
+}

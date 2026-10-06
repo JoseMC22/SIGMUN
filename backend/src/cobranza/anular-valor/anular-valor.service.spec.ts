@@ -166,4 +166,68 @@ describe('AnularValorService', () => {
     expect(res.data).toEqual([]);
     expect(res.error).toBeTruthy();
   });
+
+  describe('getValores', () => {
+    const rawValor = (over: object = {}) => ({
+      codigo: '0279126',
+      nombre: 'VAEZ CARDENAS MANUEL FERNANDO Y SRA',
+      nomb_val: 'Orden de Pago Predial',
+      num_val: '0018351',
+      ano_val: '2024',
+      MontoTotal: 480.35,
+      fec_val: '19/11/2024',
+      id_valor: '01',
+      num_exp: '0000055',
+      ano_exp: '2026',
+      nestado: 'Pendiente',
+      fec_vence: '19/11/2024',
+      id_mvalores: 115169,
+      motivo: '',
+      operador: '',
+      fecha: '1900-01-01',
+      ROW: 1,
+      ...over,
+    });
+
+    it('llama a ssp_Consultadocu con msquery:3 y el codigo', async () => {
+      executeProcedure.mockResolvedValueOnce({ recordset: [rawValor()] });
+
+      const res = await service.getValores('0279126');
+
+      expect(executeProcedure).toHaveBeenCalledTimes(1);
+      expect(executeProcedure.mock.calls[0][0]).toBe(
+        'Rentas.ssp_Consultadocu',
+      );
+      expect(executeProcedure.mock.calls[0][1]).toMatchObject({
+        msquery: 3,
+        codigo: '0279126',
+        inicio: 0,
+        final: 0,
+      });
+      expect(res.success).toBe(true);
+      expect(res.total).toBe(1);
+    });
+
+    it('mapea estado resuelto, id_mvalores y fecha 1900 a ""', async () => {
+      executeProcedure.mockResolvedValueOnce({ recordset: [rawValor()] });
+
+      const res = await service.getValores('0279126');
+
+      expect(res.data[0].nestado).toBe('Pendiente');
+      expect(res.data[0].id_mvalores).toBe(115169);
+      expect(res.data[0].fecha).toBe('');
+      expect(res.data[0].MontoTotal).toBe(480.35);
+      expect(res.data[0]).not.toHaveProperty('ROW');
+    });
+
+    it('devuelve { success:false, error } sin throw cuando el SP falla', async () => {
+      executeProcedure.mockRejectedValueOnce(new Error('boom'));
+
+      const res = await service.getValores('0279126');
+
+      expect(res.success).toBe(false);
+      expect(res.data).toEqual([]);
+      expect(res.error).toBeTruthy();
+    });
+  });
 });

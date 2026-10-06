@@ -26,3 +26,40 @@ export interface AnularValorResult {
   totalPages: number;
   error?: string;
 }
+
+/**
+ * Valor emitido de un contribuyente.
+ * Fuente: Rentas.ssp_Consultadocu @msquery=3 (16 columnas + ROW).
+ *
+ * nestado viene con la descripción resuelta (el SP hace el lookup a
+ * rentas.estado_valores: 'Pendiente', 'Pagado', ...), no el int.
+ * id_mvalores es la PK de la fila (la necesitará la fase 2 para anular);
+ * viaja en datos pero no se muestra en la grilla del modal.
+ * fecha viene '1900-01-01' cuando no hay registro de motivo (artefacto del
+ * isnull(datetime,'') del SP): se mapea a ''.
+ */
+export interface ValorEmitidoRow {
+  codigo: string;
+  nombre: string;
+  nomb_val: string;
+  num_val: string;
+  ano_val: string;
+  MontoTotal: number;
+  fec_val: string;
+  id_valor: string;
+  num_exp: string;
+  ano_exp: string;
+  nestado: string;
+  fec_vence: string;
+  id_mvalores: number;
+  motivo: string;
+  operador: string;
+  fecha: string;
+}
+
+export interface ValoresResult {
+  success: boolean;
+  data: ValorEmitidoRow[];
+  total: number;
+  error?: string;
+}

@@ -12,7 +12,14 @@ import {
   SearchAnularValorSchema,
   SearchAnularValorDto,
 } from './dto/search-anular-valor.dto';
-import { AnularValorResult } from './anular-valor.types';
+import {
+  GetValoresSchema,
+  GetValoresDto,
+} from './dto/get-valores.dto';
+import {
+  AnularValorResult,
+  ValoresResult,
+} from './anular-valor.types';
 import { z } from 'zod';
 
 @Controller('cobranza/anular-valor')
@@ -52,5 +59,23 @@ export class AnularValorController {
       };
     }
     return this.service.search(dto);
+  }
+
+  /** Valores emitidos de un contribuyente (ssp_Consultadocu @msquery=3). */
+  @Post('valores')
+  @HttpCode(HttpStatus.OK)
+  async valores(@Body() body: unknown): Promise<ValoresResult> {
+    let dto: GetValoresDto;
+    try {
+      dto = GetValoresSchema.parse(body);
+    } catch {
+      return {
+        success: false,
+        data: [],
+        total: 0,
+        error: 'Código inválido',
+      };
+    }
+    return this.service.getValores(dto.Codigo);
   }
 }
