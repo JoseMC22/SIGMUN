@@ -558,7 +558,7 @@ export class AccionesInfraccionService {
 
       const firstRow = result.recordset?.[0] as any;
       const resultado = firstRow ? String(firstRow.nro ?? Object.values(firstRow)[0] ?? '').trim() : '';
-      
+
       // El SP Rentas.GeneraConveniopape devuelve un recordset con { nro: 'PIT-Ord-2026-XXXX' } si fue exitoso
       const isError = !resultado || resultado.toLowerCase().includes('error') || resultado.toLowerCase().includes('null');
       const success = !isError;
@@ -566,8 +566,8 @@ export class AccionesInfraccionService {
       this.logger.log(`Fraccionamiento grabado: código ${dto.codigo}, ${dto.cuotas} cuotas -> nro: ${resultado}`);
       return {
         success,
-        message: success 
-          ? `Fraccionamiento registrado exitosamente: ${resultado}` 
+        message: success
+          ? `Fraccionamiento registrado exitosamente: ${resultado}`
           : `Error al fraccionar la papeleta. (${resultado || 'La papeleta ya se encuentra fraccionada o no cuenta con recibo válido'})`,
       };
     } catch (error) {
@@ -2354,7 +2354,7 @@ export class AccionesInfraccionService {
           // Separar múltiples cambios si vinieran en la misma observación
           const firstChange = obsStr.split(' ; ')[0] ?? obsStr;
           const colonIdx = firstChange.indexOf(':');
-          
+
           let campoNombre = 'Edición de Infracción';
           let valAnt = 'ANTERIOR';
           let valNue = firstChange;
@@ -2418,5 +2418,318 @@ export class AccionesInfraccionService {
       };
     }
   }
+
+  // ── Costas de Infracción ──────────────────────────────────
+  // Legacy: BandecostascontriController (gridcostasAction, gcostasAction, eliminacostaAction, autocompletarAction)
+  // SP: [Coactivo].[sp_MCostas], Rentas.sp_Costas
+
+  /**
+   * Consulta la bandeja de costas del contribuyente (@msquery=9)
+   * Legacy: consultabandejaAction
+   */
+  async consultarBandejaCostas(codigo: string): Promise<{ success: boolean; data?: any[]; message?: string }> {
+    try {
+      const result = await this.db.executeProcedure('[Coactivo].[sp_MCostas]', {
+        msquery: 9,
+        codigo,
+      });
+      const rows: any[] = result.recordset ?? [];
+      this.logger.log(`[consultarBandejaCostas] codigo="${codigo}" returned ${rows.length} rows. First row: ${rows[0] ? JSON.stringify(rows[0]) : 'NONE'}`);
+      const data = rows.map((r) => {
+        const v = Array.isArray(r) ? r : Object.values(r);
+        return {
+          idrecibo: String(r.idrecibo ?? v[0] ?? '').trim(),
+          expediente: String(r.num_docu ?? r.expediente ?? v[2] ?? '').trim(),
+          monto: String(r.total ?? r.monto ?? v[3] ?? '0.00').trim(),
+          estadocosta: String(r.estadocosta ?? v[4] ?? '').trim(),
+          estadogasto: String(r.estadogasto ?? v[5] ?? '').trim(),
+          periodo: String(r.periodo ?? v[6] ?? '').trim(),
+        };
+      });
+      return { success: true, data };
+    } catch (error) {
+      this.logger.error('Error al consultar bandeja costas:', error);
+      return { success: false, message: error instanceof Error ? error.message : 'Error al consultar bandeja de costas.' };
+    }
+  }
+
+  /**
+   * Lista las costas asociadas a un código/expediente.
+   * @msquery=2 → filas de costas
+   */
+  async listarCostas(codigo: string, expediente: string): Promise<{ success: boolean; data?: any[]; message?: string }> {
+    try {
+      const cleanCodigo = (codigo || '').trim();
+      const cleanExp = (expediente || '').trim();
+      this.logger.log(`[listarCostas] calling sp_MCostas @msquery=2 with codigo="${cleanCodigo}", num_docu="${cleanExp}"`);
+
+      let result = await this.db.executeProcedure('[Coactivo].[sp_MCostas]', {
+        msquery: 2,
+        codigo: cleanCodigo,
+        num_docu: cleanExp,
+      });
+      let rows: any[] = result.recordset ?? [];
+
+      // Si sp_MCostas msquery=2 no retorna filas (por diferencias de padding en num_docu o por el join de uit/concepto),
+      // consultamos directamente Coactivo.MCostas para no dejar al usuario sin sus registros
+      if (rows.length === 0) {
+        this.logger.log(`[listarCostas] sp_MCostas msquery=2 returned 0 rows. Intentando consulta directa de seguridad...`);
+        const fallbackRes = await this.db.query<any>(
+          `SELECT r.idcosta, r.idrecibo, r.codigo, r.anno, r.cod_pred, r.anexo, r.sub_anexo, r.tipo_docu, 
+                  r.num_docu, r.tipo, r.tipo_rec, r.periodo, r.imp_reaj, r.fact_reaj,
+                  t1.valor_uit, r.fact_mora, r.mora, r.costo_emis, dbo.trim(r.observacion) as observacion, 
+                  r.estado, r.ubica, r.fec_venc, r.fec_pago, r.num_ingr, r.operador, r.estacion, r.fech_ing,
+                  ISNULL(r.tipo_obligacion,'') as tipo_obligacion,
+                  ISNULL(t.concepto, '') as concepto
+           FROM Coactivo.MCostas r WITH(NOLOCK)
+           LEFT JOIN Calculo.TblvalUIT t1 WITH(NOLOCK) on r.anno = t1.anno
+           LEFT JOIN caja.Tipo_Ingresos_det t WITH(NOLOCK) on r.tipo=t.tipo_rec and r.tipo_rec=t.tipo
+           WHERE r.codigo = @codigo 
+             AND (LTRIM(RTRIM(r.num_docu)) = @expediente OR @expediente = '')
+             AND ISNULL(r.nestado, 1) = 1
+             AND ISNULL(r.estado, '1') <> '0'`,
+          { codigo: cleanCodigo, expediente: cleanExp },
+        );
+        rows = fallbackRes.recordset ?? [];
+        this.logger.log(`[listarCostas] consulta directa retornó ${rows.length} filas`);
+      }
+
+      // Filtramos en memoria para descartar cualquier fila eliminada (nestado != '1' o estado == '0')
+      const activeRows = rows.filter((r) => {
+        const est = String(r.estado ?? r.ESTADO ?? '').trim();
+        const nest = String(r.nestado ?? r.NESTADO ?? '1').trim();
+        return est !== '0' && nest === '1';
+      });
+
+      this.logger.log(`[listarCostas] total rows activas a mapear: ${activeRows.length}. (de un total de ${rows.length})`);
+      if (activeRows[0]) {
+        this.logger.log(`[listarCostas] sample row 0: ${JSON.stringify(activeRows[0])}`);
+      }
+
+      const getRowVal = (r: any, keys: string[], idx?: number): string => {
+        if (!r) return '';
+        for (const k of keys) {
+          if (r[k] !== undefined && r[k] !== null && String(r[k]).trim() !== '') {
+            return String(r[k]).trim();
+          }
+        }
+        if (idx !== undefined) {
+          const vals = Array.isArray(r) ? r : Object.values(r);
+          if (vals[idx] !== undefined && vals[idx] !== null) {
+            return String(vals[idx]).trim();
+          }
+        }
+        return '';
+      };
+
+      const data = activeRows.map((r) => {
+        const conceptoVal = getRowVal(r, ['conceptos', 'concepto', 'descripcion', 'des_tipo', 'des_concepto', 'concepto_desc'], 28)
+          || getRowVal(r, [], 2);
+        return {
+          idcosta: getRowVal(r, ['idcosta', 'id_costa'], 0),
+          idrecibo: getRowVal(r, ['idrecibo', 'id_recibo'], 1),
+          conceptos: conceptoVal,
+          monto: getRowVal(r, ['imp_reaj', 'monto', 'total', 'imp_insol'], 12),
+          cantidad: getRowVal(r, ['fact_reaj', 'cantidad'], 13),
+          uit1: getRowVal(r, ['valor_uit', 'imp_insol', 'uit', 'uit1'], 14),
+          tipo: getRowVal(r, ['tipo'], 9),
+          subtipo: getRowVal(r, ['tipo_rec', 'subtipo'], 10),
+          observacion: getRowVal(r, ['observacion'], 18),
+          expediente: getRowVal(r, ['expediente', 'num_docu'], 2),
+          anno: getRowVal(r, ['anno', 'anio'], 3),
+          periodo: getRowVal(r, ['periodo'], 6),
+        };
+      });
+      return { success: true, data };
+    } catch (error) {
+      this.logger.error('Error al listar costas:', error);
+      return { success: false, message: error instanceof Error ? error.message : 'Error al listar costas.' };
+    }
+  }
+
+  /**
+   * Graba (insert @msquery=1 o update @msquery=3) una costa.
+   * Legacy: gcostasAction
+   */
+  async grabarCosta(dto: {
+    idcosta: string; idrecibo: string; expediente: string; codigo: string;
+    anno: string; periodo: string; observacion: string;
+    tipo: string; subtipo: string; cantidad: string; monto: string;
+  }, usuario: string, estacion: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const msquery = dto.idcosta ? 3 : 1;
+      const cantNum = parseFloat(dto.cantidad) || 1;
+      const montoNum = parseFloat(dto.monto) || 0;
+      const totalNum = montoNum * cantNum;
+
+      this.logger.log(`[grabarCosta] calling sp_MCostas @msquery=${msquery} with dto=${JSON.stringify(dto)}`);
+      const result = await this.db.executeProcedure('[Coactivo].[sp_MCostas]', {
+        msquery,
+        idcosta: dto.idcosta ? parseInt(dto.idcosta, 10) : 0,
+        idrecibo: dto.idrecibo ? parseInt(dto.idrecibo, 10) : 0,
+        num_docu: dto.expediente || '',
+        codigo: dto.codigo,
+        anno: dto.anno || new Date().getFullYear().toString(),
+        periodo: dto.periodo || '01',
+        observacion: dto.observacion,
+        tipo: dto.tipo,
+        tipo_rec: dto.subtipo,
+        imp_insol: totalNum,
+        fact_reaj: cantNum,
+        imp_reaj: totalNum,
+        operador: usuario,
+        estacion,
+      });
+      const rows = result.recordset ?? [];
+      this.logger.log(`[grabarCosta] result rows: ${JSON.stringify(rows)}`);
+      const firstRow = rows[0] as Record<string, any> | undefined;
+      const msg = firstRow ? (firstRow.msg ?? firstRow[0] ?? 'Se grabó correctamente.') : 'Se grabó correctamente.';
+      return { success: true, message: String(msg) };
+    } catch (error) {
+      this.logger.error('Error al grabar costa:', error);
+      return { success: false, message: error instanceof Error ? error.message : 'Error al grabar la costa.' };
+    }
+  }
+
+  /**
+   * Elimina costas seleccionadas.
+   * Legacy: eliminacostaAction → @msquery=4
+   */
+  async eliminarCostas(items: { idcosta: string }[], usuario: string, estacion: string): Promise<{ success: boolean; message: string }> {
+    try {
+      this.logger.log(`[eliminarCostas] items=${JSON.stringify(items)}`);
+      for (const item of items) {
+        const idInt = parseInt(item.idcosta, 10) || 0;
+        this.logger.log(`[eliminarCostas] ejecutando sp_MCostas msquery=4 para idcosta=${idInt}`);
+        await this.db.executeProcedure('[Coactivo].[sp_MCostas]', {
+          msquery: 4,
+          idcosta: idInt,
+          operador: usuario,
+          estacion,
+        });
+
+        // Aseguramos que quede desactivada a nivel de estado en caso el SP dependa de @@ROWCOUNT de caja.mrecibos
+        await this.db.query(
+          `UPDATE Coactivo.MCostas 
+           SET ESTADO = '0', nestado = 2, estacion = @estacion, operador = @operador  
+           WHERE idcosta = @idcosta`,
+          { idcosta: idInt, operador: usuario, estacion },
+        );
+      }
+      return { success: true, message: 'Se eliminaron correctamente.' };
+    } catch (error) {
+      this.logger.error('Error al eliminar costas:', error);
+      return { success: false, message: error instanceof Error ? error.message : 'Error al eliminar costas.' };
+    }
+  }
+
+  /**
+   * Autocompleta conceptos de costas.
+   * Legacy: autocompletarAction → Rentas.sp_Costas @msquery=3
+   */
+  async autocompletarConceptoCostas(termino: string): Promise<{ success: boolean; data?: any[]; message?: string }> {
+    try {
+      const result = await this.db.executeProcedure('Rentas.sp_Costas', {
+        msquery: 3,
+        variable: termino.trim(),
+      });
+      const rows: any[] = result.recordset ?? [];
+      const data = rows.map((r) => {
+        const vals = Array.isArray(r) ? r : Object.values(r);
+        const id = String(r.id ?? r.tipo ?? r.codigo ?? vals[0] ?? '').trim();
+        const desc = String(r.concepto ?? r.descripcion ?? r.nombre ?? vals[1] ?? id).trim();
+        const measure = String(r.medida ?? r.subtipo ?? vals[2] ?? '').trim();
+        const monto = String(r.monto ?? r.precio ?? vals[4] ?? vals[3] ?? '0').trim();
+        return {
+          id,
+          name: `${id}|${desc}|${measure}|${monto}`,
+          measure,
+        };
+      });
+      return { success: true, data };
+    } catch (error) {
+      this.logger.error('Error en autocompletar conceptos costas:', error);
+      return { success: false, message: error instanceof Error ? error.message : 'Error en autocompletar.' };
+    }
+  }
+
+  /**
+   * Obtiene datos del contribuyente para el header del modal de Costas.
+   * Usa Rentas.sp_rentasmain @buscar=3 y Rentas.sp_Mcontribuyente @busc=4
+   */
+  async obtenerDatosContribuyenteCostas(codigo: string, numDocu: string): Promise<{ success: boolean; data?: any; message?: string }> {
+    try {
+      const cleanCodigo = (codigo || '').trim();
+      this.logger.log(`[datosContribuyenteCostas] cleanCodigo="${cleanCodigo}"`);
+      if (!cleanCodigo) {
+        return { success: true, data: null };
+      }
+
+      // Estrategia 1: Rentas.sp_rentasmain @buscar=3 (retorna codigo, nombres, num_doc, direccion)
+      try {
+        const resMain = await this.db.executeProcedure<any>('Rentas.sp_rentasmain', {
+          buscar: 3,
+          codigo: cleanCodigo,
+        });
+        const rowsMain = resMain.recordset ?? [];
+        if (rowsMain.length > 0) {
+          const r = rowsMain[0];
+          const v = Object.values(r).map((x) => String(x ?? '').trim());
+          const nombres = String(r.nombres ?? v[1] ?? '').trim();
+          const numDoc = String(r.num_doc ?? r.num_docu ?? v[2] ?? '').trim();
+          const dir = String(r.direccion ?? r.Dir_Fisca ?? v[3] ?? '').trim();
+
+          this.logger.log(`[datosContribuyenteCostas] sp_rentasmain found: numDoc="${numDoc}", dir="${dir}"`);
+          if (numDoc || dir) {
+            return {
+              success: true,
+              data: {
+                nombres,
+                num_docu: numDoc,
+                Dir_Fisca: dir,
+              },
+            };
+          }
+        }
+      } catch (errMain) {
+        this.logger.warn(`[datosContribuyenteCostas] sp_rentasmain falló: ${errMain}`);
+      }
+
+      // Estrategia 2: Rentas.sp_Mcontribuyente @busc=4
+      try {
+        const resContri = await this.db.executeProcedure<any>('Rentas.sp_Mcontribuyente', {
+          busc: 4,
+          codigo: cleanCodigo,
+        });
+        const rowsContri = resContri.recordset ?? [];
+        if (rowsContri.length > 0) {
+          const r = rowsContri[0];
+          const v = Object.values(r).map((x) => String(x ?? '').trim());
+          const numDoc = String(r.num_doc ?? r.num_docu ?? v[3] ?? '').trim();
+          const nombres = [v[4], v[5], v[6]].filter(Boolean).join(' ') || String(r.nombres ?? '');
+          const dir = String(r.DireFis ?? r.Dir_Fisca ?? r.direccion ?? '').trim();
+
+          this.logger.log(`[datosContribuyenteCostas] sp_Mcontribuyente @busc=4 found: numDoc="${numDoc}", dir="${dir}"`);
+          return {
+            success: true,
+            data: {
+              nombres,
+              num_docu: numDoc,
+              Dir_Fisca: dir,
+            },
+          };
+        }
+      } catch (errContri) {
+        this.logger.warn(`[datosContribuyenteCostas] sp_Mcontribuyente @busc=4 falló: ${errContri}`);
+      }
+
+      return { success: true, data: null };
+    } catch (error) {
+      this.logger.error('Error al obtener datos contribuyente costas:', error);
+      return { success: false, message: error instanceof Error ? error.message : 'Error al obtener datos.' };
+    }
+  }
+
+
 }
 

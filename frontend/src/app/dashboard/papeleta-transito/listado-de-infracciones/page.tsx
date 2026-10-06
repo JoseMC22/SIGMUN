@@ -25,6 +25,7 @@ import {
   Send,
   Trash2,
   History,
+  DollarSign,
 } from "lucide-react";
 import { checkSessionAction } from "@/actions/auth/auth";
 import { searchInfraccionesAction, obtenerDatosReporteEstadoCuentaAction, obtenerDatosReporteResolucionSancionAction } from "@/actions/papeleta-transito/listado-de-infracciones";
@@ -46,6 +47,7 @@ import CertGravamenModal from "./cert-gravamen-modal";
 import CertGravamenSinPlacaModal from "./cert-gravamen-sin-placa-modal";
 import EnvioCoactivoModal from "./envio-coactivo-modal";
 import HistorialModificacionesModal from "./historial-modificaciones-modal";
+import CostasInfraccionModal from "./costas-infraccion-modal";
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -188,6 +190,7 @@ export default function ListadoDeInfraccionesPage() {
   const [showEnvioCoactivo, setShowEnvioCoactivo] = useState(false);
   const [showHistorialModificaciones, setShowHistorialModificaciones] = useState(false);
   const [historialTargetRow, setHistorialTargetRow] = useState<InfraccionRow | null>(null);
+  const [showCostasInfraccion, setShowCostasInfraccion] = useState(false);
   const [editData, setEditData] = useState<Record<string, string> | undefined>(undefined);
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -914,18 +917,6 @@ export default function ListadoDeInfraccionesPage() {
                 className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-sat-cyan transition">
                 <History size={13} />
               </button>
-              {/* TODO: Ocultar temporalmente — Resolución de Sanción no está lista para producción
-              <button type="button" title="Imprimir Resolución de Sanción"
-                onClick={(e) => { e.stopPropagation(); setSelectedRowId(row.id); handleImprimirResolucionSancion(row); }}
-                className={`rounded p-1 transition ${row.imp === "N" ? "text-slate-300 cursor-not-allowed" : "text-slate-400 hover:bg-slate-100 hover:text-sat-cyan"}`}>
-                <Printer size={13} />
-              </button>
-              <button type="button" title="Resolución de Sanción"
-                onClick={(e) => { e.stopPropagation(); setSelectedRowId(row.id); handleGenerarResolucionSancion(row); }}
-                className={`rounded p-1 transition ${row.gnr === "N" ? "text-slate-300 cursor-not-allowed" : "text-slate-400 hover:bg-slate-100 hover:text-sat-cyan"}`}>
-                <FileText size={13} />
-              </button>
-              */}
               <button type="button" title="Cambio de Estado"
                 onClick={(e) => { e.stopPropagation(); setSelectedRowId(row.id); handleCambioEstado(row); }}
                 className={`rounded p-1 transition ${row.cmb === "N" ? "text-slate-300 cursor-not-allowed" : "text-slate-400 hover:bg-slate-100 hover:text-sat-cyan"}`}>
@@ -940,6 +931,19 @@ export default function ListadoDeInfraccionesPage() {
                 onClick={(e) => { e.stopPropagation(); setSelectedRowId(row.id); handleImprimirEstadoCuenta(row); }}
                 className={`rounded p-1 transition ${row.imp === "N" ? "text-slate-300 cursor-not-allowed" : "text-slate-400 hover:bg-slate-100 hover:text-sat-cyan"}`}>
                 <Receipt size={13} />
+              </button>
+              <button type="button" title={["COAC", "COACTIVO"].includes(row.estado?.toUpperCase() ?? "") ? "Costas" : "Solo disponible para papeletas en estado Coactivo"}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!["COAC", "COACTIVO"].includes(row.estado?.toUpperCase() ?? "")) {
+                    alert(`No puede gestionar Costas para una infracción en estado "${row.estado}". El estado debe ser Coactivo.`);
+                    return;
+                  }
+                  setSelectedRowId(row.id);
+                  setShowCostasInfraccion(true);
+                }}
+                className={`rounded p-1 transition ${["COAC", "COACTIVO"].includes(row.estado?.toUpperCase() ?? "") ? "text-slate-400 hover:bg-slate-100 hover:text-amber-500" : "text-slate-300 cursor-not-allowed"}`}>
+                <DollarSign size={13} />
               </button>
             </div>
           </td>
@@ -1254,6 +1258,14 @@ export default function ListadoDeInfraccionesPage() {
           setShowHistorialModificaciones(false);
           setHistorialTargetRow(null);
         }}
+      />
+      <CostasInfraccionModal
+        isOpen={showCostasInfraccion}
+        ninfrac={selectedRow?.id ?? null}
+        codigo={selectedRow?.codigo || selectedRow?.codigoPropietario || ""}
+        numeroPapeleta={selectedRow?.codigoInfraccion}
+        nombreInfractor={selectedRow?.conductor || selectedRow?.propietario}
+        onClose={() => setShowCostasInfraccion(false)}
       />
 
       {/* ── Reporte viewer (Estado de Cuenta / Resolución de Sanción) ── */}

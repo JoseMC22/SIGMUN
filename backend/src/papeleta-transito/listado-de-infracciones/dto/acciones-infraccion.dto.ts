@@ -381,3 +381,36 @@ export const ReporteResolucionSancionSchema = z.object({
 });
 
 export type ReporteResolucionSancionDto = z.infer<typeof ReporteResolucionSancionSchema>;
+
+// ── Costas de Infracción ──────────────────────────────────
+
+export const ListarCostasSchema = z.object({
+  codigo: z.string().default(''),
+  expediente: z.string().default(''),
+});
+export type ListarCostasDto = z.infer<typeof ListarCostasSchema>;
+
+export const GrabarCostaSchema = z.object({
+  idcosta: z.string().default(''),
+  idrecibo: z.string().default(''),
+  expediente: z.string().default(''),
+  codigo: z.string().default(''),
+  anno: z.string().default(''),
+  periodo: z.string().default(''),
+  observacion: z.string().default(''),
+  tipo: z.string().default(''),
+  subtipo: z.string().default(''),
+  cantidad: z.string().default(''),
+  monto: z.string().default(''),
+});
+export type GrabarCostaDto = z.infer<typeof GrabarCostaSchema>;
+
+export const EliminarCostasSchema = z.object({
+  items: z.array(z.object({ idcosta: z.string() })),
+});
+export type EliminarCostasDto = z.infer<typeof EliminarCostasSchema>;
+
+export const AutocompletarConceptoCostasSchema = z.object({
+  termino: z.string().default(''),
+});
+export type AutocompletarConceptoCostasDto = z.infer<typeof AutocompletarConceptoCostasSchema>;
