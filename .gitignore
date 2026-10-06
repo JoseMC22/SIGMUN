@@ -67,6 +67,9 @@ coverage/
 # tests son la unica red si alguien toca el mapeo.
 !backend/src/cobranza/consulta-valores/**/*.spec.ts
 
+# Excepcion: los specs de anular-valor SI se versionan (fase 1: listado).
+!backend/src/cobranza/anular-valor/**/*.spec.ts
+
 # Auto-generated / workspace
 pnpm-lock.yaml
 frontend/pnpm-lock.yaml

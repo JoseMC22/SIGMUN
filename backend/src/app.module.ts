@@ -21,6 +21,7 @@ import { ContribuyentesSinValoresModule } from './cobranza/contribuyentes-sin-va
 import { ReporteConstanciaNoAdeudoModule } from './cobranza/reporte-constancia-no-adeudo/reporte-constancia-no-adeudo.module';
 import { ReporteFraccCuotasImpagasModule } from './cobranza/reporte-fracc-cuotas-impagas/reporte-fracc-cuotas-impagas.module';
 import { ConsultaValoresModule } from './cobranza/consulta-valores/consulta-valores.module';
+import { AnularValorModule } from './cobranza/anular-valor/anular-valor.module';
 import { ReportesModule } from './reportes-gerenciales/reportes-gerenciales.module';
 import { MantenimientoUitModule } from './mantenimiento-tablas/mantenimiento-uit/mantenimiento-uit.module';
 import { ConvenioEstadoModule } from './mantenimiento-tablas/mantenimiento-estado-convenios/convenio-estado.module';
@@ -80,6 +81,8 @@ import { StorageModule } from './storage/storage.module';
     ReporteFraccCuotasImpagasModule,
     // Módulo de cobranza - consulta de valores
     ConsultaValoresModule,
+    // Módulo de cobranza - anular valor (fase 1: solo listado)
+    AnularValorModule,
     // Módulo de reportes gerenciales
     ReportesModule,
     // Módulo de impuestos vehicular
