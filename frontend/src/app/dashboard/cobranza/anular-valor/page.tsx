@@ -2,54 +2,55 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
+  Search,
   SearchX,
   AlertCircle,
   RotateCcw,
   FolderSearch,
   LayoutGrid,
-  FileSpreadsheet,
-  Loader2,
   ChevronLeft,
   ChevronRight,
+  Info,
 } from "lucide-react";
-import { searchAnularValorAction } from "@/actions/cobranza/anular-valor";
-import type { AnularValorRow } from "@/actions/cobranza/anular-valor";
-import { useAnularValorExport } from "@/app/dashboard/cobranza/anular-valor/export-utils";
+import {
+  searchAnularValorAction,
+  type AnularValorRow,
+  type TipoBusqueda,
+} from "@/actions/cobranza/anular-valor";
 
-// Registros por página. El backend solo acepta 15 (grilla) o 100000 (exportación).
+// Registros por página.
 
 const PAGE_SIZE = 15;
 
-// Columnas de la grilla (espejo de maestro-contribuyentes, 16). El conteo tiene
-// que coincidir con los <td>, con el skeleton y con WS_COLUMNS del export-utils.
+// Columnas de la grilla (8 identificatorias de las ~29 del SP). El conteo tiene
+// que coincidir con los <td> y con el skeleton.
 
-const COLUMNAS: { header: string; key: string; money?: boolean }[] = [
+const COLUMNAS: { header: string; key: string }[] = [
   { header: "Código", key: "codigo" },
-  { header: "Nombre", key: "nombre" },
-  { header: "Dirección", key: "direccion" },
-  { header: "Junta", key: "junta" },
-  { header: "DNI", key: "dni" },
-  { header: "Correo", key: "correo" },
-  { header: "Id Vía", key: "idVia" },
-  { header: "Teléfono", key: "telefono1" },
-  { header: "Base Imponible", key: "baseImponible", money: true },
-  { header: "Inafecto", key: "inafecto", money: true },
-  { header: "Categoría", key: "categoria" },
-  { header: "Gestor", key: "gestor" },
-  { header: "Imp. Anual", key: "impAnual", money: true },
-  { header: "Imp. Trime.", key: "impTrime", money: true },
-  { header: "Costo Emi.", key: "costoEmi", money: true },
-  { header: "Imp. Total", key: "impTotal", money: true },
+  { header: "Nombres", key: "nombres" },
+  { header: "Paterno", key: "paterno" },
+  { header: "Materno", key: "materno" },
+  { header: "Documento", key: "documento" },
+  { header: "Nro Doc.", key: "num_doc" },
+  { header: "Dirección Fiscal", key: "DireFis" },
+  { header: "Tipo Persona", key: "TipoPersona" },
 ];
 
 const NUM_COLS = COLUMNAS.length;
 
-/** Los montos llegan como number; en la grilla van con 2 decimales. */
-function celda(row: AnularValorRow, col: (typeof COLUMNAS)[number]) {
-  const raw = row[col.key];
-  if (raw === null || raw === undefined || raw === "") return "";
-  if (col.money && !Number.isNaN(Number(raw))) return Number(raw).toFixed(2);
-  return String(raw);
+const TIPOS: { value: TipoBusqueda; label: string }[] = [
+  { value: "C", label: "Código" },
+  { value: "N", label: "Nombre" },
+  { value: "R", label: "Razón Social" },
+  { value: "D", label: "Documento" },
+];
+
+function padCodigo(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 7);
+  // Sin dígitos no hay código que rellenar. Devolver "" evita inventar un
+  // "0000000" que el backend tomaría como una búsqueda real.
+  if (!digits) return "";
+  return digits.padStart(7, "0");
 }
 
 function TableSkeleton() {
@@ -94,8 +95,23 @@ function TableSkeleton() {
   );
 }
 
+const inputCls =
+  "w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] text-slate-700 placeholder-slate-400 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none";
+const labelCls =
+  "block text-[9px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5 leading-none";
+
 export default function AnularValorPage() {
-  // Datos (fase 1: sin filtros, se listan todos al cargar).
+  // Criterio elegido (uno a la vez) + sus campos.
+
+  const [tipo, setTipo] = useState<TipoBusqueda>("C");
+  const [codigo, setCodigo] = useState("");
+  const [paterno, setPaterno] = useState("");
+  const [materno, setMaterno] = useState("");
+  const [nombres, setNombres] = useState("");
+  const [razon, setRazon] = useState("");
+  const [numDoc, setNumDoc] = useState("");
+
+  // Datos
 
   const [data, setData] = useState<AnularValorRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -104,35 +120,54 @@ export default function AnularValorPage() {
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [exporting, setExporting] = useState(false);
 
-  const executeSearch = useCallback(async (pageNum: number = page) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await searchAnularValorAction(pageNum, PAGE_SIZE);
-      if (result.success) {
-        setData(result.data);
-        setTotal(result.total);
-        setPage(result.page);
-        setTotalPages(result.totalPages);
-      } else {
-        setError(result.error ?? "Error al consultar los contribuyentes");
+  const buildFilters = useCallback(() => {
+    // Solo viaja lleno lo del criterio elegido; el resto va vacío y el SP lo
+    // ignora. El SP rellena el código solo (right('0000000'+@codigo,7)).
+    return {
+      tipo,
+      codigo: tipo === "C" ? codigo || undefined : undefined,
+      paterno: tipo === "N" ? paterno || undefined : undefined,
+      materno: tipo === "N" ? materno || undefined : undefined,
+      nombres: tipo === "N" ? nombres || undefined : undefined,
+      razon: tipo === "R" ? razon || undefined : undefined,
+      numDoc: tipo === "D" ? numDoc || undefined : undefined,
+    };
+  }, [tipo, codigo, paterno, materno, nombres, razon, numDoc]);
+
+  const executeSearch = useCallback(
+    async (pageNum: number = page) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await searchAnularValorAction(
+          buildFilters(),
+          pageNum,
+          PAGE_SIZE,
+        );
+        if (result.success) {
+          setData(result.data);
+          setTotal(result.total);
+          setPage(result.page);
+          setTotalPages(result.totalPages);
+        } else {
+          setError(result.error ?? "Error al consultar los contribuyentes");
+          setData([]);
+          setTotal(0);
+          setTotalPages(0);
+        }
+      } catch {
+        setError("Error de conexión con el servidor");
         setData([]);
         setTotal(0);
         setTotalPages(0);
+      } finally {
+        setLoading(false);
+        setInitialLoading(false);
       }
-    } catch {
-      setError("Error de conexión con el servidor");
-      setData([]);
-      setTotal(0);
-      setTotalPages(0);
-    } finally {
-      setLoading(false);
-      setInitialLoading(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    },
+    [buildFilters, page],
+  );
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -142,6 +177,29 @@ export default function AnularValorPage() {
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleTipoChange = (nuevo: TipoBusqueda) => {
+    setTipo(nuevo);
+    setCodigo("");
+    setPaterno("");
+    setMaterno("");
+    setNombres("");
+    setRazon("");
+    setNumDoc("");
+    setPage(1);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      setPage(1);
+      executeSearch(1);
+    }
+  };
+
+  const handleSearch = () => {
+    setPage(1);
+    executeSearch(1);
+  };
 
   const handlePageChange = (newPage: number) => {
     if (newPage < 1 || newPage > totalPages) return;
@@ -153,10 +211,172 @@ export default function AnularValorPage() {
     executeSearch(1);
   };
 
-  const { exportToExcel } = useAnularValorExport({
-    setExporting,
-    setError,
-  });
+  // Search Form (criterio en combo + inputs según el tipo elegido)
+
+  const renderSearchForm = () => (
+    <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
+        <div className="w-0.5 h-3.5 bg-sat-cyan rounded-full" />
+        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
+          Criterios de búsqueda
+        </span>
+      </div>
+
+      <div className="p-2.5">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+          <div className="md:col-span-3">
+            <label htmlFor="tipoBusqueda" className={labelCls}>
+              Buscar por
+            </label>
+            <select
+              id="tipoBusqueda"
+              value={tipo}
+              onChange={(e) => handleTipoChange(e.target.value as TipoBusqueda)}
+              className={inputCls}
+            >
+              {TIPOS.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {tipo === "C" && (
+            <div className="md:col-span-5">
+              <label htmlFor="codigo" className={labelCls}>
+                Código
+              </label>
+              <input
+                id="codigo"
+                type="text"
+                placeholder="Todos"
+                maxLength={7}
+                value={codigo}
+                onChange={(e) => setCodigo(e.target.value)}
+                onBlur={(e) => {
+                  if (e.target.value) setCodigo(padCodigo(e.target.value));
+                }}
+                onKeyDown={handleKeyDown}
+                className={`${inputCls} font-mono`}
+              />
+            </div>
+          )}
+
+          {tipo === "N" && (
+            <>
+              <div className="md:col-span-3">
+                <label htmlFor="paterno" className={labelCls}>
+                  Paterno
+                </label>
+                <input
+                  id="paterno"
+                  type="text"
+                  placeholder="Paterno..."
+                  maxLength={50}
+                  value={paterno}
+                  onChange={(e) => setPaterno(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  className={inputCls}
+                />
+              </div>
+              <div className="md:col-span-3">
+                <label htmlFor="materno" className={labelCls}>
+                  Materno
+                </label>
+                <input
+                  id="materno"
+                  type="text"
+                  placeholder="Materno..."
+                  maxLength={50}
+                  value={materno}
+                  onChange={(e) => setMaterno(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  className={inputCls}
+                />
+              </div>
+              <div className="md:col-span-3">
+                <label htmlFor="nombres" className={labelCls}>
+                  Nombres
+                </label>
+                <input
+                  id="nombres"
+                  type="text"
+                  placeholder="Nombres..."
+                  maxLength={200}
+                  value={nombres}
+                  onChange={(e) => setNombres(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  className={inputCls}
+                />
+              </div>
+            </>
+          )}
+
+          {tipo === "R" && (
+            <div className="md:col-span-5">
+              <label htmlFor="razon" className={labelCls}>
+                Razón Social
+              </label>
+              <input
+                id="razon"
+                type="text"
+                placeholder="Razón social..."
+                maxLength={200}
+                value={razon}
+                onChange={(e) => setRazon(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className={inputCls}
+              />
+            </div>
+          )}
+
+          {tipo === "D" && (
+            <div className="md:col-span-5">
+              <label htmlFor="numDoc" className={labelCls}>
+                Nro Documento
+              </label>
+              <input
+                id="numDoc"
+                type="text"
+                placeholder="Nro documento..."
+                maxLength={11}
+                value={numDoc}
+                onChange={(e) => setNumDoc(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className={`${inputCls} font-mono`}
+              />
+            </div>
+          )}
+
+          <div className="md:col-span-4 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleSearch}
+              className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-3.5 py-1.5 text-[11px] font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
+            >
+              <Search size={12} />
+              Procesar
+            </button>
+          </div>
+        </div>
+
+        <p className="mt-2 flex items-center gap-1.5 text-[10px] text-slate-500 bg-slate-50 border border-slate-200 rounded-md px-2 py-1">
+          <Info size={11} className="shrink-0" />
+          <span>
+            {tipo === "C" &&
+              "El código es exacto (el SP rellena a 7 dígitos). Vacío lista todos."}
+            {tipo === "N" &&
+              "Se puede llenar cualquiera de los tres; el SP combina con AND parcial. Todo vacío lista todos."}
+            {tipo === "R" &&
+              "Busca parcial sobre el nombre completo. Vacío lista todos."}
+            {tipo === "D" &&
+              "Busca parcial sobre el número de documento. Vacío lista todos."}
+          </span>
+        </p>
+      </div>
+    </div>
+  );
 
   // Pagination
 
@@ -231,7 +451,7 @@ export default function AnularValorPage() {
     <div className="overflow-hidden rounded-lg border border-slate-200 shadow-sm animate-fade-in">
       <div className="overflow-x-auto">
         <table
-          className="w-full border-collapse min-w-[1800px]"
+          className="w-full border-collapse min-w-[1400px]"
           data-testid="anular-valor-grid"
           role="grid"
         >
@@ -258,13 +478,9 @@ export default function AnularValorPage() {
                 {COLUMNAS.map((col) => (
                   <td
                     key={col.key}
-                    className={`px-2 py-1 text-[10px] truncate ${
-                      col.money
-                        ? "text-right font-mono text-slate-700"
-                        : "text-slate-600"
-                    }`}
+                    className="px-2 py-1 text-[10px] truncate text-slate-600"
                   >
-                    {celda(row, col)}
+                    {String(row[col.key] ?? "")}
                   </td>
                 ))}
               </tr>
@@ -296,6 +512,9 @@ export default function AnularValorPage() {
       <p className="text-sm font-medium text-slate-500">
         No se encontraron resultados
       </p>
+      <p className="mt-1 text-xs text-slate-400">
+        Intente ajustar los criterios de búsqueda
+      </p>
     </div>
   );
 
@@ -318,7 +537,7 @@ export default function AnularValorPage() {
     </div>
   );
 
-  // Main render (fase 1: solo listado, sin acciones de anulación).
+  // Main render (sin botón de exportar, por pedido; sin acciones de anulación).
 
   return (
     <div className="space-y-4">
@@ -345,31 +564,18 @@ export default function AnularValorPage() {
               Anular Valor
             </h1>
             <p className="text-xs text-white/50 font-inter">
-              Listado de contribuyentes
+              Búsqueda de contribuyentes
             </p>
           </div>
         </div>
       </div>
 
-      {/* Results info + export buttons */}
+      {renderSearchForm()}
+
+      {/* Results info (sin exportar) */}
       {!loading && !error && !initialLoading && data.length > 0 && (
         <div className="flex items-center justify-between">
           {renderResultsBar()}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={exportToExcel}
-              disabled={exporting || total === 0}
-              className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 hover:text-sat-navy focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {exporting ? (
-                <Loader2 size={13} className="animate-spin" />
-              ) : (
-                <FileSpreadsheet size={13} />
-              )}
-              {exporting ? "Exportando..." : "Exportar a Excel"}
-            </button>
-          </div>
         </div>
       )}
 

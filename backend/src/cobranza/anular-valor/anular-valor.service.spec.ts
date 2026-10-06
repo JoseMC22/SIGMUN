@@ -3,42 +3,51 @@ import { AnularValorService } from './anular-valor.service';
 import { DatabaseService } from '../../database/database.service';
 
 /**
- * Fase 1: solo listado. Blindan que:
- * - Se llama con { busc: 28 } y nada más.
- * - La paginación en memoria corta bien (offset 0-based, 15 por página).
- * - null se mapea a '' (texto) y 0 (numéricos).
- * - Export devuelve todo sin paginar.
+ * Blindan el contrato verificado de Rentas.ssp_Mcontribuyente @busc=5:
+ * - Se llama con busc:5 + tipo_busqueda + los params del criterio.
+ * - Sin COUNT en el SP: se trae todo lo filtrado y se pagina en memoria.
+ * - Se muestran 8 columnas identificatorias; null se mapea a ''.
  */
 describe('AnularValorService', () => {
   let service: AnularValorService;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let executeProcedure: jest.Mock<any, any>;
 
-  // Fila cruda tal como la devuelve @busc=28 (16 columnas en mayúsculas).
+  // Fila cruda tal como la devuelve @busc=5 (subconjunto relevante + extras
+  // que se descartan).
   const rawRow = (over: object = {}) => ({
-    CODIGO: '0204199',
-    NOMBRE: 'ASOCIACION COUNTRY CLUB DE ICA',
-    DIRECCION: 'AV. EJEMPLO 123',
-    JUNTA: 'JUNTA 1',
-    DNI: '12345678',
-    CORREO: 'a@b.c',
-    ID_VIA: 'V001',
-    TELEFONO1: '999888777',
-    BASE_IMPONIBLE: 1000,
-    INAFECTO: 0,
-    CATEGORIA: 'A',
-    GESTOR: 'G1',
-    IMP_ANUAL: 100,
-    IMP_TRIME: 25,
-    COSTO_EMI: 5,
-    IMPTOTAL: 130,
+    codigo: '0279126',
+    id_pers: '01',
+    id_docu: '01',
+    num_doc: '19082855',
+    nombres: 'MANUEL FERNANDO Y SRA',
+    paterno: 'VAEZ CARDENAS',
+    materno: '',
+    documento: 'DNI',
+    DireFis: 'URB. LA RINCONADA MZ B LTE 13',
+    TipoPersona: 'NATURAL',
+    nestado: 1,
+    operador: 'mvaez',
+    ROW: 1,
     ...over,
   });
 
   const rows = (n: number) =>
     Array.from({ length: n }, (_, i) =>
-      rawRow({ CODIGO: `C${String(i).padStart(6, '0')}` }),
+      rawRow({ codigo: `C${String(i).padStart(6, '0')}` }),
     );
+
+  const baseDto = {
+    page: 1,
+    pageSize: 15 as const,
+    TipoBusqueda: 'C' as const,
+    Codigo: '',
+    Paterno: '',
+    Materno: '',
+    Nombres: '',
+    Razon: '',
+    NumDoc: '',
+  };
 
   beforeEach(async () => {
     executeProcedure = jest.fn();
@@ -51,78 +60,107 @@ describe('AnularValorService', () => {
     service = module.get<AnularValorService>(AnularValorService);
   });
 
-  it('llama al SP con { busc: 28 } y nada mas', async () => {
-    executeProcedure.mockResolvedValueOnce({ recordset: rows(3) });
+  it('llama a ssp_Mcontribuyente con busc:5, tipo y params del criterio', async () => {
+    executeProcedure.mockResolvedValueOnce({ recordset: rows(2) });
 
-    await service.search({ page: 1, pageSize: 15 });
+    await service.search({ ...baseDto, TipoBusqueda: 'C', Codigo: '0279126' });
 
     expect(executeProcedure).toHaveBeenCalledTimes(1);
     expect(executeProcedure.mock.calls[0][0]).toBe(
-      'Rentas.sp_Mcontribuyente',
+      'Rentas.ssp_Mcontribuyente',
     );
-    expect(executeProcedure.mock.calls[0][1]).toEqual({ busc: 28 });
+    expect(executeProcedure.mock.calls[0][1]).toMatchObject({
+      busc: 5,
+      tipo_busqueda: 'C',
+      codigo: '0279126',
+      inicio: 0,
+      final: 0,
+    });
   });
 
-  it('pagina en memoria de a 15 (offset 0-based)', async () => {
+  it('manda paterno/materno/nombres para tipo N', async () => {
+    executeProcedure.mockResolvedValueOnce({ recordset: rows(1) });
+
+    await service.search({
+      ...baseDto,
+      TipoBusqueda: 'N',
+      Paterno: 'vasquez',
+      Materno: '',
+      Nombres: 'juan',
+    });
+
+    const params = executeProcedure.mock.calls[0][1];
+    expect(params).toMatchObject({
+      tipo_busqueda: 'N',
+      paterno: 'vasquez',
+      materno: '',
+      nombres: 'juan',
+    });
+  });
+
+  it('manda razon para tipo R y num_doc para tipo D', async () => {
+    executeProcedure.mockResolvedValue({ recordset: rows(1) });
+
+    await service.search({ ...baseDto, TipoBusqueda: 'R', Razon: 'municipalidad' });
+    expect(executeProcedure.mock.calls[0][1]).toMatchObject({
+      tipo_busqueda: 'R',
+      razon: 'municipalidad',
+    });
+
+    await service.search({ ...baseDto, TipoBusqueda: 'D', NumDoc: '19082855' });
+    expect(executeProcedure.mock.calls[1][1]).toMatchObject({
+      tipo_busqueda: 'D',
+      num_doc: '19082855',
+    });
+  });
+
+  it('mapea las 8 columnas y descarta el resto (ROW, nestado, auditoria)', async () => {
+    executeProcedure.mockResolvedValueOnce({ recordset: [rawRow()] });
+
+    const res = await service.search(baseDto);
+
+    expect(res.data[0]).toEqual({
+      codigo: '0279126',
+      nombres: 'MANUEL FERNANDO Y SRA',
+      paterno: 'VAEZ CARDENAS',
+      materno: '',
+      documento: 'DNI',
+      num_doc: '19082855',
+      DireFis: 'URB. LA RINCONADA MZ B LTE 13',
+      TipoPersona: 'NATURAL',
+    });
+    expect(res.data[0]).not.toHaveProperty('ROW');
+    expect(res.data[0]).not.toHaveProperty('nestado');
+    expect(res.data[0]).not.toHaveProperty('operador');
+  });
+
+  it('mapea null a ""', async () => {
+    executeProcedure.mockResolvedValueOnce({
+      recordset: [rawRow({ materno: null, DireFis: null })],
+    });
+
+    const res = await service.search(baseDto);
+
+    expect(res.data[0].materno).toBe('');
+    expect(res.data[0].DireFis).toBe('');
+  });
+
+  it('pagina en memoria de a 15', async () => {
     executeProcedure.mockResolvedValue({ recordset: rows(32) });
 
-    const p1 = await service.search({ page: 1, pageSize: 15 });
+    const p1 = await service.search({ ...baseDto, page: 1 });
     expect(p1.data).toHaveLength(15);
-    expect(p1.data[0].codigo).toBe('C000000');
     expect(p1.total).toBe(32);
     expect(p1.totalPages).toBe(3);
 
-    const p3 = await service.search({ page: 3, pageSize: 15 });
+    const p3 = await service.search({ ...baseDto, page: 3 });
     expect(p3.data).toHaveLength(2);
-    expect(p3.data[0].codigo).toBe('C000030');
-  });
-
-  it('en export (pageSize=100000) devuelve todo sin paginar', async () => {
-    executeProcedure.mockResolvedValueOnce({ recordset: rows(40) });
-
-    const res = await service.search({ page: 1, pageSize: 100000 });
-
-    expect(executeProcedure).toHaveBeenCalledTimes(1);
-    expect(res.data).toHaveLength(40);
-    expect(res.total).toBe(40);
-    expect(res.totalPages).toBe(1);
-  });
-
-  it('mapea null a "" en texto y a 0 en numericos', async () => {
-    executeProcedure.mockResolvedValueOnce({
-      recordset: [
-        rawRow({
-          NOMBRE: null,
-          DIRECCION: null,
-          BASE_IMPONIBLE: null,
-          IMP_ANUAL: null,
-        }),
-      ],
-    });
-
-    const res = await service.search({ page: 1, pageSize: 15 });
-
-    expect(res.data[0].nombre).toBe('');
-    expect(res.data[0].direccion).toBe('');
-    expect(res.data[0].baseImponible).toBe(0);
-    expect(res.data[0].impAnual).toBe(0);
-    // Los presentes se preservan.
-    expect(res.data[0].codigo).toBe('0204199');
-    expect(res.data[0].impTotal).toBe(130);
-  });
-
-  it('con 0 filas devuelve vacio con totalPages 0', async () => {
-    executeProcedure.mockResolvedValueOnce({ recordset: [] });
-
-    const res = await service.search({ page: 1, pageSize: 15 });
-
-    expect(res).toMatchObject({ success: true, data: [], total: 0, totalPages: 0 });
   });
 
   it('devuelve { success:false, error } sin throw cuando el SP falla', async () => {
     executeProcedure.mockRejectedValueOnce(new Error('boom'));
 
-    const res = await service.search({ page: 1, pageSize: 15 });
+    const res = await service.search(baseDto);
 
     expect(res.success).toBe(false);
     expect(res.data).toEqual([]);

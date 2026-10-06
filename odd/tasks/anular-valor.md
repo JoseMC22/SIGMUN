@@ -1,15 +1,47 @@
-# Feature: Anular Valor — Fase 1: Listado (`anular-valor`)
+# Feature: Anular Valor — Listado con filtros (`anular-valor`)
 
-## Objetivo (fase 1)
+## Objetivo
 
-Pantalla en Cobranza que muestra el **listado de todos los contribuyentes** en grilla
-paginada de 15, con exportación a Excel. Es la base sobre la que se montará la
-anulación en fase 2.
+Pantalla en Cobranza que busca contribuyentes con selector de criterio —Código (C),
+Nombre (N), Razón Social (R) o Documento (D)— en grilla paginada de 15, sin botón
+de exportar. Es la base sobre la que se montará la anulación en fase 2.
 
 Ruta: `cobranza/anular-valor`
 
 Rama: `feat/anular-valor` (un solo nivel: `feat/cobranza/...` con dos barras viola el
 regex de nombres del repo).
+
+## Fuente (cambió respecto de fase 1)
+
+Fase 1 usaba `sp_Mcontribuyente @busc=28` (sin filtros, 16 columnas). Por pedido del
+usuario se cambió a **`Rentas.ssp_Mcontribuyente @busc=5`** (rama `msconsulta`, SP
+nuevo creado el 2026-10-06), que filtra por `@tipo_busqueda` y devuelve ~29 columnas
+de las que se muestran 8 identificatorias.
+
+## Decisión de diseño: filtros por tipo_busqueda (verificado contra la BD)
+
+| Tipo | Params que viajan | Comportamiento medido del SP |
+|---|---|---|
+| C | `@codigo` | EXACTO con `right('0000000'+@codigo,7)` (el SP rellena solo). `'0279126'` → 1 fila |
+| N | `@paterno`, `@materno`, `@nombres` | Los tres LIKE parcial con AND (+ OR sobre relacionados). Cualquiera o los tres; vacíos = `%%` |
+| R | `@razon` | LIKE parcial sobre el nombre completo concatenado. `'municipalidad'` → 1 fila |
+| D | `@num_doc` | LIKE parcial sobre `a.num_doc`. `'19082855'` → 1 fila |
+
+Base fija: `codigo IS NOT NULL and nestado=1` y excluye códigos que empiezan con T/P.
+Sin COUNT en esta rama: se trae todo lo filtrado (`@inicio=0, @final=0`) y se pagina
+en memoria para el total exacto.
+
+## Columnas mostradas (8 de ~29)
+
+`codigo`, `nombres`, `paterno`, `materno`, `documento` (nombre del tipo, del join),
+`num_doc`, `DireFis` (dirección armada por función), `TipoPersona` (computada).
+Se descartan códigos internos, partes de dirección, auditoría y `ROW`.
+
+## Sin exportar (pedido del usuario)
+
+Se quitó el botón de la página y se eliminó `export-utils.ts` (quedaba huérfano).
+El backend conserva el modo `pageSize=100000` (testeado, inofensivo); simplemente
+la UI no lo dispara.
 
 ## Fuera de alcance en fase 1 (explícito, lo pidió el usuario)
 

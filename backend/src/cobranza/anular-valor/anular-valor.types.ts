@@ -1,27 +1,20 @@
 /**
- * Tipos del listado de contribuyentes (fase 1 de anular-valor).
+ * Tipos del listado de contribuyentes para anular-valor.
  *
- * Espejo de maestro-contribuyentes: Rentas.sp_Mcontribuyente @busc=28 devuelve
- * 16 columnas desde REPORTS.VW_LISTACONTRIBUYENTE. Texto → '' si null,
- * numéricos → 0 si null, para que el frontend no reciba null.
+ * Fuente: Rentas.ssp_Mcontribuyente @busc=5 (rama msconsulta), que devuelve
+ * ~29 columnas + ROW. Acá se modelan las 8 identificatorias que muestra la
+ * grilla; el resto (códigos internos, partes de dirección, auditoría) no se
+ * expone porque DireFis ya trae la dirección armada y documento el tipo.
  */
 export interface AnularValorContribuyenteRow {
   codigo: string;
-  nombre: string;
-  direccion: string;
-  junta: string;
-  dni: string;
-  correo: string;
-  idVia: string;
-  telefono1: string;
-  baseImponible: number;
-  inafecto: number;
-  categoria: string;
-  gestor: string;
-  impAnual: number;
-  impTrime: number;
-  costoEmi: number;
-  impTotal: number;
+  nombres: string;
+  paterno: string;
+  materno: string;
+  documento: string;
+  num_doc: string;
+  DireFis: string;
+  TipoPersona: string;
 }
 
 export interface AnularValorResult {

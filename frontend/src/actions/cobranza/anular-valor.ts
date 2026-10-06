@@ -18,7 +18,7 @@ async function authFetch(path: string, options?: RequestInit) {
   return fetch(`${API_BASE}${path}`, { ...options, headers });
 }
 
-// Tipos para el listado de contribuyentes (fase 1 de anular-valor)
+// Tipos para el listado de contribuyentes (anular-valor)
 
 export interface AnularValorRow {
   [key: string]: string | number | null; // dynamic columns from the SP
@@ -34,11 +34,24 @@ export interface AnularValorResult {
   error?: string;
 }
 
+export type TipoBusqueda = "C" | "N" | "R" | "D";
+
+export interface AnularValorFilters {
+  tipo: TipoBusqueda;
+  codigo?: string;
+  paterno?: string;
+  materno?: string;
+  nombres?: string;
+  razon?: string;
+  numDoc?: string;
+}
+
 const BASE = "/cobranza/anular-valor";
 
-// Server Action (fase 1: sin filtros, se listan todos)
+// Server Action
 
 export async function searchAnularValorAction(
+  filters: AnularValorFilters,
   page: number = 1,
   pageSize: number = 15,
 ): Promise<AnularValorResult> {
@@ -46,7 +59,20 @@ export async function searchAnularValorAction(
     const response = await authFetch(`${BASE}/search`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ page, pageSize }),
+      body: JSON.stringify({
+        page,
+        pageSize,
+        // Las claves del body son el contrato del DTO. El backend descarta
+        // claves desconocidas en silencio: mandarlas mal devolvería todo sin
+        // avisar. Solo viaja lleno lo del criterio elegido.
+        TipoBusqueda: filters.tipo,
+        Codigo: filters.codigo ?? "",
+        Paterno: filters.paterno ?? "",
+        Materno: filters.materno ?? "",
+        Nombres: filters.nombres ?? "",
+        Razon: filters.razon ?? "",
+        NumDoc: filters.numDoc ?? "",
+      }),
       cache: "no-store",
     });
 
