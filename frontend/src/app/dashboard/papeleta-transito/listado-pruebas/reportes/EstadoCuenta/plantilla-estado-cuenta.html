@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Impresion de Estado de Cuenta</title>
+  <link rel="stylesheet" href="./estilos-estado-cuenta.css">
+</head>
+<body>
+  <div class="contenedor-ticket">
+    <!-- ENCABEZADO -->
+    <div class="header">
+      <div class="header-entidad">Servicio de Administración Tributaria de Ica</div>
+      <div class="header-sub">Consulta cuenta corriente</div>
+    </div>
+
+    <!-- METADATA Y DATOS DEL CONTRIBUYENTE -->
+    <div class="datos-seccion">
+      <div class="fila-dato">
+        <span class="label">N° Liquidación</span>
+        <span class="valor-liq"><strong>{{nroLiquidacion}}</strong></span>
+      </div>
+      <div class="fila-dato">
+        <span class="label">Código</span>
+        <span class="valor"><strong>{{codigo}}</strong></span>
+      </div>
+      <div class="fila-dato">
+        <span class="label">Nombre</span>
+        <span class="valor"><strong>{{nombre}}</strong></span>
+      </div>
+      <div class="fila-dato">
+        <span class="label">Domici.</span>
+        <span class="valor"><strong>{{domicilio}}</strong></span>
+      </div>
+    </div>
+
+    <div class="metadata-fecha">
+      <p>Fecha de Actualización de la Deuda : {{fechaActualizacion}}</p>
+    </div>
+
+    <div class="linea-punteada"></div>
+
+    <!-- BLOQUES DE TRIBUTO Y PAPELETAS -->
+    <div class="tributo-contenedor">
+      {{filas}}
+    </div>
+
+    <div class="linea-punteada"></div>
+
+    <div class="seccion-totales">
+      <div class="total-linea">
+        <span class="total-label">Total :</span>
+        <span class="total-valor"><strong>{{totalDeuda}}</strong></span>
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <div class="footer">
+      <p>Atendido por {{usuario}}</p>
+      <p>Impreso el {{fechaImpresion}} {{horaImpresion}}</p>
+    </div>
+  </div>
+</body>
+</html>

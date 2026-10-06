@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useModalStack, isTopModal } from "@/hooks/use-modal-topmost";
 import { X, Loader2, Save } from "lucide-react";
 import { crearCajaAction } from "@/actions/seguridad/usuarios";
 
@@ -18,6 +19,17 @@ export default function CajaModal({ isOpen, onClose, onSaved }: Props) {
   const [caja, setCaja] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Escape cierra SOLO este modal si es el tope de la pila.
+  const modalId = useModalStack(isOpen);
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isTopModal(modalId)) onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [isOpen, modalId, onClose]);
 
   if (!isOpen) return null;
 
@@ -48,15 +60,9 @@ export default function CajaModal({ isOpen, onClose, onSaved }: Props) {
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Escape") onClose();
-  };
-
   return (
     <div
-      className="fixed inset-0 z-60 flex items-center justify-center bg-black/30 backdrop-blur-[1px] animate-fade-in"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      onKeyDown={handleKeyDown}
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-[1px] animate-fade-in"
       tabIndex={-1}
     >
       <div className="relative w-full max-w-sm rounded-xl bg-white shadow-2xl border border-slate-200">

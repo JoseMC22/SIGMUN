@@ -1,0 +1,111 @@
+/* Plantilla: Resolución de Gerencia (port del JasperReport rpt_conv_resolucion) */
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 12px;
+  color: #111;
+  background-color: #fff;
+}
+
+.documento {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+
+/* ── Cabecera ── */
+.resol-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.resol-logo {
+  width: 70px;
+  height: auto;
+  flex-shrink: 0;
+}
+
+.resol-header-text {
+  flex: 1;
+  text-align: center;
+}
+
+.resol-institucion {
+  margin: 0;
+  font-family: "Times New Roman", serif;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.resol-gerencia {
+  margin: 2px 0 0;
+  font-family: "Times New Roman", serif;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.resol-linea {
+  border: none;
+  border-top: 1px solid #000;
+  margin: 6px 0;
+}
+
+/* ── Título y preámbulo ── */
+.resol-titulo {
+  text-align: center;
+  font-family: "Times New Roman", serif;
+  font-size: 13px;
+  font-weight: bold;
+  margin: 10px 0 6px;
+}
+
+.resol-independencia {
+  font-family: "Times New Roman", serif;
+  font-size: 11px;
+  margin: 4px 0;
+}
+
+.resol-gerente {
+  font-family: "Times New Roman", serif;
+  font-size: 11px;
+  font-weight: bold;
+  margin: 6px 0;
+}
+
+/* ── Párrafos ── */
+.resol-parrafo {
+  font-size: 11px;
+  text-align: justify;
+  margin: 8px 0;
+  line-height: 1.35;
+}
+
+.resol-seccion {
+  font-size: 11px;
+  font-weight: bold;
+  text-decoration: underline;
+  margin: 10px 0 4px;
+}
+
+.resol-registrese {
+  font-size: 11px;
+  font-weight: bold;
+  margin: 12px 0 48px;
+}
+
+/* ── Footer ── */
+.resol-footer {
+  max-width: 640px;
+  margin: 16px auto 0;
+  display: flex;
+  justify-content: space-between;
+  font-family: "Times New Roman", serif;
+  font-size: 9px;
+  color: #333;
+  border-top: 1px solid #ccc;
+  padding-top: 4px;
+}

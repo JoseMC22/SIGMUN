@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Liquidación</title>
+    <link rel="stylesheet" href="./estilos-liquidacion.css">
+</head>
+<body>
+    <div class="header">
+        <div class="header-left">
+            <h4>SAT ICA</h4>
+        </div>
+        <div class="header-right">
+            <span>N° Liquidación: <strong>{{nliqui}}</strong></span>
+        </div>
+    </div>
+
+    <div class="contribuyente-info">
+        <p>Código: <span>{{codigo}}</span></p>
+        <p>Nombre: <span>{{nombre}}</span></p>
+        <p>Domicilio: <span>{{domicilio}}</span></p>
+        <p>Fecha: <span>{{fecha}}</span></p>
+    </div>
+
+    <div class="tabla-detalle">
+        <table>
+            <thead>
+                <tr>
+                    <th>Año</th>
+                    <th>Tributos</th>
+                    <th>Importes</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{filas}}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="footer">
+        <p>Total Neto: <strong>{{totalNeto}}</strong></p>
+        <p>Atendido por: <span>{{usuario}}</span></p>
+        <p>Impreso el: <span>{{fechaImpresion}}</span></p>
+    </div>
+</body>
+</html>

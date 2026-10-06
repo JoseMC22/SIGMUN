@@ -3,26 +3,26 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { 
-  ChevronDown, 
-  ChevronRight, 
+import {
+  ChevronDown,
+  ChevronRight,
   LayoutDashboard,
-  LogOut,
-  User,
   ShieldCheck,
   Wallet,
   Search,
   HandCoins,
-  Lock,
-  KeyRound,
   Car,
   Map,
   Gavel,
   BarChart3,
   Receipt,
-  Loader2
+  UserCog,
+  Loader2,
+  Scale,
+  type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAccess } from "@/lib/access-context";
 import {
   fetchModulesAction,
   fetchSubmenusAction,
@@ -42,7 +42,7 @@ interface SubmenuData {
 }
 import SatIcaLogo from "@/components/logo";
 
-const MODULE_ICONS: Record<string, any> = {
+const MODULE_ICONS: Record<string, LucideIcon> = {
   "Administración Tributaria": ShieldCheck,
   "Tesorería Municipal": Wallet,
   "Fiscalización Tributaria": Search,
@@ -53,6 +53,8 @@ const MODULE_ICONS: Record<string, any> = {
   Coactivo: Gavel,
   "Reportes Gerenciales": BarChart3,
   Alcabala: Receipt,
+  Notificaciones: UserCog,
+  "Asesoría Legal": Scale,
 };
 
 function getModuleIcon(title: string) {
@@ -61,6 +63,7 @@ function getModuleIcon(title: string) {
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { loadPermissions } = useAccess();
   const [modules, setModules] = useState<ModuleData[]>([]);
   const [openModules, setOpenModules] = useState<string[]>([]);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -145,6 +148,7 @@ export function Sidebar() {
               <Link
                 key={submenu.id}
                 href={`/dashboard/${submenu.path}`}
+                onClick={() => loadPermissions(submenu.id)}
                 className={cn(
                   "block px-2 py-1.5 text-xs rounded-lg transition-colors relative",
                   pathname === `/dashboard/${submenu.path}`

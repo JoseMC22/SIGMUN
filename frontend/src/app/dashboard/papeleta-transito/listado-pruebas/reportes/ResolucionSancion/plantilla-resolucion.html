@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Resolución de Sanción</title>
+  <link rel="stylesheet" href="./estilos-resolucion.css">
+</head>
+<body>
+  <div class="contenedor-resolucion">
+    <div class="header">
+      <div class="logo-left">
+        <!-- Logo placeholder: img/logo.png -->
+        <h2>Servicio de Administración Tributaria de Ica</h2>
+      </div>
+      <div class="subgerencia">
+        <p>SUB-GERENCIA DE OPERACIONES</p>
+      </div>
+    </div>
+
+    <div class="titulo-seccion">
+      <h1 class="titulo">RESOLUCIÓN DE SANCIÓN N° {{nroResolucion}}-SGO-G-SAT-ICA</h1>
+    </div>
+
+    <div class="cuerpo-resolucion">
+      <p class="parrafo-visto"><strong>VISTO:</strong> el Art. 198 del Reglamento Nacional de Licencias, la Resolución Directoral N° 201-2017-MTC/15, la Resolución Directoral N° 806-2017-MTC/15, el Art. 186 del Reglamento Nacional de Investigación Técnica de Accidentes de Tránsito, aprobado mediante D.S. 033-2001-MTC/15; el Art. 189 del Reglamento Nacional de Conductores, aprobado mediante D.S. 033-2001-MTC/15; la Ley N° 28026; la Ley N° 27181; el D.S. 016-2009-MTC; el D.S. 003-2014-MTC, y;</p>
+      <p class="parrafo-visto"><strong>CONSIDERANDO:</strong></p>
+      <p class="parrafo-considerando">I. Que, mediante D.S. 016-2009-MTC, se aprueba el Texto Único Ordenado de la Ley N° 27181, Ley que Autoriza a las Municipalidades Provinciales y Distritales para Participar en la Recaudación, Fiscalización, Cobranza Coactiva y Determinación de la Multa por Infracciones a las Normas de Tránsito, Transporte Público y Seguridad Vial, estableciendo en el Art. 10, numeral 10.3, que las municipalidades pueden imponer, mediante ordenanza municipal, multas por las infracciones a las normas de tránsito, transporte público y seguridad vial, en el marco de lo previsto en el Reglamento Nacional de Conductores y en el Reglamento Nacional de Licencias;</p>
+      <p class="parrafo-considerando">II. Que, mediante D.S. 003-2014-MTC, se aprueba el Texto Único Ordenado de la Ley N° 28026, Ley que Regula el Procedimiento de Determinación y Cobranza Coactiva de las Multas Impuestas por Infracciones a las Normas de Tránsito, estableciendo en el Art. 336 que las municipalidades provinciales y distritales son competentes para determinar y fiscalizar las infracciones de tránsito;</p>
+      <p class="parrafo-considerando">III. Que, mediante D.S. 033-2001-MTC/15, se aprueba el Reglamento Nacional de Conductores, el cual establece en el Art. 186 que las infracciones serán sancionadas con multa;</p>
+      <p class="parrafo-considerando">IV. Que, de acuerdo a la Planilla de Infracción N° {{nroPapeleta}}, se acredita que el(la) Sr(a). <strong>{{nombre}}</strong>, identificado(a) con DNI N° <strong>{{dni}}</strong>, Conducto(a) del vehículo placa de rodaje N° <strong>{{placa}}</strong>, cometió la(s) infracción(es) a las normas de tránsito señalada(s) en la referida planilla;</p>
+      <p class="parrafo-considerando">V. Que, las infracciones a las normas de tránsito, transporte público y seguridad vial, son sancionadas con multa, conforme a lo establecido en el Art. 198 del Reglamento Nacional de Conductores;</p>
+      <p class="parrafo-considerando">VI. Que, el(la) infractor(a) fue notificado(a) con la Planilla de Infracción N° <strong>{{nroPapeleta}}</strong>, con fecha <strong>{{fechaPapeleta}}</strong>, y no presentó descargo alguno dentro del plazo de ley;</p>
+
+      <p class="parrafo-se-resuelve"><strong>SE RESUELVE:</strong></p>
+      <p class="parrafo-articulo"><strong>PRIMERO:</strong> Imponer multa al(la) Sr(a). <strong>{{nombre}}</strong>, identificado(a) con DNI N° <strong>{{dni}}</strong>, Conducto(a) del vehículo placa de rodaje N° <strong>{{placa}}</strong>, por la(s) infracción(es) cometida(s) a las normas de tránsito, conforme a la Planilla de Infracción N° <strong>{{nroPapeleta}}</strong>.</p>
+      <p class="parrafo-articulo"><strong>SEGUNDO:</strong> El(la) infractor(a) deberá cancelar el monto de la multa dentro del plazo de quince (15) días hábiles contados a partir de la notificación de la presente Resolución, en las entidades financieras autorizadas.</p>
+      <p class="parrafo-articulo"><strong>TERCERO:</strong> En caso de incumplimiento del pago de la multa dentro del plazo establecido, se procederá a la cobranza coactiva conforme a la normativa vigente.</p>
+
+      <p class="parrafo-disposiciones">
+        Regístrase, comuníquese, hágase saber y archívese.
+      </p>
+
+      <div class="caja-recepcion">
+        <p class="caja-titulo">CAJA RECEPCIÓN</p>
+        <div class="caja-campo">
+          <p>Fecha Recepción:</p>
+          <div class="linea"></div>
+        </div>
+        <div class="caja-campo">
+          <p>Apellidos, Nombres:</p>
+          <div class="linea"></div>
+        </div>
+        <div class="caja-campo">
+          <p>Firma:</p>
+          <div class="linea"></div>
+        </div>
+        <div class="caja-campo">
+          <p>Hora:</p>
+          <div class="linea"></div>
+        </div>
+        <div class="caja-campo">
+          <p>Parentesco:</p>
+          <div class="linea"></div>
+        </div>
+        <div class="caja-campo">
+          <p>D.N.I.:</p>
+          <div class="linea"></div>
+        </div>
+        <div class="caja-campo">
+          <p>Notificado Por:</p>
+          <div class="linea"></div>
+        </div>
+        <div class="caja-campo">
+          <p>FIRMA Notificador:</p>
+          <div class="linea"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

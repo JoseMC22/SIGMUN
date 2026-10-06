@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import { X, AlertTriangle } from "lucide-react";
+import { useModalStack, isTopModal } from "@/hooks/use-modal-topmost";
 
 // ── Props ─────────────────────────────────────────────────
 
@@ -27,17 +29,22 @@ export default function ConfirmDialog({
   onConfirm,
   onCancel,
 }: Props) {
+  // Escape cierra SOLO este diálogo si es el tope de la pila (no mientras confirma).
+  const modalId = useModalStack(isOpen);
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !loading && isTopModal(modalId)) onCancel();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [isOpen, modalId, onCancel, loading]);
+
   if (!isOpen) return null;
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/30 backdrop-blur-sm"
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !loading) onCancel();
-      }}
-      onKeyDown={(e) => {
-        if (e.key === "Escape" && !loading) onCancel();
-      }}
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/30 backdrop-blur-sm"
       tabIndex={-1}
     >
       <div className="w-full max-w-sm rounded-xl bg-white shadow-2xl border border-slate-200 animate-fade-in">

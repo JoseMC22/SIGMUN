@@ -1,0 +1,135 @@
+/* Plantilla: Reporte de Fraccionamientos Emitidos (Rentas.ImprimeConvenio @buscar=8) */
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 11px;
+  color: #111;
+  background-color: #fff;
+}
+
+.documento {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+
+/* ── Cabecera (misma identidad que el reporte de convenio) ── */
+.conv-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.conv-logo {
+  width: 70px;
+  height: auto;
+  flex-shrink: 0;
+}
+
+.conv-header-text {
+  flex: 1;
+  text-align: center;
+}
+
+.conv-institucion {
+  margin: 0;
+  font-family: "Times New Roman", serif;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.conv-gerencia {
+  margin: 2px 0 0;
+  font-family: "Times New Roman", serif;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.conv-titulo {
+  margin: 4px 0 0;
+  font-family: "Times New Roman", serif;
+  font-size: 12px;
+  font-weight: bold;
+  text-decoration: underline;
+}
+
+.conv-linea {
+  border: none;
+  border-top: 1px solid #000;
+  margin: 6px 0;
+}
+
+/* ── Filtros ── */
+.filtros {
+  width: 100%;
+  margin-bottom: 8px;
+  font-size: 11px;
+}
+
+.filtros td {
+  padding: 2px 8px 2px 0;
+}
+
+/* ── Tabla ── */
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
+}
+
+.tabla th {
+  background: #e5e7eb;
+  border: 1px solid #6b7280;
+  padding: 3px 5px;
+  font-size: 10px;
+}
+
+.th-izq {
+  text-align: left;
+}
+
+.th-der {
+  text-align: right;
+}
+
+.tabla td {
+  border: 1px solid #9ca3af;
+  padding: 3px 5px;
+}
+
+.tabla tbody tr:nth-child(even) td {
+  background: #f9fafb;
+}
+
+.tabla td.der {
+  text-align: right;
+}
+
+.tabla tfoot td {
+  border-top: 2px solid #374151;
+  font-weight: bold;
+  background: #f3f4f6;
+}
+
+.tf-total {
+  text-align: right;
+}
+
+.tf-monto {
+  text-align: right;
+}
+
+/* ── Footer ── */
+.conv-footer {
+  max-width: 640px;
+  margin: 14px auto 0;
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: #333;
+  border-top: 1px solid #ccc;
+  padding-top: 4px;
+}

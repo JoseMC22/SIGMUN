@@ -9,14 +9,14 @@ function mockSpResult<T>(rows: T[]): any {
 
 describe('ConsultaRdAlcabalaService', () => {
   let service: ConsultaRdAlcabalaService;
-  let db: jest.Mocked<Pick<DatabaseService, 'executeProcedure'>> & { query: jest.Mock };
+  let db: jest.Mocked<Pick<DatabaseService, 'executeProcedure'>>;
 
   const SP_NAME = 'Rentas.SP_ConsultadocuAlcabala';
   const SP_NAME_DETAIL = 'Rentas.SP_Dvalores';
   const SP_NAME_RUTA = 'Rentas.SP_MHRuta';
 
   beforeEach(() => {
-    db = { executeProcedure: jest.fn(), query: jest.fn() };
+    db = { executeProcedure: jest.fn() };
     service = new ConsultaRdAlcabalaService(db as unknown as DatabaseService);
   });
 
@@ -669,113 +669,59 @@ describe('ConsultaRdAlcabalaService', () => {
     });
   });
 
-  describe('getImprimir', () => {
-    const SP_NAME_IMPRIMIR = 'Rentas.sp_Imprime_alcabala';
+  describe('eliminar', () => {
+    const dto = { num_val: '0001234', ano_val: '2026', observacion: 'Ampliación de plazo' };
 
-    it('should merge plantilla HTML with SP data row', async () => {
-      db.query.mockResolvedValueOnce({ recordset: [{ plantilla: '<p>@nombre</p>' }] });
-      db.executeProcedure.mockResolvedValueOnce(mockSpResult([{ nombre: 'TEST' }]));
-
-      const result = await service.getImprimir({ num_val: 'RD-001', ano_val: '2025' });
-
-      expect(result.success).toBe(true);
-      expect(result.html).toBe('<p>TEST</p>');
-      expect(result.html).not.toContain('@nombre');
-    });
-
-    it('should replace multiple placeholders case-insensitively', async () => {
-      db.query.mockResolvedValueOnce({
-        recordset: [{ plantilla: '<p>@NOMBRE - @NUM_VAL</p>' }],
-      });
+    it('should call SP with msquery=5 and mapped params', async () => {
       db.executeProcedure.mockResolvedValueOnce(
-        mockSpResult([{ nombre: 'Empresa', NUM_VAL: 'RD-099' }]),
+        mockSpResult([{ mensaje: 'Rentas.SP_ConsultadocuAlcabala --> Se Anuló' }]),
       );
 
-      const result = await service.getImprimir({ num_val: 'RD-099', ano_val: '2025' });
+      const result = await service.eliminar(dto, 'mvaez', 'PC-001');
 
-      expect(result.success).toBe(true);
-      expect(result.html).toBe('<p>Empresa - RD-099</p>');
-    });
-
-    it('should call SP with buscar=1 and id_valor=08', async () => {
-      db.query.mockResolvedValueOnce({ recordset: [{ plantilla: '<p>@x</p>' }] });
-      db.executeProcedure.mockResolvedValueOnce(mockSpResult([{ any_col: 'x' }]));
-
-      await service.getImprimir({ num_val: 'RD-001', ano_val: '2025' });
-
-      expect(db.executeProcedure).toHaveBeenCalledWith(SP_NAME_IMPRIMIR, {
-        buscar: 1,
+      expect(db.executeProcedure).toHaveBeenCalledTimes(1);
+      expect(db.executeProcedure).toHaveBeenCalledWith(SP_NAME, {
+        msquery: '5',
         id_valor: '08',
-        num_val: 'RD-001',
-        ano_val: '2025',
+        num_val: '0001234',
+        ano_val: '2026',
+        observacion: 'Ampliación de plazo',
+        operador: 'mvaez',
+        estacion: 'PC-001',
       });
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('Se Anuló');
     });
 
-    it('should return success=false when SP returns no rows', async () => {
-      db.query.mockResolvedValueOnce({ recordset: [{ plantilla: '<p>Template</p>' }] });
-      db.executeProcedure.mockResolvedValueOnce(mockSpResult([]));
-
-      const result = await service.getImprimir({ num_val: 'RD-001', ano_val: '2025' });
-
-      expect(result.success).toBe(false);
-      expect(result.error).toBe('No se encontraron datos para imprimir');
-    });
-
-    it('should return success=false when plantilla is empty', async () => {
-      db.query.mockResolvedValueOnce({ recordset: [] });
-      db.executeProcedure.mockResolvedValueOnce(mockSpResult([{ nombre: 'TEST' }]));
-
-      const result = await service.getImprimir({ num_val: 'RD-001', ano_val: '2025' });
-
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('Plantilla');
-    });
-
-    it('should return success=false on SP error', async () => {
-      db.query.mockResolvedValueOnce({ recordset: [{ plantilla: '<p>@x</p>' }] });
-      db.executeProcedure.mockRejectedValueOnce(new Error('SP error'));
-
-      const result = await service.getImprimir({ num_val: 'RD-001', ano_val: '2025' });
-
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('Error al generar impresión del RD');
-    });
-
-    it('should return success=false on query error', async () => {
-      db.query.mockRejectedValueOnce(new Error('DB error'));
-
-      const result = await service.getImprimir({ num_val: 'RD-001', ano_val: '2025' });
-
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('Error al generar impresión del RD');
-    });
-
-    it('should replace null/undefined SP values with empty string', async () => {
-      db.query.mockResolvedValueOnce({
-        recordset: [{ plantilla: '@nombre|@email' }],
-      });
+    it('should return friendly error when RD is not Pendiente (No se Anuló)', async () => {
       db.executeProcedure.mockResolvedValueOnce(
-        mockSpResult([{ nombre: 'OK', email: null }]),
+        mockSpResult([{ mensaje: 'Rentas.SP_ConsultadocuAlcabala --> No se Anuló (la RD no está en estado Pendiente)' }]),
       );
 
-      const result = await service.getImprimir({ num_val: 'RD-001', ano_val: '2025' });
+      const result = await service.eliminar(dto, 'mvaez', 'PC-001');
 
-      expect(result.success).toBe(true);
-      expect(result.html).toBe('OK|');
+      expect(result.success).toBe(false);
+      expect(result.error).toMatch(/no está en estado Pendiente/i);
     });
 
-    it('should default empty strings when num_val/ano_val are empty', async () => {
-      db.query.mockResolvedValueOnce({ recordset: [{ plantilla: '<p>@x</p>' }] });
-      db.executeProcedure.mockResolvedValueOnce(mockSpResult([{ x: 1 }]));
+    it('should return friendly error when user lacks access', async () => {
+      db.executeProcedure.mockResolvedValueOnce(
+        mockSpResult([{ mensaje: 'Rentas.SP_ConsultadocuAlcabala : 21.04.01 -> No cuenta con Acceso a Eliminar' }]),
+      );
 
-      await service.getImprimir({ num_val: '', ano_val: '' });
+      const result = await service.eliminar(dto, 'mvaez', 'PC-001');
 
-      expect(db.executeProcedure).toHaveBeenCalledWith(SP_NAME_IMPRIMIR, {
-        buscar: 1,
-        id_valor: '08',
-        num_val: '',
-        ano_val: '',
-      });
+      expect(result.success).toBe(false);
+      expect(result.error).toMatch(/no tiene permiso/i);
+    });
+
+    it('should return generic error on SP failure', async () => {
+      db.executeProcedure.mockRejectedValueOnce(new Error('SP down'));
+
+      const result = await service.eliminar(dto, 'mvaez', 'PC-001');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Error al eliminar la RD');
     });
   });
 });

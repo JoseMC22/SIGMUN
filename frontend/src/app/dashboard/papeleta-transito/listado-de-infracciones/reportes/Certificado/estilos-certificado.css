@@ -1,0 +1,150 @@
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 15px;
+  color: #000;
+  margin: 0;
+  padding: 40px 65px;
+  background-color: #fff;
+}
+
+.contenedor-certificado {
+  width: 100%;
+  max-width: 750px;
+  margin: 0 auto;
+}
+
+.logos-superiores {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 40px;
+}
+
+.logo-sat {
+  display: flex;
+  flex-direction: column;
+}
+
+.sat-box {
+  border: 1px solid #005a9c;
+  background-color: #005a9c;
+  color: #fff;
+  padding: 4px 10px;
+  text-align: center;
+  width: 220px;
+}
+
+.sat-text {
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  color: #fff;
+}
+
+.ica-text {
+  color: #ffe600;
+}
+
+.sat-sub {
+  font-size: 7px;
+  font-weight: bold;
+  letter-spacing: 0.2px;
+  border-top: 1px solid #fff;
+  margin-top: 2px;
+  padding-top: 2px;
+  text-transform: uppercase;
+}
+
+.logo-muni {
+  text-align: center;
+}
+
+.img-escudo {
+  height: 50px;
+  width: auto;
+  margin-bottom: 3px;
+}
+
+.muni-texto {
+  font-size: 11px;
+  font-weight: bold;
+  line-height: 1.1;
+  color: #222;
+}
+
+.header-titulos {
+  text-align: center;
+  margin-bottom: 45px;
+}
+
+.titulo-cert {
+  font-size: 18px;
+  font-weight: bold;
+  text-decoration: underline;
+  margin: 0;
+  line-height: 1.4;
+  letter-spacing: 0.5px;
+}
+
+.cuerpo-certificado {
+  line-height: 1.65;
+  font-size: 16px;
+}
+
+.parrafo-firma {
+  text-align: center;
+  margin-bottom: 35px;
+  font-size: 16px;
+  padding: 0 10px;
+}
+
+.seccion-certifica {
+  text-align: center;
+  margin: 35px 0;
+}
+
+.titulo-certifica {
+  font-size: 34px;
+  font-weight: bold;
+  letter-spacing: 3px;
+  margin: 0;
+}
+
+.parrafo-contenido {
+  text-align: justify;
+  margin-bottom: 60px;
+  font-size: 15px;
+  line-height: 1.8;
+  text-indent: 40px;
+}
+
+.parrafo-cierre {
+  text-align: center;
+  margin-bottom: 45px;
+  font-size: 16px;
+}
+
+.parrafo-ciudad {
+  text-align: center;
+  font-size: 16px;
+  margin-bottom: 65px;
+}
+
+.recuadro-recibo {
+  border: 1px solid #000;
+  padding: 10px 40px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+}
+
+.footer-usuario {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 20px;
+  font-size: 10px;
+  color: #000;
+}

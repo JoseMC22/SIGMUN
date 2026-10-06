@@ -11,11 +11,22 @@ import { SeguridadModule } from './seguridad/seguridad.module';
 import { ImpuestoVehicularModule } from './impuesto-vehicular/impuesto-vehicular.module';
 import { FiscalizacionTributariaModule } from './fiscalizacion-tributaria/fiscalizacion-tributaria.module';
 import { AlcabalaModule } from './alcabala/alcabala.module';
+import { NotificacionesModule } from './notificaciones/notificaciones.module';
+import { InconsistenciaModule } from './inconsistencia/inconsistencia.module';
 import { MantenimientoViasModule } from './administracion-tributaria/mantenimiento-vias/mantenimiento-vias.module';
 import { DeclaracionJuradaModule } from './administracion-tributaria/declaracion-jurada/declaracion-jurada.module';
+import { MaestroContribuyentesModule } from './administracion-tributaria/maestro-contribuyentes/maestro-contribuyentes.module';
+import { PrediosContribuyentesModule } from './administracion-tributaria/predios-contribuyentes/predios-contribuyentes.module';
+import { ContribuyentesSinValoresModule } from './cobranza/contribuyentes-sin-valores/contribuyentes-sin-valores.module';
+import { ReporteConstanciaNoAdeudoModule } from './cobranza/reporte-constancia-no-adeudo/reporte-constancia-no-adeudo.module';
+import { ReporteFraccCuotasImpagasModule } from './cobranza/reporte-fracc-cuotas-impagas/reporte-fracc-cuotas-impagas.module';
+import { ConsultaValoresModule } from './cobranza/consulta-valores/consulta-valores.module';
 import { ReportesModule } from './reportes-gerenciales/reportes-gerenciales.module';
 import { MantenimientoUitModule } from './mantenimiento-tablas/mantenimiento-uit/mantenimiento-uit.module';
 import { ConvenioEstadoModule } from './mantenimiento-tablas/mantenimiento-estado-convenios/convenio-estado.module';
+import { PapeletaTransitoModule } from './papeleta-transito/papeleta-transito.module';
+import { AsesoriaLegalModule } from './asesoria-legal/asesoria-legal.module';
+import { StorageModule } from './storage/storage.module';
 
 @Module({
   imports: [
@@ -57,6 +68,18 @@ import { ConvenioEstadoModule } from './mantenimiento-tablas/mantenimiento-estad
     MantenimientoViasModule,
     // Módulo de administración tributaria - declaración jurada
     DeclaracionJuradaModule,
+    // Módulo de administración tributaria - maestro de contribuyentes
+    MaestroContribuyentesModule,
+    // Módulo de administración tributaria - predios por contribuyente
+    PrediosContribuyentesModule,
+    // Módulo de cobranza - contribuyentes sin valores tributarios
+    ContribuyentesSinValoresModule,
+    // Módulo de cobranza - reporte de constancias de no adeudo
+    ReporteConstanciaNoAdeudoModule,
+    // Módulo de cobranza - reporte de fraccionamientos con cuotas impagadas
+    ReporteFraccCuotasImpagasModule,
+    // Módulo de cobranza - consulta de valores
+    ConsultaValoresModule,
     // Módulo de reportes gerenciales
     ReportesModule,
     // Módulo de impuestos vehicular
@@ -65,10 +88,20 @@ import { ConvenioEstadoModule } from './mantenimiento-tablas/mantenimiento-estad
     FiscalizacionTributariaModule,
     // Módulo de alcabala
     AlcabalaModule,
+    // Módulo de notificaciones
+    NotificacionesModule,
+    // Módulo de inconsistencia de predios (scaffold inicial)
+    InconsistenciaModule,
     // Módulo de mantenimiento de tablas - UIT
     MantenimientoUitModule,
     // Módulo de mantenimiento - estados de convenio
     ConvenioEstadoModule,
+    // Módulo de papeleta tránsito
+    PapeletaTransitoModule,
+    // Módulo de Asesoría Legal
+    AsesoriaLegalModule,
+    // Módulo de Almacenamiento (NAS / Archivos)
+    StorageModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,5 +1,16 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Query,
+  UseGuards,
+  Post,
+  Req,
+  Body,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { Request } from 'express';
 import { ConsultaRdAlcabalaService } from './consulta-rd-alcabala.service';
 import {
   SearchRdAlcabalaSchema,
@@ -14,10 +25,17 @@ import {
   RutaRdAlcabalaDto,
 } from './dto/ruta-rd-alcabala.dto';
 import {
-  ImprimirRdAlcabalaSchema,
-  ImprimirRdAlcabalaDto,
-} from './dto/imprimir-rd-alcabala.dto';
-import { ConsultaRDResult, DetalleRDResult, RutaRDResult, ImprimirRDResult } from './consulta-rd-alcabala.types';
+  EliminarRdAlcabalaSchema,
+  EliminarRdAlcabalaDto,
+} from './dto/eliminar-rd-alcabala.dto';
+import {
+  ConsultaRDResult,
+  DetalleRDResult,
+  RutaRDResult,
+  ImprimirRDResult,
+  EliminarRDResult,
+} from './consulta-rd-alcabala.types';
+import * as os from 'os';
 import { z } from 'zod';
 
 @Controller('alcabala/consulta-rd')
@@ -114,22 +132,46 @@ export class ConsultaRdAlcabalaController {
   }
 
   @Get('imprimir')
-  async imprimir(@Query() query: Record<string, string>): Promise<ImprimirRDResult> {
-    let dto: ImprimirRdAlcabalaDto;
+  async imprimir(
+    @Query() query: Record<string, string>,
+  ): Promise<ImprimirRDResult> {
+    const num_val = query.num_val ?? '';
+    const ano_val = query.ano_val ?? '';
+    if (!num_val || !ano_val) {
+      return {
+        success: false,
+        error: 'num_val y ano_val son requeridos',
+      };
+    }
+    return this.service.imprimir(num_val, ano_val);
+  }
+
+  @Post('eliminar')
+  @HttpCode(HttpStatus.OK)
+  async eliminar(
+    @Req() req: Request,
+    @Body() body: unknown,
+  ): Promise<EliminarRDResult> {
+    let dto: EliminarRdAlcabalaDto;
     try {
-      dto = ImprimirRdAlcabalaSchema.parse(query);
+      dto = EliminarRdAlcabalaSchema.parse(body);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return {
           success: false,
-          error: error.issues.map((i) => i.message).join(', ') || 'Parámetros inválidos',
+          error:
+            error.issues.map((i) => i.message).join(', ') ||
+            'Parámetros inválidos',
         };
       }
-      return {
-        success: false,
-        error: 'Parámetros inválidos',
-      };
+      return { success: false, error: 'Parámetros inválidos' };
     }
-    return this.service.getImprimir(dto);
+
+    const operador = (req.user as any)?.username || '';
+    const estacion = os.hostname();
+
+    // Mismo contrato que los GET del controller: responde 200 + { success }.
+    const result = await this.service.eliminar(dto, operador, estacion);
+    return result;
   }
 }

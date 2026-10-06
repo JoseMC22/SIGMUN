@@ -1,0 +1,136 @@
+/* Plantilla: Liquidación */
+/* NOTA: todos los textos llevan color EXPLÍCITO (no heredado) porque el
+   dashboard global usa prefers-color-scheme: dark y podría inyectar texto
+   claro sobre el fondo blanco del reporte (invisible). */
+body {
+    font-family: Arial, sans-serif;
+    font-size: 11px;
+    color: #1f2937;
+    margin: 0;
+    padding: 10px;
+    background: #fff;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 10px;
+    padding: 5px 0;
+    border-bottom: 2px solid #333;
+}
+
+.header-left h4 {
+    margin: 0;
+    font-size: 18px;
+    color: #333;
+}
+
+.header-right {
+    font-size: 11px;
+    color: #374151;
+}
+
+.contribuyente-info {
+    margin-bottom: 10px;
+    padding: 5px;
+    background-color: #f5f5f5;
+    border: 1px solid #ddd;
+    color: #1f2937;
+}
+
+.contribuyente-info p {
+    margin: 2px 0;
+    font-size: 11px;
+    color: #1f2937;
+}
+
+.contribuyente-info span {
+    font-weight: bold;
+    color: #374151;
+}
+
+.tabla-detalle {
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+.tabla-detalle table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid #ddd;
+}
+
+.tabla-detalle th {
+    background-color: #f0f0f0;
+    padding: 5px 8px;
+    text-align: left;
+    border: 1px solid #ddd;
+    font-size: 12px;
+    font-weight: bold;
+    color: #374151;
+}
+
+.tabla-detalle td {
+    padding: 4px 8px;
+    border: 1px solid #ddd;
+    font-size: 11px;
+    color: #1f2937;
+}
+
+.tabla-detalle tr.subtotal {
+    background-color: #f0f0f0;
+    font-weight: bold;
+}
+
+.tabla-detalle tr.subtotal td {
+    border-top: 2px solid #999;
+}
+
+.footer {
+    margin-top: 15px;
+    padding: 5px 0;
+    border-top: 1px solid #ccc;
+}
+
+.footer p {
+    margin: 3px 0;
+    font-size: 11px;
+    color: #1f2937;
+}
+
+.footer strong {
+    color: #333;
+}
+
+/* Impresión */
+@media print {
+    body {
+        padding: 0;
+        margin: 0;
+    }
+
+    .header {
+        border-bottom: 2px solid #000;
+    }
+
+    .contribuyente-info {
+        border: 1px solid #999;
+    }
+
+    .tabla-detalle table {
+        border: 1px solid #999;
+    }
+
+    .tabla-detalle th {
+        background-color: #e0e0e0 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .tabla-detalle tr.subtotal {
+        background-color: #e0e0e0 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+}

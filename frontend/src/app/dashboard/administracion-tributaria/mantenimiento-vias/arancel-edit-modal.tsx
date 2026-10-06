@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
+import { useModalStack, isTopModal } from "@/hooks/use-modal-topmost";
 import { X, Loader2, Save } from "lucide-react";
 import { getArancelDetalleAction, saveArancelAction } from "@/actions/administracion-tributaria/mantenimiento-vias";
 import type { ArancelDetalleRow } from "@/actions/administracion-tributaria/mantenimiento-vias";
@@ -71,12 +72,16 @@ export default function ArancelEditModal({ isOpen, onClose, onSaved, codVia, idT
     return () => { cancelled = true; };
   }, [isOpen, idTbl, codVia]);
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    },
-    [onClose],
-  );
+  // Escape cierra SOLO este modal si es el tope de la pila.
+  const modalId = useModalStack(isOpen);
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isTopModal(modalId)) onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [isOpen, modalId, onClose]);
 
   const handleChange = (field: keyof ArancelForm, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -123,8 +128,6 @@ export default function ArancelEditModal({ isOpen, onClose, onSaved, codVia, idT
   return (
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      onKeyDown={handleKeyDown}
       tabIndex={-1}
     >
       <div

@@ -1,0 +1,123 @@
+/* Plantilla: Simulación de Convenio de Fraccionamiento */
+
+body {
+  margin: 0;
+  padding: 16px;
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  color: #111;
+  background-color: #fff;
+}
+
+.encabezado {
+  text-align: center;
+}
+
+.encabezado-institucion {
+  margin: 0;
+  font-size: 15px;
+  font-weight: bold;
+}
+
+.encabezado-titulo {
+  margin: 2px 0 0;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+hr {
+  border: none;
+  border-top: 1px solid #999;
+  margin: 8px 0;
+}
+
+/* Datos del contribuyente */
+.tabla-contri {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.tabla-contri td {
+  padding: 1px 4px;
+  vertical-align: top;
+}
+
+.th-contri {
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+/* Tablas de detalle (deuda / cuotas) */
+.titulo-tabla {
+  font-weight: bold;
+  font-size: 13px;
+  text-align: center;
+  padding-bottom: 6px;
+}
+
+.tabla-detalle {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.th-tabla td {
+  font-weight: bold;
+  text-align: center;
+  border-bottom: 1px solid #999;
+  padding: 2px 4px;
+}
+
+.th-monto {
+  text-align: right !important;
+}
+
+.tabla-detalle tbody td {
+  padding: 1px 4px;
+}
+
+.col-azul {
+  color: #1d4ed8;
+}
+
+.col-azul-bold {
+  color: #1d4ed8;
+  font-weight: bold;
+}
+
+.td-monto {
+  text-align: right;
+  color: #dc2626;
+}
+
+.td-total-label {
+  text-align: right;
+  font-weight: bold;
+  font-size: 12px;
+  padding-top: 6px;
+}
+
+.td-total {
+  text-align: right;
+  font-weight: bold;
+  font-size: 13px;
+  color: #dc2626;
+  padding-top: 6px;
+}
+
+/* Pie */
+.parrafo {
+  font-size: 11px;
+  text-align: justify;
+  margin: 10px 0 24px;
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #444;
+  border-top: 1px solid #ccc;
+  padding-top: 4px;
+}

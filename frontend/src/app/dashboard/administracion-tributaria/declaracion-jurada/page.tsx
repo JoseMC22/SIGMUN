@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useModalStack, isTopModal } from "@/hooks/use-modal-topmost";
 import {
   Search,
   ChevronLeft,
@@ -16,10 +17,20 @@ import {
   DollarSign,
   Users,
   Mail,
+  Loader2,
+  X,
 } from "lucide-react";
-import { searchContribuyenteAction } from "@/actions/administracion-tributaria/declaracion-jurada";
+import {
+  searchContribuyenteAction,
+  eliminarContribuyenteAction,
+} from "@/actions/administracion-tributaria/declaracion-jurada";
 import type { ContribuyenteAnyItem } from "@/actions/administracion-tributaria/declaracion-jurada";
+import { getStoredUser } from "@/lib/api";
+import { useAccess } from "@/lib/access-context";
 import ContribuyenteModal from "./contribuyente-modal";
+import RepresentantesModal from "./representantes-modal";
+import EstadoCuentaModal from "./estado-cuenta-modal";
+import DeclaracionJuradaDetalleModal from "./declaracion-jurada-detalle-modal";
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -77,6 +88,7 @@ function TableSkeleton() {
 // ─── Main Page ────────────────────────────────────────────
 
 export default function DeclaracionJuradaPage() {
+  const { hasAccess } = useAccess();
   const [tipoBusqueda, setTipoBusqueda] = useState<TipoBusqueda>("C");
   const [filters, setFilters] = useState({
     codigo: "",
@@ -108,14 +120,48 @@ export default function DeclaracionJuradaPage() {
   const [error, setError] = useState<string | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
   const [nuevoModalOpen, setNuevoModalOpen] = useState(false);
+  const [editarCodigo, setEditarCodigo] = useState<string | null>(null);
+
+  // ── Eliminar contribuyente state ──
+  const [eliminarCodigo, setEliminarCodigo] = useState<string | null>(null);
+  const [eliminarMotivo, setEliminarMotivo] = useState("");
+  const [eliminarLoading, setEliminarLoading] = useState(false);
+  const [eliminarMessage, setEliminarMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
+  const eliminarModalRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (eliminarCodigo) eliminarModalRef.current?.focus();
+  }, [eliminarCodigo]);
+
+  // ── Confirmación de eliminación: overlay propio en la pila de modales ──
+  const eliminarModalId = useModalStack(!!eliminarCodigo);
+  useEffect(() => {
+    if (!eliminarCodigo) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !eliminarLoading && isTopModal(eliminarModalId)) {
+        setEliminarCodigo(null);
+        setEliminarMessage(null);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [eliminarCodigo, eliminarModalId, eliminarLoading]);
+
+  // ── Representantes (modal) state ──
+  const [representantesCodigo, setRepresentantesCodigo] = useState<string | null>(null);
+
+  // ── Estado de Cuenta (modal) state ──
+  const [estadoCuentaItem, setEstadoCuentaItem] = useState<ContribuyenteAnyItem | null>(null);
+
+  // ── Declaración Jurada Detalle (modal) state ──
+  const [djDetalleItem, setDjDetalleItem] = useState<ContribuyenteAnyItem | null>(null);
 
   const executeSearch = useCallback(
-    async (pageNum: number) => {
+    async (pageNum: number, overrideFilters?: typeof filters) => {
       setLoading(true);
       setError(null);
       try {
         const result = await searchContribuyenteAction(
-          { ...filters, tipoBusqueda, checkfrac },
+          { ...(overrideFilters ?? filters), tipoBusqueda, checkfrac },
           pageNum,
           pageSize,
         );
@@ -138,6 +184,44 @@ export default function DeclaracionJuradaPage() {
     },
     [filters, tipoBusqueda, checkfrac, pageSize],
   );
+
+  // ── Eliminar contribuyente (sp_Mcontribuyente @busc=3) ──
+  const handleEliminar = async () => {
+    if (!eliminarCodigo) return;
+    setEliminarLoading(true);
+    setEliminarMessage(null);
+    try {
+      const user = getStoredUser();
+      const res = await eliminarContribuyenteAction({
+        codigo: eliminarCodigo,
+        motivo: eliminarMotivo.trim(),
+        operador: user?.username ?? "",
+      });
+      if (!res.success) {
+        setEliminarMessage({ type: "error", text: res.error });
+        return;
+      }
+      if (res.data.success) {
+        setEliminarMessage({
+          type: "success",
+          text: res.data.mensaje || "Contribuyente eliminado correctamente.",
+        });
+        // Refrescar la búsqueda actual tras eliminar
+        setTimeout(() => {
+          setEliminarCodigo(null);
+          setEliminarMotivo("");
+          setEliminarMessage(null);
+          executeSearch(page);
+        }, 1500);
+      } else {
+        setEliminarMessage({ type: "error", text: res.data.mensaje || "No se pudo eliminar el contribuyente." });
+      }
+    } catch {
+      setEliminarMessage({ type: "error", text: "Error al eliminar el contribuyente. Intente nuevamente." });
+    } finally {
+      setEliminarLoading(false);
+    }
+  };
 
   useEffect(() => {
     executeSearch(1);
@@ -177,9 +261,27 @@ export default function DeclaracionJuradaPage() {
     setFilters((prev) => ({ ...prev, [field]: value }));
   };
 
+  // Contribuyente codes are always 7 digits with a leading zero ("0279126"),
+  // but users type the short form ("279126"). Papeleta searches (Infracción
+  // checked) use codes starting with "P" and must not be padded.
+  const normalizeCodigo = (value: string): string => {
+    const trimmed = value.trim();
+    return checkfrac === 0 && /^\d{1,6}$/.test(trimmed)
+      ? trimmed.padStart(7, "0")
+      : trimmed;
+  };
+
+  // Runs a search normalizing the codigo first; the padded value is also
+  // written back so the user sees it in the input.
+  const runSearch = (pageNum: number) => {
+    const normalized = { ...filters, codigo: normalizeCodigo(filters.codigo) };
+    if (normalized.codigo !== filters.codigo) setFilters(normalized);
+    executeSearch(pageNum, normalized);
+  };
+
   const handleSearch = () => {
     setPage(1);
-    executeSearch(1);
+    runSearch(1);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -210,6 +312,9 @@ export default function DeclaracionJuradaPage() {
               placeholder="Código"
               value={filters.codigo}
               onChange={(e) => handleFilterChange("codigo", e.target.value)}
+              onBlur={(e) =>
+                handleFilterChange("codigo", normalizeCodigo(e.target.value))
+              }
               onKeyDown={handleKeyDown}
               className={inputClass}
             />
@@ -646,47 +751,60 @@ export default function DeclaracionJuradaPage() {
                 )}
                 <td className="px-2 py-2">
                 <div className="flex items-center justify-center gap-0.5">
+                  {hasAccess("iconEditContri") && (
                   <span className="group relative">
-                    <button type="button" onClick={() => alert("Por desarrollar")}
-                      className="inline-flex items-center justify-center rounded p-1 text-sky-600 transition hover:bg-sky-50 active:scale-95">
+                    <button
+                      id="iconEditContri"
+                      type="button"
+                      onClick={() => setEditarCodigo((item as any).codigo)}
+                      className="inline-flex items-center justify-center rounded p-1 text-sky-600 transition hover:bg-sky-50 active:scale-95"
+                    >
                       <Pencil size={13} />
                     </button>
                     <span className="pointer-events-none absolute -top-7 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-1.5 py-0.5 text-[9px] font-medium text-white opacity-0 shadow-lg transition group-hover:opacity-100">Editar</span>
                   </span>
+                  )}
                   <span className="group relative">
-                    <button type="button" onClick={() => alert("Por desarrollar")}
-                      className="inline-flex items-center justify-center rounded p-1 text-red-500 transition hover:bg-red-50 active:scale-95">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEliminarCodigo((item as any).codigo);
+                        setEliminarMotivo("");
+                        setEliminarMessage(null);
+                      }}
+                      className="inline-flex items-center justify-center rounded p-1 text-red-500 transition hover:bg-red-50 active:scale-95"
+                    >
                       <Trash2 size={13} />
                     </button>
-                    <span className="pointer-events-none absolute -top-7 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-1.5 py-0.5 text-[9px] font-medium text-white opacity-0 shadow-lg transition group-hover:opacity-100">Eliminar DJ</span>
+                    <span className="pointer-events-none absolute -top-7 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-1.5 py-0.5 text-[9px] font-medium text-white opacity-0 shadow-lg transition group-hover:opacity-100">Eliminar</span>
                   </span>
                   <span className="group relative">
-                    <button type="button" onClick={() => alert("Por desarrollar")}
+                    <button type="button" onClick={() => setDjDetalleItem(item)}
                       className="inline-flex items-center justify-center rounded p-1 text-blue-600 transition hover:bg-blue-50 active:scale-95">
                       <FileText size={13} />
                     </button>
                     <span className="pointer-events-none absolute -top-7 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-1.5 py-0.5 text-[9px] font-medium text-white opacity-0 shadow-lg transition group-hover:opacity-100">Declaración Jurada</span>
                   </span>
                   <span className="group relative">
-                    <button type="button" onClick={() => alert("Por desarrollar")}
+                    <button type="button" onClick={() => setEstadoCuentaItem(item)}
                       className="inline-flex items-center justify-center rounded p-1 text-emerald-600 transition hover:bg-emerald-50 active:scale-95">
                       <DollarSign size={13} />
                     </button>
                     <span className="pointer-events-none absolute -top-7 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-1.5 py-0.5 text-[9px] font-medium text-white opacity-0 shadow-lg transition group-hover:opacity-100">Estado de Cuenta</span>
                   </span>
                   <span className="group relative">
-                    <button type="button" onClick={() => alert("Por desarrollar")}
+                    <button type="button" onClick={() => setRepresentantesCodigo((item as any).codigo)}
                       className="inline-flex items-center justify-center rounded p-1 text-violet-600 transition hover:bg-violet-50 active:scale-95">
                       <Users size={13} />
                     </button>
-                    <span className="pointer-events-none absolute -top-7 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-1.5 py-0.5 text-[9px] font-medium text-white opacity-0 shadow-lg transition group-hover:opacity-100">Representante</span>
+                    <span className="pointer-events-none absolute -top-7 right-0 z-20 whitespace-nowrap rounded bg-slate-800 px-1.5 py-0.5 text-[9px] font-medium text-white opacity-0 shadow-lg transition group-hover:opacity-100">Representante</span>
                   </span>
                   <span className="group relative">
                     <button type="button" onClick={() => alert("Por desarrollar")}
                       className="inline-flex items-center justify-center rounded p-1 text-amber-500 transition hover:bg-amber-50 active:scale-95">
                       <Mail size={13} />
                     </button>
-                    <span className="pointer-events-none absolute -top-7 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-1.5 py-0.5 text-[9px] font-medium text-white opacity-0 shadow-lg transition group-hover:opacity-100">Cargo de Notificación</span>
+                    <span className="pointer-events-none absolute -top-7 right-0 z-20 whitespace-nowrap rounded bg-slate-800 px-1.5 py-0.5 text-[9px] font-medium text-white opacity-0 shadow-lg transition group-hover:opacity-100">Cargo de Notificación</span>
                   </span>
                 </div>
               </td>
@@ -899,11 +1017,166 @@ export default function DeclaracionJuradaPage() {
         </>
       )}
 
-      {/* Modal Nuevo Contribuyente */}
+      {/* Modal Nuevo/Editar Contribuyente */}
       <ContribuyenteModal
-        isOpen={nuevoModalOpen}
-        onClose={() => setNuevoModalOpen(false)}
+        isOpen={nuevoModalOpen || !!editarCodigo}
+        onClose={() => {
+          setNuevoModalOpen(false);
+          setEditarCodigo(null);
+        }}
+        codigoInicial={editarCodigo ?? undefined}
       />
+
+      {/* Modal Representantes */}
+      <RepresentantesModal
+        isOpen={!!representantesCodigo}
+        onClose={() => setRepresentantesCodigo(null)}
+        codigo={representantesCodigo ?? ""}
+      />
+
+      {/* Modal Estado de Cuenta */}
+      <EstadoCuentaModal
+        isOpen={!!estadoCuentaItem}
+        onClose={() => setEstadoCuentaItem(null)}
+        contribuyente={
+          estadoCuentaItem
+            ? {
+                codigo: (estadoCuentaItem as any).codigo ?? "",
+                nombre:
+                  (estadoCuentaItem as any).nombresCompletos ??
+                  (estadoCuentaItem as any).nombre ??
+                  "",
+                documento:
+                  (estadoCuentaItem as any).numDoc ?? "",
+                direccion:
+                  (estadoCuentaItem as any).direFis ??
+                  (estadoCuentaItem as any).direccion ??
+                  "",
+              }
+            : null
+        }
+      />
+
+      {/* Modal Declaración Jurada Detalle */}
+      <DeclaracionJuradaDetalleModal
+        isOpen={!!djDetalleItem}
+        onClose={() => setDjDetalleItem(null)}
+        contribuyente={
+          djDetalleItem
+            ? {
+                codigo: (djDetalleItem as any).codigo ?? "",
+                nombre:
+                  (djDetalleItem as any).nombresCompletos ??
+                  (djDetalleItem as any).nombre ??
+                  "",
+                documento:
+                  (djDetalleItem as any).numDoc ?? "",
+                domicilio:
+                  (djDetalleItem as any).direFis ??
+                  (djDetalleItem as any).direccion ??
+                  "",
+              }
+            : { codigo: "", nombre: "", documento: "", domicilio: "" }
+        }
+      />
+
+      {/* Modal Confirmar Eliminación */}
+      {eliminarCodigo && (
+        <div
+          ref={eliminarModalRef}
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in p-4"
+          tabIndex={-1}
+        >
+          <div className="relative w-full max-w-md rounded-xl border border-slate-200 bg-white shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between rounded-t-xl bg-gradient-to-r from-red-700 via-red-800 to-slate-800 px-4 py-2">
+              <div className="flex items-center gap-2">
+                <div className="h-3.5 w-0.5 rounded-full bg-red-300" />
+                <h2 className="font-outfit text-sm font-bold tracking-tight text-white">
+                  Eliminar Contribuyente
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!eliminarLoading) {
+                    setEliminarCodigo(null);
+                    setEliminarMessage(null);
+                  }
+                }}
+                className="rounded-md p-1 text-white/60 transition hover:bg-white/10 hover:text-white"
+                aria-label="Cerrar"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="space-y-3 px-4 py-3.5">
+              <p className="text-xs text-slate-600">
+                ¿Desea eliminar este contribuyente?{" "}
+                <span className="font-mono font-semibold text-slate-800">({eliminarCodigo})</span>
+              </p>
+
+              <div>
+                <label className="block text-[9px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                  Motivo de eliminación
+                </label>
+                <textarea
+                  value={eliminarMotivo}
+                  onChange={(e) => setEliminarMotivo(e.target.value)}
+                  rows={3}
+                  placeholder="Indique el motivo de la eliminación"
+                  disabled={eliminarLoading}
+                  className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] text-slate-700 placeholder-slate-400 transition focus:border-red-400 focus:ring-2 focus:ring-red-300/30 focus:outline-none disabled:bg-slate-50 disabled:text-slate-400"
+                />
+              </div>
+
+              {eliminarMessage && (
+                <div
+                  className={`rounded-md px-3 py-1.5 text-[11px] font-medium border ${
+                    eliminarMessage.type === "error"
+                      ? "bg-red-50 text-red-600 border-red-200"
+                      : "bg-emerald-50 text-emerald-600 border-emerald-200"
+                  }`}
+                >
+                  {eliminarMessage.text}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-2 border-t border-slate-100 px-4 py-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setEliminarCodigo(null);
+                  setEliminarMessage(null);
+                }}
+                disabled={eliminarLoading}
+                className="rounded-md border border-slate-200 bg-white px-4 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-red-300/30"
+              >
+                No
+              </button>
+              <button
+                type="button"
+                onClick={handleEliminar}
+                disabled={eliminarLoading}
+                className="inline-flex items-center gap-1.5 rounded-md bg-red-600 px-4 py-1.5 text-xs font-medium text-white transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400/40 active:scale-[0.98] disabled:bg-slate-300 disabled:cursor-not-allowed"
+              >
+                {eliminarLoading ? (
+                  <>
+                    <Loader2 size={13} className="animate-spin" />
+                    Eliminando...
+                  </>
+                ) : (
+                  "Sí, Eliminar"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

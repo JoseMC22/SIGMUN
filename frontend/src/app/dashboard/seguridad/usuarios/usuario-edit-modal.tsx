@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useModalStack, isTopModal } from "@/hooks/use-modal-topmost";
 import {
   X, Loader2, Save, AlertCircle, KeyRound, Eye, EyeOff,
 } from "lucide-react";
@@ -284,11 +285,27 @@ export default function UsuarioEditModal({ isOpen, userId, onClose, onSaved }: P
     }
   };
 
-  // ── Keyboard ──
+  // ── Keyboard: Escape cierra SOLO este modal si es el tope de la pila ──
+  const modalId = useModalStack(isOpen);
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isTopModal(modalId)) onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [isOpen, modalId, onClose]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Escape" && !showPassModal) onClose();
-  };
+  // ── Sub-modal de contraseña: overlay propio en la pila ──
+  const passModalId = useModalStack(showPassModal);
+  useEffect(() => {
+    if (!showPassModal) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isTopModal(passModalId)) setShowPassModal(false);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [showPassModal, passModalId]);
 
   if (!isOpen) return null;
 
@@ -302,8 +319,6 @@ export default function UsuarioEditModal({ isOpen, userId, onClose, onSaved }: P
       {/* ────────── MAIN MODAL ────────── */}
       <div
         className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in"
-        onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-        onKeyDown={handleKeyDown}
         tabIndex={-1}
       >
         <div className="relative w-full max-w-xl max-h-[70vh] overflow-y-auto rounded-xl bg-white shadow-2xl border border-slate-200">
@@ -663,8 +678,6 @@ export default function UsuarioEditModal({ isOpen, userId, onClose, onSaved }: P
       {showPassModal && (
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-[1px] animate-fade-in"
-          onClick={(e) => { if (e.target === e.currentTarget) setShowPassModal(false); }}
-          onKeyDown={(e) => { if (e.key === "Escape") setShowPassModal(false); }}
           tabIndex={-1}
         >
           <div className="relative w-full max-w-sm rounded-xl bg-white shadow-2xl border border-slate-200">

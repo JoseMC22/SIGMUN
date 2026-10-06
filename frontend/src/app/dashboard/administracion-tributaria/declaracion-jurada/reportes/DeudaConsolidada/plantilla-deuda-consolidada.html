@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Deuda Consolidada</title>
+    <link rel="stylesheet" href="./estilos-deuda-consolidada.css">
+</head>
+<body>
+    <div class="header">
+        <p class="title">SAT ICA<br>Deuda Consolidada</p>
+        <table class="header-table">
+            <tbody>
+                <tr>
+                    <td class="label">N° Código:</td>
+                    <td>{{codigo}}</td>
+                </tr>
+            </tbody>
+        </table>
+        <table class="header-table">
+            <tbody>
+                <tr>
+                    <td colspan="2">Nombre/Razón Social:</td>
+                </tr>
+                <tr>
+                    <td colspan="2">{{nombre}}</td>
+                </tr>
+                <tr>
+                    <td colspan="2">Domicilio:</td>
+                </tr>
+                <tr>
+                    <td colspan="2">{{direccion}}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="body">
+        {{filas}}
+    </div>
+
+    <div class="footer">
+        <hr>
+        <table class="total-table">
+            <tbody>
+                <tr>
+                    <td colspan="2"><center><b>Total Neto:</b></center></td>
+                    <td align="right"><b>S/. {{totalNeto}}</b></td>
+                </tr>
+            </tbody>
+        </table>
+        <br>
+        <table class="meta-table">
+            <tbody>
+                <tr>
+                    <td>Atendido por: {{usuario}}</td>
+                </tr>
+                <tr>
+                    <td>Impreso el: {{fechahoy}}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

@@ -16,7 +16,7 @@ interface CacheEntry<T> {
 }
 
 interface UsePageCacheOptions<T> {
-  fetchFn: (page: number) => Promise<{ success: boolean; data: T[]; total: number; totalPages: number }>;
+  fetchFn: (page: number) => Promise<{ success: boolean; data: T[]; total: number; totalPages: number; error?: string }>;
   prefetchDelta?: number; // prefetch N pages ahead (default: 1)
 }
 
@@ -151,7 +151,7 @@ export function usePageCache<T>({
           return pageData;
         }
         setLoading(false);
-        throw new Error(res.error ?? "Error al cargar datos");
+        throw new Error(("error" in res ? (res as { error?: string }).error : undefined) ?? "Error al cargar datos");
       });
       entry.promise = promise;
       cache.current.set(page, entry);

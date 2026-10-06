@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>Reporte de Fraccionamientos Emitidos</title>
+    <link rel="stylesheet" href="./estilos-reporte-fraccionamientos.css" />
+  </head>
+  <body>
+    <div class="documento">
+      <!-- Cabecera -->
+      <div class="conv-header">
+        <img src="{{logoUrl}}" alt="Logo" class="conv-logo" />
+        <div class="conv-header-text">
+          <h1 class="conv-institucion">Municipalidad Provincial de Trujillo</h1>
+          <p class="conv-gerencia">Gerencia de Administración Tributaria</p>
+          <p class="conv-titulo">REPORTE DE FRACCIONAMIENTOS EMITIDOS</p>
+        </div>
+      </div>
+      <hr class="conv-linea" />
+
+      <!-- Filtros -->
+      <table class="filtros" cellspacing="0" cellpadding="0">
+        <tr>
+          <td><b>Desde:</b> {{desde}}</td>
+          <td><b>Hasta:</b> {{hasta}}</td>
+          <td><b>Usuario:</b> {{usuario}}</td>
+        </tr>
+      </table>
+
+      <!-- Tabla de resultados -->
+      <table class="tabla" cellspacing="0" cellpadding="0">
+        <thead>
+          <tr>
+            <th class="th-der">Año</th>
+            <th class="th-izq">Convenio</th>
+            <th class="th-izq">Estado</th>
+            <th class="th-izq">Fecha</th>
+            <th class="th-der">Deuda Ini.</th>
+            <th class="th-der">Cuotas</th>
+            <th class="th-der">Cancel.</th>
+            <th class="th-der">Vencidas</th>
+            <th class="th-izq">Usuario</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{filas}}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="4" class="tf-total">TOTAL</td>
+            <td class="tf-monto">{{deudaTotal}}</td>
+            <td colspan="4"></td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <!-- Footer -->
+      <div class="conv-footer">
+        <span>Elaborado por: {{funcionario}} — {{ahora}}</span>
+        <span>Impreso: {{ahora}}</span>
+      </div>
+    </div>
+  </body>
+</html>

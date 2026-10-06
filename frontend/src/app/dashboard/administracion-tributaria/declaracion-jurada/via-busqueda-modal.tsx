@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { X, Search, Loader2, ChevronLeft, ChevronRight, MapPin } from "lucide-react";
 import { searchViasAction, type MviaItem } from "@/actions/administracion-tributaria/declaracion-jurada";
+import { useModalStack, isTopModal } from "@/hooks/use-modal-topmost";
+import { toNum } from "@/lib/num";
 
 interface Props {
   isOpen: boolean;
@@ -51,10 +53,27 @@ export default function ViaBusquedaModal({ isOpen, onClose, onSelect }: Props) {
     fetchData(query, 1);
   };
 
+  // Escape cierra SOLO este modal si es el tope de la pila.
+  const modalId = useModalStack(isOpen);
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isTopModal(modalId)) onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [isOpen, modalId, onClose]);
+
+  // Enter dispara la búsqueda desde cualquier parte del modal.
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Escape") onClose();
     if (e.key === "Enter") handleSearch();
   };
+
+  // ── Foco: al abrirse, este modal toma el foco para que Escape cierre SOLO este modal ──
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (isOpen) rootRef.current?.focus();
+  }, [isOpen]);
 
   const handleSelect = (via: MviaItem) => {
     onSelect(via);
@@ -65,8 +84,8 @@ export default function ViaBusquedaModal({ isOpen, onClose, onSelect }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in p-4"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      ref={rootRef}
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in p-4"
       onKeyDown={handleKeyDown}
       tabIndex={-1}
     >
@@ -172,7 +191,7 @@ export default function ViaBusquedaModal({ isOpen, onClose, onSelect }: Props) {
                       <td className="px-2.5 py-1.5 text-center text-slate-600">{via.nCuadra}</td>
                       <td className="px-2.5 py-1.5 text-center text-slate-600">{via.nLado}</td>
                        <td className="px-2.5 py-1.5 text-right font-mono text-slate-700">
-                         {Number(via.arancel).toLocaleString("es-PE", {
+                         {toNum(via.arancel).toLocaleString("es-PE", {
                            minimumFractionDigits: 2,
                            maximumFractionDigits: 2,
                          })}

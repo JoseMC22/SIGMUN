@@ -1,0 +1,203 @@
+/* Plantilla: Convenio de Fraccionamiento (port del JasperReport ReporteConvenio) */
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 12px;
+  color: #111;
+  background-color: #fff;
+}
+
+.documento {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+
+/* ── Cabecera ── */
+.conv-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.conv-logo {
+  width: 70px;
+  height: auto;
+  flex-shrink: 0;
+}
+
+.conv-header-text {
+  flex: 1;
+  text-align: center;
+}
+
+.conv-titulo {
+  margin: 0;
+  font-family: "Times New Roman", serif;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.conv-fecha {
+  margin: 2px 0 0;
+  font-family: "Times New Roman", serif;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+.conv-linea {
+  border: none;
+  border-top: 1px solid #000;
+  margin: 6px 0;
+}
+
+/* ── Datos del contribuyente / propietario ── */
+.conv-datos {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  margin-bottom: 2px;
+  text-align: left;
+}
+
+.conv-datos td {
+  padding: 1px 4px;
+  vertical-align: top;
+  text-align: left;
+}
+
+.conv-label {
+  font-weight: bold;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.conv-codigo {
+  white-space: nowrap;
+  padding-left: 0;
+}
+
+.conv-nombre {
+  font-weight: normal;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.conv-doc {
+  white-space: nowrap;
+}
+
+/* ── Párrafos y tablas ── */
+.conv-parrafo {
+  font-size: 11px;
+  text-align: justify;
+  margin: 8px 0;
+}
+
+.conv-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10.5px;
+  margin-bottom: 10px;
+}
+
+.conv-tabla th {
+  border-bottom: 1px solid #999;
+  padding: 3px 4px 6px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.conv-tabla td {
+  padding: 1px 4px;
+  text-align: center;
+}
+
+.td-monto {
+  color: #dc2626;
+}
+
+.td-total-label {
+  text-align: center;
+  font-weight: bold;
+  padding-top: 4px;
+}
+
+.td-total {
+  font-weight: bold;
+  color: #dc2626;
+  padding-top: 4px;
+  text-align: center;
+}
+
+/* ── Notas legales ── */
+.conv-cancela {
+  text-align: center;
+  font-weight: bold;
+  font-size: 11px;
+  margin: 14px 0 6px;
+}
+
+.conv-nota {
+  font-size: 10.5px;
+  text-align: justify;
+  margin: 4px 0;
+}
+
+/* ── Firma ── */
+.conv-firma {
+  width: 220px;
+  margin: 48px 0 24px auto;
+  text-align: center;
+}
+
+.conv-firma-linea {
+  border-top: 1px solid #000;
+}
+
+.conv-firma-nombre {
+  margin: 2px 0 0;
+  font-family: "Times New Roman", serif;
+  font-size: 10px;
+}
+
+.conv-firma-doc {
+  margin: 0;
+  font-family: "Times New Roman", serif;
+  font-size: 10px;
+}
+
+/* ── Disposiciones complementarias (PIT) ── */
+.conv-dispos {
+  margin-top: 16px;
+}
+
+.conv-dispos-titulo {
+  font-size: 12px;
+  font-weight: bold;
+  text-decoration: underline;
+  margin: 0 0 4px;
+}
+
+.conv-dispos-p {
+  font-size: 10px;
+  font-style: italic;
+  text-align: justify;
+  margin: 4px 0;
+}
+
+/* ── Footer ── */
+.conv-footer {
+  max-width: 640px;
+  margin: 16px auto 0;
+  display: flex;
+  justify-content: space-between;
+  font-family: "Times New Roman", serif;
+  font-size: 9px;
+  color: #333;
+  border-top: 1px solid #ccc;
+  padding-top: 4px;
+}

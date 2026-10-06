@@ -7,7 +7,8 @@
 		"build": "pnpm build:frontend && pnpm build:backend",
 		"lint": "pnpm --filter frontend lint && pnpm --filter backend lint",
 		"test": "pnpm --filter frontend test && pnpm --filter backend test",
-		"dev": "pnpm dev:frontend & pnpm dev:backend"
+		"dev": "pnpm dev:frontend & pnpm dev:backend",
+		"audit:objetos": "ts-node scripts/audit-id-objetos.ts"
 	},
 	"devDependencies": {
 		"vitest": "^4.1.8",

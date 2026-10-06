@@ -1,0 +1,84 @@
+/* Plantilla: Reporte de Representantes */
+/* NOTA: todos los textos llevan color EXPLÍCITO (no heredado) porque el
+   dashboard global usa prefers-color-scheme: dark y podría inyectar texto
+   claro sobre el fondo blanco del reporte (invisible). */
+.datos-contribuyente {
+    font-family: Arial, sans-serif;
+    margin: 5px;
+    border: 1px solid #ccc;
+    padding: 5px;
+    color: #1f2937;
+}
+
+.info-contribuyente {
+    margin-bottom: 5px;
+    padding: 5px;
+    background-color: #f5f5f5;
+    font-size: 11px;
+    color: #1f2937;
+}
+
+.label {
+    font-weight: bold;
+    margin-right: 5px;
+    font-size: 12px;
+    color: #374151;
+}
+
+.tabla-representantes {
+    width: 100%;
+    color: #1f2937;
+}
+
+.tabla-representantes table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid #ddd;
+}
+
+.tabla-representantes th {
+    background-color: #f0f0f0;
+    padding: 5px;
+    text-align: left;
+    border: 1px solid #ddd;
+    font-size: 12px;
+    color: #374151;
+}
+
+.tabla-representantes td {
+    padding: 5px;
+    border: 1px solid #ddd;
+    background-color: #f5f5f5;
+    font-size: 12px;
+    color: #1f2937;
+}
+
+h3, h4, h5 {
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.titulo {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    margin: 5px 0;
+    position: relative;
+    padding: 5px;
+    color: #1f2937;
+}
+
+.titulo h4 {
+    margin: 0;
+    flex-grow: 1;
+    text-align: center;
+    color: #333;
+}
+
+.titulo p {
+    position: absolute;
+    top: 0;
+    right: 0;
+    margin: 0;
+    color: #374151;
+}

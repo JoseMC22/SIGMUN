@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useModalStack, isTopModal } from "@/hooks/use-modal-topmost";
 import {
   X, Loader2, Save, AlertCircle, FolderTree, ShieldCheck, Grid3X3,
 } from "lucide-react";
@@ -198,9 +199,10 @@ export default function PerfilEditModal({
       prev.map((a) => (a.id_acceso === id_acceso ? { ...a, checked: nuevoChecked } : a)),
     );
 
-    const res = await toggleAccesoPermisoAction({
+const res = await toggleAccesoPermisoAction({
       id_perfil: perfilId,
       id_acceso,
+      id_acceso_parent: id_acceso,
       bacceso: nuevoChecked ? '1' : '0',
     });
 
@@ -217,20 +219,29 @@ export default function PerfilEditModal({
 
   // ── Render ──
 
+  // Escape cierra SOLO este modal si es el tope de la pila.
+  const modalId = useModalStack(isOpen);
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !objetosModalOpen && isTopModal(modalId)) onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [isOpen, modalId, onClose, objetosModalOpen]);
+
   if (!isOpen) return null;
 
   return (
     <>
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}
       tabIndex={-1}
     >
       <div className="relative w-full max-w-4xl max-h-[85vh] overflow-y-auto rounded-xl bg-white shadow-2xl border border-slate-200">
 
         {/* ── Header ── */}
-        <div className="sticky top-0 z-10 flex items-center justify-between rounded-t-xl bg-gradient-to-r from-sat-navy via-[#1b2b4a] to-slate-800 px-4 py-3">
+        <div className="sticky top-0 z-10 flex items-center justify-between rounded-t-xl bg-linear-to-r from-sat-navy via-[#1b2b4a] to-slate-800 px-4 py-3">
           <div className="flex items-center gap-2">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 backdrop-blur-sm">
               <ShieldCheck size={14} className="text-white" />
@@ -313,7 +324,7 @@ export default function PerfilEditModal({
                         className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] text-slate-700 placeholder-slate-400 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none"
                       />
                     </div>
-                    <div className="flex items-end pb-[3px]">
+                    <div className="flex items-end pb-0.75">
                       <label className="inline-flex items-center gap-2 cursor-pointer">
                         <input
                           type="checkbox"

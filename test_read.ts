@@ -1,0 +1,1 @@
+import { readFile } from "node:fs/promises"; import path from "path"; const p = "/mnt/d/SIGMUN/frontend/src/app/dashboard/administracion-tributaria/declaracion-jurada/reportes/DeclaracionPredio/plantilla-declaracion-predio.html"; async function main() { const html = await readFile(p, "utf8"); console.log("LEIDO OK, bytes:", html.length); } main();

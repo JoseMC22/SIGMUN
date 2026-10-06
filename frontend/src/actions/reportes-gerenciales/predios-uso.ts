@@ -85,7 +85,7 @@ export async function searchPrediosUsoAction(
 
 // ── Detalle de predio por uso (@BUSC=9) ─────────────────────
 
-export async function getDetallePredioUsoAction(params: DetallePredioUsoParams) {
+export async function getDetallePredioUsoAction(params: { codigo?: string; anno: number; id_uso: string; flag: string }) {
   try {
     const response = await authFetch('/reportes-gerenciales/predios-uso/detail', {
       method: 'POST',
@@ -106,6 +106,11 @@ export async function getDetallePredioUsoAction(params: DetallePredioUsoParams) 
 
 // ── Opciones de Uso (combo) ─────────────────────────────────
 
+export interface UsoOption {
+  id_uso: string;
+  descripcion: string;
+}
+
 export async function getUsoOptionsAction() {
   try {
     const response = await authFetch('/reportes-gerenciales/predios-uso/uso-options');
@@ -116,7 +121,7 @@ export async function getUsoOptionsAction() {
     }
 
     const result = await response.json();
-    return { success: true as const, options: result.options as UsoOption[] };
+    return { success: true as const, options: result.options as { value: string; label: string }[] };
   } catch (error) {
     return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
   }

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Gravamen de Papeletas por Infracción al Tránsito</title>
+  <link rel="stylesheet" href="./estilos-gravamen.css">
+</head>
+<body>
+  <div class="contenedor-gravamen">
+    <!-- HEADER -->
+    <div class="header">
+      <div class="header-logo-titulo">
+        <div class="logo-sat-box">
+          <div class="sat-label">SAT <span class="ica-label">ICA</span></div>
+          <div class="sat-sublabel">SERVICIO DE ADMINISTRACIÓN TRIBUTARIA DE ICA</div>
+        </div>
+        <div class="titulo-bloque">
+          <p class="entidad-titulo">Servicio de Administración Tributaria de Ica</p>
+          <h1 class="titulo-gravamen">GRAVAMEN DE PAPELETAS POR INFRACCIÓN<br>AL TRÁNSITO</h1>
+        </div>
+      </div>
+    </div>
+
+    <!-- CAMPOS DE CABECERA -->
+    <div class="info-campos">
+      <div class="campo-row">
+        <span class="campo-label">N° PLACA</span>
+        <span class="campo-sep">:</span>
+        <span class="campo-val"><strong>{{placa}}</strong></span>
+      </div>
+      <div class="campo-row">
+        <span class="campo-label">N° RECIBO</span>
+        <span class="campo-sep">:</span>
+        <span class="campo-val"><strong>{{numRecibo}}</strong></span>
+      </div>
+      <div class="campo-row">
+        <span class="campo-label">N° DOCUMENTO</span>
+        <span class="campo-sep">:</span>
+        <span class="campo-val"><strong>{{nroDocumento}}</strong></span>
+      </div>
+    </div>
+
+    <!-- AREA DE DETALLE (tabla vacía / sin datos) -->
+    <div class="seccion-detalle">
+      <table class="tabla-gravamen">
+        <thead>
+          <tr>
+            <th>PAPELETA</th>
+            <th>INFRACCIÓN</th>
+            <th>ESTADO</th>
+            <th>IMPORTE</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td colspan="4" class="celda-sin-datos">{{sinDatos}}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- TERMINALISTA -->
+    <div class="terminalista">
+      <p><strong>TERMINALISTA : </strong>{{usuario}}</p>
+    </div>
+
+    <div class="trabajando-por">
+      <p><em><strong>Trabajando por Ica</strong></em></p>
+    </div>
+
+    <!-- FIRMA -->
+    <div class="seccion-firma">
+      <div class="firma-conformidad">
+        <div class="linea-firma"></div>
+        <p class="label-firma"><strong>Firma y sello de conformidad</strong></p>
+      </div>
+    </div>
+
+    <!-- NOTAS -->
+    <div class="notas-legal">
+      <p>*ESTE DOCUMENTO SOLO TIENE VALIDEZ EN LA PROVINCIA DE ICA</p>
+      <p>*El presente documento solo tiene valor en original y con la firma y sello del jefe de Dpto de Registro y Fiscalización</p>
+      <p>*Nota: Ultima Actualización del sistema hasta hace 20 días aproximadamente de emitido este documento</p>
+    </div>
+  </div>
+</body>
+</html>

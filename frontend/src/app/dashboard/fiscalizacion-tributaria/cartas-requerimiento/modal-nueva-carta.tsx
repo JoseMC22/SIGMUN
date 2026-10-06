@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useModalStack, isTopModal } from "@/hooks/use-modal-topmost";
 import { X } from "lucide-react";
 import {
   getContribuyenteAction,
@@ -164,19 +165,16 @@ export default function ModalNuevaCarta({ open, onClose, codigo, idCarta }: Moda
     }
   }, [open, idCarta, codigo, currentYear, todayISO, loadData, loadEditData]);
 
-  // ── Escape key handler (stops propagation to parent modal) ──
-
+  // ── Escape key handler: cierra SOLO si es el tope de la pila ──
+  const modalId = useModalStack(open);
   useEffect(() => {
     if (!open) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        onClose();
-      }
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isTopModal(modalId)) onClose();
     };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, onClose]);
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [open, modalId, onClose]);
 
   if (!open) return null;
 

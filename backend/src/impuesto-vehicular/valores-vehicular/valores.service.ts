@@ -9,11 +9,11 @@ import {
   PaginatedResponse,
 } from './dto/valores.types';
 
-// ── PHP-correct pagination (NOT the same as usuarios) ──
+// ── OFFSET/FETCH pagination ──
 
 function calculateValoresPagination(page: number, pageSize: number) {
-  const inicio = page > 1 ? (page - 1) * pageSize + 1 : 0;
-  const fin = page * pageSize;
+  const inicio = (page - 1) * pageSize;
+  const fin = pageSize;
   return { inicio, fin };
 }
 
@@ -28,9 +28,9 @@ export class ValoresService {
   async search(
     dto: SearchValorDto,
   ): Promise<PaginatedResponse<ValorRow>> {
+    const t0 = Date.now();
     const { criterio1, criterio2, criterio3, criterio4, page, pageSize } = dto;
 
-    // SP params: empty string for undefined filters
     const criteria = {
       criterio1: criterio1 ?? '',
       criterio2: criterio2 ?? '',
@@ -38,23 +38,61 @@ export class ValoresService {
       criterio4: criterio4 ?? '',
     };
 
-    // Total count
-    const countResult = await this.db.executeProcedure<any>(
-      'sp_vehiculo_valores_contar',
-      criteria,
+    const { inicio, fin } = calculateValoresPagination(page, pageSize);
+
+    const t1 = Date.now();
+
+    const whereClauses = [
+      'ma.estado = 1',
+      'mo.estado = 1',
+      'vc.estado = 1',
+    ];
+    if (criteria.criterio1) whereClauses.push('vc.nombre = @criterio1');
+    if (criteria.criterio2) whereClauses.push('ma.nombre = @criterio2');
+    if (criteria.criterio3) whereClauses.push('mo.nombre LIKE @criterio3');
+    if (criteria.criterio4) whereClauses.push('an.anio LIKE @criterio4');
+
+    const whereSql = whereClauses.join(' AND ');
+
+    const listSql = `
+      SELECT ve.id_valor, ve.id_anio, an.anio AS ejec, vc.nombre AS nomcate,
+             ve.id_marca, ma.nombre AS nommarca, ve.id_modelo, mo.nombre AS nommodelo,
+             ve.anio, ve.monto, ve.estado
+      FROM vehicular.vehiculovalores ve
+      INNER JOIN contenedor.tblvehiculocategoria vc ON ve.id_categoria = vc.id_categoria
+      INNER JOIN contenedor.tblvehiculomarca ma ON ve.id_marca = ma.id_marca
+      INNER JOIN contenedor.tblvehiculomodelo mo ON ve.id_categoria = mo.id_categoria
+        AND ve.id_marca = mo.id_marca AND ve.id_modelo = mo.id_modelo
+      INNER JOIN contenedor.tblvehiculoanios an ON ve.id_anio = an.id_anio
+      WHERE ${whereSql}
+      ORDER BY vc.nombre, ma.nombre, mo.nombre, an.anio, ve.anio
+      OFFSET ${inicio} ROWS FETCH NEXT ${fin} ROWS ONLY
+    `;
+
+    const countSql = `
+      SELECT COUNT(*) AS total
+      FROM vehicular.vehiculovalores ve
+      INNER JOIN contenedor.tblvehiculocategoria vc ON ve.id_categoria = vc.id_categoria
+      INNER JOIN contenedor.tblvehiculomarca ma ON ve.id_marca = ma.id_marca
+      INNER JOIN contenedor.tblvehiculomodelo mo ON ve.id_categoria = mo.id_categoria
+        AND ve.id_marca = mo.id_marca AND ve.id_modelo = mo.id_modelo
+      INNER JOIN contenedor.tblvehiculoanios an ON ve.id_anio = an.id_anio
+      WHERE ${whereSql}
+    `;
+
+    const [countResult, rowsResult] = await Promise.all([
+      this.db.queryWithParams<any>(countSql, criteria),
+      this.db.queryWithParams<any>(listSql, criteria),
+    ]);
+    const t2 = Date.now();
+
+    this.logger.log(
+      `[valores] count+list OFFSET: ${t2 - t1}ms | page=${page} pageSize=${pageSize} inicio=${inicio} fin=${fin}`,
     );
+
     const totalRow = countResult.recordset[0];
     const total = totalRow ? (Object.values(totalRow)[0] as number) : 0;
-    this.logger.log(`Total valores: ${total}`);
-
-    // Rows with PHP-correct pagination
-    const { inicio, fin } = calculateValoresPagination(page, pageSize);
-    const rowsResult = await this.db.executeProcedure<any>(
-      'sp_vehiculo_valores_listar',
-      { ...criteria, inicio, fin },
-    );
-
-    this.logger.log(`Filas obtenidas: ${rowsResult.recordset.length}`);
+    this.logger.log(`Total valores: ${total}, Filas: ${rowsResult.recordset.length}`);
 
     // SP returns named columns: id_valor, ejec, nomcate, nommarca, nommodelo, anio, monto, estado
     const data: ValorRow[] = rowsResult.recordset.map((row: any) => ({

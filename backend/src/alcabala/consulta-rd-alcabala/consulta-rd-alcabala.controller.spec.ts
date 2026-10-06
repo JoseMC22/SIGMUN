@@ -4,7 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConsultaRdAlcabalaController } from './consulta-rd-alcabala.controller';
 import { ConsultaRdAlcabalaService } from './consulta-rd-alcabala.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { ConsultaRDResult, DetalleRDResult, RutaRDResult, ImprimirRDResult } from './consulta-rd-alcabala.types';
+import { ConsultaRDResult, DetalleRDResult, RutaRDResult } from './consulta-rd-alcabala.types';
 
 describe('ConsultaRdAlcabalaController', () => {
   let controller: ConsultaRdAlcabalaController;
@@ -14,7 +14,7 @@ describe('ConsultaRdAlcabalaController', () => {
     search: jest.fn(),
     getDetail: jest.fn(),
     getRuta: jest.fn(),
-    getImprimir: jest.fn(),
+    eliminar: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -265,53 +265,48 @@ describe('ConsultaRdAlcabalaController', () => {
     });
   });
 
-  describe('GET /alcabala/consulta-rd/imprimir', () => {
-    it('should delegate to service.getImprimir with parsed query params', async () => {
-      const expected: ImprimirRDResult = {
-        success: true,
-        html: '<p>TEST</p>',
-      };
-      mockService.getImprimir.mockResolvedValue(expected);
+  describe('POST /alcabala/consulta-rd/eliminar', () => {
+    const req = { user: { username: 'mvaez' } } as any;
+    const validBody = {
+      num_val: '0001234',
+      ano_val: '2026',
+      observacion: 'Ampliación de plazo',
+    };
 
-      const result = await controller.imprimir({
-        num_val: 'RD-001',
-        ano_val: '2025',
-      });
+    it('should delegate to service.eliminar and return your result with 200 semantics', async () => {
+      mockService.eliminar.mockResolvedValue({ success: true, message: 'Se Anuló' });
 
-      expect(result).toEqual(expected);
-      expect(mockService.getImprimir).toHaveBeenCalledWith({
-        num_val: 'RD-001',
-        ano_val: '2025',
-      });
-    });
+      const result = await controller.eliminar(req, validBody);
 
-    it('should apply Zod defaults when imprimir params are empty', async () => {
-      mockService.getImprimir.mockResolvedValue({
-        success: true,
-        html: '',
-      });
-
-      const result = await controller.imprimir({});
-
+      expect(mockService.eliminar).toHaveBeenCalledWith(
+        { num_val: '0001234', ano_val: '2026', observacion: 'Ampliación de plazo' },
+        'mvaez',
+        expect.any(String),
+      );
       expect(result.success).toBe(true);
-      expect(mockService.getImprimir).toHaveBeenCalledWith({
-        num_val: '',
-        ano_val: '',
-      });
     });
 
-    it('should return error envelope on Zod validation failure for imprimir', async () => {
-      mockService.getImprimir.mockResolvedValue({
+    it('should return the service error (business rule) as success:false', async () => {
+      mockService.eliminar.mockResolvedValue({
         success: false,
-        error: 'Error',
+        error: 'La RD no está en estado Pendiente, no se puede eliminar.',
       });
 
-      const result = await controller.imprimir({
-        num_val: 'RD-001',
-        ano_val: '2025',
+      const result = await controller.eliminar(req, validBody);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toMatch(/no está en estado Pendiente/i);
+    });
+
+    it('should return a validation error envelope when observacion is missing', async () => {
+      const result = await controller.eliminar(req, {
+        num_val: '0001234',
+        ano_val: '2026',
       });
 
       expect(result.success).toBe(false);
+      expect(mockService.eliminar).not.toHaveBeenCalled();
+      expect(result.error).toBeTruthy();
     });
   });
 });

@@ -70,6 +70,22 @@ Reglas:
 - **shadcn/ui** para componentes de UI (wrapear en client components cuando usen hooks)
 - **Estilo**: Tailwind CSS v4, sin CSS modules ni styled-components
 
+## Reportes imprimibles (vista previa + impresión + PDF)
+
+Los reportes que se generan en el frontend (plantillas llenadas con datos de SP)
+siguen un flujo específico: plantillas como archivos en una carpeta `reportes/`
+del submenú, con **una subcarpeta por reporte** (p. ej. `reportes/Representante/`),
+server action que las lee vía fs, servicio compartido
+`src/lib/reportes/reporte-service.ts`, y modal genérico
+`src/components/reportes/reporte-viewer-modal.tsx` (Imprimir + Guardar en PC).
+Las plantillas pueden almacenarse como HTML + CSS o como componente `.tsx`
+según prefiera el implementador; el contrato con el modal es siempre un HTML
+ya llenado + una `ReportePdfConfig`.
+
+Guía completa con pasos para agregar un reporte nuevo y gotchas:
+`frontend/src/lib/reportes/README.md`
+
+
 ## Base de datos
 
 - Driver `mssql` v12 con consultas parametrizadas

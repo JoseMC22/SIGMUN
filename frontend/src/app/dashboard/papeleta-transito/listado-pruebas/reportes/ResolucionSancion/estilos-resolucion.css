@@ -1,0 +1,118 @@
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 12px;
+  color: #000;
+  margin: 0;
+  padding: 20px 60px;
+  background-color: #fff;
+}
+
+.contenedor-resolucion {
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.logo-left h2 {
+  font-size: 12px;
+  margin: 0;
+  font-weight: bold;
+}
+
+.subgerencia p {
+  font-size: 12px;
+  margin: 0;
+  font-weight: bold;
+}
+
+.titulo-seccion {
+  text-align: center;
+  margin-bottom: 15px;
+}
+
+.titulo {
+  font-size: 12px;
+  font-weight: bold;
+  text-decoration: underline;
+  margin: 0;
+}
+
+.cuerpo-resolucion {
+  line-height: 1.4;
+}
+
+.parrafo-visto {
+  font-size: 12px;
+  margin-bottom: 8px;
+  text-align: justify;
+}
+
+.parrafo-considerando {
+  font-size: 12px;
+  margin-bottom: 6px;
+  text-align: justify;
+  text-indent: 20px;
+}
+
+.parrafo-se-resuelve {
+  font-size: 12px;
+  margin-top: 12px;
+  margin-bottom: 8px;
+}
+
+.parrafo-articulo {
+  font-size: 12px;
+  margin-bottom: 6px;
+  text-align: justify;
+  text-indent: 20px;
+}
+
+.parrafo-disposiciones {
+  font-size: 12px;
+  margin-top: 15px;
+  margin-bottom: 20px;
+  font-style: italic;
+}
+
+/* CAJA RECEPCIÓN */
+.caja-recepcion {
+  border: 1px solid #000;
+  padding: 15px;
+  margin-top: 20px;
+}
+
+.caja-titulo {
+  font-size: 12px;
+  font-weight: bold;
+  text-align: center;
+  margin: 0 0 12px 0;
+  border-bottom: 1px solid #000;
+  padding-bottom: 5px;
+}
+
+.caja-campo {
+  margin-bottom: 10px;
+}
+
+.caja-campo p {
+  margin: 0 0 3px 0;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.linea {
+  border-bottom: 1px solid #000;
+  min-height: 15px;
+}
+
+@media print {
+  body {
+    padding: 10px 40px;
+  }
+}

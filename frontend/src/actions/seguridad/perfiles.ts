@@ -77,6 +77,7 @@ export async function toggleAccesoPermisoAction(data: {
   id_perfil: string;
   id_acceso: string;
   bacceso: string;
+  id_acceso_parent: string;
 }) {
   try {
     const response = await authFetch('/seguridad/perfiles/toggle-acceso', {

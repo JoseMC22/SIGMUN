@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "clsx": "^2.1.1",
+    "dompurify": "^3.4.13",
     "framer-motion": "^12.40.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",

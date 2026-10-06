@@ -86,12 +86,6 @@ export interface RutaRDResult {
   error?: string;
 }
 
-export interface ImprimirRDResult {
-  success: boolean;
-  html?: string;
-  error?: string;
-}
-
 // ─── Server Actions ────────────────────────────────────────
 
 export async function searchConsultaRDAction(
@@ -252,14 +246,25 @@ export async function getRutaConsultaRDAction(params: {
   }
 }
 
-export async function imprimirConsultaRDAction(params: {
-  num_val: string;
-  ano_val: string;
-}): Promise<ImprimirRDResult> {
+export interface ImprimirRDResult {
+  success: boolean;
+  message?: string;
+  data?: any[];
+  error?: string;
+}
+
+/**
+ * Fetches the OFFICIAL RD document (DocumentoRDModal format) for an existing
+ * RD, via GET /alcabala/consulta-rd/imprimir?num_val=&ano_val=.
+ */
+export async function getImprimirRDAlcabalaAction(
+  num_val: string,
+  ano_val: string,
+): Promise<ImprimirRDResult> {
   try {
     const query = new URLSearchParams();
-    query.set("num_val", params.num_val);
-    query.set("ano_val", params.ano_val);
+    query.set("num_val", num_val);
+    query.set("ano_val", ano_val);
 
     const response = await authFetch(
       `/alcabala/consulta-rd/imprimir?${query.toString()}`,
@@ -270,16 +275,57 @@ export async function imprimirConsultaRDAction(params: {
       const text = await response.text();
       return {
         success: false,
-        error: text || "Error al generar impresión del RD",
+        error: text || "Error al generar el documento RD",
       };
     }
 
     const json = await response.json();
     return {
       success: json.success ?? false,
-      html: json.html,
+      message: json.message,
+      data: json.data ?? [],
       error: json.error,
     };
+  } catch {
+    return {
+      success: false,
+      error: "Error de conexión con el servidor",
+    };
+  }
+}
+
+/**
+ * Elimina (anula) una RD del listado, solo si está en estado Pendiente.
+ * Llama a POST /alcabala/consulta-rd/eliminar (SP @msquery=5).
+ */
+export async function eliminarRDAction(params: {
+  num_val: string;
+  ano_val: string;
+  observacion: string;
+}): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const response = await authFetch(`/alcabala/consulta-rd/eliminar`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    });
+
+    // Parse the JSON defensively (un cuerpo no-JSON, p. ej. de un proxy 5xx,
+    // no debe romper la lectura del error real).
+    let json: { success?: boolean; error?: string; message?: string } | null = null;
+    try {
+      json = await response.json();
+    } catch {
+      json = null;
+    }
+
+    if (!response.ok || !json?.success) {
+      return {
+        success: false,
+        error: json?.error ?? `Error ${response.status}`,
+      };
+    }
+    return { success: true, message: json.message };
   } catch {
     return {
       success: false,
