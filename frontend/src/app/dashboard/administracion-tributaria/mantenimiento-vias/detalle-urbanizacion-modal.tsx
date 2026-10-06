@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { X, Search, Plus, Pencil, Loader2, Home, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { buscarUrbanizacionesAction, getTiposViaAction, type UrbanizacionRow, type TipoViaOption } from "@/actions/administracion-tributaria/mantenimiento-vias";
 import UrbanizacionCrudModal from "./urbanizacion-crud-modal";
+import { useModalStack, isTopModal } from "@/hooks/use-modal-topmost";
 
 interface Props {
   isOpen: boolean;
@@ -87,13 +88,16 @@ export default function DetalleUrbanizacionModal({ isOpen, onClose }: Props) {
       .finally(() => setLoading(false));
   }, [filtroTipo, filtroNombre, filtroEstado]);
 
-  // ── Keyboard ──
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    },
-    [onClose],
-  );
+  // ── Keyboard: Escape cierra SOLO este modal si es el tope de la pila ──
+  const modalId = useModalStack(isOpen);
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isTopModal(modalId)) onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [isOpen, modalId, onClose]);
 
   // ── CRUD Modal handlers ──
   const handleNuevaUrbanizacion = useCallback(() => {
@@ -118,8 +122,6 @@ export default function DetalleUrbanizacionModal({ isOpen, onClose }: Props) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      onKeyDown={handleKeyDown}
       tabIndex={-1}
     >
       <div

@@ -15,6 +15,11 @@ import { useRef, useEffect, useCallback } from "react";
 //   if (e.key === "Escape" && isTopModal(modalId)) onClose();
 //
 // El guard `isOpen` evita que un modal oculto consuma el Escape.
+//
+// - CONVENCIÓN DEL PROYECTO: los modales NUNCA se cierran con click en el
+//   backdrop (click fuera). Solo se cierran con ESC (modal tope de la pila) o
+//   con su botón de cierre (X / Cancelar). Al crear un modal nuevo, no
+//   agregues onClick de cierre al backdrop.
 
 const _stack: symbol[] = [];
 

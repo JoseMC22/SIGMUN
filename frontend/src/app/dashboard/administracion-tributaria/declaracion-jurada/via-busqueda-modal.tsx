@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { X, Search, Loader2, ChevronLeft, ChevronRight, MapPin } from "lucide-react";
 import { searchViasAction, type MviaItem } from "@/actions/administracion-tributaria/declaracion-jurada";
+import { useModalStack, isTopModal } from "@/hooks/use-modal-topmost";
 import { toNum } from "@/lib/num";
 
 interface Props {
@@ -52,12 +53,19 @@ export default function ViaBusquedaModal({ isOpen, onClose, onSelect }: Props) {
     fetchData(query, 1);
   };
 
+  // Escape cierra SOLO este modal si es el tope de la pila.
+  const modalId = useModalStack(isOpen);
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isTopModal(modalId)) onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [isOpen, modalId, onClose]);
+
+  // Enter dispara la búsqueda desde cualquier parte del modal.
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Escape") {
-      // Solo cerrar este modal activo; no propagar a modales padres.
-      e.stopPropagation();
-      onClose();
-    }
     if (e.key === "Enter") handleSearch();
   };
 
@@ -77,8 +85,7 @@ export default function ViaBusquedaModal({ isOpen, onClose, onSelect }: Props) {
   return (
     <div
       ref={rootRef}
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in p-4"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in p-4"
       onKeyDown={handleKeyDown}
       tabIndex={-1}
     >

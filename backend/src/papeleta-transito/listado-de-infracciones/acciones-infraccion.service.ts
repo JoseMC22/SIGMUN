@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import * as mssql from 'mssql';
 import { DatabaseService } from '../../database/database.service';
+import { toIsoDateParam } from '../../common/utils/date-utils';
 import {
   NuevaInfraccionDto,
   GenerarGravamenDto,
@@ -546,8 +547,14 @@ export class AccionesInfraccionService {
           estacion: 'ESTACION',
           total_deuda: dto.totalDeuda,
           total_inici: dto.totalInicial,
-          fec_gen: dto.fechaGeneracion,
-          fec_cuo: dto.fechaCuota,
+          // Normalize to YYYYMMDD: raw DTO dates reach smalldatetime params
+          // and dirty formats (Date strings, DD/MM/YYYY) crash the SP.
+          fec_gen: toIsoDateParam(dto.fechaGeneracion, (raw) =>
+            this.logger.warn(`generarConvenioPapeleta: invalid fec_gen ("${raw}") → ''`),
+          ),
+          fec_cuo: toIsoDateParam(dto.fechaCuota, (raw) =>
+            this.logger.warn(`generarConvenioPapeleta: invalid fec_cuo ("${raw}") → ''`),
+          ),
           condicion_id: dto.condicionId ?? 0,
           varxml: dxml,
           CodResp: dto.codResp ?? dto.codigo,
@@ -597,8 +604,14 @@ export class AccionesInfraccionService {
           cuotas,
           total_deuda: totalDeuda,
           total_inici: totalInicial,
-          fec_gen: fecGen,
-          fec_cuo: fecCuo,
+          // Normalize to YYYYMMDD: raw inputs reach smalldatetime params
+          // and dirty formats (Date strings, DD/MM/YYYY) crash the SP.
+          fec_gen: toIsoDateParam(fecGen, (raw) =>
+            this.logger.warn(`calcularCuotas: invalid fec_gen ("${raw}") → ''`),
+          ),
+          fec_cuo: toIsoDateParam(fecCuo, (raw) =>
+            this.logger.warn(`calcularCuotas: invalid fec_cuo ("${raw}") → ''`),
+          ),
         },
       );
 

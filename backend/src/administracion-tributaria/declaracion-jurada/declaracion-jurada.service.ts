@@ -10,6 +10,8 @@ import {
   ContribuyenteDireccionItem,
   ContribuyentePlacaItem,
   PaginatedResponse,
+  AdquirienteGridItem,
+  BuscarAdquirientesParams,
   TipoDocumentoOption,
   TipoContribuyenteOption,
   SubTipoContribuyenteOption,
@@ -45,6 +47,21 @@ import {
   HojaResumenEditarResult,
   GuardarHojaResumenResult,
   DeterminacionResult,
+  GuardarPredioResult,
+  PredioComboOption,
+  PredioCombosResult,
+  VerBajaPredioItem,
+  ReporteDescargoData,
+  ValorPisoResult,
+  PredioPisoGridItem,
+  PredioInstalGridItem,
+  PredioDocGridItem,
+  HistorialBajaCabecera,
+  HistorialPuGridItem,
+  HistorialPisoGridItem,
+  HistorialInstalacionGridItem,
+  HistorialPredioResult,
+  HistorialPredioItem,
 } from './dto/declaracion-jurada.types';
 import { EstadoCuentaRecibosDto } from './dto/estado-cuenta-recibos.dto';
 import { DeudaConsolidadoDto } from './dto/deuda-consolidado.dto';
@@ -58,14 +75,17 @@ import { EliminarContribuyenteDto } from './dto/eliminar-contribuyente.dto';
 import { EliminarRepresentanteDto } from './dto/eliminar-representante.dto';
 import type { SimuladoConvenioDto, GenerarConvenioDto } from './dto/fraccionar.dto';
 import { GuardarHojaResumenDto } from './dto/guardar-hoja-resumen.dto';
+import { GuardarPredioDto } from './dto/guardar-predio.dto';
 import type {
   DeterminacionIpDto,
   DeterminacionArbitriosDto,
 } from './dto/determinacion.dto';
+import { toIsoDateParam } from '../../common/utils/date-utils';
 
 @Injectable()
 export class DeclaracionJuradaService {
   private readonly SP_MCONTRIBUYENTE = 'Rentas.sp_Mcontribuyente';
+  private readonly SP_MCONTRIBUYENTEBAJA = 'Rentas.sp_Mcontribuyentebaja';
   private readonly SP_MREPRESENTANTE = 'Rentas.sp_Mrepresentante';
   private readonly SP_RENTASMAIN = 'Rentas.sp_rentasmain';
   private readonly SP_MRECEPCION = 'Coactivo.SP_Mrecepcion';
@@ -73,7 +93,9 @@ export class DeclaracionJuradaService {
   private readonly SP_VW_MVIAS = 'Rentas.SP_vw_Mvias';
   private readonly SP_CAJA_FRAMEWORK = 'dbo.store_caja_framework';
   private readonly SP_MHRPRED = 'Rentas.sp_MHRpred';
+  private readonly SP_VERBAJA = 'Rentas.sp_Verbaja';
   private readonly SP_LISTA_COMBO = 'Calculo.sp_ListaCombo';
+  private readonly SP_BAJASPREDIO = '[Rentas].[BajasPredio]';
   private readonly logger = new Logger(DeclaracionJuradaService.name);
 
   constructor(private readonly db: DatabaseService) {}
@@ -1916,8 +1938,8 @@ export class DeclaracionJuradaService {
           cuotas: dto.cuotas,
           total_deuda: dto.total_deuda,
           total_inici: dto.total_inici,
-          fec_gen: dto.fec_gen,
-          fec_cuo: dto.fec_cuo,
+          fec_gen: this.toIsoDate(dto.fec_gen),
+          fec_cuo: this.toIsoDate(dto.fec_cuo),
         },
       );
       const rows = (result.recordset ?? []).map((row: unknown) => {
@@ -2183,8 +2205,8 @@ export class DeclaracionJuradaService {
           total_deuda: dto.totalDeuda,
           total_inici: dto.totalInicial,
           operador: dto.operador,
-          fec_gen: dto.fecGen,
-          fec_cuo: dto.fecCuo,
+          fec_gen: this.toIsoDate(dto.fecGen),
+          fec_cuo: this.toIsoDate(dto.fecCuo),
         },
       );
       const cuotasRows = (cuotasResult.recordset ?? []) as Record<string, unknown>[];
@@ -2261,8 +2283,8 @@ export class DeclaracionJuradaService {
           estacion: dto.estacion.toUpperCase(),
           total_deuda: dto.totalDeuda,
           total_inici: dto.totalInicial,
-          fec_gen: dto.fecGen,
-          fec_cuo: dto.fecCuo,
+          fec_gen: this.toIsoDate(dto.fecGen),
+          fec_cuo: this.toIsoDate(dto.fecCuo),
           condicion_id: dto.condicionId,
           varxml: dxml,
           CodResp: dto.codResp,
@@ -2947,6 +2969,7 @@ export class DeclaracionJuradaService {
         codPred: get('cod_pred', 2),
         // Defensa: si el anexo llegara con un sufijo separado por coma, se conserva solo la parte principal.
         anexo: (get('anexo', 3) || '').split(',')[0],
+        sub_anexo: (get('anexo', 3) || '').split(',')[1] || get('sub_anexo', 4) || '',
         direccion: get('direccion', 4),
         areaTerreno: get('area_terreno', 5) || '0',
         porcenPropiedad: get('porcen_propiedad', 6) || '0',
@@ -2956,6 +2979,142 @@ export class DeclaracionJuradaService {
         uso: get('uso', 13),
       };
     });
+  }
+
+
+  /**
+   * Historial de Declaraciones Juradas por predio — sp_rentasmain @buscar=3 (cabecera) + @buscar=9 (grid).
+   */
+  async getHistorialPredio(
+    codigo: string,
+    anno: string,
+    codPred?: string,
+    anexo?: string,
+    subAnexo?: string,
+  ): Promise<HistorialPredioResult> {
+    if (!codigo?.trim()) throw new Error('Código de contribuyente requerido.');
+    const codeTrim = codigo.trim();
+
+    // Cabecera — @buscar=3 (como historicopredioAction)
+    const headerResult = await this.db.executeProcedure<any>(this.SP_RENTASMAIN, {
+      buscar: 3,
+      codigo: codeTrim,
+    });
+    const headerRow = (headerResult.recordset?.[0] ?? {}) as Record<string, unknown>;
+    const hv = Object.values(headerRow).map((x) => String(x ?? '').trim());
+
+    // Grid — SP Rentas.Reporte @busc=1 (legacy historicopredio)
+    const gridResult = await this.db.executeProcedure<any>('[Historial].[Reporte]', {
+      busc: 1,
+      codigo: codeTrim,
+      anno: anno?.trim() ?? '',
+      cod_pred: (codPred ?? '').trim(),
+      anexo: (anexo ?? '').trim(),
+      sub_anexo: (subAnexo ?? '').trim(),
+    });
+    const gridRows = (gridResult.recordset ?? []) as Record<string, unknown>[];
+
+    const rows: HistorialPredioItem[] = gridRows.map((row: any) => {
+      const get = (key: string, fallback = ''): string => {
+        const val = row[key];
+        return val !== undefined && val !== null ? String(val).trim() : fallback;
+      };
+      return {
+        codigo: get('codigo'),
+        cod_pred: get('cod_pred'),
+        anexo: get('anexo'),
+        sub_anexo: get('sub_anexo'),
+        dj_predial: get('dj_nro'),
+        anno: get('anno'),
+        motivo_declaracion: get('Motivo_Declaracion'),
+        condicion_propiedad: get('condicion'),
+        tipo_adquisicion: get('tipo_adquisicion'),
+        fecha: get('fecha_adquisicion'),
+        porc_propiedad: get('porcen_propiedad'),
+        area_terreno: get('area_terreno'),
+        registrado: get('id_estados'),
+        fiscalizado: get('situacion_predio'),
+      };
+    });
+
+    return {
+      header: {
+        codigo: hv[0] ?? codeTrim,
+        nombre: hv[1] ?? '',
+        documento: hv[2] ?? '',
+        direccion: hv[3] ?? '',
+      },
+      rows,
+    };
+  }
+
+  /**
+   * Reporte Declaración Predio (legacy rpto_declaraciondoc) — Rentas.Reporte @busc=11.
+   */
+  async getReportePredio(
+    codigo: string,
+    anno: string,
+    codPred: string,
+    anexo: string,
+    subAnexo: string,
+    djNro?: string,
+  ): Promise<Record<string, unknown>[]> {
+    if (!codigo?.trim()) throw new Error('Código requerido.');
+    const result = await this.db.executeProcedure<any>('Rentas.Reporte', {
+      busc: 11,
+      codigo: codigo.trim(),
+      anno: anno?.trim() ?? '',
+      cod_pred: codPred?.trim() ?? '',
+      anexo: anexo?.trim() ?? '',
+      sub_anexo: subAnexo?.trim() ?? '',
+    });
+    return (result.recordset ?? []) as Record<string, unknown>[];
+  }
+
+
+  /**
+   * Subreporte Documentos Anexos (legacy rpto_subdeclaraciondoc) — Rentas.Reporte @busc=12.
+   */
+  async getSubreporteDocumentos(
+    codigo: string,
+    anno: string,
+    codPred: string,
+    anexo: string,
+    subAnexo: string,
+  ): Promise<Record<string, unknown>[]> {
+    if (!codigo?.trim()) throw new Error('Código requerido.');
+    const result = await this.db.executeProcedure<any>('Rentas.Reporte', {
+      busc: 12,
+      codigo: codigo.trim(),
+      anno: anno?.trim() ?? '',
+      cod_pred: codPred?.trim() ?? '',
+      anexo: anexo?.trim() ?? '',
+      sub_anexo: subAnexo?.trim() ?? '',
+    });
+    return (result.recordset ?? []) as Record<string, unknown>[];
+  }
+
+
+  async getSubreporteCaracteristicas(
+    codigo: string, anno: string, codPred: string, anexo: string, subAnexo: string,
+  ): Promise<Record<string, unknown>[]> {
+    if (!codigo?.trim()) throw new Error('Código requerido.');
+    const result = await this.db.executeProcedure<any>('Rentas.Reporte', {
+      busc: 13, codigo: codigo.trim(), anno: anno?.trim() ?? '',
+      cod_pred: codPred?.trim() ?? '', anexo: anexo?.trim() ?? '', sub_anexo: subAnexo?.trim() ?? '',
+    });
+    return (result.recordset ?? []) as Record<string, unknown>[];
+  }
+
+  async getSubreporteInstalaciones(
+    codigo: string, anno: string, codPred: string, anexo: string, subAnexo: string,
+  ): Promise<Record<string, unknown>[]> {
+    if (!codigo?.trim()) throw new Error('Código requerido.');
+    const result = await this.db.executeProcedure<any>('Rentas.Reporte', {
+      busc: 14, codigo: codigo.trim(), anno: anno?.trim() ?? '',
+      cod_pred: codPred?.trim() ?? '', anexo: anexo?.trim() ?? '', sub_anexo: subAnexo?.trim() ?? '',
+    });
+    return (result.recordset ?? []) as Record<string, unknown>[];
   }
 
   // ═══ Hoja de Resumen predial (Rentas.sp_MHRpred) ═══════════
@@ -3198,5 +3357,1088 @@ export class DeclaracionJuradaService {
     }
 
     return { success: true, mensaje: ultimoMensaje || 'Se generaron los arbitrios correctamente.' };
+  }
+
+  // ═══ Predio — guardar (legacy Rentas/gpredios → gprediosAction) ═══
+
+  /** Fecha DD/MM/YYYY (o YYYY-MM-DD del input date) → YYYYMMDD, no ambiguo para SQL Server.
+   * Acepta también objetos Date y strings serializados de Date ("Wed Sep 23 2026...");
+   * lo inválido/vacío/"null" va como '' y se loguea con warn (nunca crudo al SP).
+   * Es idempotente: un YYYYMMDD ya normalizado se devuelve igual. */
+  private toIsoDate(v: string | Date | undefined | null): string {
+    return toIsoDateParam(v, (raw) =>
+      this.logger.warn(`toIsoDate: fecha inválida para SP ("${raw}") → se envía ''.`),
+    );
+  }
+
+  /**
+   * Guardar predio — replica gprediosAction del legado:
+   *   Stp_correlativo → claves por tipo_mov → DatosIniciales_pu →
+   *   loop pisos (ingreso_piso) → loop instalaciones (sp_MInstalacion) →
+   *   loop documentos (sp_Docu) → ingre_predio → ingre_predio_calculanios.
+   * tipo_mov: N=nuevo · I=inscripción · E=editar · M=motivo-cambio (Condominio).
+   */
+  async guardarPredio(dto: GuardarPredioDto): Promise<GuardarPredioResult> {
+    const t = (v: unknown): string => String(v ?? '').trim();
+    const num = (v: string): string => t(v).replace(/,/g, '');
+    const check = (v: string): string =>
+      v === '1' || v.toLowerCase() === 'true' || v.toLowerCase() === 'on' ? '1' : '';
+
+    const codigo = t(dto.codigo);
+    const anno = t(dto.anno);
+    if (!codigo) throw new Error('Código de contribuyente requerido.');
+    if (!anno) throw new Error('Período requerido.');
+    const operador = t(dto.operador);
+    const estacion = t(dto.estacion);
+
+    // 1) Correlativo de la DJ (@dj_predial)
+    const cor = await this.db.executeProcedure<any>('Rentas.Stp_correlativo', { id: '06' });
+    const djPredial = String(Object.values(cor.recordset?.[0] ?? {})[0] ?? '').trim();
+
+    // 2) Resolución de claves según tipo de movimiento (switch del legado)
+    const tipoMov = t(dto.tipo_mov) || 'N';
+    let codPred = t(dto.hd_idanexo);
+    let anexo = t(dto.hd_anexo);
+    let subAnexo = t(dto.hd_subanexo);
+    switch (tipoMov) {
+      case 'N':
+        codPred = '';
+        anexo = '';
+        subAnexo = '';
+        break;
+      case 'I':
+        subAnexo = '';
+        break;
+      case 'M':
+        await this.db.executeProcedure<any>('[Rentas].Condominio', {
+          codigo: t(dto.hd_codigo2),
+          anno,
+          cod_pred: t(dto.hd_idanexo2),
+          anexo: t(dto.hd_anexo2),
+          sub_anexo: t(dto.hd_subanexo2),
+          id_motivo_descargo: '--',
+          porcen_propiedad: t(dto.txtPorcenPropiedad),
+          porc_construccion: t(dto.txtPorcenConstruccion),
+          fech_transparencia: this.toIsoDate(dto.txtFecTrans),
+          id_notaria: t(dto.cb_notaria),
+          codigo_adquiriente: codigo,
+          direccion_predio: '',
+          operador,
+          estacion2: estacion,
+          DJ_PREDIAL: djPredial,
+        });
+        break;
+    }
+
+    // 3) Claves definitivas (DatosIniciales_pu genera predio/anexo/sub_anexo nuevos)
+    const ini = await this.db.executeProcedure<any>('Rentas.DatosIniciales_pu', {
+      msquery: 1,
+      codigo,
+      cod_pred: codPred,
+      ano_s: anno,
+      anexo,
+      sub_anexo: subAnexo,
+    });
+    const iniVals = Object.values(ini.recordset?.[0] ?? {});
+    codPred = String(iniVals[0] ?? '').trim();
+    anexo = String(iniVals[1] ?? '').trim();
+    subAnexo = String(iniVals[2] ?? '').trim();
+
+    // 4) Construcciones (grilla Const → [Rentas].[ingreso_piso])
+    if (t(dto.cmbEstadoConst) !== '01' && (dto.Const ?? []).length > 0) {
+      for (const p of dto.Const ?? []) {
+        const mesCons = t(p.mescons) === '' ? '01' : t(p.mescons);
+        const antiguedad = (parseInt(anno, 10) || 0) - (parseInt(t(p.aniocons), 10) || 0);
+        await this.db.executeProcedure<any>('[Rentas].[ingreso_piso]', {
+          codigo,
+          anno,
+          cod_pred: codPred,
+          anexo,
+          sub_anexo: subAnexo,
+          item_piso: t(p.idpisos),
+          niv_piso: t(p.nropiso),
+          tipo_nivel: t(p.cidindi),
+          mes_cons: mesCons,
+          ano_cons: t(p.aniocons),
+          anno_antig: antiguedad,
+          id_clafica: t(p.iddepcl),
+          id_materia: t(p.iddepma),
+          id_estados: t(p.iddepco),
+          cate_muros: t(p.esmuros),
+          cate_techo: t(p.estecho),
+          cate_pisos: t(p.acapiso),
+          cate_puert: t(p.acapuer),
+          cate_reves: t(p.acareve),
+          cate_banno: t(p.acabanio),
+          cate_insel: t(p.instele),
+          area_const: num(p.arconde),
+          area_comun: num(p.uconant),
+          umedida: t(p.umedida),
+          nestado: 1,
+          operador,
+          estacion,
+          referencia: t(p.referencia),
+          dj_predial: djPredial,
+        });
+      }
+    }
+
+    // 5) Instalaciones (grilla Instal → Rentas.sp_MInstalacion)
+    for (const inst of dto.Instal ?? []) {
+      const idInst = t(inst.idinsta);
+      const codi1 = t(dto.hd_codigo);
+      const codi2 = t(dto.hd_codigo2);
+      const busc = idInst.length > 0 ? (codi1 !== codi2 && codi2 !== '' ? 1 : 2) : 1;
+      await this.db.executeProcedure<any>('Rentas.sp_MInstalacion', {
+        codigo,
+        anno,
+        cod_pred: codPred,
+        anexo,
+        sub_anexo: subAnexo,
+        busc,
+        id_tbl: idInst,
+        id_instala: t(inst.cidinst),
+        mes_cons: t(inst.mescons),
+        ano_cons: t(inst.aniocons),
+        anno_antig: 1,
+        id_clafica: t(inst.iddepcl),
+        id_materia: t(inst.iddepma),
+        id_estados: t(inst.iddepco),
+        largo: t(inst.dmlargo),
+        ancho: t(inst.dmancho),
+        alto: t(inst.dmaltos),
+        cantidad: num(inst.protota),
+        valor_instalacion: num(inst.vdescri),
+        insta_afect: 1,
+        uni_medida: t(inst.vunimed),
+        referencia: t(inst.referenciainst),
+        dj_predial: djPredial,
+        operador,
+        estacion,
+      });
+    }
+
+    // 6) Documentos (grilla Doc → [Rentas].[sp_Docu]; msquery 1=alta, 2=edición, 3=baja)
+    //    Nota: el catálogo de documentos de sustento del legado aún no está
+    //    migrado; se omiten las filas sin iddoc para no arriesgar una FK inválida.
+    for (const doc of dto.Doc ?? []) {
+      const idDoc = t(doc.iddoc);
+      const idReg = t(doc.idreg);
+      const idRegNum = parseInt(idReg, 10) || 0;
+      const detalle = t(doc.docdetalle);
+      if (idRegNum > 0 && detalle.length === 0) {
+        await this.db.executeProcedure<any>('[Rentas].[sp_Docu]', {
+          msquery: 3,
+          id: idReg,
+          dj_predial: djPredial,
+        });
+      } else if (detalle.length > 0 && idDoc !== '') {
+        await this.db.executeProcedure<any>('[Rentas].[sp_Docu]', {
+          msquery: idRegNum === 0 ? 1 : 2,
+          id: idReg,
+          codigo,
+          anno,
+          cod_pred: codPred,
+          anexo,
+          sub_anexo: subAnexo,
+          docu_sustento_id: idDoc,
+          detalle,
+          dj_predial: djPredial,
+        });
+      }
+    }
+
+    // 7) Datos principales del predio (Rentas.ingre_predio)
+    const afArb = t(dto.txtArbAfecto) === '' ? 0 : check(t(dto.txtArbAfecto));
+    const ins = await this.db.executeProcedure<any>('Rentas.ingre_predio', {
+      codigo,
+      anno,
+      cod_pred: codPred,
+      tipo_pred: t(dto.cbtipopredio),
+      anexo,
+      sub_anexo: subAnexo,
+      id_urba: '0001',
+      id_via: t(dto.txtCvia),
+      num_manz: t(dto.txtMza).toUpperCase(),
+      num_call: t(dto.txtNro).toUpperCase(),
+      num_depa: t(dto.txtDpto).toUpperCase(),
+      num_lote: t(dto.txtLte).toUpperCase(),
+      sub_lote: t(dto.txtSubLte).toUpperCase(),
+      referenc: t(dto.txtDir).toUpperCase(),
+      id_condi: t(dto.cmbCondicion),
+      id_uso: t(dto.cmbUso),
+      id_estado: t(dto.cmbEstadoConst),
+      id_tipo: t(dto.cmbTipPredio),
+      suministro_luz: t(dto.txtLuz).toUpperCase(),
+      suministro_agua: t(dto.txtAgua).toUpperCase(),
+      lice_cons: check(dto.chbLicencia),
+      conf_obra: check(dto.chbConformidad),
+      decl_fabr: check(dto.chbDeclaracionFab),
+      num_pisos: 0,
+      num_condo: t(dto.txtNroCond),
+      fec_compr: this.toIsoDate(dto.txtFecAdqui),
+      fec_venta: this.toIsoDate(dto.txtFecTrans),
+      venta_pre: check(dto.chbVendido),
+      area_terr: num(dto.txtAreaTerreno),
+      area_comun: num(dto.txtAreaComun),
+      porcen_pro: t(dto.txtPorcenPropiedad),
+      porcen_con: t(dto.txtPorcenConstruccion),
+      arancel: 0,
+      frontis: num(dto.txtFrontis),
+      afec_pred: check(dto.chAfectoPred),
+      observacion: t(dto.txtObs).toUpperCase(),
+      nestado: 1,
+      afec_arbitrios: afArb,
+      arbitrios_desde: t(dto.cbAfectMesDesde),
+      arbitrios_hasta: t(dto.cbAfectMesHasta),
+      afec_serenazgo: afArb,
+      serenazgo_desde: t(dto.cbAfectMesDesde),
+      serenazgo_hasta: t(dto.cbAfectMesHasta),
+      arb_observacion: t(dto.txtArbObs).toUpperCase(),
+      ubi_par: t(dto.txtUbiPar).toUpperCase(),
+      area_ocupada: num(dto.txtAreaUso),
+      recalculo_ip: t(dto.chCalPredial),
+      recalculo_arb: t(dto.chCalArbitrio),
+      cond_espe_documento: t(dto.txtDocEspecial).toUpperCase(),
+      cond_espe_nrodocumento: t(dto.txtNroDocEspecial).toUpperCase(),
+      cond_espe_fecha: this.toIsoDate(dto.txtFechDocEspecial),
+      cond_espe_fecha_inicio: this.toIsoDate(dto.txtFechDocEspecialInicial),
+      cond_espe_fecha_fin: this.toIsoDate(dto.txtFechDocEspecialFinal),
+      situacion_predio_id: t(dto.cmbSituacionPredio),
+      situacion_documento: t(dto.txtSituacionDocumento).toUpperCase(),
+      situacion_nrodocumento: t(dto.txtSituacionNroDoc).toUpperCase(),
+      situacion_fecha: this.toIsoDate(dto.txtSituacionFechDoc),
+      fecha_fiscalizacion: this.toIsoDate(dto.txtFechaFisca),
+      nro_fiscalizacion: t(dto.txtNroFisca).toUpperCase(),
+      tipo_edificio_id: t(dto.cmbTipoEdificio),
+      nombre_edificio: t(dto.txtNomEdificio).toUpperCase(),
+      piso: t(dto.txtPiso).toUpperCase(),
+      numero_interno: t(dto.txtNumeroInterno).toUpperCase(),
+      letra_interno: t(dto.txtLetraInterno).toUpperCase(),
+      tipo_ingreso_id: t(dto.cmbTipoIngreso),
+      nombre_ingreso: t(dto.txtNomIngreso).toUpperCase(),
+      tipo_agrupamiento_id: t(dto.cmbTipoAgrupamiento),
+      nombre_agrupamiento: t(dto.txtNomAgrupamiento).toUpperCase(),
+      observacionpredio: t(dto.txtObservacionPredio).toUpperCase(),
+      numero2: t(dto.txtNro2).toUpperCase(),
+      letra: t(dto.txtLetra).toUpperCase(),
+      letra2: t(dto.txtLetra2).toUpperCase(),
+      tipo_interior_id: t(dto.cmbInterior),
+      fondo: num(dto.txtFondo),
+      cond_espe_predio_id: t(dto.cmbCondicionpredio),
+      uso_limpieza: t(dto.cb_limpieza),
+      uso_barrido: t(dto.cb_barrido),
+      uso_parque: t(dto.cb_parque),
+      uso_serenazgo: t(dto.cb_serenazgo),
+      operador,
+      estacion,
+      id_tipoadqui: t(dto.cmbTipoAdqui),
+      id_tipo_motivo: t(dto.cmbMotivoReg),
+      motivo_declaracion_id: t(dto.cmbMotivoDec),
+      dj_predial: djPredial,
+    });
+    const insMsg = String(Object.values(ins.recordset?.[0] ?? {})[0] ?? '').trim();
+
+    // 8) Recálculo de años del predio
+    const rec = await this.db.executeProcedure<any>('Rentas.ingre_predio_calculanios', {
+      codigo,
+      anno,
+      operador,
+      estacion,
+    });
+    const recMsg = String(Object.values(rec.recordset?.[0] ?? {})[0] ?? '').trim();
+
+    const mensaje =
+      [insMsg, recMsg].filter(Boolean).join(' — ') || 'Predio registrado correctamente.';
+
+    return { success: true, mensaje, codigo, codPred, anexo, subAnexo };
+  }
+
+  /**
+   * Combos del formulario de predio — replica los selects que pinta
+   * prediosAction del legado:
+   *  · rentas.sp_predio @msquery=1..13 (@tipo_predi=1 en 1,2,3,4,5,7,9)
+   *  · Rentas.sp_rentasmain @buscar=8 notarías, @buscar=7 motivo descargo
+   *  · Rentas.sp_UsoArbitrios @msquery=1, @tipo=11.01..11.04 (usos arbitrios)
+   *  · Rentas.caracteristicas_piso @msquery=1..5 (combos de pisos)
+   *  · Rentas.sp_MInstalacion @busc=5 (detalle de instalaciones)
+   */
+  async getPredioCombos(anno: string): Promise<PredioCombosResult> {
+    // Dedupe by value (keep first occurrence): catalog SPs can return repeated ids
+    // (e.g. '00') and React <option key={o.value}> requires unique values.
+    const map = (recordset: any[] | undefined): PredioComboOption[] => {
+      const seen = new Set<string>();
+      const out: PredioComboOption[] = [];
+      for (const row of recordset ?? []) {
+        const vals = Object.values(row);
+        const value = String(vals[0] ?? '').trim();
+        if (seen.has(value)) continue;
+        seen.add(value);
+        out.push({ value, label: String(vals[1] ?? '').trim() });
+      }
+      return out;
+    };
+
+    const predio = (msquery: number, conTipoPredi: boolean) =>
+      this.db.executeProcedure<any>('rentas.sp_predio',
+        conTipoPredi ? { msquery, tipo_predi: 1 } : { msquery });
+    const rentasmain = (buscar: number) =>
+      this.db.executeProcedure<any>(this.SP_RENTASMAIN, { buscar });
+    const usoArb = (tipo: string) =>
+      this.db.executeProcedure<any>('Rentas.sp_UsoArbitrios', { msquery: 1, tipo, anno: anno ?? '' });
+    const carac = (msquery: number) =>
+      this.db.executeProcedure<any>('Rentas.caracteristicas_piso', { msquery });
+
+    const [
+      estadoConst, tipPredio, uso, condicion, tipoAdqui, motivoReg, interior,
+      motivoDec, condicionPredio, situacionPredio, tipoEdificio, tipoIngreso,
+      tipoAgrupamiento, notaria, motivoDescargo,
+      limpieza, barrido, parque, serenazgo,
+      tipoNivel, material, estado, clasifica, unidad,
+      detInst,
+    ] = await Promise.all([
+      predio(1, true),   // cmbEstadoConst
+      predio(2, true),   // cmbTipPredio
+      predio(3, true),   // cmbUso
+      predio(4, true),   // cmbCondicion
+      predio(5, true),   // cmbTipoAdqui
+      predio(6, false),  // cmbMotivoReg
+      predio(7, true),   // cmbInterior
+      predio(8, false),  // cmbMotivoDec
+      predio(9, true),   // cmbCondicionpredio
+      predio(10, false), // cmbSituacionPredio
+      predio(11, false), // cmbTipoEdificio
+      predio(12, false), // cmbTipoIngreso
+      predio(13, false), // cmbTipoAgrupamiento
+      rentasmain(8),     // cb_notaria
+      rentasmain(7),     // cb_motivodescargo
+      usoArb('11.01'),   // cb_limpieza
+      usoArb('11.02'),   // cb_barrido
+      usoArb('11.03'),   // cb_parque
+      usoArb('11.04'),   // cb_serenazgo
+      carac(1),          // cb_tiponivel
+      carac(2),          // cb_material / id_materia_i
+      carac(3),          // cb_estado / id_estados_i
+      carac(4),          // cb_clasifica / id_clafica_i
+      carac(5),          // cb_unidad_medida
+      this.db.executeProcedure<any>('Rentas.sp_MInstalacion', { busc: 5, anno: anno ?? '' }),
+    ]);
+
+    return {
+      cmbUso: map(uso.recordset),
+      cmbTipPredio: map(tipPredio.recordset),
+      cmbEstadoConst: map(estadoConst.recordset),
+      cmbCondicion: map(condicion.recordset),
+      cmbCondicionpredio: map(condicionPredio.recordset),
+      cmbInterior: map(interior.recordset),
+      cmbSituacionPredio: map(situacionPredio.recordset),
+      cmbTipoEdificio: map(tipoEdificio.recordset),
+      cmbTipoIngreso: map(tipoIngreso.recordset),
+      cmbTipoAgrupamiento: map(tipoAgrupamiento.recordset),
+      cmbTipoAdqui: map(tipoAdqui.recordset),
+      cmbMotivoReg: map(motivoReg.recordset),
+      cmbMotivoDec: map(motivoDec.recordset),
+      cb_notaria: map(notaria.recordset),
+      cb_motivodescargo: map(motivoDescargo.recordset),
+      cb_limpieza: map(limpieza.recordset),
+      cb_barrido: map(barrido.recordset),
+      cb_parque: map(parque.recordset),
+      cb_serenazgo: map(serenazgo.recordset),
+      cb_tiponivel: map(tipoNivel.recordset),
+      cb_material: map(material.recordset),
+      cb_estado: map(estado.recordset),
+      cb_clasifica: map(clasifica.recordset),
+      cb_unidad_medida: map(unidad.recordset),
+      detalle_inst: map(detInst.recordset),
+    };
+  }
+
+  // ═══ Predio — post-save grid reload (Primera Inscripción modal) ═══
+  // Legacy Zend controllers: gridpisosAction / gridinstalAction / griddocAction.
+  // mssql recordset rows are keyed by column name, but the exact column names
+  // are not documented; the legacy read fields positionally, so we do the
+  // same via Object.values(row)[i] (property order follows column order).
+  // Legacy utf8_encode calls are no-ops here (JS strings are unicode), and
+  // trim() is applied exactly where the legacy controller trimmed.
+
+  /**
+   * Pisos / Construcciones grid — [Rentas].[sp_VistaPred] @msquery=2.
+   * Positional map (legacy gridpisosAction):
+   *   idpisos=[4], cidindi=[30], nropiso=[5], iddepcl=[9], iddepma=[10],
+   *   iddepco=[11], esmuros=[12], estecho=[13], acapiso=[14], acapuer=[15],
+   *   acareve=[16], acabanio=[17], instele=[18], arconde=[24] (no trim),
+   *   mescons=[6], aniocons=[7], uconant=[26] (no trim), referencia=[34],
+   *   umedida=[35]. (tipon=[30] skipped: duplicate of cidindi.)
+   */
+  async getPredioPisos(
+    codigo: string,
+    anno: string,
+    codPred: string,
+    anexo: string,
+    subAnexo: string,
+  ): Promise<PredioPisoGridItem[]> {
+    const result = await this.db.executeProcedure<any>('[Rentas].[sp_VistaPred]', {
+      msquery: 2,
+      codigo: codigo ?? '',
+      anno: anno ?? '',
+      cod_pred: codPred ?? '',
+      anexo: anexo ?? '',
+      sub_anexo: subAnexo ?? '',
+    });
+    return (result.recordset ?? []).map((row: any) => {
+      const v = Object.values(row);
+      const t = (i: number) => String(v[i] ?? '').trim();
+      const s = (i: number) => String(v[i] ?? ''); // legacy did NOT trim these
+      return {
+        idpisos: t(4),
+        cidindi: t(30),
+        nropiso: t(5),
+        iddepcl: t(9),
+        iddepma: t(10),
+        iddepco: t(11),
+        esmuros: t(12),
+        estecho: t(13),
+        acapiso: t(14),
+        acapuer: t(15),
+        acareve: t(16),
+        acabanio: t(17),
+        instele: t(18),
+        arconde: s(24),
+        mescons: t(6),
+        aniocons: t(7),
+        uconant: s(26),
+        referencia: t(34),
+        umedida: t(35),
+      };
+    });
+  }
+
+  /**
+   * Piso valuation — legacy Rentas/valorpisoAction → rentas.calculo_piso @msquery=1.
+   * The SP receives 16 params (no @mes: the legacy controller read it but never passed it).
+   * Legacy echoed "*" when area_comun was empty; here that maps to { incomplete: true }.
+   * Positional map (legacy echo): col[0]=valorUnit, col[1]=incremento,
+   * col[2]=depreciacion, col[3]=valorUnitDeprec, col[4]=valorAreaConst.
+   */
+  async getValorPiso(p: {
+    nivel: string; idDepcla: string; idDepmat: string; idDepcon: string;
+    muros: string; techos: string; pisos: string; puertas: string;
+    revestim: string; banos: string; instElect: string;
+    areaConst: string; areaComun: string; anoc: string; anno: string;
+  }): Promise<ValorPisoResult | { incomplete: true }> {
+    if (!p.areaComun?.trim()) return { incomplete: true };
+    const areaConst = Number(String(p.areaConst).replace(/,/g, '')) || 0;
+    const result = await this.db.executeProcedure<any>('rentas.calculo_piso', {
+      msquery: 1,
+      nivel: p.nivel,
+      id_depcla: p.idDepcla,
+      id_depmat: p.idDepmat,
+      id_depcon: p.idDepcon,
+      muros: p.muros,
+      techos: p.techos,
+      pisos: p.pisos,
+      puertas: p.puertas,
+      revestim: p.revestim,
+      banos: p.banos,
+      inst_elect: p.instElect,
+      _area_const: areaConst,
+      ano_c: p.anoc,
+      estado: 1,
+      anno: p.anno,
+      area_comun: p.areaComun,
+    });
+    const v = Object.values(result.recordset?.[0] ?? {});
+    return {
+      valorUnit: String(v[0] ?? ''),
+      incremento: String(v[1] ?? ''),
+      depreciacion: String(v[2] ?? ''),
+      valorUnitDeprec: String(v[3] ?? ''),
+      valorAreaConst: String(v[4] ?? ''),
+    };
+  }
+
+  /**
+   * Instalaciones grid — [Rentas].[sp_MInstalacion] @busc=4.
+   * Positional map (legacy gridinstalAction):
+   *   idinsta=[0], cidindi=[28], cidinst=[4], cidnomb=[26], mescons=[5],
+   *   aniocons=[6], iddepcl=[8], iddepma=[9], iddepco=[10], dmlargo=[12],
+   *   dmancho=[13], dmaltos=[11], protota=[15], vunimed=[27],
+   *   vdescri=[20] (no trim), referenciainst=[29] (no trim).
+   */
+  async getPredioInstalaciones(
+    codigo: string,
+    anno: string,
+    codPred: string,
+    anexo: string,
+    subAnexo: string,
+  ): Promise<PredioInstalGridItem[]> {
+    const result = await this.db.executeProcedure<any>('[Rentas].[sp_MInstalacion]', {
+      busc: 4,
+      codigo: codigo ?? '',
+      anno: anno ?? '',
+      cod_pred: codPred ?? '',
+      anexo: anexo ?? '',
+      sub_anexo: subAnexo ?? '',
+    });
+    return (result.recordset ?? []).map((row: any) => {
+      const v = Object.values(row);
+      const t = (i: number) => String(v[i] ?? '').trim();
+      const s = (i: number) => String(v[i] ?? ''); // legacy did NOT trim these
+      return {
+        idinsta: t(0),
+        cidindi: t(28),
+        cidinst: t(4),
+        cidnomb: t(26),
+        mescons: t(5),
+        aniocons: t(6),
+        iddepcl: t(8),
+        iddepma: t(9),
+        iddepco: t(10),
+        dmlargo: t(12),
+        dmancho: t(13),
+        dmaltos: t(11),
+        protota: t(15),
+        vunimed: t(27),
+        vdescri: s(20),
+        referenciainst: s(29),
+      };
+    });
+  }
+
+  /**
+   * Documentos grid — [Rentas].[sp_Docu] @msquery=4.
+   * Positional map (legacy griddocAction):
+   *   iddoc=[0], idreg=[1], docnombre=[2], docdetalle=[3] (all trimmed).
+   */
+  async getPredioDocumentos(
+    codigo: string,
+    anno: string,
+    codPred: string,
+    anexo: string,
+    subAnexo: string,
+  ): Promise<PredioDocGridItem[]> {
+    const result = await this.db.executeProcedure<any>('rentas.sp_Docu', {
+      msquery: 4,
+      codigo: codigo ?? '',
+      anno: anno ?? '',
+      cod_pred: codPred ?? '',
+      anexo: anexo ?? '',
+      sub_anexo: subAnexo ?? '',
+    });
+    return (result.recordset ?? []).map((row: any) => {
+      const v = Object.values(row);
+      const t = (i: number) => String(v[i] ?? '').trim();
+      return {
+        iddoc: t(0),
+        idreg: t(1),
+        docnombre: t(2),
+        docdetalle: t(3),
+      };
+    });
+  }
+
+  // ═══ Buscador de Adquirientes (Baja de Predio) — Rentas.sp_Mcontribuyentebaja ═══
+  // Legacy: frmbusbajapre popup + consultaAction (gridBajapred).
+  // Two calls with identical criteria: @busc=6 → total, @busc=5 + @inicio/@final → rows.
+  // Legacy pagination: start=((page-1)*limit)+1, end=start+limit-1.
+  // Positional mapping (muestraDatosBajaPred): 0 codigo, 3 documento,
+  // 4+5+6 nombres, 15 direccion, 25 tipodoc, 26 tipopersona, 27 subpersona.
+  async buscarAdquirientesGrid(
+    params: BuscarAdquirientesParams,
+  ): Promise<PaginatedResponse<AdquirienteGridItem>> {
+    const page = Math.max(1, params.page || 1);
+    const pageSize = Math.min(100, Math.max(1, params.limit || 10));
+    const inicio = (page - 1) * pageSize + 1;
+    const final = inicio + pageSize - 1;
+
+    const baseParams = {
+      codigo: params.codigo || '',
+      nombres: params.nombres || '',
+      paterno: params.paterno || '',
+      materno: params.materno || '',
+      razon: params.razon || '',
+      num_doc: params.num_doc || '',
+      tipo_busqueda: params.tipo_busqueda ?? '',
+    };
+
+    const totalResult = await this.db.executeProcedure<any>(
+      this.SP_MCONTRIBUYENTEBAJA,
+      { ...baseParams, busc: 6 },
+    );
+    const totalRow = totalResult.recordset?.[0];
+    const total = totalRow ? Number(Object.values(totalRow)[0]) : 0;
+
+    const rowsResult = await this.db.executeProcedure<any>(
+      this.SP_MCONTRIBUYENTEBAJA,
+      { ...baseParams, busc: 5, inicio: String(inicio), final: String(final) },
+    );
+
+    const data: AdquirienteGridItem[] = (rowsResult.recordset || []).map(
+      (row: any) => {
+        const v = Object.values(row).map((x) => String(x ?? '').trim());
+        const get = (i: number) => v[i] ?? '';
+        return {
+          codigo: get(0),
+          nombres: [get(4), get(5), get(6)].filter(Boolean).join(' '),
+          documento: get(3),
+          direccion: get(15),
+          tipodoc: get(25),
+          tipopersona: get(26),
+          subpersona: get(27),
+        };
+      },
+    );
+
+    const totalPages = total > 0 ? Math.ceil(total / pageSize) : 0;
+    return { data, total, page, pageSize, totalPages };
+  }
+
+  // ═══ Baja de Predio (descargo) — [Rentas].[BajasPredio] ═══════════
+  // Legacy: bajapredioAction controller + frmbajapredio view + bajapredio.js
+  //   Combos: Rentas.sp_rentasmain @buscar=7 motivos, @buscar=8 notarias
+  //   Guardado: [Rentas].[BajasPredio] @buscar 4 if motivo==17 else 1
+
+  async getMotivoDescargoCombo(): Promise<{ value: string; label: string }[]> {
+    const result = await this.db.executeProcedure<any>(this.SP_RENTASMAIN, { buscar: 7 });
+    return (result.recordset ?? []).map((row: any) => {
+      const vals = Object.values(row);
+      return { value: String(vals[0] ?? '').trim(), label: String(vals[1] ?? '').trim() };
+    });
+  }
+
+  async getNotariaCombo(): Promise<{ value: string; label: string }[]> {
+    const result = await this.db.executeProcedure<any>(this.SP_RENTASMAIN, { buscar: 8 });
+    return (result.recordset ?? []).map((row: any) => {
+      const vals = Object.values(row);
+      return { value: String(vals[0] ?? '').trim(), label: String(vals[1] ?? '').trim() };
+    });
+  }
+
+  /**
+   * Baja / descargo de predio — [Rentas].[BajasPredio]
+   * Params mirror the legacy Zend controller exactly (order matters for SP
+   * diagnostics but we pass by name). When id_motivo_descargo==17 the eight
+   * optional fields are omitted (single-acquirer reassignment path).
+   * After the SP succeeds, recalculates predial+arbitrios for every year
+   * from anno+1 to current year, reusing existing SP helpers.
+   */
+  async bajaPredio(dto: {
+    codigo: string;
+    anno: string;
+    cod_pred: string;
+    anexo: string;
+    sub_anexo: string;
+    direccion_predio?: string;
+    id_motivo_descargo: string;
+    porc_propiedad?: string;
+    observacion?: string;
+    fech_transparencia?: string;
+    id_notaria?: string;
+    codigo_adquiriente?: string;
+    operador?: string;
+    estacion?: string;
+    usuario?: string;
+    estacion2?: string;
+    tipo_pred?: string;
+  }): Promise<{ success: boolean; mensaje: string }> {
+    const codigo = String(dto.codigo ?? '').trim();
+    const anno = String(dto.anno ?? '').trim();
+    const codPred = String(dto.cod_pred ?? '').trim();
+    if (!codigo) throw new Error('Código de contribuyente requerido.');
+    if (!anno) throw new Error('Año requerido.');
+    if (!codPred) throw new Error('Código de predio requerido.');
+
+    const motivo = String(dto.id_motivo_descargo ?? '').trim();
+    if (!motivo) throw new Error('Motivo de descargo requerido.');
+
+    const operador = String(dto.operador || dto.usuario || '').trim();
+    const estacion = String(dto.estacion || dto.estacion2 || '').trim();
+    const isReasignacion = motivo === '17';
+    const buscar = isReasignacion ? 4 : 1;
+
+    // Normalize anexo handling: legacy txtanexo="anexo-sub_anexo"
+    const anexo = String(dto.anexo ?? '').trim();
+    const subAnexo = String(dto.sub_anexo ?? '').trim();
+
+    const baseParams: Record<string, unknown> = {
+      buscar,
+      codigo,
+      anno,
+      cod_pred: codPred,
+      anexo,
+      sub_anexo: subAnexo,
+      usuario: operador,
+      estacion,
+      tipo_pred: String(dto.tipo_pred ?? '1').trim() || '1',
+      id_motivo_descargo: motivo,
+    };
+
+    // Only send optional fields when motivo!=17 (legacy bajapredioAction
+    // only appends @direccion_predio/@operador/@estacion2 in that branch)
+    if (!isReasignacion) {
+      baseParams.direccion_predio = String(dto.direccion_predio ?? '').trim();
+      baseParams.operador = operador;
+      baseParams.estacion2 = estacion;
+      baseParams.porc_propiedad = String(dto.porc_propiedad ?? '').trim();
+      baseParams.observacion = String(dto.observacion ?? '').trim();
+      baseParams.fech_transparencia = String(dto.fech_transparencia ?? '').trim();
+      baseParams.id_notaria = String(dto.id_notaria ?? '').trim();
+      baseParams.codigo_adquiriente = String(dto.codigo_adquiriente ?? '').trim();
+    }
+
+    const result = await this.db.executeProcedure<any>('[Rentas].[BajasPredio]', baseParams as Record<string, string>);
+    const row = result.recordset?.[0] as Record<string, unknown> | undefined;
+    const mensaje = row ? String(Object.values(row)[0] ?? '').trim() : '';
+    const esError = /no se pudo|error|no existe|no encontrad|duplicad|problema/i.test(mensaje);
+    if (esError || !mensaje) {
+      return { success: false, mensaje: mensaje || 'No se pudo registrar la baja del predio.' };
+    }
+
+    // ── Recálculo multi-año: anno+1 .. current year ──
+    const annoNum = parseInt(anno, 10);
+    const currentYear = new Date().getFullYear();
+    if (Number.isFinite(annoNum) && annoNum < currentYear) {
+      for (let y = annoNum + 1; y <= currentYear; y++) {
+        const yStr = String(y);
+        try {
+          await this.db.executeProcedure<any>('[Rentas].[predial_determinar]', {
+            msquery: 1,
+            codigo,
+            anno: yStr,
+            calculo: '1',
+            operador,
+            estacion,
+            tipo_calculo: '1',
+          });
+        } catch (e) {
+          this.logger.warn(`[bajaPredio] predial_determinar ${yStr} failed: ${e instanceof Error ? e.message : String(e)}`);
+        }
+        try {
+          await this.db.executeProcedure<any>('Rentas.Calculo_inquilinos', {
+            codigo,
+            ano_s: yStr,
+            cod_pred: codPred,
+            anexo,
+            sub_anexo: subAnexo,
+            operador,
+            estacion,
+            tipo_calculo: '1',
+          });
+        } catch (e) {
+          this.logger.warn(`[bajaPredio] Calculo_inquilinos ${yStr} failed: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      }
+    }
+
+    return { success: true, mensaje };
+  }
+
+  // ═══ Ver Baja Predio — frmbajapredio (mantbajapre/consulta legacy) ═══
+
+  /**
+   * Predios dados de baja del contribuyente — exec Rentas.sp_Verbaja @busc=5, @codigo.
+   * Positional map from the legacy SELECT (legacy used utf8_encode, a no-op
+   * here): 0 codigo, 1 anno, 2 cod_pred, 4 anexo, 5 sub_anexo, 12 direccion,
+   * 9 fechdescargo, 13 fech_declaracion, 19 dj_predial, 20 codhistorial.
+   */
+  async getBajasPredio(codigo: string): Promise<VerBajaPredioItem[]> {
+    const result = await this.db.executeProcedure<any>(this.SP_VERBAJA, {
+      busc: 5,
+      codigo: String(codigo ?? '').trim(),
+    });
+    return (result.recordset ?? []).map((row: any) => {
+      const v = Object.values(row).map((x) => String(x ?? '').trim());
+      const get = (i: number) => v[i] ?? '';
+      return {
+        codigo: get(0),
+        anno: get(1),
+        cod_pred: get(2),
+        anexo: get(4),
+        sub_anexo: get(5),
+        direccion: get(12),
+        fechdescargo: get(9),
+        fech_declaracion: get(13),
+        dj_predial: get(19),
+        codhistorial: get(20),
+      };
+    });
+  }
+
+  /**
+   * Reporte "Descargo de Baja de Predio" (legacy rptdescargo.jasper) —
+   * exec [Rentas].[BajasPredio] @buscar=2. Mapped BY COLUMN NAME because the
+   * SP returns named columns matching the jrxml field list. Returns null when
+   * the recordset is empty.
+   */
+  async getReporteDescargo(
+    codigo: string,
+    anno: string,
+    codPred: string,
+    anexo: string,
+    subAnexo: string,
+    djPredial: string,
+  ): Promise<ReporteDescargoData | null> {
+    const result = await this.db.executeProcedure<any>('[Rentas].[BajasPredio]', {
+      buscar: 2,
+      codigo: String(codigo ?? '').trim(),
+      anno: String(anno ?? '').trim(),
+      cod_pred: String(codPred ?? '').trim(),
+      anexo: String(anexo ?? '').trim(),
+      sub_anexo: String(subAnexo ?? '').trim(),
+      dj_predial2: String(djPredial ?? '').trim(),
+    });
+    const row = result.recordset?.[0] as Record<string, unknown> | undefined;
+    if (!row) return null;
+    const str = (key: string) => String(row[key] ?? '').trim();
+    return {
+      codigo: str('codigo'),
+      anno: str('anno'),
+      cod_pred: str('cod_pred'),
+      tipo_pred: str('tipo_pred'),
+      anexo: str('anexo'),
+      sub_anexo: str('sub_anexo'),
+      descargo: str('descargo'),
+      porc_propiedad: str('porc_propiedad'),
+      observacion: str('observacion'),
+      fecha_transferencia: str('fecha_transferencia'),
+      notaria: str('notaria'),
+      codigo_adquiriente: str('codigo_adquiriente'),
+      direccion_predio: str('direccion_predio'),
+      fech_declaracion: str('fech_declaracion'),
+      nombre: str('nombre'),
+      tipo_detalle: str('tipo_detalle'),
+      subtipo_detalle: str('subtipo_detalle'),
+      documento: str('documento'),
+      num_doc: str('num_doc'),
+      adquiriente: str('adquiriente'),
+      num_doc_adquiriente: str('num_doc_adquiriente'),
+      documento_adquiriente: str('documento_adquiriente'),
+      tipo_detalle_adquiriente: str('tipo_detalle_adquiriente'),
+      subtipo_detalle_adquiriente: str('subtipo_detalle_adquiriente'),
+      nro_declaracion: str('nro_declaracion'),
+      fecha_registro: str('fecha_registro'),
+      operador: str('operador'),
+      estacion: str('estacion'),
+      fecha_impresion: str('fecha_impresion'),
+    };
+  }
+
+  // ═══ Historial Baja Predio — legacy rentas/historicobajapredio (cabecera) ═══
+
+  /**
+   * Header of the "Historial Baja de Predios" popup.
+   * nombre  <- exec Rentas.sp_rentasmain @buscar=3, @codigo (positional row[1]).
+   * direccion <- exec Rentas.sp_rentasmain @buscar=9, @codigo, @cod_pred,
+   *   @anno, @anexo, @sub_anexo (positional row[0]).
+   * Empty recordset -> '' (legacy left the label blank).
+   */
+  async getHistorialBajaCabecera(p: {
+    codigo: string;
+    codPred: string;
+    anno: string;
+    anexo: string;
+    subAnexo: string;
+    codhistorial: string;
+  }): Promise<HistorialBajaCabecera> {
+    const codigo = String(p.codigo ?? '').trim();
+    const codPred = String(p.codPred ?? '').trim();
+    const anno = String(p.anno ?? '').trim();
+    const anexo = String(p.anexo ?? '').trim();
+    const subAnexo = String(p.subAnexo ?? '').trim();
+
+    const nombreResult = await this.db.executeProcedure<any>(this.SP_RENTASMAIN, {
+      buscar: 3,
+      codigo,
+    });
+    const nombreRow = nombreResult.recordset?.[0] as
+      | { [key: string]: unknown }
+      | undefined;
+    const nombre = nombreRow
+      ? String(Object.values(nombreRow)[1] ?? '').trim()
+      : '';
+
+    const dirResult = await this.db.executeProcedure<any>(this.SP_RENTASMAIN, {
+      buscar: 9,
+      codigo,
+      cod_pred: codPred,
+      anno,
+      anexo,
+      sub_anexo: subAnexo,
+    });
+    const dirRow = dirResult.recordset?.[0] as
+      | { [key: string]: unknown }
+      | undefined;
+    const direccion = dirRow
+      ? String(Object.values(dirRow)[0] ?? '').trim()
+      : '';
+
+    return {
+      codigo,
+      nombre,
+      cod_pred: codPred,
+      anexo,
+      sub_anexo: subAnexo,
+      direccion,
+      anno,
+      codhistorial: String(p.codhistorial ?? '').trim(),
+    };
+  }
+
+  // ═══ Historial Baja Predio — grids + restaurar (legacy cargarhistorial*) ═══
+
+  /**
+   * Grid PU — exec [Rentas].[BajasPredio] @buscar=5, @codhistorial.
+   * Positional mapping (all strings, trimmed, null-safe -> ''). Legacy key
+   * `porc_propiedad` comes from row[15].
+   */
+  async getHistorialPu(codhistorial: string): Promise<HistorialPuGridItem[]> {
+    const result = await this.db.executeProcedure<any>(this.SP_BAJASPREDIO, {
+      buscar: 5,
+      codhistorial: String(codhistorial ?? '').trim(),
+    });
+    return (result.recordset ?? []).map((row: any) => {
+      const v = Object.values(row).map((x) => String(x ?? '').trim());
+      const get = (i: number) => v[i] ?? '';
+      return {
+        anno: get(0),
+        uso: get(1),
+        condi: get(2),
+        estado: get(3),
+        tipo: get(4),
+        num_pisos: get(5),
+        frontis: get(6),
+        total_area_constru: get(7),
+        area_terreno: get(8),
+        area_comun: get(9),
+        arancel: get(10),
+        val_total_terreno: get(11),
+        val_total_constru: get(12),
+        val_total_instala: get(13),
+        val_autoavaluo: get(14),
+        porc_propiedad: get(15),
+        total_autoavaluo: get(16),
+        fecha_de_baja: get(17),
+        cod_baja: get(18),
+      };
+    });
+  }
+
+  /**
+   * Grid Pisos — exec [Rentas].[BajasPredio] @buscar=6, @codhistorial.
+   * Positional mapping. `porc_propiedad` has no positional source in the
+   * legacy payload and stays blank.
+   */
+  async getHistorialPisos(codhistorial: string): Promise<HistorialPisoGridItem[]> {
+    const result = await this.db.executeProcedure<any>(this.SP_BAJASPREDIO, {
+      buscar: 6,
+      codhistorial: String(codhistorial ?? '').trim(),
+    });
+    return (result.recordset ?? []).map((row: any) => {
+      const v = Object.values(row).map((x) => String(x ?? '').trim());
+      const get = (i: number) => v[i] ?? '';
+      return {
+        anno: get(0),
+        niv_piso: get(1),
+        ano_cons: get(2),
+        anno_antig: get(3),
+        depcla: get(4),
+        depmat: get(5),
+        depcon: get(6),
+        cate_muros: get(7),
+        cate_techos: get(8),
+        cate_pisos: get(9),
+        cate_puert: get(10),
+        cate_reves: get(11),
+        cate_banno: get(12),
+        cate_insel: get(13),
+        val_unitar: get(14),
+        incremento: get(15),
+        por_deprec: get(16),
+        val_deprec: get(17),
+        val_un_dep: get(18),
+        area_const: get(19),
+        valo_const: get(20),
+        const_afec: get(21),
+        porc_propiedad: '',
+        fecha_de_baja: get(22),
+        cod_baja: get(23),
+      };
+    });
+  }
+
+  /**
+   * Grid Instalaciones — exec [Rentas].[BajasPredio] @buscar=7, @codhistorial.
+   * Positional mapping.
+   */
+  async getHistorialInstalaciones(codhistorial: string): Promise<HistorialInstalacionGridItem[]> {
+    const result = await this.db.executeProcedure<any>(this.SP_BAJASPREDIO, {
+      buscar: 7,
+      codhistorial: String(codhistorial ?? '').trim(),
+    });
+    return (result.recordset ?? []).map((row: any) => {
+      const v = Object.values(row).map((x) => String(x ?? '').trim());
+      const get = (i: number) => v[i] ?? '';
+      return {
+        anno: get(0),
+        item_instalacion: get(1),
+        descri_gener: get(2),
+        ano_cons: get(3),
+        anno_antig: get(4),
+        depcla: get(5),
+        depmat: get(6),
+        depcon: get(7),
+        alto: get(8),
+        largo: get(9),
+        ancho: get(10),
+        val_estima: get(11),
+        val_unitar: get(12),
+        por_deprec: get(13),
+        val_deprec: get(14),
+        val_un_dep: get(15),
+        cantidad: get(16),
+        val_instalac: get(17),
+        insta_afect: get(18),
+        fecha_de_baja: get(19),
+        cod_baja: get(20),
+      };
+    });
+  }
+
+  /**
+   * Restaurar un registro del historial de baja — exec [Rentas].[BajasPredio]
+   * @buscar=8. Params passed BY NAME mirroring the legacy order:
+   * @codhistorial, @anno, @cod_pred, @anexo, @sub_anexo, @codigo, @annobaja,
+   * @usuariorestaura, @pcrestaura.
+   * First row: [0] 'Exito' -> success with [1] as the message; otherwise the
+   * legacy builds 'No se pudo recuperar ' + [1].
+   */
+  async restaurarBajaPredio(p: {
+    codBaja: string;
+    anno: string;
+    codPred: string;
+    anexo: string;
+    subAnexo: string;
+    codigo: string;
+    annoBaja: string;
+    usuarioRestaura: string;
+    pcRestaura: string;
+  }): Promise<{ success: boolean; mensaje: string }> {
+    const result = await this.db.executeProcedure<any>(this.SP_BAJASPREDIO, {
+      buscar: 8,
+      codhistorial: String(p.codBaja ?? '').trim(),
+      anno: String(p.anno ?? '').trim(),
+      cod_pred: String(p.codPred ?? '').trim(),
+      anexo: String(p.anexo ?? '').trim(),
+      sub_anexo: String(p.subAnexo ?? '').trim(),
+      codigo: String(p.codigo ?? '').trim(),
+      annobaja: String(p.annoBaja ?? '').trim(),
+      usuariorestaura: String(p.usuarioRestaura ?? '').trim(),
+      pcrestaura: String(p.pcRestaura ?? '').trim(),
+    });
+    const row = result.recordset?.[0] as Record<string, unknown> | undefined;
+    if (!row) return { success: false, mensaje: 'No se pudo recuperar ' };
+    const v = Object.values(row).map((x) => String(x ?? '').trim());
+    if (v[0] === 'Exito') return { success: true, mensaje: v[1] ?? '' };
+    return { success: false, mensaje: 'No se pudo recuperar ' + (v[1] ?? '') };
   }
 }

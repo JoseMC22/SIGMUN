@@ -27,6 +27,10 @@ import { useModalStack, isTopModal } from "@/hooks/use-modal-topmost";
 import { toNum } from "@/lib/num";
 import HojaResumenFormModal from "./hoja-resumen-form-modal";
 import DeterminacionModal from "./determinacion-modal";
+import BajaPredioModal from "./baja-predio-modal";
+import VerBajaPredioModal from "./ver-baja-predio-modal";
+import HistorialPredioModal from "./historial-predio-modal";
+import PrimeraInscripcionModal from "./primera-inscripcion-modal";
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -75,6 +79,36 @@ export default function DeclaracionJuradaDetalleModal({
   const [hrLoading, setHrLoading] = useState(false);
   const [hrMessage, setHrMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
 
+  // ── Baja de Predio ──
+  // Grid selection is checkbox-based: key = codPred-anexo. Baja Predio
+  // requires exactly one checked row.
+  const [checkedPredioKeys, setCheckedPredioKeys] = useState<Set<string>>(new Set());
+  const predioKey = (p: PredioDJItemData) => `${p.codPred}-${p.anexo}`;
+  const togglePredioChecked = (p: PredioDJItemData) => {
+    setCheckedPredioKeys((prev) => {
+      const next = new Set(prev);
+      const key = predioKey(p);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+  const selectedPredio =
+    checkedPredioKeys.size === 1
+      ? (predios.find((p) => checkedPredioKeys.has(predioKey(p))) ?? null)
+      : null;
+  const [bajaModalOpen, setBajaModalOpen] = useState(false);
+  // Ver Baja Predio (legacy btnCargabaja): grid of predios dados de baja.
+  const [verBajaOpen, setVerBajaOpen] = useState(false);
+  // Historial Predio
+  const [historialOpen, setHistorialOpen] = useState(false);
+  const [histPredio, setHistPredio] = useState<{
+    codigo: string;
+    anno: string;
+    codPred: string;
+    anexo: string;
+    subAnexo: string;
+  } | null>(null);
+
   // ── Load periods on open ──
   useEffect(() => {
     if (!isOpen) return;
@@ -84,6 +118,9 @@ export default function DeclaracionJuradaDetalleModal({
     setPredios([]);
     setPredioFilter("");
     setDetalleError(null);
+    // Reset checkbox selection too: stale keys from a previous open caused
+    // "Seleccione solo un predio" even with exactly one row checked.
+    setCheckedPredioKeys(new Set());
 
     let cancelled = false;
     (async () => {
@@ -145,11 +182,30 @@ export default function DeclaracionJuradaDetalleModal({
 
   const handleAnnoClick = (anno: string) => {
     setAnnoSeleccionado(anno);
+    setCheckedPredioKeys(new Set());
     loadDetalle(contribuyente.codigo, anno);
+  };
+
+  const handleBajaPredioClick = () => {
+    if (!annoSeleccionado) {
+      setHrMessage({ type: "error", text: "Seleccione un período primero." });
+      return;
+    }
+    if (checkedPredioKeys.size === 0) {
+      setHrMessage({ type: "error", text: "Seleccione un predio de la lista para dar de baja." });
+      return;
+    }
+    if (checkedPredioKeys.size !== 1 || !selectedPredio) {
+      setHrMessage({ type: "error", text: "Seleccione solo un predio para dar de baja." });
+      return;
+    }
+    setHrMessage(null);
+    setBajaModalOpen(true);
   };
 
   // ── Determinación ──
   const [detModalOpen, setDetModalOpen] = useState(false);
+  const [predioModalOpen, setPredioModalOpen] = useState(false);
 
   // ── Editar HR: carga la Hoja de Resumen existente y abre el modal ──
   const editarHojaResumen = async () => {
@@ -203,9 +259,6 @@ export default function DeclaracionJuradaDetalleModal({
     <div
       ref={backdropRef}
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
     >
       <div className="relative flex h-[85vh] w-full max-w-[1100px] rounded-xl border border-slate-200 bg-white shadow-2xl overflow-hidden">
         {/* ── Header ── */}
@@ -364,6 +417,8 @@ export default function DeclaracionJuradaDetalleModal({
                 <div className="flex-1 overflow-y-auto">
                   <table className="w-full table-fixed border-collapse whitespace-nowrap text-[11px]">
                     <colgroup>
+                      {/* Selección (checkbox) */}
+                      <col style={{ width: "4%" }} />
                       {/* Acciones */}
                       <col style={{ width: "8%" }} />
                       {/* Tipo */}
@@ -373,7 +428,7 @@ export default function DeclaracionJuradaDetalleModal({
                       {/* Anexo */}
                       <col style={{ width: "8%" }} />
                       {/* Dirección */}
-                      <col style={{ width: "37%" }} />
+                      <col style={{ width: "33%" }} />
                       {/* Uso Predio */}
                       <col style={{ width: "9%" }} />
                       {/* % */}
@@ -387,6 +442,12 @@ export default function DeclaracionJuradaDetalleModal({
                     </colgroup>
                     <thead className="sticky top-0 z-10 bg-gradient-to-r from-sat-navy to-[#1e3050]">
                       <tr>
+                        <th
+                          rowSpan={2}
+                          className="px-1 py-2 text-center text-[10px] font-semibold text-white/90 uppercase border-b border-white/5 w-[4%]"
+                        >
+                          Sel
+                        </th>
                         <th
                           rowSpan={2}
                           className="px-1 py-2 text-center text-[10px] font-semibold text-white/90 uppercase border-b border-white/5 w-[8%]"
@@ -439,24 +500,37 @@ export default function DeclaracionJuradaDetalleModal({
                     <tbody className="divide-y divide-slate-100">
                       {prediosFiltrados.length === 0 && (
                         <tr>
-                          <td colSpan={10} className="px-3 py-8 text-center text-[11px] text-slate-400">
+                          <td colSpan={11} className="px-3 py-8 text-center text-[11px] text-slate-400">
                             {predioFilter ? "No se encontraron predios con ese filtro" : "Sin predios registrados"}
                           </td>
                         </tr>
                       )}
                       {prediosFiltrados.map((p, idx) => {
                         const isVendido = p.predioVendido.trim() === "1";
+                        const isSelected = checkedPredioKeys.has(predioKey(p));
                         return (
                           <tr
                             key={`${p.codPred}-${p.anexo}-${idx}`}
-                            className={`transition hover:bg-slate-50 ${
-                              isVendido
-                                ? "bg-red-50/60"
-                                : idx % 2 === 0
-                                ? "bg-white"
-                                : "bg-slate-50/40"
+                            onClick={() => togglePredioChecked(p)}
+                            className={`cursor-pointer transition hover:bg-slate-50 ${
+                              isSelected
+                                ? "bg-cyan-50 ring-1 ring-inset ring-cyan-200"
+                                : isVendido
+                                  ? "bg-red-50/60"
+                                  : idx % 2 === 0
+                                    ? "bg-white"
+                                    : "bg-slate-50/40"
                             }`}
                           >
+                            <td className="px-1 py-1 text-center" onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => togglePredioChecked(p)}
+                                className="h-3.5 w-3.5 accent-cyan-600 cursor-pointer"
+                                aria-label={`Seleccionar predio ${p.codPred}`}
+                              />
+                            </td>
                             <td className="px-1 py-1">
                               {/* TODO: conectar con las pantallas de la app nueva (Características / Propietarios / Reporte HR / Historial aún no implementadas) */}
                               <div className="flex items-center justify-start gap-[1px]">
@@ -484,6 +558,17 @@ export default function DeclaracionJuradaDetalleModal({
                                 <button
                                   type="button"
                                   title="Historial de Predios"
+                                  onClick={() => {
+                                    if (!annoSeleccionado || !p.codPred) return;
+                                    setHistPredio({
+                                      codigo: contribuyente.codigo,
+                                      anno: annoSeleccionado,
+                                      codPred: p.codPred,
+                                      anexo: p.anexo,
+                                      subAnexo: p.sub_anexo ?? "",
+                                    });
+                                    setHistorialOpen(true);
+                                  }}
                                   className="rounded p-[2px] text-slate-500 transition hover:bg-slate-200 hover:text-sat-navy"
                                 >
                                   <History size={12} />
@@ -541,11 +626,11 @@ export default function DeclaracionJuradaDetalleModal({
                           setHrExistente(null);
                           setHrModalOpen(true);
                         }} />
-                        <ActionBtn id="btnNuevoPu" label="1ra. Inscripción" />
-                        <ActionBtn id="btnEliminarPu" label="Baja de Predio" />
+                        <ActionBtn id="btnNuevoPu" label="1ra. Inscripción" onClick={() => { if (!annoSeleccionado) return; setPredioModalOpen(true); }} />
+                        <ActionBtn id="btnEliminarPu" label="Baja de Predio" onClick={handleBajaPredioClick} />
                         <ActionBtn id="btnEditarHr" label="Editar HR" onClick={editarHojaResumen} />
                         <ActionBtn id="btnInscripcion" label="Inscripción" />
-                        <ActionBtn id="btnCargabaja" label="Ver Baja Predio" />
+                        <ActionBtn id="btnCargabaja" label="Ver Baja Predio" onClick={() => { setHrMessage(null); setVerBajaOpen(true); }} />
                         <ActionBtn id="btnDeterminacion" label="Determinación" onClick={() => {
                           if (!contribuyente?.codigo || !annoSeleccionado) return;
                           setDetModalOpen(true);
@@ -654,6 +739,56 @@ export default function DeclaracionJuradaDetalleModal({
         razonSocial={contribuyente?.nombre ?? ""}
         direccion={contribuyente?.domicilio ?? ""}
         annoSeleccionado={annoSeleccionado}
+      />
+
+      {/* ── Modal Baja de Predio ── */}
+      <PrimeraInscripcionModal
+        isOpen={predioModalOpen}
+        onClose={() => setPredioModalOpen(false)}
+        codigoContribuyente={contribuyente.codigo}
+        razonSocial={contribuyente.nombre}
+        annoSeleccionado={annoSeleccionado ?? ""}
+        tipoMov="N"
+        onSaved={() => { if (annoSeleccionado) loadDetalle(contribuyente.codigo, annoSeleccionado); setPredioModalOpen(false); }}
+      />
+
+      {/* ── Modal Ver Baja Predio (btnCargabaja legacy) ── */}
+      <VerBajaPredioModal
+        isOpen={verBajaOpen}
+        onClose={() => setVerBajaOpen(false)}
+        codigoContribuyente={contribuyente.codigo}
+      />
+
+      <HistorialPredioModal
+        isOpen={historialOpen}
+        onClose={() => { setHistorialOpen(false); setHistPredio(null); }}
+        codigoContribuyente={histPredio?.codigo ?? contribuyente.codigo}
+        anno={histPredio?.anno ?? annoSeleccionado ?? ""}
+        codPred={histPredio?.codPred ?? ""}
+        anexo={histPredio?.anexo ?? ""}
+        subAnexo={histPredio?.subAnexo ?? ""}
+      />
+
+      <BajaPredioModal
+        isOpen={bajaModalOpen}
+        onClose={() => setBajaModalOpen(false)}
+        predio={
+          selectedPredio && annoSeleccionado
+            ? {
+                codigoContribuyente: contribuyente.codigo,
+                nombreContribuyente: contribuyente.nombre,
+                codPred: selectedPredio.codPred,
+                anexo: selectedPredio.anexo,
+                direccion: selectedPredio.direccion,
+                anno: annoSeleccionado,
+              }
+            : null
+        }
+        onSaved={() => {
+          setHrMessage({ type: "success", text: "Baja de predio registrada correctamente." });
+          if (annoSeleccionado) loadDetalle(contribuyente.codigo, annoSeleccionado);
+          setCheckedPredioKeys(new Set());
+        }}
       />
     </div>
   );

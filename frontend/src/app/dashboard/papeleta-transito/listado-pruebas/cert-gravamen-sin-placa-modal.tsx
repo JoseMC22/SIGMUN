@@ -164,7 +164,6 @@ export default function CertGravamenSinPlacaModal({ isOpen, placa, valorGravamen
   return (
     <div
       className="fixed inset-0 z-[70] flex items-center justify-center bg-black/30 backdrop-blur-sm"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div className="w-full max-w-md rounded-xl bg-white shadow-2xl border border-slate-200 animate-fade-in overflow-hidden">
         {/* Header */}

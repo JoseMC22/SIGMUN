@@ -11,6 +11,7 @@ import {
   ContribuyenteDireccionItem,
   ContribuyentePlacaItem,
   PaginatedResponse,
+  AdquirienteGridItem,
   TipoDocumentoOption,
   TipoContribuyenteOption,
   SubTipoContribuyenteOption,
@@ -40,6 +41,12 @@ import {
   HojaResumenEditarResult,
   GuardarHojaResumenResult,
   DeterminacionResult,
+  PredioCombosResult,
+  GuardarPredioResult,
+  PredioPisoGridItem,
+  PredioInstalGridItem,
+  PredioDocGridItem,
+  ValorPisoResult,
 } from './dto/declaracion-jurada.types';
 import {
   EstadoCuentaRecibosSchema,
@@ -108,11 +115,21 @@ import {
   GuardarHojaResumenDto,
 } from './dto/guardar-hoja-resumen.dto';
 import {
+  GuardarPredioSchema,
+  GuardarPredioDto,
+} from './dto/guardar-predio.dto';
+import {
   DeterminacionIpSchema,
   DeterminacionIpDto,
   DeterminacionArbitriosSchema,
   DeterminacionArbitriosDto,
 } from './dto/determinacion.dto';
+import {
+  BajaPredioSchema,
+  BajaPredioDto,
+  RestaurarBajaSchema,
+  RestaurarBajaDto,
+} from './dto/baja-predio.dto';
 
 @Controller('declaracion-jurada')
 @UseGuards(JwtAuthGuard)
@@ -1399,6 +1416,73 @@ export class DeclaracionJuradaController {
     }
   }
 
+  @Get('historial-predio')
+  async getHistorialPredio(
+    @Query('codigo') codigo: string,
+    @Query('anno') anno: string,
+    @Query('cod_pred') codPred: string,
+    @Query('anexo') anexo: string,
+    @Query('sub_anexo') subAnexo: string,
+  ): Promise<{ success: true; data: { header: { codigo: string; nombre: string; documento: string; direccion: string }; rows: { codigo: string; cod_pred: string; anexo: string; sub_anexo: string; dj_predial: string; anno: string; motivo_declaracion: string; condicion_propiedad: string; tipo_adquisicion: string; fecha: string; porc_propiedad: string; area_terreno: string; registrado: string; fiscalizado: string }[] } } | { success: false; error: string }> {
+    try {
+      const data = await this.service.getHistorialPredio(codigo ?? '', anno ?? '', codPred ?? '', anexo ?? '', subAnexo ?? '');
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error al cargar historial de predio.' };
+    }
+  }
+
+  @Get('historial-predio/reporte')
+  async getReportePredio(
+    @Query('codigo') codigo: string,
+    @Query('anno') anno: string,
+    @Query('cod_pred') codPred: string,
+    @Query('anexo') anexo: string,
+    @Query('sub_anexo') subAnexo: string,
+    @Query('dj_nro') djNro: string,
+  ): Promise<{ success: true; data: Record<string, unknown>[] } | { success: false; error: string }> {
+    try {
+      const data = await this.service.getReportePredio(codigo ?? '', anno ?? '', codPred ?? '', anexo ?? '', subAnexo ?? '', djNro ?? '');
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error al cargar reporte de declaración.' };
+    }
+  }
+
+  @Get('historial-predio/reporte-sub')
+  async getSubreporteDocumentos(
+    @Query('codigo') codigo: string,
+    @Query('anno') anno: string,
+    @Query('cod_pred') codPred: string,
+    @Query('anexo') anexo: string,
+    @Query('sub_anexo') subAnexo: string,
+  ): Promise<{ success: true; data: Record<string, unknown>[] } | { success: false; error: string }> {
+    try {
+      const data = await this.service.getSubreporteDocumentos(codigo ?? '', anno ?? '', codPred ?? '', anexo ?? '', subAnexo ?? '');
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error al cargar subreporte.' };
+    }
+  }
+
+  @Get('historial-predio/reporte-caracteristicas')
+  async getSubreporteCaracteristicas(
+    @Query('codigo') codigo: string, @Query('anno') anno: string,
+    @Query('cod_pred') codPred: string, @Query('anexo') anexo: string, @Query('sub_anexo') subAnexo: string,
+  ): Promise<{ success: true; data: Record<string, unknown>[] } | { success: false; error: string }> {
+    try { return { success: true, data: await this.service.getSubreporteCaracteristicas(codigo ?? '', anno ?? '', codPred ?? '', anexo ?? '', subAnexo ?? '') }; }
+    catch (error) { return { success: false, error: error instanceof Error ? error.message : 'Error al cargar subreporte.' }; }
+  }
+
+  @Get('historial-predio/reporte-instalaciones')
+  async getSubreporteInstalaciones(
+    @Query('codigo') codigo: string, @Query('anno') anno: string,
+    @Query('cod_pred') codPred: string, @Query('anexo') anexo: string, @Query('sub_anexo') subAnexo: string,
+  ): Promise<{ success: true; data: Record<string, unknown>[] } | { success: false; error: string }> {
+    try { return { success: true, data: await this.service.getSubreporteInstalaciones(codigo ?? '', anno ?? '', codPred ?? '', anexo ?? '', subAnexo ?? '') }; }
+    catch (error) { return { success: false, error: error instanceof Error ? error.message : 'Error al cargar subreporte.' }; }
+  }
+
   // ═══ Hoja de Resumen predial (Rentas.sp_MHRpred) ═══════════
 
   @Get('hoja-resumen/combos')
@@ -1457,6 +1541,148 @@ export class DeclaracionJuradaController {
 
   // ═══ Determinación (Impuesto Predial / Arbitrios) ═══════════
 
+  @Post('predio/guardar')
+  async guardarPredio(
+    @Body() dto: GuardarPredioDto,
+  ): Promise<{ success: true; data: GuardarPredioResult } | { success: false; error: string }> {
+    let parsed: GuardarPredioDto;
+    try {
+      parsed = GuardarPredioSchema.parse(dto);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new BadRequestException({
+          success: false,
+          error: error.issues.map((i) => i.message).join(', ') || 'Datos de entrada inválidos.',
+        });
+      }
+      throw new BadRequestException({ success: false, error: 'Datos de entrada inválidos.' });
+    }
+    try {
+      const data = await this.service.guardarPredio(parsed);
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error al guardar el predio.',
+      };
+    }
+  }
+
+  @Get('predio/combos')
+  async getPredioCombos(
+    @Query('anno') anno: string,
+  ): Promise<{ success: true; data: PredioCombosResult } | { success: false; error: string }> {
+    try {
+      const data = await this.service.getPredioCombos(anno ?? '');
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error al cargar combos del predio.',
+      };
+    }
+  }
+
+  // ═══ Predio — post-save grid reload (Primera Inscripción modal) ═══
+
+  @Get('predio/pisos')
+  async getPredioPisos(
+    @Query('codigo') codigo: string,
+    @Query('anno') anno: string,
+    @Query('cod_pred') codPred: string,
+    @Query('anexo') anexo: string,
+    @Query('sub_anexo') subAnexo: string,
+  ): Promise<{ success: true; data: PredioPisoGridItem[] } | { success: false; error: string }> {
+    try {
+      const data = await this.service.getPredioPisos(
+        codigo ?? '', anno ?? '', codPred ?? '', anexo ?? '', subAnexo ?? '',
+      );
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error al cargar los pisos del predio.',
+      };
+    }
+  }
+
+  @Get('predio/instalaciones')
+  async getPredioInstalaciones(
+    @Query('codigo') codigo: string,
+    @Query('anno') anno: string,
+    @Query('cod_pred') codPred: string,
+    @Query('anexo') anexo: string,
+    @Query('sub_anexo') subAnexo: string,
+  ): Promise<{ success: true; data: PredioInstalGridItem[] } | { success: false; error: string }> {
+    try {
+      const data = await this.service.getPredioInstalaciones(
+        codigo ?? '', anno ?? '', codPred ?? '', anexo ?? '', subAnexo ?? '',
+      );
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error al cargar las instalaciones del predio.',
+      };
+    }
+  }
+
+  @Get('predio/documentos')
+  async getPredioDocumentos(
+    @Query('codigo') codigo: string,
+    @Query('anno') anno: string,
+    @Query('cod_pred') codPred: string,
+    @Query('anexo') anexo: string,
+    @Query('sub_anexo') subAnexo: string,
+  ): Promise<{ success: true; data: PredioDocGridItem[] } | { success: false; error: string }> {
+    try {
+      const data = await this.service.getPredioDocumentos(
+        codigo ?? '', anno ?? '', codPred ?? '', anexo ?? '', subAnexo ?? '',
+      );
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error al cargar los documentos del predio.',
+      };
+    }
+  }
+
+  @Get('predio/valorpiso')
+  async getValorPiso(
+    @Query('nivel') nivel: string,
+    @Query('id_depcla') idDepcla: string,
+    @Query('id_depmat') idDepmat: string,
+    @Query('id_depcon') idDepcon: string,
+    @Query('muros') muros: string,
+    @Query('techos') techos: string,
+    @Query('pisos') pisos: string,
+    @Query('puertas') puertas: string,
+    @Query('revestim') revestim: string,
+    @Query('banos') banos: string,
+    @Query('inst_elect') instElect: string,
+    @Query('area_const') areaConst: string,
+    @Query('area_comun') areaComun: string,
+    @Query('anoc') anoc: string,
+    @Query('anno') anno: string,
+  ): Promise<{ success: true; data: ValorPisoResult | { incomplete: true } } | { success: false; error: string }> {
+    try {
+      const data = await this.service.getValorPiso({
+        nivel: nivel ?? '', idDepcla: idDepcla ?? '', idDepmat: idDepmat ?? '',
+        idDepcon: idDepcon ?? '', muros: muros ?? '', techos: techos ?? '',
+        pisos: pisos ?? '', puertas: puertas ?? '', revestim: revestim ?? '',
+        banos: banos ?? '', instElect: instElect ?? '', areaConst: areaConst ?? '',
+        areaComun: areaComun ?? '', anoc: anoc ?? '', anno: anno ?? '',
+      });
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error al calcular el valor del piso.',
+      };
+    }
+  }
+
   @Post('determinacion/impuesto')
   async determinacionImpuesto(
     @Body() dto: DeterminacionIpDto,
@@ -1502,6 +1728,211 @@ export class DeclaracionJuradaController {
         success: false,
         error: error instanceof Error ? error.message : 'Error al calcular arbitrios.',
       };
+    }
+  }
+
+  // ═══ Baja de Predio (descargo) — [Rentas].[BajasPredio] ═══════════
+
+  // ── Buscador de Adquirientes (gridBajapred legacy) ──
+  // Rentas.sp_Mcontribuyentebaja @busc=6 (total) / @busc=5 (rows).
+  // rdCriteriobus: 0=Código, 1=Nombre completo, 2=Razón Social, 3=Documento.
+
+  @Get('buscar-adquirientes')
+  async buscarAdquirientes(
+    @Query('tipo_busqueda') tipoBusqueda: string,
+    @Query('codigo') codigo: string,
+    @Query('nombres') nombres: string,
+    @Query('paterno') paterno: string,
+    @Query('materno') materno: string,
+    @Query('razon') razon: string,
+    @Query('num_doc') numDoc: string,
+    @Query('page') page: string,
+    @Query('limit') limit: string,
+  ): Promise<PaginatedResponse<AdquirienteGridItem>> {
+    const pageNum = Math.max(1, parseInt(page ?? '1', 10) || 1);
+    const size = Math.min(100, Math.max(1, parseInt(limit ?? '10', 10) || 10));
+    return this.service.buscarAdquirientesGrid({
+      tipo_busqueda: tipoBusqueda ?? '',
+      codigo: codigo ?? '',
+      nombres: nombres ?? '',
+      paterno: paterno ?? '',
+      materno: materno ?? '',
+      razon: razon ?? '',
+      num_doc: numDoc ?? '',
+      page: pageNum,
+      limit: size,
+    });
+  }
+
+  @Get('combo-motivo-descargo')
+  async getMotivoDescargo(): Promise<{ success: true; data: { value: string; label: string }[] } | { success: false; error: string }> {
+    try {
+      const data = await this.service.getMotivoDescargoCombo();
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error al cargar motivos de descargo.' };
+    }
+  }
+
+  @Get('combo-notaria')
+  async getNotaria(): Promise<{ success: true; data: { value: string; label: string }[] } | { success: false; error: string }> {
+    try {
+      const data = await this.service.getNotariaCombo();
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error al cargar notarías.' };
+    }
+  }
+
+  // ── Ver Baja Predio — frmbajapredio grid (sp_Verbaja @busc=5) ──
+  @Get('baja-predio/lista')
+  async getBajasPredio(
+    @Query('codigo') codigo = '',
+  ): Promise<{ success: true; data: unknown[] } | { success: false; error: string }> {
+    try {
+      const data = await this.service.getBajasPredio(codigo);
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error al cargar predios dados de baja.' };
+    }
+  }
+
+  // ── Historial Baja Predio — cabecera (legacy rentas/historicobajapredio) ──
+  @Get('baja-predio/historial-cabecera')
+  async getHistorialBajaCabecera(
+    @Query('codigo') codigo = '',
+    @Query('cod_pred') codPred = '',
+    @Query('anno') anno = '',
+    @Query('anexo') anexo = '',
+    @Query('sub_anexo') subAnexo = '',
+    @Query('codhistorial') codhistorial = '',
+  ): Promise<{ success: true; data: unknown } | { success: false; error: string }> {
+    try {
+      const data = await this.service.getHistorialBajaCabecera({
+        codigo,
+        codPred,
+        anno,
+        anexo,
+        subAnexo,
+        codhistorial,
+      });
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error al cargar la cabecera del historial.' };
+    }
+  }
+
+  // ── Historial Baja Predio — grids PU / Pisos / Instalaciones ──
+  // Legacy: rentas/cargarhistorialpu, cargarhistorialpisos,
+  // cargarhistorialinstalaciones. All use [Rentas].[BajasPredio]
+  // @buscar=5/6/7 with @codhistorial.
+  @Get('baja-predio/historial-pu')
+  async getHistorialPu(
+    @Query('codhistorial') codhistorial = '',
+  ): Promise<{ success: true; data: unknown[] } | { success: false; error: string }> {
+    try {
+      const data = await this.service.getHistorialPu(codhistorial);
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error al cargar el historial PU.' };
+    }
+  }
+
+  @Get('baja-predio/historial-pisos')
+  async getHistorialPisos(
+    @Query('codhistorial') codhistorial = '',
+  ): Promise<{ success: true; data: unknown[] } | { success: false; error: string }> {
+    try {
+      const data = await this.service.getHistorialPisos(codhistorial);
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error al cargar el historial de pisos.' };
+    }
+  }
+
+  @Get('baja-predio/historial-instalaciones')
+  async getHistorialInstalaciones(
+    @Query('codhistorial') codhistorial = '',
+  ): Promise<{ success: true; data: unknown[] } | { success: false; error: string }> {
+    try {
+      const data = await this.service.getHistorialInstalaciones(codhistorial);
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error al cargar el historial de instalaciones.' };
+    }
+  }
+
+  // ── Historial Baja Predio — Restaurar (legacy rentas/restaurarregistro) ──
+  @Post('baja-predio/restaurar')
+  async restaurarBajaPredio(
+    @Body() dto: RestaurarBajaDto,
+  ): Promise<{ success: true; data: { mensaje: string } } | { success: false; error: string }> {
+    let parsed: RestaurarBajaDto;
+    try {
+      parsed = RestaurarBajaSchema.parse(dto);
+    } catch (error) {
+      throw new BadRequestException({
+        success: false,
+        error: error instanceof ZodError ? error.issues.map((i) => i.message).join(', ') : 'Datos de entrada inválidos.',
+      });
+    }
+    try {
+      const data = await this.service.restaurarBajaPredio({
+        codBaja: parsed.cod_baja,
+        anno: parsed.anno,
+        codPred: parsed.cod_pred,
+        anexo: parsed.anexo,
+        subAnexo: parsed.sub_anexo,
+        codigo: parsed.codigo,
+        annoBaja: parsed.annobaja,
+        usuarioRestaura: parsed.usuariorestaura,
+        pcRestaura: parsed.pcrestaura,
+      });
+      if (!data.success) return { success: false, error: data.mensaje };
+      return { success: true, data: { mensaje: data.mensaje } };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error al restaurar el registro.' };
+    }
+  }
+
+  // ── Reporte Descargo de Baja de Predio (legacy rptdescargo) ──
+  @Get('baja-predio/reporte-descargo')
+  async getReporteDescargo(
+    @Query('codigo') codigo = '',
+    @Query('anno') anno = '',
+    @Query('cod_pred') codPred = '',
+    @Query('anexo') anexo = '',
+    @Query('sub_anexo') subAnexo = '',
+    @Query('dj_predial') djPredial = '',
+  ): Promise<{ success: true; data: unknown } | { success: false; error: string }> {
+    try {
+      const data = await this.service.getReporteDescargo(codigo, anno, codPred, anexo, subAnexo, djPredial);
+      if (!data) return { success: false, error: 'No se encontraron datos del descargo.' };
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error al cargar el reporte de descargo.' };
+    }
+  }
+
+  @Post('baja-predio')
+  async bajaPredio(
+    @Body() dto: BajaPredioDto,
+  ): Promise<{ success: true; data: { success: boolean; mensaje: string } } | { success: false; error: string }> {
+    let parsed: BajaPredioDto;
+    try {
+      parsed = BajaPredioSchema.parse(dto);
+    } catch (error) {
+      throw new BadRequestException({
+        success: false,
+        error: error instanceof ZodError ? error.issues.map((i) => i.message).join(', ') : 'Datos de entrada inválidos.',
+      });
+    }
+    try {
+      const data = await this.service.bajaPredio(parsed);
+      if (!data.success) return { success: false, error: data.mensaje };
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error al registrar la baja del predio.' };
     }
   }
 }

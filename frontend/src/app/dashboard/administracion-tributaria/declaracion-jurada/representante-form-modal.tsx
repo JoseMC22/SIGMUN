@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useModalStack, isTopModal } from "@/hooks/use-modal-topmost";
 import { X, Search, Loader2, User, MapPin } from "lucide-react";
 import {
   getTiposDocumentoAction,
@@ -178,16 +179,16 @@ export default function RepresentanteFormModal({
     onChange("urbNom", via.urbanizacion);
   };
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Escape") {
-        // Solo cerrar este modal activo; no propagar a modales padres.
-        e.stopPropagation();
-        onClose();
-      }
-    },
-    [onClose],
-  );
+  // ── Escape cierra SOLO este modal si es el tope de la pila ──
+  const modalId = useModalStack(isOpen);
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isTopModal(modalId)) onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [isOpen, modalId, onClose]);
 
   // ── Foco: al abrirse, este modal toma el foco para que Escape cierre SOLO este modal ──
   const rootRef = useRef<HTMLDivElement>(null);
@@ -411,10 +412,6 @@ export default function RepresentanteFormModal({
     <div
       ref={rootRef}
       className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !combosLoading && !edicionLoading) onClose();
-      }}
-      onKeyDown={handleKeyDown}
       tabIndex={-1}
     >
       <div className="relative flex max-h-[85vh] w-full max-w-xl flex-col rounded-xl border border-slate-200 bg-white shadow-2xl">

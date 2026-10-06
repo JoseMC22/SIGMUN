@@ -106,7 +106,7 @@ describe("AlcabalasModal", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("calls onClose when backdrop is clicked", () => {
+  it("does not close when backdrop is clicked", () => {
     render(
       <AlcabalasModal
         open={true}
@@ -121,7 +121,7 @@ describe("AlcabalasModal", () => {
     const backdrop = document.querySelector('[aria-hidden="true"]');
     expect(backdrop).toBeTruthy();
     fireEvent.click(backdrop!);
-    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it("calls onClose when Cerrar button is clicked", () => {

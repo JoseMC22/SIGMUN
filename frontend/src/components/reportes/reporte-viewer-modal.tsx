@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useModalStack, isTopModal } from "@/hooks/use-modal-topmost";
 import { X, Printer, Download, Loader2 } from "lucide-react";
 import {
   descargarPdfDesdeHtml,
@@ -50,12 +51,16 @@ export default function ReporteViewerModal({ isOpen, onClose, html, pdfConfig }:
     if (isOpen) rootRef.current?.focus();
   }, [isOpen]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Escape") {
-      e.stopPropagation();
-      onClose();
-    }
-  };
+  // Escape cierra SOLO este modal si es el tope de la pila.
+  const modalId = useModalStack(isOpen);
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isTopModal(modalId)) onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [isOpen, modalId, onClose]);
 
   const guardarPdf = async () => {
     if (!pdfConfig || !html) return;
@@ -76,7 +81,6 @@ export default function ReporteViewerModal({ isOpen, onClose, html, pdfConfig }:
     <div
       ref={rootRef}
       className="fixed inset-0 z-[100] flex flex-col bg-slate-100 animate-fade-in"
-      onKeyDown={handleKeyDown}
       tabIndex={-1}
     >
       <style>{PRINT_CSS}</style>

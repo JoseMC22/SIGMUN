@@ -81,3 +81,18 @@ export interface NasUploadFile {
   mimetype: string;
   size: number;
 }
+
+/** A single contributing-taxpayer row from rentas.mcontribuyente (lookup by code). */
+export interface ContribuyenteRow {
+  codigo: string;
+  contribuyente: string;
+  nro_documento: string;
+  direccion: string;
+}
+
+/** Envelope returned by the contribuyente lookup endpoint. */
+export interface ContribuyenteResult {
+  success: boolean;
+  data: ContribuyenteRow | null;
+  error?: string;
+}

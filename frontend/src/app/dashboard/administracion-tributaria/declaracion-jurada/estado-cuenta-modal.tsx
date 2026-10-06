@@ -1049,9 +1049,6 @@ export default function EstadoCuentaModal({
     <div
       ref={backdropRef}
       className="fixed inset-0 z-70 flex items-start justify-center overflow-y-auto bg-black/40 backdrop-blur-sm animate-fade-in p-4 pt-8"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
     >
       <div className="relative w-full max-w-275 rounded-xl border border-slate-200 bg-white shadow-2xl">
         {/* ── Header ── */}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useModalStack, isTopModal } from "@/hooks/use-modal-topmost";
 import { X, Loader2 } from "lucide-react";
 import type {
   AlcabalaItem,
@@ -51,19 +52,17 @@ export default function BajaAlcabalaModal({
     }
   }, [open]);
 
-  // Escape key: close only this modal (stop propagation to parents).
+  // Escape key: close only this modal if it is the top of the stack.
   // Ignored while submitting so an in-flight baja cannot be interrupted.
+  const modalId = useModalStack(open);
   useEffect(() => {
     if (!open) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      if (submitting) return;
-      e.stopPropagation();
-      onClose();
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !submitting && isTopModal(modalId)) onClose();
     };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, onClose, submitting]);
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [open, modalId, onClose, submitting]);
 
   if (!open) return null;
 

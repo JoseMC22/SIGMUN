@@ -131,5 +131,95 @@ describe('AccionesInfraccionService', () => {
       expect(result.success).toBe(false);
       expect(result.message).toBe('connection failed');
     });
+
+    it('should bind fec_gen/fec_cuo as YYYYMMDD when given DD/MM/YYYY', async () => {
+      db.executeProcedure.mockResolvedValue(
+        mockSpResult([{ nro: 'PIT-Ord-2026-1234' }]),
+      );
+
+      await service.fraccionarPapeleta({
+        ...baseDto,
+        fechaGeneracion: '23/09/2026',
+        fechaCuota: '23/10/2026',
+      });
+
+      expect(db.executeProcedure).toHaveBeenCalledWith(
+        'Rentas.GeneraConveniopape',
+        expect.objectContaining({
+          fec_gen: '20260923',
+          fec_cuo: '20261023',
+        }),
+      );
+    });
+
+    it('should bind fec_gen/fec_cuo as YYYYMMDD when given serialized Date strings', async () => {
+      db.executeProcedure.mockResolvedValue(
+        mockSpResult([{ nro: 'PIT-Ord-2026-1234' }]),
+      );
+
+      await service.fraccionarPapeleta({
+        ...baseDto,
+        fechaGeneracion: 'Wed Sep 23 2026 00:00:00 GMT+0000',
+        fechaCuota: 'Fri Oct 23 2026 00:00:00 GMT+0000',
+      });
+
+      expect(db.executeProcedure).toHaveBeenCalledWith(
+        'Rentas.GeneraConveniopape',
+        expect.objectContaining({
+          fec_gen: '20260923',
+          fec_cuo: '20261023',
+        }),
+      );
+    });
+  });
+
+  describe('calcularCuotas date normalization', () => {
+    it('should bind fec_gen/fec_cuo as YYYYMMDD when given DD/MM/YYYY', async () => {
+      db.executeProcedure.mockResolvedValue(mockSpResult([]));
+
+      await service.calcularCuotas(4, 1000, 300, '23/09/2026', '23/10/2026');
+
+      expect(db.executeProcedure).toHaveBeenCalledWith(
+        'Rentas.CuotasConvenio',
+        expect.objectContaining({
+          fec_gen: '20260923',
+          fec_cuo: '20261023',
+        }),
+      );
+    });
+
+    it('should bind fec_gen/fec_cuo as YYYYMMDD when given serialized Date strings', async () => {
+      db.executeProcedure.mockResolvedValue(mockSpResult([]));
+
+      await service.calcularCuotas(
+        4,
+        1000,
+        300,
+        'Wed Sep 23 2026 00:00:00 GMT+0000',
+        'Fri Oct 23 2026 00:00:00 GMT+0000',
+      );
+
+      expect(db.executeProcedure).toHaveBeenCalledWith(
+        'Rentas.CuotasConvenio',
+        expect.objectContaining({
+          fec_gen: '20260923',
+          fec_cuo: '20261023',
+        }),
+      );
+    });
+
+    it('should bind empty string when given an invalid date instead of crashing the SP', async () => {
+      db.executeProcedure.mockResolvedValue(mockSpResult([]));
+
+      await service.calcularCuotas(4, 1000, 300, 'null', '');
+
+      expect(db.executeProcedure).toHaveBeenCalledWith(
+        'Rentas.CuotasConvenio',
+        expect.objectContaining({
+          fec_gen: '',
+          fec_cuo: '',
+        }),
+      );
+    });
   });
 });

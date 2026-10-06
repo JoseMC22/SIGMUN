@@ -208,9 +208,6 @@ export default function DeterminacionModal({
       <div
         ref={modalRef}
         className="fixed inset-0 z-[75] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in p-4"
-        onClick={(e) => {
-          if (e.target === e.currentTarget && !busy && !confirmAccion) onClose();
-        }}
         tabIndex={-1}
       >
         <div className="relative flex max-h-[85vh] w-full max-w-3xl flex-col rounded-xl border border-slate-200 bg-white shadow-2xl">
@@ -285,7 +282,7 @@ export default function DeterminacionModal({
                 Seleccione los Predios a Calcular
               </legend>
               <div className="max-h-[28vh] overflow-auto rounded-md border border-slate-200 bg-white">
-                <table className="w-full text-[11px]">
+                <table className="w-full text-[11px] text-slate-700">
                   <thead className="sticky top-0 bg-slate-100 text-[10px] uppercase tracking-wide text-slate-500">
                     <tr>
                       <th className="w-8 px-2 py-1 text-center">
@@ -404,6 +401,20 @@ export default function DeterminacionModal({
               </button>
             </div>
           </div>
+
+          {/* ── Overlay de procesamiento ── */}
+          {busy && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/70 backdrop-blur-[1px]">
+              <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 shadow-lg">
+                <Loader2 size={16} className="animate-spin text-sat-cyan" />
+                <span className="text-xs font-medium text-slate-700">
+                  {procesando === "ip"
+                    ? "Calculando Impuesto Predial, espere..."
+                    : "Calculando Arbitrios, espere..."}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

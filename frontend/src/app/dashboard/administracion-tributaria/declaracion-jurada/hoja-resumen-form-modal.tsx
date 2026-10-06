@@ -336,9 +336,6 @@ export default function HojaResumenFormModal({
     <div
       ref={rootRef}
       className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !combosLoading && !saving) onClose();
-      }}
       tabIndex={-1}
     >
       <div className="relative flex max-h-[85vh] w-full max-w-3xl flex-col rounded-xl border border-slate-200 bg-white shadow-2xl">

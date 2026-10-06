@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useModalStack, isTopModal } from "@/hooks/use-modal-topmost";
 import { X, Loader2, Save, AlertCircle } from "lucide-react";
 import {
   guardarNotificadorAction,
@@ -43,6 +44,17 @@ export default function NotificadorFormModal({
       setTimeout(() => firstFieldRef.current?.focus(), 0);
     }
   }, [isOpen, initial]);
+
+  // Escape cierra SOLO este modal si es el tope de la pila (no mientras guarda).
+  const modalId = useModalStack(isOpen);
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !saving && isTopModal(modalId)) onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [isOpen, modalId, onClose, saving]);
 
   if (!isOpen) return null;
 
@@ -96,12 +108,6 @@ export default function NotificadorFormModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in"
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !saving) onClose();
-      }}
-      onKeyDown={(e) => {
-        if (e.key === "Escape" && !saving) onClose();
-      }}
       tabIndex={-1}
     >
       <div

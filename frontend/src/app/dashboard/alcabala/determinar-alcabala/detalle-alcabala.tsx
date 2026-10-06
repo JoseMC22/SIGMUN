@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useModalStack, isTopModal } from "@/hooks/use-modal-topmost";
 import { X, FileText, Loader2 } from "lucide-react";
 import {
   getDetalleAlcabalaAction,
@@ -105,17 +106,16 @@ export default function DetalleAlcabala({
     };
   }, [open, idAlcabala]);
 
+  // Escape closes only this modal if it is the top of the stack.
+  const modalId = useModalStack(open);
   useEffect(() => {
     if (!open) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        onClose();
-      }
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isTopModal(modalId)) onClose();
     };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, onClose]);
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [open, modalId, onClose]);
 
   if (!open || !idAlcabala) return null;
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useModalStack, isTopModal } from "@/hooks/use-modal-topmost";
 import { X, Loader2, Save, AlertCircle, Search } from "lucide-react";
 import ViasSearchModal from "./vias-search-modal";
 import {
@@ -338,13 +339,22 @@ export default function RepresentanteModal({
     }
   };
 
+  // Escape cierra SOLO este modal si es el tope de la pila.
+  const modalId = useModalStack(isOpen);
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isTopModal(modalId)) onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [isOpen, modalId, onClose]);
+
   if (!isOpen) return null;
 
   return (
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}
       tabIndex={-1}
     >
       <div className="relative w-full max-w-3xl max-h-[85vh] overflow-y-auto rounded-xl bg-white shadow-2xl border border-slate-200">

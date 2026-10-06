@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { X, Search, Loader2, User, UserPlus, MapPin, Monitor, Home } from "lucide-react";
 import {
   getTiposDocumentoAction,
@@ -26,6 +26,7 @@ import { checkSessionAction } from "@/actions/auth/auth";
 import ViaBusquedaModal from "./via-busqueda-modal";
 import RepresentanteFormModal from "./representante-form-modal";
 import type { MviaItem } from "@/actions/administracion-tributaria/declaracion-jurada";
+import { useModalStack, isTopModal } from "@/hooks/use-modal-topmost";
 
 // ─── Types ─────────────────────────────────────────────────
 
@@ -360,17 +361,16 @@ export default function ContribuyenteModal({ isOpen, onClose, codigoInicial }: P
     };
   }, [isOpen, form.tipoContri]);
 
-  // ── Keyboard ──
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Escape") {
-        // Solo cerrar este modal activo; no propagar a modales padres (si existieran).
-        e.stopPropagation();
-        onClose();
-      }
-    },
-    [onClose],
-  );
+  // ── Keyboard: Escape cierra SOLO este modal si es el tope de la pila ──
+  const modalId = useModalStack(isOpen);
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isTopModal(modalId)) onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [isOpen, modalId, onClose]);
 
   // ── Foco: al abrirse, este modal toma el foco para que Escape cierre SOLO este modal ──
   const rootRef = useRef<HTMLDivElement>(null);
@@ -615,10 +615,6 @@ export default function ContribuyenteModal({ isOpen, onClose, codigoInicial }: P
     <div
       ref={rootRef}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-      onKeyDown={handleKeyDown}
       tabIndex={-1}
     >
       <div
