@@ -1,0 +1,120 @@
+# Feature: Anular Valor — Fase 1: Listado (`anular-valor`)
+
+## Objetivo (fase 1)
+
+Pantalla en Cobranza que muestra el **listado de todos los contribuyentes** en grilla
+paginada de 15, con exportación a Excel. Es la base sobre la que se montará la
+anulación en fase 2.
+
+Ruta: `cobranza/anular-valor`
+
+Rama: `feat/anular-valor` (un solo nivel: `feat/cobranza/...` con dos barras viola el
+regex de nombres del repo).
+
+## Fuera de alcance en fase 1 (explícito, lo pidió el usuario)
+
+- **La anulación en sí.** No hay endpoint de anular, no hay botón de anular, no hay
+  ConfirmDialog. Solo el listado. "Luego continuamos".
+- No hay SP para anular valores de cobranza (verificado: `Anularconvenio*` es para
+  convenios, `sp_Anularrecibos` para recibos, el de vehicular es otro dominio).
+  La fase 2 arranca consiguiendo ese SP.
+
+## Decisión de diseño: de dónde sale el listado
+
+Se espeja `maestro-contribuyentes` (probado y en producción):
+`Rentas.sp_Mcontribuyente @busc=28` → `GOTO maestro_contribuyentes` → SELECT 16
+columnas desde `REPORTS.VW_LISTACONTRIBUYENTE`. El SP no recibe filtros: se traen
+todas las filas y se pagina en memoria.
+
+Verificado: la vista tiene **86737** filas. No hay paginación server-side en esta rama
+del SP (solo recibe `busc`), así que memoria es la única opción sin tocar el SP.
+El módulo maestro ya lo hace en producción, así que está probado a esta escala.
+
+Se crea módulo nuevo `cobranza/anular-valor` en vez de reutilizar el de
+administración-tributaria: ruta propia, concerns propios, y lugar donde crecerán
+los endpoints de anulación en fase 2.
+
+## Alcance (fase 1)
+
+- **Backend** `backend/src/cobranza/anular-valor/`
+  - Ruta: `POST /api/cobranza/anular-valor/search`
+  - `pageSize` selector de modo: `15` (grilla) | `100000` (exportación).
+  - Paginación en memoria (el SP no pagina).
+- **Frontend**
+  - `frontend/src/actions/cobranza/anular-valor.ts` (server action + `authFetch`)
+  - `frontend/src/app/dashboard/cobranza/anular-valor/page.tsx`
+  - `frontend/src/app/dashboard/cobranza/anular-valor/export-utils.ts`
+
+## Columnas (16, espejo de maestro-contribuyentes)
+
+`codigo`, `nombre`, `direccion`, `junta`, `dni`, `correo`, `idVia`, `telefono1`,
+`baseImponible`, `inafecto`, `categoria`, `gestor`, `impAnual`, `impTrime`, `costoEmi`,
+`impTotal`
+
+Texto → `''` si null; numéricos → `0` si null. Mismo mapeo del maestro.
+
+## Tareas
+
+- [x] **T0 — Verificar el SP** (`sp_Mcontribuyente @busc=28`, 86737 filas en la vista,
+      patrón maestro en producción).
+- [x] **T1 — Backend**: module, controller, service, dto, types + specs.
+      Registrado en `app.module.ts`. Commit `ffd42e2`. 9/9 tests pasan.
+- [x] **T2 — Frontend**: server action, página con grilla de 15, export-utils a Excel.
+      Commit `8189717`. Build de Next ok.
+- [x] **T3 — Verificación**: tests backend, `tsc` backend y frontend, ESLint, build frontend,
+      y conteo de columnas. Commits. **STOP cumplido: no se implementó anulación.**
+
+## Estado fase 1: completa y verificada
+
+## Resultados de verificación (observados, no supuestos)
+
+| Check | Resultado |
+|---|---|
+| `npx jest src/cobranza/anular-valor` | **9/9 pasan** (2 suites: 6 service + 3 dto) |
+| `tsc --noEmit` backend | **0 errores nuevos** en el módulo (total 25, preexistentes) |
+| `tsc --noEmit` frontend | **0 errores nuevos** en el módulo (total 21, preexistentes) |
+| `npx eslint` sobre los 3 archivos nuevos | **0 errores, 0 warnings** |
+| `next build` | **ok**, `/dashboard/cobranza/anular-valor` en el output |
+| Conteo de columnas | **16 en `COLUMNAS` y 16 en `WS_COLUMNS`**, mismas claves y mismo orden |
+
+## Criterios de aceptación (fase 1)
+
+1. La pantalla lista contribuyentes paginados de 15, con total y páginas coherentes.
+2. "Exportar a Excel" trae **todos** los que devuelve el SP, no solo la página actual.
+3. El número de columnas coincide en thead, tbody, skeleton y export-utils (16).
+4. **No existe ningún botón ni endpoint de anular.** Si aparece uno, la fase está mal.
+
+## Verificación
+
+Ejecutada y con resultados en la tabla de arriba. Comandos, por si hay que repetirlos:
+
+- Backend: `npx jest src/cobranza/anular-valor`, `npx tsc --noEmit -p tsconfig.json`
+- Frontend: `npx tsc --noEmit -p tsconfig.json`, `npx eslint <3 archivos nuevos>`,
+  `npx next build`
+
+## Commits (fase 1)
+
+- `ffd42e2` — `feat(cobranza): backend listado de contribuyentes para anular-valor (fase 1)`
+- `8189717` — `feat(cobranza): pantalla de listado para anular-valor (fase 1)`
+
+## Pendiente para que funcione en el entorno (fase 1)
+
+1. **Alta en el menú** (BD): `doform2 = 'dashboard/cobranza/anular-valor'`. Sin este
+   INSERT la pantalla existe y compila, pero no aparece en el sidebar.
+
+## Fase 2 (cuando el usuario la pida): la anulación
+
+Bloqueante: conseguir el SP que anula valores de cobranza (hoy no existe ninguno
+verificado) y verificarlo contra la BD **antes** de escribir código. Es operación
+destructiva. El listado de fase 1 será el punto de partida para elegir el
+contribuyente/valor a anular.
+
+## Notas y trampas
+
+- La rama se llama `feat/anular-valor`, no `feat/cobranza/anular-valor`: el regex de
+  nombres (`^(feat|...)\/[a-z0-9._-]+$`) permite una sola barra.
+- 86k filas en memoria por request: es lo que ya hace el maestro en producción. Si en
+  fase 2 el SP de anular trae su propia paginación, se revisa; no anticipar.
+- Cuando llegue la fase 2, el primer paso es conseguir el SP de anular (hoy no existe
+  para cobranza) y verificarlo contra la BD antes de escribir código. Es operación
+  destructiva: no se supone el contrato.
