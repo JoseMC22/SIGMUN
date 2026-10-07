@@ -57,6 +57,14 @@ Pedido explícito del usuario 2026-10-07: "con vacio me demora mucho, modifica e
 - Columnas: `sp_` trae `documento` y `DireFis`; NO trae `TipoPersona` (era computada de `ssp_`) → se mapea `''` temporalmente, columna visible vacía hasta que el usuario defina regla o quitarla. `getValores`/`anular` siguen con `ssp_Consultadocu`/`ssp_Mvalores` (no se tocan).
 - Sin ALTER remoto: el cambio es solo backend + specs, cero riesgo sobre `@busc=28`.
 
+## Bug COUNT (busc=6) encontrado 2026-10-07 con sondas read-only
+- `COUNT N/paterno='VAEZ'` -> 0 con `DATA 1..15` -> 7 filas. `COUNT C/exacto` -> 92122 (toda la tabla) con `DATA` -> 1 fila. R y D consistentes.
+- Causa en SP (`mscount` no espeja `msconsulta`): filtro 'C' comentado (ls.997-1001) y filtro 'N' con AND entre `a` y `m` en vez de OR (con LEFT JOIN sin relacionado, `m.*` NULL nunca cuenta).
+- Afecta a DJ igual (mismos `busc=6`+`busc=5`). Parche mínimo en `backend/sql/sp_Mcontribuyente-mscount-fix.sql` (2 hunks, sin ALTER ejecutado).
+- Backend anular sin cambios pendientes por esto; al aplicarse el FIX, N/VAEZ pagina con total real.
+- FIX APLICADO 2026-10-07 en DEV (192.168.3.205/Base_sigmun) con autorización explícita del usuario: ALTER de `Rentas.sp_Mcontribuyente` solo rama `mscount` (2 hunks de `backend/sql/sp_Mcontribuyente-mscount-fix.sql`). Backup pre-cambio: definición viva capturada por `sp_helptext` (71KB, fuera del repo). Verificación post-ALTER por sondas: COUNT N/NARVAEZ=5=DATA, C exacto=1 (antes 92122), N/VAEZ=7=DATA, Nombres=1398, R=1, D=1.
+- Nota de disciplina: el primer aplicador falló cerrado a tiempo (reemplazo en empalme en vez del final por `match` sin `/g` + doble ocurrencia); se reescribió operando solo sobre el segmento `mscount` con conteos `/g` y se verificó el bloque impreso antes del `--apply`.
+
 ## Open questions
 - `TipoPersona` vacía con `sp_`: ¿quito la columna o me pasás la regla (qué campo la define)?
 - Export `100000`: hace COUNT + un fetch `1..total` (lento explícito, la UI no lo dispara).
