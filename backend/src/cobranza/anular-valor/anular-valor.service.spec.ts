@@ -230,4 +230,142 @@ describe('AnularValorService', () => {
       expect(res.error).toBeTruthy();
     });
   });
+
+  /**
+   * Contrato verificado de la fase 2 (Rentas.ssp_Mvalores @msquery=10):
+   * - El SP NO devuelve resultset: el exito se confirma re-leyendo @msquery=3.
+   * - Solo se anula si el estado actual es 'Pendiente' (sin tocar la BD si no).
+   * - @observacion = motivo (250) y @id_user = operador.
+   */
+  describe('anularValor', () => {
+    const dto = {
+      Codigo: '0279126',
+      IdValor: '01',
+      NumVal: '0018351',
+      AnoVal: '2024',
+      Motivo: 'Error de carga del valor en el periodo 2024',
+      Operador: 'mvaez',
+    };
+
+    const consultaParams = {
+      msquery: 3,
+      codigo: '0279126',
+      id_valor: '01',
+      num_val: '0018351',
+      ano_val: '2024',
+      inicio: 0,
+      final: 0,
+    };
+
+    const valorConEstado = (nestado: string) => ({
+      recordset: [
+        {
+          codigo: '0279126',
+          id_valor: '01',
+          num_val: '0018351',
+          ano_val: '2024',
+          nestado,
+          MontoTotal: 480.35,
+          ROW: 1,
+        },
+      ],
+    });
+
+    /**
+     * El mock es jest.Mock<any, any>: sin este casteo, acceder a
+     * calls[i][1] dispara no-unsafe-member-access en cada aserción.
+     */
+    const llamadas = (): [string, Record<string, unknown>][] =>
+      executeProcedure.mock.calls as [string, Record<string, unknown>][];
+
+    it('pendiente: lee, ejecuta msquery:10 y confirma Anulado', async () => {
+      executeProcedure
+        .mockResolvedValueOnce(valorConEstado('Pendiente'))
+        // ssp_Mvalores @msquery=10 no devuelve resultset
+        .mockResolvedValueOnce({ recordset: [] })
+        .mockResolvedValueOnce(valorConEstado('Anulado'));
+
+      const res = await service.anularValor(dto);
+
+      expect(res).toEqual({
+        success: true,
+        message: 'Valor anulado correctamente',
+      });
+      expect(executeProcedure).toHaveBeenCalledTimes(3);
+
+      const [consulta, escritura, confirmacion] = llamadas();
+      expect(consulta[0]).toBe('Rentas.ssp_Consultadocu');
+      expect(consulta[1]).toMatchObject(consultaParams);
+
+      expect(escritura[0]).toBe('Rentas.ssp_Mvalores');
+      expect(escritura[1]).toMatchObject({
+        msquery: 10,
+        id_valor: '01',
+        num_val: '0018351',
+        ano_val: '2024',
+        codigo: '0279126',
+        observacion: dto.Motivo,
+        id_user: 'mvaez',
+      });
+
+      expect(confirmacion[0]).toBe('Rentas.ssp_Consultadocu');
+      expect(confirmacion[1]).toMatchObject(consultaParams);
+    });
+
+    it('no pendiente: nunca ejecuta ssp_Mvalores @msquery=10', async () => {
+      executeProcedure.mockResolvedValueOnce(valorConEstado('Pagado'));
+
+      const res = await service.anularValor(dto);
+
+      expect(res.success).toBe(false);
+      expect(res.error).toBe(
+        'Solo se pueden anular valores en estado Pendiente',
+      );
+      expect(executeProcedure).toHaveBeenCalledTimes(1);
+      const escribioNoPendiente = llamadas().some(
+        ([sp]) => sp === 'Rentas.ssp_Mvalores',
+      );
+      expect(escribioNoPendiente).toBe(false);
+    });
+
+    it('valor inexistente: "Valor no encontrado" sin escribir', async () => {
+      executeProcedure.mockResolvedValueOnce({ recordset: [] });
+
+      const res = await service.anularValor(dto);
+
+      expect(res).toEqual({ success: false, error: 'Valor no encontrado' });
+      expect(executeProcedure).toHaveBeenCalledTimes(1);
+      const escribioInexistente = llamadas().some(
+        ([sp]) => sp === 'Rentas.ssp_Mvalores',
+      );
+      expect(escribioInexistente).toBe(false);
+    });
+
+    it('el re-lee no da Anulado: success false sin throw', async () => {
+      executeProcedure
+        .mockResolvedValueOnce(valorConEstado('Pendiente'))
+        .mockResolvedValueOnce({ recordset: [] })
+        .mockResolvedValueOnce(valorConEstado('Pendiente'));
+
+      const res = await service.anularValor(dto);
+
+      expect(res).toEqual({
+        success: false,
+        error: 'No se pudo confirmar la anulación',
+      });
+      expect(executeProcedure).toHaveBeenCalledTimes(3);
+    });
+
+    it('el SP tira: success false con "Error al anular el valor" sin throw', async () => {
+      executeProcedure.mockRejectedValueOnce(new Error('boom'));
+
+      const res = await service.anularValor(dto);
+
+      expect(res).toEqual({
+        success: false,
+        error: 'Error al anular el valor',
+      });
+      expect(executeProcedure).toHaveBeenCalledTimes(1);
+    });
+  });
 });

@@ -70,6 +70,12 @@ coverage/
 # Excepcion: los specs de anular-valor SI se versionan (fase 1: listado).
 !backend/src/cobranza/anular-valor/**/*.spec.ts
 
+# Excepcion: los tests frontend de anular-valor (fase 2: anulacion con motivo)
+# SI se versionan: cubren el contrato de anularValorAction (POST /anular) y la
+# validacion del motivo (min 20 / max 250), la red si alguien toca ese flujo.
+!frontend/src/actions/cobranza/anular-valor.test.ts
+!frontend/src/app/dashboard/cobranza/anular-valor/*.test.ts
+
 # Auto-generated / workspace
 pnpm-lock.yaml
 frontend/pnpm-lock.yaml

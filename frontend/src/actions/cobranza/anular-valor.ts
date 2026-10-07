@@ -179,3 +179,63 @@ export async function getValoresByCodigoAction(
     };
   }
 }
+
+// Anulación de un valor (fase 2)
+
+/** Llave del valor + motivo y operador, tal como los espera el backend. */
+export interface AnularValorInput {
+  Codigo: string;
+  IdValor: string;
+  NumVal: string;
+  AnoVal: string;
+  Motivo: string;
+  Operador?: string;
+}
+
+export interface AnularValorActionResult {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
+export async function anularValorAction(
+  input: AnularValorInput,
+): Promise<AnularValorActionResult> {
+  try {
+    const response = await authFetch(`${BASE}/anular`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        Codigo: input.Codigo,
+        IdValor: input.IdValor,
+        NumVal: input.NumVal,
+        AnoVal: input.AnoVal,
+        Motivo: input.Motivo,
+        Operador: input.Operador ?? "",
+      }),
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      return {
+        success: false,
+        error: text || `Error ${response.status}`,
+      };
+    }
+
+    const json = await response.json();
+    if (!json.success) {
+      return {
+        success: false,
+        error: json.error ?? "Error al anular el valor",
+      };
+    }
+    return { success: true, message: json.message };
+  } catch {
+    return {
+      success: false,
+      error: "Error de conexión con el servidor",
+    };
+  }
+}

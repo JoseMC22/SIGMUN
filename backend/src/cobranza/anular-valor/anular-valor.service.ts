@@ -3,10 +3,12 @@ import { DatabaseService } from '../../database/database.service';
 import {
   AnularValorContribuyenteRow,
   AnularValorResult,
+  SearchAnularValorResult,
   ValorEmitidoRow,
   ValoresResult,
 } from './anular-valor.types';
 import { SearchAnularValorDto } from './dto/search-anular-valor.dto';
+import { AnularValorDto } from './dto/anular-valor.dto';
 
 /**
  * Listado de contribuyentes para anular-valor (fase 1: sin anulación).
@@ -41,7 +43,7 @@ export class AnularValorService {
 
   constructor(private readonly db: DatabaseService) {}
 
-  async search(dto: SearchAnularValorDto): Promise<AnularValorResult> {
+  async search(dto: SearchAnularValorDto): Promise<SearchAnularValorResult> {
     try {
       const result = await this.db.executeProcedure(
         'Rentas.ssp_Mcontribuyente',
@@ -128,6 +130,80 @@ export class AnularValorService {
       };
     }
   }
+
+  /**
+   * Anulación de un valor (fase 2). Fuente: Rentas.ssp_Mvalores @msquery=10.
+   *
+   * El SP NO devuelve resultset ni en éxito ni en error (verificado en su
+   * definición), así que el flujo es: 1) re-leer la llave con
+   * ssp_Consultadocu @msquery=3 y exigir nestado='Pendiente' sin tocar la BD
+   * si no cumple, 2) ejecutar @msquery=10 (@observacion = motivo,
+   * @id_user = operador), 3) re-leer y exigir nestado='Anulado' para dar
+   * por buena la operación.
+   */
+  async anularValor(dto: AnularValorDto): Promise<AnularValorResult> {
+    try {
+      const actual = await this.leerValor(dto);
+      if (!actual) {
+        return { success: false, error: 'Valor no encontrado' };
+      }
+      if (estadoDe(actual) !== 'Pendiente') {
+        return {
+          success: false,
+          error: 'Solo se pueden anular valores en estado Pendiente',
+        };
+      }
+
+      await this.db.executeProcedure('Rentas.ssp_Mvalores', {
+        msquery: 10,
+        id_valor: dto.IdValor,
+        num_val: dto.NumVal,
+        ano_val: dto.AnoVal,
+        codigo: dto.Codigo,
+        observacion: dto.Motivo,
+        id_user: dto.Operador ?? '',
+      });
+
+      const despues = await this.leerValor(dto);
+      if (despues && estadoDe(despues) === 'Anulado') {
+        return { success: true, message: 'Valor anulado correctamente' };
+      }
+      return { success: false, error: 'No se pudo confirmar la anulación' };
+    } catch (error) {
+      this.logger.error(
+        `[AnularValor] anularValor SP error: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return { success: false, error: 'Error al anular el valor' };
+    }
+  }
+
+  /**
+   * Re-lee la llave del valor con ssp_Consultadocu @msquery=3 filtrado a las
+   * cuatro claves. Devuelve undefined si el SP no trae filas.
+   */
+  private async leerValor(dto: AnularValorDto): Promise<SpRow | undefined> {
+    const result = await this.db.executeProcedure('Rentas.ssp_Consultadocu', {
+      msquery: 3,
+      codigo: dto.Codigo,
+      id_valor: dto.IdValor,
+      num_val: dto.NumVal,
+      ano_val: dto.AnoVal,
+      inicio: 0,
+      final: 0,
+    });
+    return (result.recordset ?? [])[0] as SpRow | undefined;
+  }
+}
+
+/**
+ * Estado resuelto de @msquery=3 ('Pendiente', 'Anulado', ...). El SP trae el
+ * texto, no el int; se recorta por si viene con espacios.
+ */
+function estadoDe(row: SpRow): string {
+  const nestado: unknown = row.nestado;
+  if (typeof nestado === 'string') return nestado.trim();
+  if (typeof nestado === 'number') return String(nestado);
+  return '';
 }
 
 /**

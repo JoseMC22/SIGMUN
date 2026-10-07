@@ -16,8 +16,10 @@ import {
   GetValoresSchema,
   GetValoresDto,
 } from './dto/get-valores.dto';
+import { AnularValorSchema, AnularValorDto } from './dto/anular-valor.dto';
 import {
   AnularValorResult,
+  SearchAnularValorResult,
   ValoresResult,
 } from './anular-valor.types';
 import { z } from 'zod';
@@ -30,7 +32,7 @@ export class AnularValorController {
   /** Listado de contribuyentes (fase 1; sin anulación). */
   @Post('search')
   @HttpCode(HttpStatus.OK)
-  async search(@Body() body: unknown): Promise<AnularValorResult> {
+  async search(@Body() body: unknown): Promise<SearchAnularValorResult> {
     let dto: SearchAnularValorDto;
     try {
       dto = SearchAnularValorSchema.parse(body);
@@ -77,5 +79,29 @@ export class AnularValorController {
       };
     }
     return this.service.getValores(dto.Codigo);
+  }
+
+  /**
+   * Anulación de un valor (fase 2). Mismo patrón de error-objeto que
+   * valores(): nunca tira, devuelve { success:false, error }.
+   */
+  @Post('anular')
+  @HttpCode(HttpStatus.OK)
+  async anular(@Body() body: unknown): Promise<AnularValorResult> {
+    let dto: AnularValorDto;
+    try {
+      dto = AnularValorSchema.parse(body);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return {
+          success: false,
+          error:
+            error.issues.map((i) => i.message).join(', ') ||
+            'Parámetros inválidos',
+        };
+      }
+      return { success: false, error: 'Parámetros inválidos' };
+    }
+    return this.service.anularValor(dto);
   }
 }

@@ -17,13 +17,24 @@ export interface AnularValorContribuyenteRow {
   TipoPersona: string;
 }
 
-export interface AnularValorResult {
+export interface SearchAnularValorResult {
   success: boolean;
   data: AnularValorContribuyenteRow[];
   total: number;
   page: number;
   pageSize: number;
   totalPages: number;
+  error?: string;
+}
+
+/**
+ * Resultado de la anulación de un valor (fase 2).
+ * El SP @msquery=10 no devuelve nada: el success lo da el service al
+ * re-leer y encontrar nestado='Anulado'.
+ */
+export interface AnularValorResult {
+  success: boolean;
+  message?: string;
   error?: string;
 }
 

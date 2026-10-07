@@ -147,12 +147,78 @@ Ejecutada y con resultados en la tabla de arriba. Comandos, por si hay que repet
 1. **Alta en el menú** (BD): `doform2 = 'dashboard/cobranza/anular-valor'`. Sin este
    INSERT la pantalla existe y compila, pero no aparece en el sidebar.
 
-## Fase 2 (cuando el usuario la pida): la anulación
+## Fase 2 (en curso): anulación con motivo
 
-Bloqueante: conseguir el SP que anula valores de cobranza (hoy no existe ninguno
-verificado) y verificarlo contra la BD **antes** de escribir código. Es operación
-destructiva. El listado de fase 1 será el punto de partida para elegir el
-contribuyente/valor a anular.
+Fuente: **`Rentas.ssp_Mvalores @msquery=10`** ("Para anulación de valores",
+verificado en la definición viva el 2026-10-06). Recibe `@id_valor`, `@num_val`,
+`@ano_val`, `@codigo`, `@observacion` (varchar(250) = el motivo), `@id_user`
+(operador). En una transacción: inserta en `Rentas.Mvalores_Motivo` (secuencia
+auto), pone `mvalores.nestado='2'` + auditoría en `observacion`, y pasa a
+`CAJA.MRECIBOS.estado='2'`. Con error hace rollback y loguea en `ErrorMigracion`.
+
+**Trampa del SP: no devuelve resultset ni en éxito ni en error.** El éxito se
+verifica re-leyendo (`ssp_Consultadocu @msquery=3` filtrado a la llave, se espera
+`nestado='Anulado'`).
+
+Estados (`rentas.estado_valores`, verificado): 1 Pendiente, 2 Anulado,
+3 Notificado, 6 Coactivo, 7 Registro, 9 Pagado. El botón de eliminar solo existe
+en filas con `nestado === 'Pendiente'`.
+
+Motivo: mínimo **20 caracteres** (el usuario dijo "dígitos"; se interpreta como
+caracteres), máximo 250 (límite de `@observacion`). Operador = usuario logueado
+del frontend (precedente `AnularConvenio`: `getStoredUser()?.username`).
+
+Diseño: `POST /cobranza/anular-valor/anular` con
+`{ Codigo, IdValor, NumVal, AnoVal, Motivo, Operador }`. El service: 1) re-lee el
+valor y exige Pendiente (si no, `success:false` sin tocar la BD), 2) ejecuta
+`@msquery=10`, 3) re-lee y exige Anulado. Frontend: columna Acción en el modal
+(visible solo si Pendiente) → modal de motivo (textarea con contador, min 20) →
+confirma → recarga el listado del modal.
+
+## Tareas fase 2
+
+- [x] **T4 — Backend anular**: dto `anular-valor.dto.ts` + spec (requeridos, motivo
+      20–250 con trim), `service.anularValor()` + spec (mock db: pendiente→ejecuta
+      y verifica Anulado; no-pendiente→no ejecuta; error SP→false),
+      `POST anular` en controller. TDD estricto (RED primero).
+- [x] **T5 — Frontend anular**: `anularValorAction`, columna Acción en
+      `valores-modal.tsx` (solo Pendiente), modal de motivo con validación min 20,
+      recarga del listado tras anular.
+- [x] **T6 — Verificación**: `pnpm --filter backend test` del módulo, `tsc` ambos,
+      eslint, build frontend. Work-unit commit en `feat/anular-valor`.
+
+## Resultados de verificación fase 2 (observados, no supuestos)
+
+| Check | Resultado |
+|---|---|
+| RED backend (specs nuevos, sin implementar) | **2 failed / 2 passed** (TS2307 módulo dto no existe, TS2339 `anularValor`) |
+| RED frontend (2 specs nuevos, sin implementar) | **5 failed / 0 passed** (`anularValorAction is not a function`) |
+| `npx jest src/cobranza/anular-valor` | **28/28 pasan** (4 suites) |
+| `npx tsc --noEmit` backend | **0 errores en el módulo** (total 25, preexistentes en mantenimiento-notificadores) |
+| `npx tsc --noEmit` frontend | **0 errores en el módulo** (total 12, preexistentes en alcabala/mantenimiento-uit) |
+| `npx eslint` backend (6 archivos del módulo) | **30 errors + 3 warnings, 0 en líneas de fase 2** (baseline HEAD: 31+3; los dto nuevos: 0/0) |
+| `npx eslint` frontend (5 archivos de fase 2) | **0 errors, 0 warnings** |
+| Vitest frontend (specs de fase 2) | **10/10 pasan** |
+| `pnpm --filter frontend test` (suite completa) | **18 failed / 213 passed**; los 18 son preexistentes (access-context, modelos, valores-vehicular, nuevo-valor-modal) — comprobado idéntico en baseline con stash |
+| `npx next build` | **ok**, `/dashboard/cobranza/anular-valor` en el output |
+
+## Criterios de aceptación (fase 2)
+
+1. Anular exige motivo con trim entre 20 y 250 caracteres; la UI lo valida con
+   contador en vivo y el dto lo re-valida en el backend.
+2. Solo filas `nestado === 'Pendiente'` ofrecen el botón de anular; el backend
+   re-lee la llave y devuelve `success:false` sin tocar la BD si el estado no
+   es Pendiente.
+3. El éxito se confirma re-leyendo `nestado === 'Anulado'` (el SP `@msquery=10`
+   no devuelve resultset); si no, `success:false` sin throw.
+4. El usuario debe explicar el motivo para confirmar; al anular, el modal de
+   motivo se cierra y el listado de valores se recarga.
+
+## TDD / runners (de `sdd-init/sigmun`, strict_tdd: true)
+
+Backend `pnpm --filter backend test` (Jest), frontend `pnpm --filter frontend test`
+(Vitest). RED antes de implementar, GREEN, REFACTOR. Evidencia observada, no
+inventada.
 
 ## Notas y trampas
 
