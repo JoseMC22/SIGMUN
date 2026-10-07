@@ -220,6 +220,21 @@ Backend `pnpm --filter backend test` (Jest), frontend `pnpm --filter frontend te
 (Vitest). RED antes de implementar, GREEN, REFACTOR. Evidencia observada, no
 inventada.
 
+## Cierre fase 2 (verificación independiente + gate)
+
+- Commit `c8ae66a` (13 archivos, +859/−24: supera el budget 400 — una sola unidad
+  código+tests+doc, no se comprime).
+- Spot check del orquestador: `npx jest src/cobranza/anular-valor` → 28/28.
+- Verificador independiente: PASS en ruta destructiva (guard Pendiente, params
+  exactos, re-verificación Anulado), 28/28 backend + 10/10 frontend, sin cambios
+  fuera del endpoint nuevo. RDD global off → sin review nativa (assess:
+  `high/unassessable` por untracked ajenos).
+- Riesgo del verificador CERRADO con evidencia: `ssp_Consultadocu @msquery=3`
+  **sí filtra por llave** — `EXEC @msquery=3, @codigo='0279126', @id_valor='01',
+  @num_val='0035433', @ano_val='2018'` devuelve exactamente 1 fila (SQL impreso
+  por el SP muestra los 3 `and`). El `leerValor` del service opera sobre la fila
+  correcta.
+
 ## Notas y trampas
 
 - La rama se llama `feat/anular-valor`, no `feat/cobranza/anular-valor`: el regex de
