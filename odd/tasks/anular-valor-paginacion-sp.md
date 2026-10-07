@@ -49,6 +49,7 @@ Pedido explícito del usuario 2026-10-07: "con vacio me demora mucho, modifica e
 - DJ frontend: auto-search al abrir, `handleTipoBusquedaChange` limpia `data/total/totalPages/page/error`, `runSearch` normaliza código en Procesar y lo escribe de vuelta (`page.tsx:211-270`). Anular solo normaliza en `onBlur` y no limpia grilla al cambiar tipo.
 - Aplicar lo mismo excepto botones: mantener columna Acción + `ValoresModal` + flujo anular (fase 2). No copiar botones de DJ (nuevo/editar/eliminar/estado-cuenta).
 - Paso 1 (sin SP): paridad frontend DJ en `anular-valor/page.tsx` (limpiar al cambiar tipo + normalizar en Procesar). Paso 2 (con SP): COUNT + página en `ssp_Mcontribuyente` cuando haya definición/autorización total.
+- Réplica visual DJ 2026-10-07 (commit pendiente): mismos anchos fijos (C 150 / N 3×250 / R 350 / D 140), mismos labels/placeholders, orden Nombres-Paterno-Materno, mayúsculas automáticas en N/R, cabecera "Filtros de búsqueda", layout `flex flex-wrap`, sin hint. Se mantiene botón "Procesar" (vocabulario del usuario), grilla de 8 columnas y botón Valores + flujo anular. Sin checkbox Infracción ni modos Predio/Placa (el backend C/N/R/D no los soporta).
 
 ## Decisión 2026-10-07: usar el mismo SP de DJ
 - Pedido: "emplea el mismo sp de DJ". Se abandona modificar `ssp_Mcontribuyente`: anular-valor pasa a `Rentas.sp_Mcontribuyente` con `busc=6` COUNT + `busc=5` página (`inicio/final` String 1-based), idéntico a DJ standard (`declaracion-jurada.service.ts:198-226`).

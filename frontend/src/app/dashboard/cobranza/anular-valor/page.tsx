@@ -10,7 +10,6 @@ import {
   LayoutGrid,
   ChevronLeft,
   ChevronRight,
-  Info,
   Eye,
 } from "lucide-react";
 import {
@@ -243,15 +242,15 @@ export default function AnularValorPage() {
       <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
         <div className="w-0.5 h-3.5 bg-sat-cyan rounded-full" />
         <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
-          Criterios de búsqueda
+          Filtros de búsqueda
         </span>
       </div>
 
       <div className="p-2.5">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-          <div className="md:col-span-3">
+        <div className="flex flex-wrap gap-2 items-end">
+          <div className="w-[130px]">
             <label htmlFor="tipoBusqueda" className={labelCls}>
-              Buscar por
+              Tipo Búsqueda
             </label>
             <select
               id="tipoBusqueda"
@@ -268,14 +267,14 @@ export default function AnularValorPage() {
           </div>
 
           {tipo === "C" && (
-            <div className="md:col-span-5">
+            <div className="w-[150px]">
               <label htmlFor="codigo" className={labelCls}>
                 Código
               </label>
               <input
                 id="codigo"
                 type="text"
-                placeholder="Todos"
+                placeholder="Código"
                 maxLength={7}
                 value={codigo}
                 onChange={(e) => setCodigo(e.target.value)}
@@ -283,54 +282,54 @@ export default function AnularValorPage() {
                   if (e.target.value) setCodigo(padCodigo(e.target.value));
                 }}
                 onKeyDown={handleKeyDown}
-                className={`${inputCls} font-mono`}
+                className={inputCls}
               />
             </div>
           )}
 
           {tipo === "N" && (
             <>
-              <div className="md:col-span-3">
-                <label htmlFor="paterno" className={labelCls}>
-                  Paterno
-                </label>
-                <input
-                  id="paterno"
-                  type="text"
-                  placeholder="Paterno..."
-                  maxLength={50}
-                  value={paterno}
-                  onChange={(e) => setPaterno(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  className={inputCls}
-                />
-              </div>
-              <div className="md:col-span-3">
-                <label htmlFor="materno" className={labelCls}>
-                  Materno
-                </label>
-                <input
-                  id="materno"
-                  type="text"
-                  placeholder="Materno..."
-                  maxLength={50}
-                  value={materno}
-                  onChange={(e) => setMaterno(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  className={inputCls}
-                />
-              </div>
-              <div className="md:col-span-3">
+              <div className="w-[250px]">
                 <label htmlFor="nombres" className={labelCls}>
                   Nombres
                 </label>
                 <input
                   id="nombres"
                   type="text"
-                  placeholder="Nombres..."
+                  placeholder="Nombres"
                   maxLength={200}
                   value={nombres}
-                  onChange={(e) => setNombres(e.target.value)}
+                  onChange={(e) => setNombres(e.target.value.toUpperCase())}
+                  onKeyDown={handleKeyDown}
+                  className={inputCls}
+                />
+              </div>
+              <div className="w-[250px]">
+                <label htmlFor="paterno" className={labelCls}>
+                  Paterno
+                </label>
+                <input
+                  id="paterno"
+                  type="text"
+                  placeholder="Ap. paterno"
+                  maxLength={50}
+                  value={paterno}
+                  onChange={(e) => setPaterno(e.target.value.toUpperCase())}
+                  onKeyDown={handleKeyDown}
+                  className={inputCls}
+                />
+              </div>
+              <div className="w-[250px]">
+                <label htmlFor="materno" className={labelCls}>
+                  Materno
+                </label>
+                <input
+                  id="materno"
+                  type="text"
+                  placeholder="Ap. materno"
+                  maxLength={50}
+                  value={materno}
+                  onChange={(e) => setMaterno(e.target.value.toUpperCase())}
                   onKeyDown={handleKeyDown}
                   className={inputCls}
                 />
@@ -339,17 +338,17 @@ export default function AnularValorPage() {
           )}
 
           {tipo === "R" && (
-            <div className="md:col-span-5">
+            <div className="w-[350px]">
               <label htmlFor="razon" className={labelCls}>
-                Razón Social
+                Razón Social / RUC
               </label>
               <input
                 id="razon"
                 type="text"
-                placeholder="Razón social..."
+                placeholder="RUC o razón social"
                 maxLength={200}
                 value={razon}
-                onChange={(e) => setRazon(e.target.value)}
+                onChange={(e) => setRazon(e.target.value.toUpperCase())}
                 onKeyDown={handleKeyDown}
                 className={inputCls}
               />
@@ -357,24 +356,24 @@ export default function AnularValorPage() {
           )}
 
           {tipo === "D" && (
-            <div className="md:col-span-5">
+            <div className="w-[140px]">
               <label htmlFor="numDoc" className={labelCls}>
-                Nro Documento
+                Nro. Documento
               </label>
               <input
                 id="numDoc"
                 type="text"
-                placeholder="Nro documento..."
+                placeholder="DNI"
                 maxLength={11}
                 value={numDoc}
                 onChange={(e) => setNumDoc(e.target.value)}
                 onKeyDown={handleKeyDown}
-                className={`${inputCls} font-mono`}
+                className={inputCls}
               />
             </div>
           )}
 
-          <div className="md:col-span-4 flex items-center gap-2">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={handleSearch}
@@ -385,20 +384,6 @@ export default function AnularValorPage() {
             </button>
           </div>
         </div>
-
-        <p className="mt-2 flex items-center gap-1.5 text-[10px] text-slate-500 bg-slate-50 border border-slate-200 rounded-md px-2 py-1">
-          <Info size={11} className="shrink-0" />
-          <span>
-            {tipo === "C" &&
-              "El código es exacto (el SP rellena a 7 dígitos). Vacío lista todos."}
-            {tipo === "N" &&
-              "Se puede llenar cualquiera de los tres; el SP combina con AND parcial. Todo vacío lista todos."}
-            {tipo === "R" &&
-              "Busca parcial sobre el nombre completo. Vacío lista todos."}
-            {tipo === "D" &&
-              "Busca parcial sobre el número de documento. Vacío lista todos."}
-          </span>
-        </p>
       </div>
     </div>
   );
