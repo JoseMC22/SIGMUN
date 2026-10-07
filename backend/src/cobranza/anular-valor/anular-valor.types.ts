@@ -76,13 +76,25 @@ export interface ValoresResult {
 }
 
 /**
+ * Un motivo de anulación con su metadata.
+ * Fuente: Rentas.SP_Mvalores @msquery=14
+ * (observacion, operador, estacion, fech_ing; 0..N filas).
+ * fech_ing viaja como string ISO tal cual lo entrega el driver.
+ */
+export interface MotivoAnulacion {
+  texto: string;
+  operador: string;
+  estacion: string;
+  fecha: string;
+}
+
+/**
  * Motivo(s) de anulación de un valor.
- * Fuente: Rentas.SP_Mvalores @msquery=14 (columna observacion, 0..N filas).
  * Sin filas no es error: data queda vacía y la UI muestra mensaje honesto.
  */
 export interface MotivoResult {
   success: boolean;
-  data: string[];
+  data: MotivoAnulacion[];
   total: number;
   error?: string;
 }

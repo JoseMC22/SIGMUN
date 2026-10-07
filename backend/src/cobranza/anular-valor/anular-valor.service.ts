@@ -3,6 +3,7 @@ import { DatabaseService } from '../../database/database.service';
 import {
   AnularValorContribuyenteRow,
   AnularValorResult,
+  MotivoAnulacion,
   MotivoResult,
   SearchAnularValorResult,
   ValorEmitidoRow,
@@ -208,10 +209,10 @@ export class AnularValorService {
   }
 
   /**
-   * Motivo(s) de anulación de un valor.
+   * Motivo(s) de anulación de un valor con su metadata.
    * Fuente: Rentas.SP_Mvalores @msquery=14
-   * (select observacion from MVALORES_MOTIVO por llave, 0..N filas).
-   * Sin filas no es error: se devuelve data vacía.
+   * (observacion, operador, estacion, fech_ing de MVALORES_MOTIVO, 0..N).
+   * Se conservan las filas con texto; null se mapea a ''.
    */
   async getMotivo(dto: GetMotivoDto): Promise<MotivoResult> {
     try {
@@ -221,12 +222,23 @@ export class AnularValorService {
         num_val: dto.NumVal,
         ano_val: dto.AnoVal,
       });
-      const data: string[] = (result.recordset ?? [])
+      const data: MotivoAnulacion[] = (result.recordset ?? [])
         .map((row) => {
-          const v = (row as SpRow)?.observacion;
-          return v === null || v === undefined ? '' : String(v).trim();
+          const r = (row as SpRow) ?? {};
+          const pick = (key: string): string => {
+            const v = r[key];
+            if (v === null || v === undefined) return '';
+            if (v instanceof Date) return v.toISOString();
+            return String(v).trim();
+          };
+          return {
+            texto: pick('observacion'),
+            operador: pick('operador'),
+            estacion: pick('estacion'),
+            fecha: pick('fech_ing'),
+          };
         })
-        .filter((v) => v !== '');
+        .filter((v) => v.texto !== '');
       return { success: true, data, total: data.length };
     } catch (error) {
       this.logger.error(

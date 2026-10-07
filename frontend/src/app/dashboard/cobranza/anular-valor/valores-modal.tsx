@@ -7,7 +7,22 @@ import {
   anularValorAction,
   getMotivoAnulacionAction,
   type ValorEmitido,
+  type MotivoAnulacion,
 } from "@/actions/cobranza/anular-valor";
+
+// Fecha del SP (ISO) en formato corto local; si no parsea, se muestra cruda.
+function formatearFechaMotivo(iso: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString("es-PE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 import { getStoredUser } from "@/lib/api";
 import { validateMotivo, MOTIVO_MAX } from "./motivo-validation";
 
@@ -51,9 +66,9 @@ export default function ValoresModal({
   const [anularError, setAnularError] = useState<string | null>(null);
   const [anularLoading, setAnularLoading] = useState(false);
 
-  // Ver motivo: fila anulada + textos leídos (SP_Mvalores @msquery=14)
+  // Ver motivo: fila anulada + motivos leídos (SP_Mvalores @msquery=14)
   const [motivoRow, setMotivoRow] = useState<ValorEmitido | null>(null);
-  const [motivoTextos, setMotivoTextos] = useState<string[]>([]);
+  const [motivoTextos, setMotivoTextos] = useState<MotivoAnulacion[]>([]);
   const [motivoLoading, setMotivoLoading] = useState(false);
   const [motivoError, setMotivoError] = useState<string | null>(null);
 
@@ -496,14 +511,38 @@ export default function ValoresModal({
                   Sin motivo registrado para este valor
                 </p>
               ) : (
-                <div className="space-y-2">
-                  {motivoTextos.map((t, i) => (
-                    <p
+                <div className="space-y-3">
+                  {motivoTextos.map((m, i) => (
+                    <div
                       key={i}
-                      className="rounded-md bg-slate-50 border border-slate-200 px-3 py-2 text-xs leading-relaxed text-slate-700"
+                      className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2"
                     >
-                      {t}
-                    </p>
+                      <div className="mb-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-slate-500">
+                        <span>
+                          Operador:{" "}
+                          <span className="font-semibold text-slate-700">
+                            {m.operador || "—"}
+                          </span>
+                        </span>
+                        <span>
+                          Fecha:{" "}
+                          <span className="font-semibold text-slate-700">
+                            {formatearFechaMotivo(m.fecha) || "—"}
+                          </span>
+                        </span>
+                        {m.estacion ? (
+                          <span>
+                            Estación:{" "}
+                            <span className="font-mono font-semibold text-slate-700">
+                              {m.estacion}
+                            </span>
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="text-xs leading-relaxed text-slate-700">
+                        {m.texto}
+                      </p>
+                    </div>
                   ))}
                 </div>
               )}

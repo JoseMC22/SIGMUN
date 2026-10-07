@@ -420,14 +420,21 @@ describe('AnularValorService', () => {
 
   /**
    * Lectura del motivo de anulación (Rentas.SP_Mvalores @msquery=14):
-   * devuelve los textos de observacion (0..N filas de una columna).
+   * devuelve objetos con texto + metadata (operador/estacion/fecha).
    */
   describe('getMotivo', () => {
     const key = { IdValor: '01', NumVal: '0018351', AnoVal: '2024' };
 
     it('llama a SP_Mvalores con msquery:14 y la llave', async () => {
       executeProcedure.mockResolvedValueOnce({
-        recordset: [{ observacion: 'Error de carga  ' }],
+        recordset: [
+          {
+            observacion: 'Error de carga  ',
+            operador: 'mvaez ',
+            estacion: null,
+            fech_ing: '2025-05-06T10:31:45.270Z',
+          },
+        ],
       });
 
       const res = await service.getMotivo(key);
@@ -440,16 +447,37 @@ describe('AnularValorService', () => {
         num_val: '0018351',
         ano_val: '2024',
       });
-      expect(res).toEqual({ success: true, data: ['Error de carga'], total: 1 });
+      expect(res).toEqual({
+        success: true,
+        data: [
+          {
+            texto: 'Error de carga',
+            operador: 'mvaez',
+            estacion: '',
+            fecha: '2025-05-06T10:31:45.270Z',
+          },
+        ],
+        total: 1,
+      });
     });
 
-    it('devuelve todos los motivos y descarta vacíos', async () => {
+    it('devuelve todos los motivos y descarta los de texto vacío', async () => {
       executeProcedure.mockResolvedValueOnce({
         recordset: [
-          { observacion: 'Primer motivo' },
-          { observacion: '   ' },
-          { observacion: null },
-          { observacion: 'Segundo motivo' },
+          {
+            observacion: 'Primer motivo',
+            operador: 'a',
+            estacion: 'e1',
+            fech_ing: null,
+          },
+          { observacion: '   ', operador: 'b', estacion: '', fech_ing: '' },
+          { observacion: null, operador: '', estacion: '', fech_ing: '' },
+          {
+            observacion: 'Segundo motivo',
+            operador: '',
+            estacion: '',
+            fech_ing: '',
+          },
         ],
       });
 
@@ -457,7 +485,10 @@ describe('AnularValorService', () => {
 
       expect(res).toEqual({
         success: true,
-        data: ['Primer motivo', 'Segundo motivo'],
+        data: [
+          { texto: 'Primer motivo', operador: 'a', estacion: 'e1', fecha: '' },
+          { texto: 'Segundo motivo', operador: '', estacion: '', fecha: '' },
+        ],
         total: 2,
       });
     });

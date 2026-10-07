@@ -8,12 +8,17 @@ En el modal de valores emitidos, las filas con estado `Anulado` muestran botón
 `Rentas.SP_Mvalores @msquery=14` (rama `mostrar_motivo_anulacion`, SP modificado
 hoy 15:57):
 ```sql
-select observacion from RENTAS.MVALORES_MOTIVO
+select observacion, operador, estacion, fech_ing
+from RENTAS.MVALORES_MOTIVO
 where ID_VALOR = @id_valor and num_val = @num_val and ANO_VAL = @ano_val
 ```
+(Rama ampliada por el DBA tras la primera versión de solo-observacion.)
 Params: `@id_valor char(2)`, `@num_val char(7)`, `@ano_val char(4)`. Sin `@codigo`.
-Medido: `01/0010975/2025` -> 1 fila `[{observacion: "Se procede a anular..."}]`.
-Puede devolver 0..N filas de una sola columna.
+Medido: `01/0010975/2025` -> `[{observacion: "...", operador: "JHERNAN",
+estacion: "", fech_ing: "2025-05-06T10:31:45.270Z"}]`. 0..N filas.
+El backend devuelve `{texto, operador, estacion, fecha}` (null->'',
+Date->ISO); el modal muestra el texto + fila de metadata
+(Operador · Fecha corta · Estación solo si trae valor).
 
 ## Alcance
 - **Backend** `cobranza/anular-valor/`: `POST /motivo` con

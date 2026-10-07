@@ -189,9 +189,17 @@ export interface MotivoAnulacionInput {
   AnoVal: string;
 }
 
+/** Un motivo con su metadata, tal como lo devuelve el backend. */
+export interface MotivoAnulacion {
+  texto: string;
+  operador: string;
+  estacion: string;
+  fecha: string;
+}
+
 export interface MotivoAnulacionResult {
   success: boolean;
-  data: string[];
+  data: MotivoAnulacion[];
   total: number;
   error?: string;
 }
