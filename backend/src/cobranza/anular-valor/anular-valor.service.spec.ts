@@ -3,18 +3,20 @@ import { AnularValorService } from './anular-valor.service';
 import { DatabaseService } from '../../database/database.service';
 
 /**
- * Blindan el contrato verificado de Rentas.ssp_Mcontribuyente @busc=5:
- * - Se llama con busc:5 + tipo_busqueda + los params del criterio.
- * - Sin COUNT en el SP: se trae todo lo filtrado y se pagina en memoria.
- * - Se muestran 8 columnas identificatorias; null se mapea a ''.
+ * Contrato DJ aplicado a anular-valor (mismo SP de DJ):
+ * - Rentas.sp_Mcontribuyente con busc:6 (COUNT) + busc:5 (página,
+ *   inicio/final String 1-based inclusivo), igual que
+ *   declaracion-jurada.service.ts standard mode.
+ * - sp_ no devuelve TipoPersona (era computada de ssp_): se mapea ''.
+ * - Se muestran 8 columnas; null se mapea a ''.
  */
 describe('AnularValorService', () => {
   let service: AnularValorService;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let executeProcedure: jest.Mock<any, any>;
 
-  // Fila cruda tal como la devuelve @busc=5 (subconjunto relevante + extras
-  // que se descartan).
+  // Fila cruda tal como la devuelve sp_Mcontribuyente @busc=5 (subconjunto
+  // relevante + extras que se descartan). No trae TipoPersona.
   const rawRow = (over: object = {}) => ({
     codigo: '0279126',
     id_pers: '01',
@@ -25,7 +27,8 @@ describe('AnularValorService', () => {
     materno: '',
     documento: 'DNI',
     DireFis: 'URB. LA RINCONADA MZ B LTE 13',
-    TipoPersona: 'NATURAL',
+    tipo_detalle: 'NATURAL',
+    Gestion: '2026',
     nestado: 1,
     operador: 'mvaez',
     ROW: 1,
@@ -36,6 +39,9 @@ describe('AnularValorService', () => {
     Array.from({ length: n }, (_, i) =>
       rawRow({ codigo: `C${String(i).padStart(6, '0')}` }),
     );
+
+  // COUNT @busc=6 devuelve el total en la primera columna de la primera fila.
+  const countRes = (total: number) => ({ recordset: [{ total }] });
 
   const baseDto = {
     page: 1,
@@ -60,26 +66,48 @@ describe('AnularValorService', () => {
     service = module.get<AnularValorService>(AnularValorService);
   });
 
-  it('llama a ssp_Mcontribuyente con busc:5, tipo y params del criterio', async () => {
-    executeProcedure.mockResolvedValueOnce({ recordset: rows(2) });
+  it('pide COUNT (busc:6) y página (busc:5) al mismo SP de DJ', async () => {
+    executeProcedure
+      .mockResolvedValueOnce(countRes(32))
+      .mockResolvedValueOnce({ recordset: rows(15) });
 
     await service.search({ ...baseDto, TipoBusqueda: 'C', Codigo: '0279126' });
 
-    expect(executeProcedure).toHaveBeenCalledTimes(1);
-    expect(executeProcedure.mock.calls[0][0]).toBe(
-      'Rentas.ssp_Mcontribuyente',
-    );
+    expect(executeProcedure).toHaveBeenCalledTimes(2);
+    expect(executeProcedure.mock.calls[0][0]).toBe('Rentas.sp_Mcontribuyente');
     expect(executeProcedure.mock.calls[0][1]).toMatchObject({
+      busc: 6,
+      tipo_busqueda: 'C',
+      codigo: '0279126',
+    });
+    expect(executeProcedure.mock.calls[1][0]).toBe('Rentas.sp_Mcontribuyente');
+    expect(executeProcedure.mock.calls[1][1]).toMatchObject({
       busc: 5,
       tipo_busqueda: 'C',
       codigo: '0279126',
-      inicio: 0,
-      final: 0,
+      inicio: '1',
+      final: '15',
     });
   });
 
+  it('calcula inicio/final String 1-based por página (p3: 31..45)', async () => {
+    executeProcedure
+      .mockResolvedValueOnce(countRes(32))
+      .mockResolvedValueOnce({ recordset: rows(2) });
+
+    const res = await service.search({ ...baseDto, page: 3 });
+
+    expect(executeProcedure.mock.calls[1][1]).toMatchObject({
+      inicio: '31',
+      final: '45',
+    });
+    expect(res).toMatchObject({ total: 32, totalPages: 3, page: 3 });
+  });
+
   it('manda paterno/materno/nombres para tipo N', async () => {
-    executeProcedure.mockResolvedValueOnce({ recordset: rows(1) });
+    executeProcedure
+      .mockResolvedValueOnce(countRes(1))
+      .mockResolvedValueOnce({ recordset: rows(1) });
 
     await service.search({
       ...baseDto,
@@ -89,17 +117,22 @@ describe('AnularValorService', () => {
       Nombres: 'juan',
     });
 
-    const params = executeProcedure.mock.calls[0][1];
-    expect(params).toMatchObject({
-      tipo_busqueda: 'N',
-      paterno: 'vasquez',
-      materno: '',
-      nombres: 'juan',
-    });
+    for (const call of executeProcedure.mock.calls) {
+      expect(call[1]).toMatchObject({
+        tipo_busqueda: 'N',
+        paterno: 'vasquez',
+        materno: '',
+        nombres: 'juan',
+      });
+    }
   });
 
   it('manda razon para tipo R y num_doc para tipo D', async () => {
-    executeProcedure.mockResolvedValue({ recordset: rows(1) });
+    executeProcedure
+      .mockResolvedValueOnce(countRes(1))
+      .mockResolvedValueOnce({ recordset: rows(1) })
+      .mockResolvedValueOnce(countRes(1))
+      .mockResolvedValueOnce({ recordset: rows(1) });
 
     await service.search({ ...baseDto, TipoBusqueda: 'R', Razon: 'municipalidad' });
     expect(executeProcedure.mock.calls[0][1]).toMatchObject({
@@ -108,14 +141,16 @@ describe('AnularValorService', () => {
     });
 
     await service.search({ ...baseDto, TipoBusqueda: 'D', NumDoc: '19082855' });
-    expect(executeProcedure.mock.calls[1][1]).toMatchObject({
+    expect(executeProcedure.mock.calls[2][1]).toMatchObject({
       tipo_busqueda: 'D',
       num_doc: '19082855',
     });
   });
 
-  it('mapea las 8 columnas y descarta el resto (ROW, nestado, auditoria)', async () => {
-    executeProcedure.mockResolvedValueOnce({ recordset: [rawRow()] });
+  it('mapea las 8 columnas (TipoPersona "" porque sp_ no la trae) y descarta el resto', async () => {
+    executeProcedure
+      .mockResolvedValueOnce(countRes(1))
+      .mockResolvedValueOnce({ recordset: [rawRow()] });
 
     const res = await service.search(baseDto);
 
@@ -127,7 +162,7 @@ describe('AnularValorService', () => {
       documento: 'DNI',
       num_doc: '19082855',
       DireFis: 'URB. LA RINCONADA MZ B LTE 13',
-      TipoPersona: 'NATURAL',
+      TipoPersona: '',
     });
     expect(res.data[0]).not.toHaveProperty('ROW');
     expect(res.data[0]).not.toHaveProperty('nestado');
@@ -135,9 +170,11 @@ describe('AnularValorService', () => {
   });
 
   it('mapea null a ""', async () => {
-    executeProcedure.mockResolvedValueOnce({
-      recordset: [rawRow({ materno: null, DireFis: null })],
-    });
+    executeProcedure
+      .mockResolvedValueOnce(countRes(1))
+      .mockResolvedValueOnce({
+        recordset: [rawRow({ materno: null, DireFis: null })],
+      });
 
     const res = await service.search(baseDto);
 
@@ -145,16 +182,28 @@ describe('AnularValorService', () => {
     expect(res.data[0].DireFis).toBe('');
   });
 
-  it('pagina en memoria de a 15', async () => {
-    executeProcedure.mockResolvedValue({ recordset: rows(32) });
+  it('total 0: no pide la página y devuelve vacío', async () => {
+    executeProcedure.mockResolvedValueOnce(countRes(0));
 
-    const p1 = await service.search({ ...baseDto, page: 1 });
-    expect(p1.data).toHaveLength(15);
-    expect(p1.total).toBe(32);
-    expect(p1.totalPages).toBe(3);
+    const res = await service.search(baseDto);
 
-    const p3 = await service.search({ ...baseDto, page: 3 });
-    expect(p3.data).toHaveLength(2);
+    expect(executeProcedure).toHaveBeenCalledTimes(1);
+    expect(res).toMatchObject({ success: true, data: [], total: 0, totalPages: 0 });
+  });
+
+  it('export (pageSize=100000): COUNT + un fetch 1..total', async () => {
+    executeProcedure
+      .mockResolvedValueOnce(countRes(32))
+      .mockResolvedValueOnce({ recordset: rows(32) });
+
+    const res = await service.search({ ...baseDto, pageSize: 100000 });
+
+    expect(executeProcedure.mock.calls[1][1]).toMatchObject({
+      busc: 5,
+      inicio: '1',
+      final: '32',
+    });
+    expect(res).toMatchObject({ total: 32, totalPages: 1 });
   });
 
   it('devuelve { success:false, error } sin throw cuando el SP falla', async () => {

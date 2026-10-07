@@ -3,7 +3,8 @@ import { z } from 'zod';
 /**
  * Esquema del listado de contribuyentes para anular-valor.
  *
- * Fuente: Rentas.ssp_Mcontribuyente @busc=5 (rama msconsulta).
+ * Fuente: Rentas.sp_Mcontribuyente, el mismo SP de DJ
+ * (@busc=6 COUNT + @busc=5 página con inicio/final String 1-based).
  *
  * pageSize es el selector de modo: 15 = grilla, 100000 = exportación interna.
  * Union de literales estricta, nunca .max(100).

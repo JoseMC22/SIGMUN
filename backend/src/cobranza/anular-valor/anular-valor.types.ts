@@ -1,10 +1,10 @@
 /**
  * Tipos del listado de contribuyentes para anular-valor.
  *
- * Fuente: Rentas.ssp_Mcontribuyente @busc=5 (rama msconsulta), que devuelve
- * ~29 columnas + ROW. Acá se modelan las 8 identificatorias que muestra la
- * grilla; el resto (códigos internos, partes de dirección, auditoría) no se
- * expone porque DireFis ya trae la dirección armada y documento el tipo.
+ * Fuente: Rentas.sp_Mcontribuyente, el mismo SP de DJ
+ * (@busc=6 COUNT + @busc=5 página). Acá se modelan las 8 columnas que
+ * muestra la grilla; TipoPersona se mapea '' porque sp_ no la devuelve
+ * (era computada de ssp_Mcontribuyente).
  */
 export interface AnularValorContribuyenteRow {
   codigo: string;

@@ -11,15 +11,15 @@ import { SearchAnularValorDto } from './dto/search-anular-valor.dto';
 import { AnularValorDto } from './dto/anular-valor.dto';
 
 /**
- * Listado de contribuyentes para anular-valor (fase 1: sin anulación).
+ * Listado de contribuyentes para anular-valor.
  *
- * Fuente: Rentas.ssp_Mcontribuyente @busc=5 (rama msconsulta). El SP filtra
- * según @tipo_busqueda (C/N/R/D) y pagina con @inicio/@final 1-based, pero NO
- * tiene COUNT: para el total exacto se trae todo lo filtrado (@inicio=0,
- * @final=0, sin límite) y se pagina en memoria.
+ * Fuente: Rentas.sp_Mcontribuyente, el mismo SP de declaración jurada
+ * (standard mode): @busc=6 COUNT + @busc=5 página con @inicio/@final
+ * String 1-based inclusivo. Paginación server-side: con filtro vacío ya no
+ * se traen 86k filas a memoria.
  *
- * Columnas mostradas (8 identificatorias de las ~29 del SP): el resto son
- * códigos internos, partes de dirección (DireFis ya la trae armada) y auditoría.
+ * Columnas mostradas (8): sp_ trae `documento` y `DireFis` pero NO trae
+ * `TipoPersona` (era computada de ssp_Mcontribuyente): se mapea ''.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SpRow = Record<string, any>;
@@ -33,7 +33,8 @@ function mapRow(row: SpRow): AnularValorContribuyenteRow {
     documento: row.documento ?? '',
     num_doc: row.num_doc ?? '',
     DireFis: row.DireFis ?? '',
-    TipoPersona: row.TipoPersona ?? '',
+    // sp_Mcontribuyente no devuelve TipoPersona: se deja vacío (no inventar).
+    TipoPersona: '',
   };
 }
 
@@ -44,42 +45,69 @@ export class AnularValorService {
   constructor(private readonly db: DatabaseService) {}
 
   async search(dto: SearchAnularValorDto): Promise<SearchAnularValorResult> {
+    // Mismos params base que DJ standard mode (más cod_pred/checkfrac fijos).
+    const baseParams = {
+      codigo: dto.Codigo ?? '',
+      nombres: dto.Nombres ?? '',
+      paterno: dto.Paterno ?? '',
+      materno: dto.Materno ?? '',
+      razon: dto.Razon ?? '',
+      num_doc: dto.NumDoc ?? '',
+      tipo_busqueda: dto.TipoBusqueda,
+      cod_pred: '',
+      checkfrac: 0,
+    };
+
     try {
-      const result = await this.db.executeProcedure(
-        'Rentas.ssp_Mcontribuyente',
-        {
-          busc: 5,
-          tipo_busqueda: dto.TipoBusqueda,
-          codigo: dto.Codigo ?? '',
-          paterno: dto.Paterno ?? '',
-          materno: dto.Materno ?? '',
-          nombres: dto.Nombres ?? '',
-          razon: dto.Razon ?? '',
-          num_doc: dto.NumDoc ?? '',
-          inicio: 0,
-          final: 0,
-        },
+      // COUNT (@busc=6), igual que DJ.
+      const countResult = await this.db.executeProcedure(
+        'Rentas.sp_Mcontribuyente',
+        { ...baseParams, busc: 6 },
       );
+      const countRow = countResult.recordset?.[0];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const total = countRow ? Number(Object.values(countRow as any)[0] ?? 0) : 0;
 
-      const allRows: AnularValorContribuyenteRow[] = (
-        result.recordset ?? []
-      ).map(mapRow);
-      const total = allRows.length;
-
-      // Modo exportación interna: todo sin paginar.
-      if (dto.pageSize === 100000) {
+      if (total === 0) {
         return {
           success: true,
-          data: allRows,
-          total,
-          page: 1,
-          pageSize: 100000,
-          totalPages: total > 0 ? 1 : 0,
+          data: [],
+          total: 0,
+          page: dto.pageSize === 100000 ? 1 : dto.page,
+          pageSize: dto.pageSize,
+          totalPages: 0,
         };
       }
 
-      const start = (dto.page - 1) * dto.pageSize;
-      const data = allRows.slice(start, start + dto.pageSize);
+      // Modo exportación interna: un solo fetch 1..total.
+      if (dto.pageSize === 100000) {
+        const expResult = await this.db.executeProcedure(
+          'Rentas.sp_Mcontribuyente',
+          { ...baseParams, busc: 5, inicio: String(1), final: String(total) },
+        );
+        const data: AnularValorContribuyenteRow[] = (
+          expResult.recordset ?? []
+        ).map(mapRow);
+        return {
+          success: true,
+          data,
+          total,
+          page: 1,
+          pageSize: 100000,
+          totalPages: 1,
+        };
+      }
+
+      // Modo grilla: página 1-based inclusiva, igual que DJ.
+      const inicio = (dto.page - 1) * dto.pageSize + 1;
+      const final = dto.page * dto.pageSize;
+      const rowsResult = await this.db.executeProcedure(
+        'Rentas.sp_Mcontribuyente',
+        { ...baseParams, busc: 5, inicio: String(inicio), final: String(final) },
+      );
+      const data: AnularValorContribuyenteRow[] = (
+        rowsResult.recordset ?? []
+      ).map(mapRow);
 
       return {
         success: true,
@@ -87,7 +115,7 @@ export class AnularValorService {
         total,
         page: dto.page,
         pageSize: dto.pageSize,
-        totalPages: total > 0 ? Math.ceil(total / dto.pageSize) : 0,
+        totalPages: Math.ceil(total / dto.pageSize),
       };
     } catch (error) {
       this.logger.error(

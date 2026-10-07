@@ -50,6 +50,12 @@ Pedido explícito del usuario 2026-10-07: "con vacio me demora mucho, modifica e
 - Aplicar lo mismo excepto botones: mantener columna Acción + `ValoresModal` + flujo anular (fase 2). No copiar botones de DJ (nuevo/editar/eliminar/estado-cuenta).
 - Paso 1 (sin SP): paridad frontend DJ en `anular-valor/page.tsx` (limpiar al cambiar tipo + normalizar en Procesar). Paso 2 (con SP): COUNT + página en `ssp_Mcontribuyente` cuando haya definición/autorización total.
 
+## Decisión 2026-10-07: usar el mismo SP de DJ
+- Pedido: "emplea el mismo sp de DJ". Se abandona modificar `ssp_Mcontribuyente`: anular-valor pasa a `Rentas.sp_Mcontribuyente` con `busc=6` COUNT + `busc=5` página (`inicio/final` String 1-based), idéntico a DJ standard (`declaracion-jurada.service.ts:198-226`).
+- Params base iguales a DJ: `codigo, nombres, paterno, materno, razon, num_doc, tipo_busqueda` + `cod_pred:''`, `checkfrac:0`. pageSize propio 15 (grilla) + 100000 (export interno).
+- Columnas: `sp_` trae `documento` y `DireFis`; NO trae `TipoPersona` (era computada de `ssp_`) → se mapea `''` temporalmente, columna visible vacía hasta que el usuario defina regla o quitarla. `getValores`/`anular` siguen con `ssp_Consultadocu`/`ssp_Mvalores` (no se tocan).
+- Sin ALTER remoto: el cambio es solo backend + specs, cero riesgo sobre `@busc=28`.
+
 ## Open questions
-- Falta para ejecutar en DEV: servidor exacto + BD + usuario con permiso ALTER. Hasta entonces, script sin aplicar.
-- Verificar si `ssp_Mcontribuyente` soporta `busc=6` COUNT como `sp_Mcontribuyente`; si no, agregarlo solo en rama `@busc=5/6` sin tocar `@busc=28`.
+- `TipoPersona` vacía con `sp_`: ¿quito la columna o me pasás la regla (qué campo la define)?
+- Export `100000`: hace COUNT + un fetch `1..total` (lento explícito, la UI no lo dispara).
