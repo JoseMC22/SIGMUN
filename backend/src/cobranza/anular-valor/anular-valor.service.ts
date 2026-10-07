@@ -3,12 +3,14 @@ import { DatabaseService } from '../../database/database.service';
 import {
   AnularValorContribuyenteRow,
   AnularValorResult,
+  MotivoResult,
   SearchAnularValorResult,
   ValorEmitidoRow,
   ValoresResult,
 } from './anular-valor.types';
 import { SearchAnularValorDto } from './dto/search-anular-valor.dto';
 import { AnularValorDto } from './dto/anular-valor.dto';
+import { GetMotivoDto } from './dto/get-motivo.dto';
 
 /**
  * Listado de contribuyentes para anular-valor.
@@ -202,6 +204,40 @@ export class AnularValorService {
         `[AnularValor] anularValor SP error: ${error instanceof Error ? error.message : String(error)}`,
       );
       return { success: false, error: 'Error al anular el valor' };
+    }
+  }
+
+  /**
+   * Motivo(s) de anulación de un valor.
+   * Fuente: Rentas.SP_Mvalores @msquery=14
+   * (select observacion from MVALORES_MOTIVO por llave, 0..N filas).
+   * Sin filas no es error: se devuelve data vacía.
+   */
+  async getMotivo(dto: GetMotivoDto): Promise<MotivoResult> {
+    try {
+      const result = await this.db.executeProcedure('Rentas.SP_Mvalores', {
+        msquery: 14,
+        id_valor: dto.IdValor,
+        num_val: dto.NumVal,
+        ano_val: dto.AnoVal,
+      });
+      const data: string[] = (result.recordset ?? [])
+        .map((row) => {
+          const v = (row as SpRow)?.observacion;
+          return v === null || v === undefined ? '' : String(v).trim();
+        })
+        .filter((v) => v !== '');
+      return { success: true, data, total: data.length };
+    } catch (error) {
+      this.logger.error(
+        `[AnularValor] getMotivo SP error: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return {
+        success: false,
+        data: [],
+        total: 0,
+        error: 'Error al consultar el motivo',
+      };
     }
   }
 

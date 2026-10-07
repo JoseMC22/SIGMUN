@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { X, AlertCircle, Loader2, FileText, Trash2 } from "lucide-react";
+import { X, AlertCircle, Loader2, FileText, Trash2, Eye } from "lucide-react";
 import {
   getValoresByCodigoAction,
   anularValorAction,
+  getMotivoAnulacionAction,
   type ValorEmitido,
 } from "@/actions/cobranza/anular-valor";
 import { getStoredUser } from "@/lib/api";
@@ -50,6 +51,12 @@ export default function ValoresModal({
   const [anularError, setAnularError] = useState<string | null>(null);
   const [anularLoading, setAnularLoading] = useState(false);
 
+  // Ver motivo: fila anulada + textos leídos (SP_Mvalores @msquery=14)
+  const [motivoRow, setMotivoRow] = useState<ValorEmitido | null>(null);
+  const [motivoTextos, setMotivoTextos] = useState<string[]>([]);
+  const [motivoLoading, setMotivoLoading] = useState(false);
+  const [motivoError, setMotivoError] = useState<string | null>(null);
+
   const motivoCheck = validateMotivo(motivo);
 
   const load = useCallback(async () => {
@@ -83,6 +90,35 @@ export default function ValoresModal({
     setAnularRow(row);
     setMotivo("");
     setAnularError(null);
+  };
+
+  const abrirMotivo = async (row: ValorEmitido) => {
+    setMotivoRow(row);
+    setMotivoTextos([]);
+    setMotivoError(null);
+    setMotivoLoading(true);
+    try {
+      const res = await getMotivoAnulacionAction({
+        IdValor: String(row.id_valor ?? ""),
+        NumVal: String(row.num_val ?? ""),
+        AnoVal: String(row.ano_val ?? ""),
+      });
+      if (res.success) {
+        setMotivoTextos(res.data);
+      } else {
+        setMotivoError(res.error ?? "Error al consultar el motivo");
+      }
+    } catch {
+      setMotivoError("Error de conexión con el servidor");
+    } finally {
+      setMotivoLoading(false);
+    }
+  };
+
+  const cerrarMotivo = () => {
+    setMotivoRow(null);
+    setMotivoTextos([]);
+    setMotivoError(null);
   };
 
   const cerrarAnular = () => {
@@ -122,8 +158,10 @@ export default function ValoresModal({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      // Con el modal de motivo abierto, Escape cierra solo ese.
-      if (anularRow) {
+      // Con un modal superior abierto, Escape cierra solo ese.
+      if (motivoRow) {
+        cerrarMotivo();
+      } else if (anularRow) {
         cerrarAnular();
       } else {
         onClose();
@@ -131,7 +169,7 @@ export default function ValoresModal({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [anularRow, onClose]);
+  }, [motivoRow, anularRow, onClose]);
 
   return (
     <div
@@ -236,7 +274,7 @@ export default function ValoresModal({
                               key="accion"
                               className="px-2 py-1 text-center"
                             >
-                              {/* Solo filas Pendiente: el backend rechaza el resto */}
+                              {/* Pendiente: anular. Anulado: ver motivo. El resto: sin acción */}
                               {row.nestado === "Pendiente" ? (
                                 <button
                                   type="button"
@@ -246,6 +284,16 @@ export default function ValoresModal({
                                   className="rounded-md p-1 text-slate-400 transition hover:bg-red-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-400"
                                 >
                                   <Trash2 size={13} />
+                                </button>
+                              ) : row.nestado === "Anulado" ? (
+                                <button
+                                  type="button"
+                                  onClick={() => void abrirMotivo(row)}
+                                  aria-label={`Ver motivo de ${row.num_val}`}
+                                  title="Ver motivo"
+                                  className="rounded-md p-1 text-slate-400 transition hover:bg-cyan-50 hover:text-sat-cyan focus:outline-none focus:ring-2 focus:ring-sat-cyan/40"
+                                >
+                                  <Eye size={13} />
                                 </button>
                               ) : null}
                             </td>
@@ -372,6 +420,103 @@ export default function ValoresModal({
               >
                 {anularLoading && <Loader2 size={12} className="animate-spin" />}
                 {anularLoading ? "Anulando..." : "Confirmar anulación"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de ver motivo (solo lectura), mismo patrón de montaje */}
+      {motivoRow && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4"
+          onClick={(e) => {
+            e.stopPropagation();
+            cerrarMotivo();
+          }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Motivo de la anulación"
+        >
+          <div
+            className="w-full max-w-md animate-fade-in rounded-lg bg-white shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between rounded-t-lg border-b border-slate-200 bg-gradient-to-r from-sat-navy to-[#1e3050] px-4 py-3">
+              <div className="min-w-0">
+                <h3 className="truncate text-sm font-bold text-white">
+                  Motivo · {String(motivoRow.num_val ?? "")} ·{" "}
+                  {String(motivoRow.ano_val ?? "")}
+                </h3>
+                <p className="truncate text-[11px] text-white/60">
+                  {String(motivoRow.nomb_val ?? "")} · {codigo}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={cerrarMotivo}
+                aria-label="Cerrar"
+                className="rounded-md p-1.5 text-white/70 transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-white/40"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-4">
+              {motivoLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2
+                    size={18}
+                    className="animate-spin text-sat-cyan"
+                  />
+                  <span className="ml-2 text-xs text-slate-500">
+                    Consultando motivo...
+                  </span>
+                </div>
+              ) : motivoError ? (
+                <div className="flex flex-col items-center justify-center py-8">
+                  <div className="mb-2 rounded-full bg-red-100 p-2">
+                    <AlertCircle size={18} className="text-red-400" />
+                  </div>
+                  <p className="text-xs font-medium text-red-600">
+                    {motivoError}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void abrirMotivo(motivoRow)}
+                    className="mt-3 rounded-md bg-red-600 px-3 py-1 text-[11px] font-medium text-white transition hover:bg-red-700"
+                  >
+                    Reintentar
+                  </button>
+                </div>
+              ) : motivoTextos.length === 0 ? (
+                <p className="py-8 text-center text-xs text-slate-500">
+                  Sin motivo registrado para este valor
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {motivoTextos.map((t, i) => (
+                    <p
+                      key={i}
+                      className="rounded-md bg-slate-50 border border-slate-200 px-3 py-2 text-xs leading-relaxed text-slate-700"
+                    >
+                      {t}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end border-t border-slate-200 px-4 py-2.5">
+              <button
+                type="button"
+                onClick={cerrarMotivo}
+                className="rounded-md border border-slate-300 bg-white px-4 py-1.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40"
+              >
+                Cerrar
               </button>
             </div>
           </div>

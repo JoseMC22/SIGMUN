@@ -16,9 +16,14 @@ import {
   GetValoresSchema,
   GetValoresDto,
 } from './dto/get-valores.dto';
+import {
+  GetMotivoSchema,
+  GetMotivoDto,
+} from './dto/get-motivo.dto';
 import { AnularValorSchema, AnularValorDto } from './dto/anular-valor.dto';
 import {
   AnularValorResult,
+  MotivoResult,
   SearchAnularValorResult,
   ValoresResult,
 } from './anular-valor.types';
@@ -79,6 +84,24 @@ export class AnularValorController {
       };
     }
     return this.service.getValores(dto.Codigo);
+  }
+
+  /** Motivo(s) de anulación (SP_Mvalores @msquery=14, solo lectura). */
+  @Post('motivo')
+  @HttpCode(HttpStatus.OK)
+  async motivo(@Body() body: unknown): Promise<MotivoResult> {
+    let dto: GetMotivoDto;
+    try {
+      dto = GetMotivoSchema.parse(body);
+    } catch {
+      return {
+        success: false,
+        data: [],
+        total: 0,
+        error: 'Llave del valor inválida',
+      };
+    }
+    return this.service.getMotivo(dto);
   }
 
   /**

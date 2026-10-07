@@ -417,4 +417,70 @@ describe('AnularValorService', () => {
       expect(executeProcedure).toHaveBeenCalledTimes(1);
     });
   });
+
+  /**
+   * Lectura del motivo de anulación (Rentas.SP_Mvalores @msquery=14):
+   * devuelve los textos de observacion (0..N filas de una columna).
+   */
+  describe('getMotivo', () => {
+    const key = { IdValor: '01', NumVal: '0018351', AnoVal: '2024' };
+
+    it('llama a SP_Mvalores con msquery:14 y la llave', async () => {
+      executeProcedure.mockResolvedValueOnce({
+        recordset: [{ observacion: 'Error de carga  ' }],
+      });
+
+      const res = await service.getMotivo(key);
+
+      expect(executeProcedure).toHaveBeenCalledTimes(1);
+      expect(executeProcedure.mock.calls[0][0]).toBe('Rentas.SP_Mvalores');
+      expect(executeProcedure.mock.calls[0][1]).toMatchObject({
+        msquery: 14,
+        id_valor: '01',
+        num_val: '0018351',
+        ano_val: '2024',
+      });
+      expect(res).toEqual({ success: true, data: ['Error de carga'], total: 1 });
+    });
+
+    it('devuelve todos los motivos y descarta vacíos', async () => {
+      executeProcedure.mockResolvedValueOnce({
+        recordset: [
+          { observacion: 'Primer motivo' },
+          { observacion: '   ' },
+          { observacion: null },
+          { observacion: 'Segundo motivo' },
+        ],
+      });
+
+      const res = await service.getMotivo(key);
+
+      expect(res).toEqual({
+        success: true,
+        data: ['Primer motivo', 'Segundo motivo'],
+        total: 2,
+      });
+    });
+
+    it('sin filas: success true con data vacía (no es error)', async () => {
+      executeProcedure.mockResolvedValueOnce({ recordset: [] });
+
+      const res = await service.getMotivo(key);
+
+      expect(res).toEqual({ success: true, data: [], total: 0 });
+    });
+
+    it('el SP tira: success false sin throw', async () => {
+      executeProcedure.mockRejectedValueOnce(new Error('boom'));
+
+      const res = await service.getMotivo(key);
+
+      expect(res).toEqual({
+        success: false,
+        data: [],
+        total: 0,
+        error: 'Error al consultar el motivo',
+      });
+    });
+  });
 });

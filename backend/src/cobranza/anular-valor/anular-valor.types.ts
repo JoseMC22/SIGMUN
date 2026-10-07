@@ -74,3 +74,15 @@ export interface ValoresResult {
   total: number;
   error?: string;
 }
+
+/**
+ * Motivo(s) de anulación de un valor.
+ * Fuente: Rentas.SP_Mvalores @msquery=14 (columna observacion, 0..N filas).
+ * Sin filas no es error: data queda vacía y la UI muestra mensaje honesto.
+ */
+export interface MotivoResult {
+  success: boolean;
+  data: string[];
+  total: number;
+  error?: string;
+}

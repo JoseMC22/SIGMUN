@@ -180,6 +180,71 @@ export async function getValoresByCodigoAction(
   }
 }
 
+// Motivo(s) de anulación de un valor (SP_Mvalores @msquery=14, solo lectura)
+
+/** Llave del valor tal como la espera el backend. */
+export interface MotivoAnulacionInput {
+  IdValor: string;
+  NumVal: string;
+  AnoVal: string;
+}
+
+export interface MotivoAnulacionResult {
+  success: boolean;
+  data: string[];
+  total: number;
+  error?: string;
+}
+
+export async function getMotivoAnulacionAction(
+  input: MotivoAnulacionInput,
+): Promise<MotivoAnulacionResult> {
+  try {
+    const response = await authFetch(`${BASE}/motivo`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        IdValor: input.IdValor,
+        NumVal: input.NumVal,
+        AnoVal: input.AnoVal,
+      }),
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      return {
+        success: false,
+        data: [],
+        total: 0,
+        error: text || `Error ${response.status}`,
+      };
+    }
+
+    const json = await response.json();
+    if (!json.success) {
+      return {
+        success: false,
+        data: [],
+        total: 0,
+        error: json.error ?? "Error al consultar el motivo",
+      };
+    }
+    return {
+      success: true,
+      data: json.data ?? [],
+      total: json.total ?? 0,
+    };
+  } catch {
+    return {
+      success: false,
+      data: [],
+      total: 0,
+      error: "Error de conexión con el servidor",
+    };
+  }
+}
+
 // Anulación de un valor (fase 2)
 
 /** Llave del valor + motivo y operador, tal como los espera el backend. */
