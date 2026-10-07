@@ -198,19 +198,32 @@ export default function AnularValorPage() {
     setNombres("");
     setRazon("");
     setNumDoc("");
+    setData([]);
+    setTotal(0);
+    setTotalPages(0);
     setPage(1);
+    setError(null);
+  };
+
+  // Como DJ: normalizar el código en Procesar (no solo en onBlur) y
+  // devolverlo al input para que el usuario vea el valor real buscado.
+  const runSearch = (pageNum: number) => {
+    if (tipo === "C" && codigo) {
+      const norm = padCodigo(codigo);
+      if (norm !== codigo) setCodigo(norm);
+    }
+    setPage(pageNum);
+    executeSearch(pageNum);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
-      setPage(1);
-      executeSearch(1);
+      runSearch(1);
     }
   };
 
   const handleSearch = () => {
-    setPage(1);
-    executeSearch(1);
+    runSearch(1);
   };
 
   const handlePageChange = (newPage: number) => {
