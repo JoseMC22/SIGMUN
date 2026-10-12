@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import { checkSessionAction } from "@/actions/auth/auth";
 import { searchInfraccionesAction, obtenerDatosReporteEstadoCuentaAction, obtenerDatosReporteResolucionSancionAction } from "@/actions/papeleta-transito/listado-de-infracciones";
-import { gravamenSinPlacaAction, imprimirRecordPendienteAction, verFraccionamientoAction, generarLiquidacionAction, eliminarPapeletaAction, cargarDetalleInfraccionAction } from "@/actions/papeleta-transito/acciones-infraccion";
+import { gravamenSinPlacaAction, imprimirRecordPendienteAction, verFraccionamientoAction, generarLiquidacionAction, eliminarPapeletaAction, cargarDetalleInfraccionAction, listarCostasAction } from "@/actions/papeleta-transito/acciones-infraccion";
 import { obtenerPlantillaEstadoCuentaAction, obtenerPlantillaResolucionSancionAction, obtenerPlantillaRecordAction } from "@/actions/papeleta-transito/reportes-infracciones";
 import { construirHtmlReporteEstadoCuenta, construirConfigPdfEstadoCuenta } from "./reportes/EstadoCuenta/reporte-estado-cuenta";
 import { construirHtmlReporteResolucion, construirConfigPdfResolucion } from "./reportes/ResolucionSancion/reporte-resolucion";
@@ -628,7 +628,7 @@ export default function ListadoDeInfraccionesPage() {
         infracClean = `${parts[0]}-${parts[1]}-${parts[2].padStart(6, "0")}`;
       }
 
-      const [plantilla, datosRes] = await Promise.all([
+      const [plantilla, datosRes, costasRes] = await Promise.all([
         obtenerPlantillaEstadoCuentaAction(),
         obtenerDatosReporteEstadoCuentaAction({
           ninfrac: infracClean || row.id,
@@ -636,22 +636,30 @@ export default function ListadoDeInfraccionesPage() {
           placa: row.placa,
           conductor: row.conductor,
         }),
+        listarCostasAction(codigoClean, ""),
       ]);
       if (!plantilla.success) { alert(`Error al cargar plantilla: ${plantilla.error}`); return; }
       if (!datosRes.success) { alert(`Error al obtener datos: ${datosRes.error}`); return; }
 
       let nroLiq = "";
-      // Disparar generación de liquidación en segundo plano sin bloquear el UI ni esperar su respuesta
-      generarLiquidacionAction({
-        codigo: codigoClean,
-        infraccion: infracClean,
-        usuario: usuarioLogueado,
-        idrecibo: row.idRecibo?.trim() ?? "",
-      }).then((res) => {
-        if (res.success && res.nliqui) {
-          nroLiq = res.nliqui;
+      try {
+        const resLiq = await generarLiquidacionAction({
+          codigo: codigoClean,
+          infraccion: infracClean,
+          usuario: usuarioLogueado,
+          idrecibo: row.idRecibo?.trim() ?? "",
+        });
+        if (resLiq.success && resLiq.nliqui) {
+          nroLiq = resLiq.nliqui;
         }
-      }).catch(() => {});
+      } catch {}
+
+      const listaCostas = costasRes?.success && Array.isArray(costasRes.data) ? costasRes.data : [];
+      const papTag = (row.codigoInfraccion || "").trim().toUpperCase();
+      const costasDeEstaPapeleta = papTag
+        ? listaCostas.filter((c: any) => (c.observacion || "").toUpperCase().includes(`[PAP:${papTag}]`))
+        : [];
+      const totalCostas = costasDeEstaPapeleta.reduce((sum: number, c: any) => sum + (parseFloat(c.monto) || 0), 0);
 
       const rows: any[] = Array.isArray(datosRes.data) ? datosRes.data : [];
       const items = rows.map((r: any) => {
@@ -667,7 +675,8 @@ export default function ListadoDeInfraccionesPage() {
         // imp_reaj viene como un número (ej: -294.8), tomamos su valor absoluto para la propiedad descuento
         const rawReaj = isArr ? (parseFloat(r[10] ?? 0) || 0) : (parseFloat(r.imp_reaj ?? 0) || 0);
         const desc = Math.abs(rawReaj);
-        const sald = isArr ? (parseFloat(r[12] ?? 0) || 0) : (parseFloat(r.total ?? r.saldo ?? 0) || (valInsol - desc));
+        const baseSaldo = isArr ? (parseFloat(r[12] ?? 0) || 0) : (parseFloat(r.total ?? r.saldo ?? 0) || (valInsol - desc));
+        const sald = baseSaldo + totalCostas;
 
         return {
           numPapeleta,
@@ -680,7 +689,7 @@ export default function ListadoDeInfraccionesPage() {
           descuento: desc,
           insoluto: valInsol,
           reincidencia: 0,
-          costas: 0,
+          costas: totalCostas,
           saldoDeuda: sald,
           estado: "PENDIENTE",
         };
@@ -1265,6 +1274,7 @@ export default function ListadoDeInfraccionesPage() {
         codigo={selectedRow?.codigo || selectedRow?.codigoPropietario || ""}
         numeroPapeleta={selectedRow?.codigoInfraccion}
         nombreInfractor={selectedRow?.conductor || selectedRow?.propietario}
+        idrecibo={selectedRow?.idRecibo}
         onClose={() => setShowCostasInfraccion(false)}
       />
 

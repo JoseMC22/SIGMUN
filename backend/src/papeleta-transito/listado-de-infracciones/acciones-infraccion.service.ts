@@ -2499,19 +2499,17 @@ export class AccionesInfraccionService {
            LEFT JOIN caja.Tipo_Ingresos_det t WITH(NOLOCK) on r.tipo=t.tipo_rec and r.tipo_rec=t.tipo
            WHERE r.codigo = @codigo 
              AND (LTRIM(RTRIM(r.num_docu)) = @expediente OR @expediente = '')
-             AND ISNULL(r.nestado, 1) = 1
-             AND ISNULL(r.estado, '1') <> '0'`,
+             AND ISNULL(r.nestado, 1) <> 2`,
           { codigo: cleanCodigo, expediente: cleanExp },
         );
         rows = fallbackRes.recordset ?? [];
         this.logger.log(`[listarCostas] consulta directa retornó ${rows.length} filas`);
       }
 
-      // Filtramos en memoria para descartar cualquier fila eliminada (nestado != '1' o estado == '0')
+      // Filtramos en memoria: en MCostas, estado='0' es PENDIENTE (activa por cobrar). Excluimos únicamente anuladas (nestado == 2)
       const activeRows = rows.filter((r) => {
-        const est = String(r.estado ?? r.ESTADO ?? '').trim();
         const nest = String(r.nestado ?? r.NESTADO ?? '1').trim();
-        return est !== '0' && nest === '1';
+        return nest !== '2';
       });
 
       this.logger.log(`[listarCostas] total rows activas a mapear: ${activeRows.length}. (de un total de ${rows.length})`);

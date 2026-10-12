@@ -387,6 +387,7 @@ export type ReporteResolucionSancionDto = z.infer<typeof ReporteResolucionSancio
 export const ListarCostasSchema = z.object({
   codigo: z.string().default(''),
   expediente: z.string().default(''),
+  idrecibo: z.string().optional().default(''),
 });
 export type ListarCostasDto = z.infer<typeof ListarCostasSchema>;
 

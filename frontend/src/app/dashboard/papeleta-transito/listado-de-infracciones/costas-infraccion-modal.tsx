@@ -32,6 +32,7 @@ interface Props {
   codigo: string;
   nombreInfractor?: string;
   numeroPapeleta?: string;
+  idrecibo?: string;
   onClose: () => void;
 }
 
@@ -239,6 +240,7 @@ function DetailView({
   codigo,
   nombreInfractor,
   numeroPapeleta,
+  idrecibo,
   onClose,
   onBack,
 }: {
@@ -246,6 +248,7 @@ function DetailView({
   codigo: string;
   nombreInfractor?: string;
   numeroPapeleta?: string;
+  idrecibo?: string;
   onClose: () => void;
   onBack: () => void;
 }) {
@@ -256,7 +259,11 @@ function DetailView({
   const [error, setError] = useState<string | null>(null);
   const [selectedCosta, setSelectedCosta] = useState<CostaItem | null>(null);
   const [mode, setMode] = useState<"view" | "add" | "edit">("view");
-  const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [form, setForm] = useState<FormState>({
+    ...EMPTY_FORM,
+    idrecibo: idrecibo || "",
+    anno: "",
+  });
   const [domicilio, setDomicilio] = useState<string>("");
   const [autocompleteQuery, setAutocompleteQuery] = useState("");
   const [autocompleteResults, setAutocompleteResults] = useState<ConceptoCosta[]>([]);
@@ -265,38 +272,71 @@ function DetailView({
   const autocompleteRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // NOTA: Por el momento no se va a implementar el aislamiento/envío de costas por número de papeleta.
+  // Se deja comentado sin eliminar el código.
+  // Normalizador de tag de papeleta
+  // const papTag = numeroPapeleta ? `[PAP:${numeroPapeleta.trim().toUpperCase()}]` : "";
+
   const loadCostas = useCallback(async (overrideExp?: string) => {
     if (!codigo) return;
     setLoading(true);
     setError(null);
     try {
-      // Fetch costas directly for this contribuyente (pass overrideExp if defined, or empty to get all)
       const targetExp = overrideExp !== undefined ? overrideExp : "";
       const res = await listarCostasAction(codigo, targetExp);
       if (res.success) {
-        const list = res.data ?? [];
-        setCostas(list);
-        if (list.length > 0) {
-          const c = list[0];
+        let list = res.data ?? [];
+        
+        // Si tenemos el número de papeleta, filtramos las costas asociadas a esta papeleta
+        // if (papTag) {
+        //   list = list.filter((c) => {
+        //     const obs = (c.observacion || "").toUpperCase();
+        //     return obs.includes(papTag);
+        //   });
+        // }
+
+        // Limpiamos la etiqueta interna [PAP:...] para que en pantalla el usuario solo vea su texto
+        // const cleanedList = list.map((c) => {
+        //   const rawObs = c.observacion || "";
+        //   const cleanedObs = rawObs.replace(/\[PAP:[^\]]+\]\s*/gi, "").trim();
+        //   return { ...c, observacion: cleanedObs };
+        // });
+        const cleanedList = list;
+
+        setCostas(cleanedList);
+        if (cleanedList.length > 0) {
+          const c = cleanedList[0];
           setSelectedCosta(c);
           setForm((prev) => ({
             ...prev,
             idcosta: c.idcosta,
             idrecibo: c.idrecibo || "",
-            expediente: c.expediente || targetExp,
+            expediente: c.expediente || prev.expediente || "",
             conceptoId: c.tipo || "",
             conceptoNombre: c.conceptos || "",
             tipo: c.tipo || "",
             subtipo: c.subtipo || "",
             cantidad: c.cantidad || "0",
             monto: c.monto || "0.00",
-            anno: c.anno || "",
+            anno: c.anno || prev.anno || "",
             periodo: c.periodo || prev.periodo || "01",
             observacion: c.observacion || prev.observacion || "",
           }));
           setAutocompleteQuery(c.conceptos || "");
-        } else if (targetExp) {
-          setForm((prev) => ({ ...prev, expediente: targetExp }));
+        } else {
+          setSelectedCosta(null);
+          setForm((prev) => ({
+            ...prev,
+            idcosta: "",
+            idrecibo: idrecibo || "",
+            conceptoId: "",
+            conceptoNombre: "",
+            tipo: "",
+            subtipo: "",
+            cantidad: "0",
+            monto: "0.00",
+          }));
+          setAutocompleteQuery("");
         }
       } else {
         setError(res.error ?? "Error al cargar costas.");
@@ -306,8 +346,7 @@ function DetailView({
     } finally {
       setLoading(false);
     }
-  }, [codigo]);
-
+  }, [codigo, idrecibo]);
 
   useEffect(() => {
     setMode("view");
@@ -319,7 +358,7 @@ function DetailView({
         }
       }).catch(console.error);
     }
-  }, [loadCostas, codigo, numeroPapeleta, ninfrac]);
+  }, [loadCostas, codigo, numeroPapeleta, ninfrac, idrecibo]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -365,25 +404,31 @@ function DetailView({
 
   const handleStartAdd = () => {
     setSelectedCosta(null);
-    setForm({ ...EMPTY_FORM });
+    setForm((prev) => ({
+      ...EMPTY_FORM,
+      idrecibo: idrecibo || prev.idrecibo || "",
+      expediente: prev.expediente || "",
+      anno: prev.anno || "",
+      observacion: prev.observacion || "",
+      periodo: prev.periodo || "01",
+    }));
     setAutocompleteQuery("");
     setMode("add");
   };
-
 
   const handleStartEdit = () => {
     if (!selectedCosta) return;
     setForm({
       idcosta: selectedCosta.idcosta,
       idrecibo: selectedCosta.idrecibo || "",
-      expediente: selectedCosta.expediente || form.expediente || numeroPapeleta || ninfrac || "",
+      expediente: selectedCosta.expediente || form.expediente || "",
       conceptoId: selectedCosta.tipo || "",
       conceptoNombre: selectedCosta.conceptos || "",
       tipo: selectedCosta.tipo || "",
       subtipo: selectedCosta.subtipo || "",
       cantidad: selectedCosta.cantidad || "0",
       monto: selectedCosta.monto || "0.00",
-      anno: selectedCosta.anno || form.anno || new Date().getFullYear().toString(),
+      anno: selectedCosta.anno || form.anno || "",
       periodo: selectedCosta.periodo || "01",
       observacion: selectedCosta.observacion || "",
     });
@@ -399,9 +444,14 @@ function DetailView({
     if (!form.conceptoNombre && !form.tipo) { alert("Seleccione un concepto de costa."); return; }
     if (!form.expediente.trim()) { alert("Debe ingresar el número de expediente."); return; }
     const expTarget = form.expediente;
-    const annoTarget = form.anno || new Date().getFullYear().toString();
+    const annoTarget = form.anno;
     setSaving(true);
     try {
+      // Adjuntamos el tag de la papeleta en la observación para aislarla 100% (comentado por el momento)
+      // const cleanObsUser = form.observacion.replace(/\[PAP:[^\]]+\]\s*/gi, "").trim();
+      // const finalObs = papTag ? `${papTag} ${cleanObsUser}`.trim() : cleanObsUser;
+      const finalObs = form.observacion;
+
       const res = await grabarCostaAction({
         idcosta: form.idcosta,
         idrecibo: form.idrecibo,
@@ -409,7 +459,7 @@ function DetailView({
         codigo,
         anno: annoTarget,
         periodo: form.periodo || "01",
-        observacion: form.observacion,
+        observacion: finalObs,
         tipo: form.tipo || form.conceptoId,
         subtipo: form.subtipo || form.conceptoId,
         cantidad: form.cantidad,
@@ -754,6 +804,7 @@ export default function CostasInfraccionModal({
   codigo,
   nombreInfractor,
   numeroPapeleta,
+  idrecibo,
   onClose,
 }: Props) {
   if (!isOpen) return null;
@@ -766,6 +817,7 @@ export default function CostasInfraccionModal({
           codigo={codigo}
           nombreInfractor={nombreInfractor}
           numeroPapeleta={numeroPapeleta}
+          idrecibo={idrecibo}
           onClose={onClose}
           onBack={onClose}
         />
