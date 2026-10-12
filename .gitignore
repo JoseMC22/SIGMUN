@@ -38,6 +38,10 @@ pnpm-debug.log*
 .atl/
 openspec/
 
+# ODD: documentos de tareas son locales, no se versionan (los historicos ya
+# trackeados permanecen)
+odd/tasks/
+
 # Test coverage
 coverage/
 
