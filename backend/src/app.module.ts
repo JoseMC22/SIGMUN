@@ -28,6 +28,7 @@ import { ConvenioEstadoModule } from './mantenimiento-tablas/mantenimiento-estad
 import { PapeletaTransitoModule } from './papeleta-transito/papeleta-transito.module';
 import { AsesoriaLegalModule } from './asesoria-legal/asesoria-legal.module';
 import { MantenimientoIngresosModule } from './tesoreria/mantenimiento-ingresos/mantenimiento-ingresos.module';
+import { CuadreCajaModule } from './tesoreria/cuadre-caja/cuadre-caja.module';
 import { StorageModule } from './storage/storage.module';
 
 @Module({
@@ -106,6 +107,8 @@ import { StorageModule } from './storage/storage.module';
     AsesoriaLegalModule,
     // Módulo de tesorería - mantenimiento de ingresos (clasificador)
     MantenimientoIngresosModule,
+    // Módulo de tesorería - cuadre de caja
+    CuadreCajaModule,
     // Módulo de Almacenamiento (NAS / Archivos)
     StorageModule,
   ],
