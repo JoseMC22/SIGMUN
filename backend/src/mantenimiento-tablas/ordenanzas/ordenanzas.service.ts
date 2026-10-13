@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
+import { toIsoDateParam } from '../../common/utils/date-utils';
 import { OrdenanzaRow, SpOrdenanzaRow } from './dto/ordenanzas.types';
+import { CrearOrdenanzaDto } from './dto/crear-ordenanza.dto';
 
 /**
  * Listado de ordenanzas de caja (master CAJA.MORDENANZAS).
@@ -78,6 +80,40 @@ export class OrdenanzasService {
       return { data };
     } catch (error) {
       this.logger.error('Error al listar ordenanzas', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Alta de ordenanza master (@msquery=1 = INSERT en CAJA.MORDENANZAS).
+   *
+   * OJO (S2): msquery=1 es ALTA — desde el listado NUNCA se llama; este es
+   * el único uso legítimo del modo 1.
+   *
+   * El SP exige los 6 parámetros sin default presentes con valor real en el
+   * INSERT (descripcion, fdesde, fhasta, operador, estacion; observacion
+   * puede viajar vacía). Las fechas llegan YYYY-MM-DD (Zod) y se normalizan
+   * a YYYYMMDD (unambiguous para smalldatetime) con toIsoDateParam.
+   */
+  async crear(
+    dto: CrearOrdenanzaDto,
+    operador: string,
+  ): Promise<{ message: string }> {
+    try {
+      await this.db.executeProcedure('caja.sp_ordenanzas', {
+        msquery: 1, // 1 = ALTA master (INSERT); 3 = consulta (listar).
+        criterio: dto.criterio,
+        descripcion: dto.descripcion,
+        fdesde: toIsoDateParam(dto.fdesde),
+        fhasta: toIsoDateParam(dto.fhasta),
+        observacion: dto.observacion,
+        operador,
+        estacion: dto.estacion,
+      });
+
+      return { message: 'Ordenanza creada exitosamente' };
+    } catch (error) {
+      this.logger.error('Error al crear ordenanza', error);
       throw error;
     }
   }
