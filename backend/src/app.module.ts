@@ -25,6 +25,7 @@ import { AnularValorModule } from './cobranza/anular-valor/anular-valor.module';
 import { ReportesModule } from './reportes-gerenciales/reportes-gerenciales.module';
 import { MantenimientoUitModule } from './mantenimiento-tablas/mantenimiento-uit/mantenimiento-uit.module';
 import { ConvenioEstadoModule } from './mantenimiento-tablas/mantenimiento-estado-convenios/convenio-estado.module';
+import { OrdenanzasModule } from './mantenimiento-tablas/ordenanzas/ordenanzas.module';
 import { PapeletaTransitoModule } from './papeleta-transito/papeleta-transito.module';
 import { AsesoriaLegalModule } from './asesoria-legal/asesoria-legal.module';
 import { MantenimientoIngresosModule } from './tesoreria/mantenimiento-ingresos/mantenimiento-ingresos.module';
@@ -101,6 +102,8 @@ import { StorageModule } from './storage/storage.module';
     MantenimientoUitModule,
     // Módulo de mantenimiento - estados de convenio
     ConvenioEstadoModule,
+    // Módulo de mantenimiento de tablas - ordenanzas de caja (listado)
+    OrdenanzasModule,
     // Módulo de papeleta tránsito
     PapeletaTransitoModule,
     // Módulo de Asesoría Legal
