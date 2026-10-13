@@ -64,12 +64,12 @@ function TablaSkeleton() {
       data-testid="loading-skeleton"
       className="animate-pulse overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
     >
-      <div className="border-b border-slate-100 bg-slate-50 px-3 py-2.5">
+      <div className="border-b border-slate-100 bg-slate-50 px-3 py-1.5">
         <div className="h-2.5 w-44 rounded bg-slate-200" />
       </div>
       <div className="divide-y divide-slate-100">
         {[...Array(6)].map((_, i) => (
-          <div key={i} className="flex items-center gap-4 px-3 py-2.5">
+          <div key={i} className="flex items-center gap-4 px-3 py-1.5">
             <div className="h-3 w-8 rounded bg-slate-200" />
             <div className="h-3 w-10 rounded bg-slate-100" />
             <div className="h-3 w-36 rounded bg-slate-200" />
@@ -247,25 +247,25 @@ export default function OrdenanzasPage() {
       >
         <thead className="bg-gradient-to-r from-sat-navy to-[#1e3050]">
           <tr>
-            <th className="border-b border-white/5 px-3 py-2.5 text-left text-[11px] font-semibold uppercase text-white/90 w-[7%]">
+            <th className="border-b border-white/5 px-3 py-1.5 text-left text-[11px] font-semibold uppercase text-white/90 w-[7%]">
               ID
             </th>
-            <th className="border-b border-white/5 px-3 py-2.5 text-left text-[11px] font-semibold uppercase text-white/90 w-[8%]">
+            <th className="border-b border-white/5 px-3 py-1.5 text-left text-[11px] font-semibold uppercase text-white/90 w-[8%]">
               Criterio
             </th>
-            <th className="border-b border-white/5 px-3 py-2.5 text-left text-[11px] font-semibold uppercase text-white/90 w-[24%]">
+            <th className="border-b border-white/5 px-3 py-1.5 text-left text-[11px] font-semibold uppercase text-white/90 w-[24%]">
               Descripción
             </th>
-            <th className="border-b border-white/5 px-3 py-2.5 text-left text-[11px] font-semibold uppercase text-white/90 w-[20%]">
+            <th className="border-b border-white/5 px-3 py-1.5 text-left text-[11px] font-semibold uppercase text-white/90 w-[20%]">
               <div className="flex items-center gap-1.5">
                 <CalendarRange size={11} className="text-white/50" />
                 Vigencia
               </div>
             </th>
-            <th className="border-b border-white/5 px-3 py-2.5 text-left text-[11px] font-semibold uppercase text-white/90 w-[31%]">
+            <th className="border-b border-white/5 px-3 py-1.5 text-left text-[11px] font-semibold uppercase text-white/90 w-[31%]">
               Observación
             </th>
-            <th className="border-b border-white/5 px-3 py-2.5 text-center text-[11px] font-semibold uppercase text-white/90 w-[10%]">
+            <th className="border-b border-white/5 px-3 py-1.5 text-center text-[11px] font-semibold uppercase text-white/90 w-[10%]">
               Estado
             </th>
           </tr>
@@ -278,22 +278,22 @@ export default function OrdenanzasPage() {
                 idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"
               }`}
             >
-              <td className="px-3 py-2 font-mono text-[11px] font-medium tabular-nums text-slate-700">
+              <td className="px-3 py-1 font-mono text-[11px] font-medium tabular-nums text-slate-700">
                 {row.idordenanza}
               </td>
-              <td className="px-3 py-2 font-mono text-[11px] tabular-nums text-slate-600">
+              <td className="px-3 py-1 font-mono text-[11px] tabular-nums text-slate-600">
                 {row.criterio}
               </td>
-              <td className="px-3 py-2 text-[11px] font-medium text-slate-700">
+              <td className="px-3 py-1 text-[11px] font-medium text-slate-700">
                 {row.descripcion}
               </td>
-              <td className="px-3 py-2 text-[11px] tabular-nums text-slate-600">
+              <td className="px-3 py-1 text-[11px] tabular-nums text-slate-600">
                 {`${formatFecha(row.fec_desde)} – ${formatFecha(row.fec_hasta)}`}
               </td>
-              <td className="px-3 py-2 text-[11px] text-slate-600">
+              <td className="px-3 py-1 text-[11px] text-slate-600">
                 {row.observacion}
               </td>
-              <td className="px-3 py-2 text-center">
+              <td className="px-3 py-1 text-center">
                 {/* Iteración 1: valor crudo del dominio en badge sutil,
                     sin semántica inventada hasta confirmar el dominio. */}
                 <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 ring-1 ring-slate-200">
