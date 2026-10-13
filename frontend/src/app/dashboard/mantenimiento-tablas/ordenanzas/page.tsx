@@ -7,8 +7,10 @@ import {
   CheckCircle,
   ChevronLeft,
   ChevronRight,
+  Eye,
   FileDown,
   Loader2,
+  Pencil,
   Plus,
   RotateCcw,
   ScrollText,
@@ -16,6 +18,7 @@ import {
 } from "lucide-react";
 
 import NuevaOrdenanzaModal from "./components/nueva-ordenanza-modal";
+import OrdenanzaDetalleModal from "./components/ordenanza-detalle-modal";
 
 // ─── Types ─────────────────────────────────────────────────
 
@@ -102,6 +105,11 @@ export default function OrdenanzasPage() {
   const [showNuevaModal, setShowNuevaModal] = useState(false);
   const [successFeedback, setSuccessFeedback] = useState(false);
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Detalle de ordenanza (T8): master seleccionado; null = modal cerrado.
+  const [detalleOrdenanza, setDetalleOrdenanza] = useState<OrdenanzaRow | null>(
+    null,
+  );
 
   const totalPages = Math.max(1, Math.ceil(data.length / PAGE_SIZE));
   const pageData = data.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -228,8 +236,10 @@ export default function OrdenanzasPage() {
             )}
           </button>
 
-          {/* Alta de ordenanza (T5): NO hay editar/eliminar (T6 diferido;
-              el SP no tiene UPDATE ni delete operativo del master). */}
+          {/* Ver detalle (T8) + alta (T5): el SP no tiene modo UPDATE y el
+              modo 5 está comentado (no-op) → Editar queda DESHABILITADO
+              (tooltip "Pendiente cambio de SP (UPDATE)"); eliminar sigue
+              fuera (T6 "Diferir ambos"). */}
           <button
             type="button"
             onClick={() => setShowNuevaModal(true)}
@@ -253,20 +263,23 @@ export default function OrdenanzasPage() {
             <th className="border-b border-white/5 px-3 py-1.5 text-left text-[11px] font-semibold uppercase text-white/90 w-[8%]">
               Criterio
             </th>
-            <th className="border-b border-white/5 px-3 py-1.5 text-left text-[11px] font-semibold uppercase text-white/90 w-[24%]">
+            <th className="border-b border-white/5 px-3 py-1.5 text-left text-[11px] font-semibold uppercase text-white/90 w-[22%]">
               Descripción
             </th>
-            <th className="border-b border-white/5 px-3 py-1.5 text-left text-[11px] font-semibold uppercase text-white/90 w-[20%]">
+            <th className="border-b border-white/5 px-3 py-1.5 text-left text-[11px] font-semibold uppercase text-white/90 w-[18%]">
               <div className="flex items-center gap-1.5">
                 <CalendarRange size={11} className="text-white/50" />
                 Vigencia
               </div>
             </th>
-            <th className="border-b border-white/5 px-3 py-1.5 text-left text-[11px] font-semibold uppercase text-white/90 w-[31%]">
+            <th className="border-b border-white/5 px-3 py-1.5 text-left text-[11px] font-semibold uppercase text-white/90 w-[25%]">
               Observación
             </th>
-            <th className="border-b border-white/5 px-3 py-1.5 text-center text-[11px] font-semibold uppercase text-white/90 w-[10%]">
+            <th className="border-b border-white/5 px-3 py-1.5 text-center text-[11px] font-semibold uppercase text-white/90 w-[8%]">
               Estado
+            </th>
+            <th className="border-b border-white/5 px-2 py-1.5 text-center text-[11px] font-semibold uppercase text-white/90 w-[12%]">
+              Acciones
             </th>
           </tr>
         </thead>
@@ -299,6 +312,32 @@ export default function OrdenanzasPage() {
                 <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 ring-1 ring-slate-200">
                   {row.estado}
                 </span>
+              </td>
+              {/* Acciones (T8): Ver detalle (msquery=4) y Editar
+                  DESHABILITADO (T6: el SP no tiene modo UPDATE; jamás
+                  wirear a msquery 1 = alta o 5 = no-op). Eliminar sigue
+                  fuera (decisión "Diferir ambos"). */}
+              <td className="px-2 py-1">
+                <div className="flex items-center justify-center gap-0.5">
+                  <button
+                    type="button"
+                    aria-label="Ver detalle"
+                    title="Ver detalle"
+                    onClick={() => setDetalleOrdenanza(row)}
+                    className="rounded-md p-1 text-sat-cyan transition hover:bg-cyan-50 focus:outline-none focus:ring-2 focus:ring-sat-cyan/30"
+                  >
+                    <Eye size={13} />
+                  </button>
+                  <button
+                    type="button"
+                    disabled
+                    aria-label="Editar"
+                    title="Pendiente cambio de SP (UPDATE)"
+                    className="cursor-not-allowed rounded-md p-1 text-slate-300"
+                  >
+                    <Pencil size={13} />
+                  </button>
+                </div>
               </td>
             </tr>
           ))}
@@ -478,6 +517,14 @@ export default function OrdenanzasPage() {
         isOpen={showNuevaModal}
         onClose={() => setShowNuevaModal(false)}
         onSuccess={handleNuevaOrdenanzaSaved}
+      />
+
+      {/* Modal de detalle de la ordenanza seleccionada (T8, read-only:
+          @msquery=4 vía GET /detalle?idordenanza=N) */}
+      <OrdenanzaDetalleModal
+        isOpen={detalleOrdenanza !== null}
+        ordenanza={detalleOrdenanza}
+        onClose={() => setDetalleOrdenanza(null)}
       />
     </div>
   );
