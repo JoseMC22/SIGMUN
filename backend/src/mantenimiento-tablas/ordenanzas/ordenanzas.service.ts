@@ -63,23 +63,21 @@ function toNumber(value: number | string | null | undefined): number {
   return Number(value);
 }
 
+/**
+ * Fila del detalle re-modelado (iteración 4): el recordset llega con claves
+ * del SELECT del JOIN — `Año` (alias entre corchetes, exacto, con ñ),
+ * TIPO_REC y CONCEPTO (textos) + IMP_INSOL/IMP_REAJ/MORA/COSTO_EMIS
+ * (montos). char/varchar → trim (null → ''); montos → Number (null → 0).
+ */
 function mapDetalleRow(row: SpOrdenanzaDetalleRow): OrdenanzaDetalleRow {
   return {
-    idordenanza: Number(row.idordenanza ?? 0),
-    cidordenanza: Number(row.cidordenanza ?? 0),
-    anno: trimChar(row.anno),
-    tipo: trimChar(row.tipo),
-    tipo_rec: trimChar(row.tipo_rec),
-    imp_insol: toNumber(row.imp_insol),
-    imp_reaj: toNumber(row.imp_reaj),
-    mora: toNumber(row.mora),
-    costo_emis: toNumber(row.costo_emis),
-    observacion: trimChar(row.observacion),
-    estado: trimChar(row.estado),
-    fec_venc: toIsoPassthrough(row.fec_venc),
-    operador: trimChar(row.operador),
-    estacion: trimChar(row.estacion),
-    fech_ing: toIsoPassthrough(row.fech_ing),
+    anno: trimChar(row['Año']),
+    tipoRec: trimChar(row.TIPO_REC),
+    concepto: trimChar(row.CONCEPTO),
+    impInsol: toNumber(row.IMP_INSOL),
+    impReaj: toNumber(row.IMP_REAJ),
+    mora: toNumber(row.MORA),
+    costoEmis: toNumber(row.COSTO_EMIS),
   };
 }
 
@@ -153,14 +151,17 @@ export class OrdenanzasService {
   }
 
   /**
-   * Consulta de detalle master-detalle (T7, @msquery=4 = SELECT * FROM
-   * CAJA.DORDENANZAS).
+   * Consulta de detalle master-detalle (T9, @msquery=4 re-modelado: SELECT
+   * con JOIN a CAJA.TIPO_INGRESOS_DET — `do.ANNO [Año], do.TIPO_REC,
+   * det.CONCEPTO, do.IMP_INSOL, do.IMP_REAJ, do.MORA, do.COSTO_EMIS`).
    *
-   * OJO (T4/S4): el SP NO filtra server-side — devuelve TODAS las filas
-   * (~3210); el filtro por cidordenanza (el idordenanza del master) es
-   * SIEMPRE en memoria. @idordenanza viaja igual (pedido verbatim del
-   * usuario; el SP lo define =0 aunque no lo usa para filtrar) y es
-   * inofensivo: la consulta es read-only.
+   * El cambio de SP por DBA (re-lectura en vivo 13/10 ~16:32) AHORA FILTRA
+   * server-side con `WHERE CIDORDENANZA = @idordenanza`: el filtro en
+   * memoria del SP viejo se ELIMINÓ y el passthrough de las N filas es
+   * directo (el volumen ya lo acota el SP: idordenanza=1 → 115 filas).
+   *
+   * Los 6 parámetros sin default siguen viajando '' en TODA llamada
+   * (contrato del SP) e `idordenanza` (int) es ya el filtro requisito.
    *
    * Sin filas del master pedido → { data: [] } SIN excepción (contrato S3).
    */
@@ -171,7 +172,7 @@ export class OrdenanzasService {
       const result = await this.db.executeProcedure<SpOrdenanzaDetalleRow>(
         'caja.sp_ordenanzas',
         {
-          msquery: 4, // 4 = consulta detalle (SELECT * de DOrdenanzas).
+          msquery: 4, // 4 = consulta detalle (JOIN TIPO_INGRESOS_DET).
           criterio: 11,
           // Obligatorios aunque vacíos (el SP no les da default).
           descripcion: '',
@@ -180,15 +181,15 @@ export class OrdenanzasService {
           observacion: '',
           operador: '',
           estacion: '',
-          idordenanza, // FK al master (el filtro real es en memoria).
+          idordenanza, // Filtro server-side: WHERE CIDORDENANZA = @idordenanza.
         },
       );
 
-      const data: OrdenanzaDetalleRow[] = (result.recordset ?? [])
-        // Filtro en memoria por cidordenanza (TIPO detalle → idordenanza del
-        // master; el SP no filtra).
-        .filter((row) => Number(row.cidordenanza ?? 0) === idordenanza)
-        .map(mapDetalleRow);
+      // El SP ya filtra server-side: TODAS las filas del recordset son del
+      // master pedido → mapeo directo, sin filtro en memoria.
+      const data: OrdenanzaDetalleRow[] = (result.recordset ?? []).map(
+        mapDetalleRow,
+      );
       return { data };
     } catch (error) {
       this.logger.error('Error al consultar el detalle de ordenanzas', error);

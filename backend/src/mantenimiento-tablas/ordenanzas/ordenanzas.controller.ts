@@ -9,8 +9,8 @@ import {
 } from './dto/ordenanzas.types';
 import { CrearOrdenanzaSchema } from './dto/crear-ordenanza.dto';
 
-// Validación Zod del query del detalle (T7): coerce int positivo; el valor
-// vacío hace coerce Number('') = 0 y cae en el error de positive().
+// Validación Zod del query del detalle (T7/T9): coerce int positivo; el
+// valor vacío hace coerce Number('') = 0 y cae en el error de positive().
 const DetalleOrdenanzaQuerySchema = z.object({
   idordenanza: z.coerce
     .number({ invalid_type_error: 'idordenanza debe ser un número' })
@@ -50,10 +50,11 @@ export class OrdenanzasController {
   }
 
   /**
-   * Detalle de una ordenanza (iteración 3, @msquery=4). El service filtra
-   * en memoria por cidordenanza (el SP NO filtra server-side); la
-   * validación del query es Zod safeParse (patrón crear). Read-only: sin
-   * alta de detalle aquí (queda para T4/iteración 4 si se habilita).
+   * Detalle de una ordenanza (iteración 4, @msquery=4 re-modelado). El SP
+   * re-verificado (13/10 ~16:32) ahora SI filtra server-side con
+   * `WHERE CIDORDENANZA = @idordenanza` — ya sin filtro en memoria; el
+   * endpoint además trae CONCEPTO vía el JOIN a CAJA.TIPO_INGRESOS_DET.
+   * La validación del query es Zod safeParse (patrón crear). Read-only.
    */
   @Get('detalle')
   async detalle(

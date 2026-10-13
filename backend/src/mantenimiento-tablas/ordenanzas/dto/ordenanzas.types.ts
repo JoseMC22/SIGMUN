@@ -46,59 +46,50 @@ export interface OrdenanzasResponse {
   data: OrdenanzaRow[];
 }
 
-// ── Detalle (iteración 3, @msquery=4) ──
+// ── Detalle (iteración 4, @msquery=4 re-modelado) ──
 
-// Resultado crudo del SP caja.sp_ordenanzas (@msquery=4): SELECT * FROM
-// CAJA.DORDENANZAS (fuente verificada en vivo, 13/10): idordenanza,
-// cidordenanza (FK al master), anno (char 4), tipo (char 5), tipo_rec
-// (char 5), imp_insol, imp_reaj, mora, costo_emis (decimal), observacion,
-// estado (char), fec_venc (datetime), operador/estacion (char con
-// padding), fech_ing (datetime). El SP NO filtra server-side: devuelve
-// TODAS las filas (~3210) — el filtro por cidordenanza es en memoria.
+// Resultado crudo del SP caja.sp_ordenanzas (@msquery=4) tras el cambio de
+// SP re-verificado por DBA (re-lectura en vivo 13/10 ~16:32): SELECT con JOIN a
+// CAJA.TIPO_INGRESOS_DET:
+// `do.ANNO [Año], do.TIPO_REC, det.CONCEPTO, do.IMP_INSOL, do.IMP_REAJ,
+// do.MORA, do.COSTO_EMIS` WHERE CIDORDENANZA = @idordenanza
+// ORDER BY IDORDENANZA.
+// Claves exactas del recordset: `Año` (alias entre corchetes, char 4, con ñ),
+// TIPO_REC (char 5, padding), CONCEPTO (varchar) e IMP_INSOL/IMP_REAJ/MORA/
+// COSTO_EMIS (decimal(18,2), llegan como número). El SP AHORA SÍ filtra
+// server-side por @idordenanza (volumen real: idordenanza=1 → 115 filas,
+// idordenanza=2 → 5): NO vuelve idordenanza/cidordenanza ni estado/fec_venc/
+// observacion/tipo de la forma vieja.
 export interface SpOrdenanzaDetalleRow {
-  idordenanza?: number | null;
-  cidordenanza?: number | string | null;
-  anno?: string | null;
-  tipo?: string | null;
-  tipo_rec?: string | null;
-  imp_insol?: number | string | null;
-  imp_reaj?: number | string | null;
-  mora?: number | string | null;
-  costo_emis?: number | string | null;
-  observacion?: string | null;
-  estado?: string | null;
-  fec_venc?: string | Date | null;
-  operador?: string | null;
-  estacion?: string | null;
-  fech_ing?: string | Date | null;
+  'Año'?: string | null;
+  TIPO_REC?: string | null;
+  CONCEPTO?: string | null;
+  IMP_INSOL?: number | string | null;
+  IMP_REAJ?: number | string | null;
+  MORA?: number | string | null;
+  COSTO_EMIS?: number | string | null;
 }
 
 /**
- * Fila de detalle de ordenanza normalizada: campos char recortados
- * (null → ''), montos numéricos y fechas en passthrough ISO (el front
- * formatea).
+ * Fila de detalle de ordenanza normalizada (7 campos del SP re-modelado):
+ * campos char/varchar recortados (null → ''), montos numéricos. Ya NO hay
+ * idordenanza/cidordenanza/estado/fec_venc de la forma vieja (el JOIN trae
+ * concepto y el filtro va server-side).
  */
 export interface OrdenanzaDetalleRow {
-  idordenanza: number;
-  cidordenanza: number;
   anno: string;
-  tipo: string;
-  tipo_rec: string;
-  imp_insol: number;
-  imp_reaj: number;
+  tipoRec: string;
+  concepto: string;
+  impInsol: number;
+  impReaj: number;
   mora: number;
-  costo_emis: number;
-  observacion: string;
-  estado: string;
-  fec_venc: string;
-  operador: string;
-  estacion: string;
-  fech_ing: string;
+  costoEmis: number;
 }
 
 /**
  * Contrato del endpoint GET /api/mantenimiento-tablas/ordenanzas/detalle
- * (T7): filas del master pedido; sin filas → { data: [] } SIN excepción.
+ * (T9): filas que el SP ya filtró por idordenanza; sin filas → { data: [] }
+ * SIN excepción.
  */
 export interface OrdenanzasDetalleResponse {
   data: OrdenanzaDetalleRow[];
