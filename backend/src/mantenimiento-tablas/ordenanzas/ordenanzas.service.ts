@@ -1,7 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 import { toIsoDateParam } from '../../common/utils/date-utils';
-import { OrdenanzaRow, SpOrdenanzaRow } from './dto/ordenanzas.types';
+import {
+  OrdenanzaRow,
+  OrdenanzaDetalleRow,
+  SpOrdenanzaRow,
+  SpOrdenanzaDetalleRow,
+} from './dto/ordenanzas.types';
 import { CrearOrdenanzaDto } from './dto/crear-ordenanza.dto';
 
 /**
@@ -43,6 +48,35 @@ function mapRow(row: SpOrdenanzaRow): OrdenanzaRow {
     fec_hasta: toIsoPassthrough(row.fec_hasta),
     observacion: trimChar(row.observacion),
     estado: trimChar(row.estado),
+    operador: trimChar(row.operador),
+    estacion: trimChar(row.estacion),
+    fech_ing: toIsoPassthrough(row.fech_ing),
+  };
+}
+
+/**
+ * Montos decimal del detalle → number (el driver puede entregar string);
+ * null/undefined → 0.
+ */
+function toNumber(value: number | string | null | undefined): number {
+  if (value === null || value === undefined) return 0;
+  return Number(value);
+}
+
+function mapDetalleRow(row: SpOrdenanzaDetalleRow): OrdenanzaDetalleRow {
+  return {
+    idordenanza: Number(row.idordenanza ?? 0),
+    cidordenanza: Number(row.cidordenanza ?? 0),
+    anno: trimChar(row.anno),
+    tipo: trimChar(row.tipo),
+    tipo_rec: trimChar(row.tipo_rec),
+    imp_insol: toNumber(row.imp_insol),
+    imp_reaj: toNumber(row.imp_reaj),
+    mora: toNumber(row.mora),
+    costo_emis: toNumber(row.costo_emis),
+    observacion: trimChar(row.observacion),
+    estado: trimChar(row.estado),
+    fec_venc: toIsoPassthrough(row.fec_venc),
     operador: trimChar(row.operador),
     estacion: trimChar(row.estacion),
     fech_ing: toIsoPassthrough(row.fech_ing),
@@ -114,6 +148,50 @@ export class OrdenanzasService {
       return { message: 'Ordenanza creada exitosamente' };
     } catch (error) {
       this.logger.error('Error al crear ordenanza', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Consulta de detalle master-detalle (T7, @msquery=4 = SELECT * FROM
+   * CAJA.DORDENANZAS).
+   *
+   * OJO (T4/S4): el SP NO filtra server-side — devuelve TODAS las filas
+   * (~3210); el filtro por cidordenanza (el idordenanza del master) es
+   * SIEMPRE en memoria. @idordenanza viaja igual (pedido verbatim del
+   * usuario; el SP lo define =0 aunque no lo usa para filtrar) y es
+   * inofensivo: la consulta es read-only.
+   *
+   * Sin filas del master pedido → { data: [] } SIN excepción (contrato S3).
+   */
+  async detalle(
+    idordenanza: number,
+  ): Promise<{ data: OrdenanzaDetalleRow[] }> {
+    try {
+      const result = await this.db.executeProcedure<SpOrdenanzaDetalleRow>(
+        'caja.sp_ordenanzas',
+        {
+          msquery: 4, // 4 = consulta detalle (SELECT * de DOrdenanzas).
+          criterio: 11,
+          // Obligatorios aunque vacíos (el SP no les da default).
+          descripcion: '',
+          fdesde: '',
+          fhasta: '',
+          observacion: '',
+          operador: '',
+          estacion: '',
+          idordenanza, // FK al master (el filtro real es en memoria).
+        },
+      );
+
+      const data: OrdenanzaDetalleRow[] = (result.recordset ?? [])
+        // Filtro en memoria por cidordenanza (TIPO detalle → idordenanza del
+        // master; el SP no filtra).
+        .filter((row) => Number(row.cidordenanza ?? 0) === idordenanza)
+        .map(mapDetalleRow);
+      return { data };
+    } catch (error) {
+      this.logger.error('Error al consultar el detalle de ordenanzas', error);
       throw error;
     }
   }
