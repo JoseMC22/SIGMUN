@@ -1,13 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
   CalendarRange,
+  CheckCircle,
+  ChevronLeft,
+  ChevronRight,
+  FileDown,
+  Loader2,
+  Plus,
   RotateCcw,
   ScrollText,
   SearchX,
 } from "lucide-react";
+
+import NuevaOrdenanzaModal from "./components/nueva-ordenanza-modal";
 
 // ─── Types ─────────────────────────────────────────────────
 
@@ -26,6 +34,12 @@ interface OrdenanzaRow {
   estacion: string;
   fech_ing: string;
 }
+
+// ─── Paginación en memoria (L5/T5) ───────────────────────────
+
+// El GET devuelve la lista completa (S3); el footer pagina de a 15 en
+// memoria (patrón mantenimiento-ingresos).
+const PAGE_SIZE = 15;
 
 // ─── Helpers ───────────────────────────────────────────────
 
@@ -77,6 +91,21 @@ export default function OrdenanzasPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Paginación en memoria.
+  const [page, setPage] = useState(1);
+
+  // Exportar a Excel (re-consulta completa; guard anti-carrera exportSeq).
+  const [exporting, setExporting] = useState(false);
+  const exportSeq = useRef(0);
+
+  // Alta de ordenanza (T5): modal + feedback sutil de éxito.
+  const [showNuevaModal, setShowNuevaModal] = useState(false);
+  const [successFeedback, setSuccessFeedback] = useState(false);
+  const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const totalPages = Math.max(1, Math.ceil(data.length / PAGE_SIZE));
+  const pageData = data.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   const loadOrdenanzas = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -85,6 +114,8 @@ export default function OrdenanzasPage() {
       if (!res.ok) throw new Error("Error al consultar");
       const json = await res.json();
       setData(json.data ?? []);
+      // Nueva consulta → siempre vuelve a la primera página.
+      setPage(1);
     } catch {
       setError("Error de conexión");
       setData([]);
@@ -95,6 +126,67 @@ export default function OrdenanzasPage() {
 
   // Auto-consulta al montar (convención de la sección mantenimiento-tablas).
   useEffect(() => {
+    loadOrdenanzas();
+  }, [loadOrdenanzas]);
+
+  // Limpieza del timer del feedback al desmontar.
+  useEffect(() => {
+    return () => {
+      if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
+    };
+  }, []);
+
+  // ── Paginación en memoria ────────────────────────────────
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > totalPages) return;
+    setPage(newPage);
+  };
+
+  // ── Exportar a Excel: re-consulta el listado COMPLETO (no la página visible) ──
+
+  const exportToExcel = useCallback(async () => {
+    const token = ++exportSeq.current;
+    setExporting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/mantenimiento-tablas/ordenanzas");
+      if (!res.ok) throw new Error("Error al exportar Excel");
+      const json = await res.json();
+      const rows = (json.data ?? []) as OrdenanzaRow[];
+      const XLSX = await import("xlsx");
+      const ws = XLSX.utils.json_to_sheet(
+        rows.map((r) => ({
+          "ID": r.idordenanza,
+          "Criterio": r.criterio,
+          "Descripción": r.descripcion,
+          "Vigencia Desde": formatFecha(r.fec_desde),
+          "Vigencia Hasta": formatFecha(r.fec_hasta),
+          "Observación": r.observacion,
+          "Estado": r.estado,
+        })),
+      );
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Ordenanzas");
+      XLSX.writeFile(
+        wb,
+        `ordenanzas-${new Date().toISOString().slice(0, 10)}.xlsx`,
+      );
+    } catch {
+      if (token === exportSeq.current) setError("Error al exportar Excel");
+    } finally {
+      if (token === exportSeq.current) setExporting(false);
+    }
+  }, []);
+
+  // ── Alta de ordenanza (T5) ────────────────────────────
+
+  // Éxito del modal: cerrar + feedback sutil + re-consultar la lista.
+  const handleNuevaOrdenanzaSaved = useCallback(() => {
+    setShowNuevaModal(false);
+    setSuccessFeedback(true);
+    if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
+    feedbackTimer.current = setTimeout(() => setSuccessFeedback(false), 4000);
     loadOrdenanzas();
   }, [loadOrdenanzas]);
 
@@ -110,9 +202,43 @@ export default function OrdenanzasPage() {
             Listado de ordenanzas
           </span>
         </div>
-        <span className="text-[11px] font-medium tabular-nums text-slate-600">
-          {`${data.length} ${data.length === 1 ? "registro" : "registros"}`}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-medium tabular-nums text-slate-600">
+            {`${data.length} ${data.length === 1 ? "registro" : "registros"}`}
+          </span>
+
+          {/* Exportar a Excel: re-consulta completa + xlsx dynamic import
+              (patrón mantenimiento-ingresos). Solo con datos. */}
+          <button
+            type="button"
+            onClick={exportToExcel}
+            disabled={exporting}
+            className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-sat-cyan/30 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {exporting ? (
+              <>
+                <Loader2 size={13} className="animate-spin" />
+                Exportando...
+              </>
+            ) : (
+              <>
+                <FileDown size={13} className="text-sat-cyan" />
+                Exportar a Excel
+              </>
+            )}
+          </button>
+
+          {/* Alta de ordenanza (T5): NO hay editar/eliminar (T6 diferido;
+              el SP no tiene UPDATE ni delete operativo del master). */}
+          <button
+            type="button"
+            onClick={() => setShowNuevaModal(true)}
+            className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-3 py-1.5 text-[11px] font-medium text-white shadow-sm transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
+          >
+            <Plus size={13} />
+            Nueva ordenanza
+          </button>
+        </div>
       </div>
       <table
         className="w-full table-fixed border-collapse"
@@ -145,7 +271,7 @@ export default function OrdenanzasPage() {
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
-          {data.map((row, idx) => (
+          {pageData.map((row, idx) => (
             <tr
               key={`${row.idordenanza}-${idx}`}
               className={`transition hover:bg-slate-50 ${
@@ -180,6 +306,80 @@ export default function OrdenanzasPage() {
       </table>
     </div>
   );
+
+  // ── Footer de paginación (patrón mantenimiento-ingresos) ──
+
+  const renderFooter = () => {
+    if (data.length === 0) return null;
+
+    const from = (page - 1) * PAGE_SIZE + 1;
+    const to = Math.min(page * PAGE_SIZE, data.length);
+
+    // Números de página (mostrar a lo sumo 5, ventana centrada en la actual).
+    const pages: number[] = [];
+    const startPage = Math.max(1, page - 2);
+    const endPage = Math.min(totalPages, page + 2);
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+
+    return (
+      <div
+        data-testid="ordenanzas-footer"
+        className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50/40 px-4 py-2"
+      >
+        <span className="text-xs text-slate-500">
+          Mostrando{" "}
+          <span className="font-semibold text-slate-700">{from}</span>
+          {" – "}
+          <span className="font-semibold text-slate-700">{to}</span> de{" "}
+          <span className="font-semibold text-slate-700">{data.length}</span>{" "}
+          resultados
+        </span>
+
+        {totalPages > 1 && (
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              disabled={page <= 1}
+              onClick={() => handlePageChange(page - 1)}
+              className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+              aria-label="Anterior"
+            >
+              <ChevronLeft size={13} />
+              Anterior
+            </button>
+
+            {pages.map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => handlePageChange(p)}
+                className={`min-w-[28px] rounded-md px-2 py-1 text-xs font-medium transition ${
+                  p === page
+                    ? "bg-sat-cyan text-white shadow-sm"
+                    : "border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-800"
+                }`}
+              >
+                {p}
+              </button>
+            ))}
+
+            <button
+              type="button"
+              disabled={page >= totalPages}
+              onClick={() => handlePageChange(page + 1)}
+              className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+              aria-label="Siguiente"
+            >
+              Siguiente
+              <ChevronRight size={13} />
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   // ── Empty state ──────────────────────────────────────────
 
@@ -243,6 +443,19 @@ export default function OrdenanzasPage() {
         </div>
       </div>
 
+      {/* Feedback sutil de alta exitosa (T5) */}
+      {successFeedback && (
+        <div
+          data-testid="success-feedback"
+          className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 animate-fade-in"
+        >
+          <CheckCircle size={14} className="shrink-0 text-emerald-500" />
+          <span className="text-xs font-medium text-emerald-700">
+            Ordenanza creada exitosamente
+          </span>
+        </div>
+      )}
+
       {/* Skeleton (primera carga) */}
       {loading && <TablaSkeleton />}
 
@@ -252,8 +465,20 @@ export default function OrdenanzasPage() {
       {/* Empty state */}
       {!loading && !error && data.length === 0 && renderEmptyState()}
 
-      {/* Populated grid */}
-      {!loading && !error && data.length > 0 && renderGrid()}
+      {/* Populated grid + footer de paginación */}
+      {!loading && !error && data.length > 0 && (
+        <div>
+          {renderGrid()}
+          {renderFooter()}
+        </div>
+      )}
+
+      {/* Modal de alta de ordenanza (T5) */}
+      <NuevaOrdenanzaModal
+        isOpen={showNuevaModal}
+        onClose={() => setShowNuevaModal(false)}
+        onSuccess={handleNuevaOrdenanzaSaved}
+      />
     </div>
   );
 }
