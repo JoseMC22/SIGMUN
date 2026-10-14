@@ -105,6 +105,19 @@ export default function OrdenanzaDetalleModal({
     });
   };
 
+  // Filtros client-side sobre el detalle (T2): selects derivados de los
+  // datos + búsqueda de concepto. Cualquier cambio vuelve a página 1.
+  const [filtroAnno, setFiltroAnno] = useState("todos");
+  const [filtroTipo, setFiltroTipo] = useState("todos");
+  const [busqueda, setBusqueda] = useState("");
+
+  const limpiarFiltros = () => {
+    setFiltroAnno("todos");
+    setFiltroTipo("todos");
+    setBusqueda("");
+    setPage(1);
+  };
+
   // Escape cierra SOLO este modal si es el tope de la pila (convención del
   // proyecto: nunca click en el backdrop).
   const modalId = useModalStack(isOpen);
@@ -113,8 +126,12 @@ export default function OrdenanzaDetalleModal({
     setLoading(true);
     setError(null);
     setDetalle(null);
-    // Apertura o re-consulta (Reintentar) → siempre vuelve a la página 1.
+    // Apertura o re-consulta (Reintentar) → siempre vuelve a la página 1
+    // y limpia los filtros (el master nuevo trae otro universo de datos).
     setPage(1);
+    setFiltroAnno("todos");
+    setFiltroTipo("todos");
+    setBusqueda("");
     try {
       const res = await fetch(
         `/api/mantenimiento-tablas/ordenanzas/detalle?idordenanza=${idordenanza}`,
@@ -148,13 +165,23 @@ export default function OrdenanzaDetalleModal({
 
   // Paginación en memoria sobre el detalle completo (el endpoint ya trae
   // SOLO las filas del master pedido; el SP filtra server-side).
-  // T1: ordenamiento por montos aplicado ANTES de paginar; totales sobre
-  // las filas filtradas completas (no solo la página visible).
+  // T2: filtros client-side (año/tipoRec/concepto) → T1: ordenamiento por
+  // montos aplicado ANTES de paginar; totales sobre las filas filtradas
+  // completas (no solo la página visible).
   const rows = detalle ?? [];
+  const annos = [...new Set(rows.map((r) => r.anno))].sort();
+  const tipos = [...new Set(rows.map((r) => r.tipoRec))].sort();
+  const q = busqueda.trim().toLowerCase();
+  const filtered = rows.filter(
+    (r) =>
+      (filtroAnno === "todos" || r.anno === filtroAnno) &&
+      (filtroTipo === "todos" || r.tipoRec === filtroTipo) &&
+      (q === "" || r.concepto.toLowerCase().includes(q)),
+  );
   const sorted =
     sort === null
-      ? rows
-      : [...rows].sort((a, b) =>
+      ? filtered
+      : [...filtered].sort((a, b) =>
           sort.dir === "asc"
             ? a[sort.key] - b[sort.key]
             : b[sort.key] - a[sort.key],
@@ -248,11 +275,93 @@ export default function OrdenanzaDetalleModal({
             </div>
           )}
 
-          {!loading && !error && detalle !== null && detalle.length > 0 && (
-            <table
-              data-testid="detalle-table"
-              className="w-full table-fixed border-collapse text-[11px]"
-            >
+          {!loading &&
+            !error &&
+            detalle !== null &&
+            detalle.length > 0 &&
+            sorted.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-10">
+                <div className="mb-3 rounded-full bg-slate-100 p-3">
+                  <SearchX size={22} className="text-slate-300" />
+                </div>
+                <p className="text-sm font-medium text-slate-500">
+                  Sin resultados para los filtros aplicados
+                </p>
+                <p className="mt-1 text-xs text-slate-400">
+                  Ajuste los filtros o límpielos para ver todo el detalle
+                </p>
+                <button
+                  type="button"
+                  onClick={limpiarFiltros}
+                  className="mt-4 rounded-md border border-slate-200 px-4 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
+                >
+                  Limpiar filtros
+                </button>
+              </div>
+            )}
+
+          {!loading && !error && detalle !== null && sorted.length > 0 && (
+            <>
+              {/* Barra de filtros client-side (T2): selects derivados de los
+                  datos + búsqueda de concepto; todo cambio vuelve a página 1. */}
+              <div className="mb-3 flex flex-wrap items-end gap-2">
+                <label className="flex flex-col gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  Filtrar por año
+                  <select
+                    aria-label="Filtrar por año"
+                    value={filtroAnno}
+                    onChange={(e) => {
+                      setFiltroAnno(e.target.value);
+                      setPage(1);
+                    }}
+                    className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-normal normal-case tracking-normal text-slate-700 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40"
+                  >
+                    <option value="todos">Todos</option>
+                    {annos.map((a) => (
+                      <option key={a} value={a}>
+                        {a}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  Filtrar por tipo
+                  <select
+                    aria-label="Filtrar por tipo de recurso"
+                    value={filtroTipo}
+                    onChange={(e) => {
+                      setFiltroTipo(e.target.value);
+                      setPage(1);
+                    }}
+                    className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-normal normal-case tracking-normal text-slate-700 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40"
+                  >
+                    <option value="todos">Todos</option>
+                    {tipos.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  Buscar concepto
+                  <input
+                    type="text"
+                    aria-label="Buscar concepto"
+                    value={busqueda}
+                    onChange={(e) => {
+                      setBusqueda(e.target.value);
+                      setPage(1);
+                    }}
+                    placeholder="Concepto…"
+                    className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-normal normal-case tracking-normal text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40"
+                  />
+                </label>
+              </div>
+              <table
+                data-testid="detalle-table"
+                className="w-full table-fixed border-collapse text-[11px]"
+              >
               <thead className="sticky top-0 z-10">
                 <tr className="bg-slate-50 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                   <th className="border-b border-slate-100 px-2 py-1.5 w-[6%]">
@@ -359,7 +468,8 @@ export default function OrdenanzaDetalleModal({
                   </td>
                 </tr>
               </tfoot>
-            </table>
+              </table>
+            </>
           )}
         </div>
 
@@ -367,7 +477,7 @@ export default function OrdenanzaDetalleModal({
             Cerrar. Con datos → Mostrando X–Y de N + controles; sin datos el
             paginador no aparece (solo Cerrar). */}
         <div className="flex items-center justify-between gap-2 border-t border-slate-100 px-5 py-3">
-          {detalle !== null && detalle.length > 0 && (
+          {detalle !== null && sorted.length > 0 && (
             <div
               data-testid="detalle-footer"
               className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50/40 px-3 py-1.5"
@@ -379,11 +489,11 @@ export default function OrdenanzaDetalleModal({
                 </span>
                 {" – "}
                 <span className="font-semibold text-slate-700">
-                  {Math.min(page * PAGE_SIZE, detalle.length)}
+                  {Math.min(page * PAGE_SIZE, sorted.length)}
                 </span>
                 {" de "}
                 <span className="font-semibold text-slate-700">
-                  {detalle.length}
+                  {sorted.length}
                 </span>
               </span>
 

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 import OrdenanzaDetalleModal from "../ordenanza-detalle-modal";
 
@@ -112,5 +112,100 @@ describe("OrdenanzaDetalleModal T1 — totales, sticky y orden", () => {
     expect(screen.getByTestId("detalle-footer").textContent).toContain(
       "Mostrando 1 – 10 de 12",
     );
+  });
+});
+
+describe("OrdenanzaDetalleModal T2 — filtros", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: rows }),
+    });
+  });
+
+  it("deriva los selects de año y tipoRec de los datos", async () => {
+    openModal();
+    await screen.findByTestId("detalle-table");
+    const annoOpts = within(
+      screen.getByLabelText(/filtrar por año/i),
+    ).getAllByRole("option");
+    const tipoOpts = within(
+      screen.getByLabelText(/filtrar por tipo/i),
+    ).getAllByRole("option");
+    expect(annoOpts.map((o) => o.textContent)).toEqual(
+      expect.arrayContaining(["2013", "2014"]),
+    );
+    expect(tipoOpts.map((o) => o.textContent)).toEqual(
+      expect.arrayContaining(["02.01", "02.02"]),
+    );
+  });
+
+  it("filtra por año, refleja el conteo y resetea a página 1", async () => {
+    const many = Array.from({ length: 12 }, (_, i) => ({
+      ...rows[0],
+      anno: i === 11 ? "2020" : "2013",
+      concepto: `CONCEPTO ${i}`,
+    }));
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ data: many }),
+    });
+    openModal();
+    await screen.findByTestId("detalle-table");
+
+    // Ir a página 2 antes de filtrar
+    fireEvent.click(screen.getByRole("button", { name: "2" }));
+    expect(screen.getByTestId("detalle-footer").textContent).toContain(
+      "Mostrando 11 – 12 de 12",
+    );
+
+    // Filtrar por 2020 → 1 fila, vuelve a página 1
+    fireEvent.change(screen.getByLabelText(/filtrar por año/i), {
+      target: { value: "2020" },
+    });
+    expect(screen.getByTestId("detalle-footer").textContent).toContain(
+      "Mostrando 1 – 1 de 1",
+    );
+    expect(
+      screen
+        .getByTestId("detalle-table")
+        .querySelector<HTMLTableRowElement>("tbody tr")!.cells[3],
+    ).toHaveTextContent("CONCEPTO 11");
+  });
+
+  it("busca concepto case-insensitive e ignora espacios (trim)", async () => {
+    openModal();
+    await screen.findByTestId("detalle-table");
+    fireEvent.change(screen.getByLabelText(/buscar concepto/i), {
+      target: { value: "  predial " },
+    });
+    const filas = screen
+      .getByTestId("detalle-table")
+      .querySelectorAll<HTMLTableRowElement>("tbody tr");
+    expect(filas).toHaveLength(1);
+    expect(filas[0].cells[3]).toHaveTextContent(
+      "IMPUESTO AL PATRIMONIO PREDIAL",
+    );
+  });
+
+  it("muestra vacío filtrado con botón para limpiar filtros", async () => {
+    openModal();
+    await screen.findByTestId("detalle-table");
+    fireEvent.change(screen.getByLabelText(/buscar concepto/i), {
+      target: { value: "zzz-sin-coincidencia" },
+    });
+    expect(
+      await screen.findByText(/sin resultados para los filtros/i),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: /limpiar filtros/i }),
+    );
+    expect(await screen.findByTestId("detalle-table")).toBeInTheDocument();
+    expect(
+      screen
+        .getByTestId("detalle-table")
+        .querySelectorAll<HTMLTableRowElement>("tbody tr"),
+    ).toHaveLength(2);
   });
 });
