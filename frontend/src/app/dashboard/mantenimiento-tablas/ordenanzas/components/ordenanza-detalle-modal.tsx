@@ -36,6 +36,16 @@ interface OrdenanzaDetalleRow {
 // propio paginador de 15 (page.tsx, sin cambios).
 const PAGE_SIZE = 10;
 
+// Claves de monto ordenables (T1: click en encabezado asc/desc).
+type MontoKey = "impInsol" | "impReaj" | "mora" | "costoEmis";
+
+const MONTO_COLS: { key: MontoKey; label: string }[] = [
+  { key: "impInsol", label: "Imp. insol." },
+  { key: "impReaj", label: "Imp. reaj." },
+  { key: "mora", label: "Mora" },
+  { key: "costoEmis", label: "Costo emis." },
+];
+
 // Monto es-PE con 2 decimales fijos (el SP trae decimal(18,2)).
 const fmtMonto = (n: number) =>
   n.toLocaleString("es-PE", {
@@ -82,6 +92,19 @@ export default function OrdenanzaDetalleModal({
   // Paginación en memoria dentro del modal.
   const [page, setPage] = useState(1);
 
+  // Ordenamiento por columna de monto (T1): click alterna asc/desc.
+  const [sort, setSort] = useState<{
+    key: MontoKey;
+    dir: "asc" | "desc";
+  } | null>(null);
+
+  const toggleSort = (key: MontoKey) => {
+    setSort((prev) => {
+      if (prev?.key !== key) return { key, dir: "asc" };
+      return { key, dir: prev.dir === "asc" ? "desc" : "asc" };
+    });
+  };
+
   // Escape cierra SOLO este modal si es el tope de la pila (convención del
   // proyecto: nunca click en el backdrop).
   const modalId = useModalStack(isOpen);
@@ -125,9 +148,29 @@ export default function OrdenanzaDetalleModal({
 
   // Paginación en memoria sobre el detalle completo (el endpoint ya trae
   // SOLO las filas del master pedido; el SP filtra server-side).
+  // T1: ordenamiento por montos aplicado ANTES de paginar; totales sobre
+  // las filas filtradas completas (no solo la página visible).
   const rows = detalle ?? [];
-  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
-  const pageData = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const sorted =
+    sort === null
+      ? rows
+      : [...rows].sort((a, b) =>
+          sort.dir === "asc"
+            ? a[sort.key] - b[sort.key]
+            : b[sort.key] - a[sort.key],
+        );
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const pageData = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  const totales = sorted.reduce(
+    (acc, r) => ({
+      impInsol: acc.impInsol + r.impInsol,
+      impReaj: acc.impReaj + r.impReaj,
+      mora: acc.mora + r.mora,
+      costoEmis: acc.costoEmis + r.costoEmis,
+    }),
+    { impInsol: 0, impReaj: 0, mora: 0, costoEmis: 0 },
+  );
 
   const handlePageChange = (newPage: number) => {
     if (newPage < 1 || newPage > totalPages) return;
@@ -210,7 +253,7 @@ export default function OrdenanzaDetalleModal({
               data-testid="detalle-table"
               className="w-full table-fixed border-collapse text-[11px]"
             >
-              <thead>
+              <thead className="sticky top-0 z-10">
                 <tr className="bg-slate-50 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                   <th className="border-b border-slate-100 px-2 py-1.5 w-[6%]">
                     N°
@@ -224,18 +267,35 @@ export default function OrdenanzaDetalleModal({
                   <th className="border-b border-slate-100 px-2 py-1.5 w-[36%]">
                     Concepto
                   </th>
-                  <th className="border-b border-slate-100 px-2 py-1.5 text-right">
-                    Imp. insol.
-                  </th>
-                  <th className="border-b border-slate-100 px-2 py-1.5 text-right">
-                    Imp. reaj.
-                  </th>
-                  <th className="border-b border-slate-100 px-2 py-1.5 text-right">
-                    Mora
-                  </th>
-                  <th className="border-b border-slate-100 px-2 py-1.5 text-right">
-                    Costo emis.
-                  </th>
+                  {MONTO_COLS.map((col) => (
+                    <th
+                      key={col.key}
+                      aria-sort={
+                        sort?.key === col.key
+                          ? sort.dir === "asc"
+                            ? "ascending"
+                            : "descending"
+                          : "none"
+                      }
+                      className="border-b border-slate-100 px-2 py-1.5 text-right"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => toggleSort(col.key)}
+                        aria-label={`Ordenar por ${col.label}`}
+                        className="inline-flex items-center gap-1 uppercase tracking-wider transition hover:text-slate-600 focus:outline-none focus:underline"
+                      >
+                        {col.label}
+                        <span aria-hidden="true" className="text-[9px]">
+                          {sort?.key === col.key
+                            ? sort.dir === "asc"
+                              ? "▲"
+                              : "▼"
+                            : "⇅"}
+                        </span>
+                      </button>
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -277,6 +337,28 @@ export default function OrdenanzaDetalleModal({
                   </tr>
                 ))}
               </tbody>
+              <tfoot data-testid="detalle-totales">
+                <tr className="bg-slate-50 font-semibold">
+                  <td
+                    colSpan={4}
+                    className="border-t border-slate-200 px-2 py-1.5 text-right text-[10px] uppercase tracking-wider text-slate-500"
+                  >
+                    Totales ({sorted.length})
+                  </td>
+                  <td className="border-t border-slate-200 px-2 py-1.5 text-right font-mono tabular-nums text-slate-700">
+                    {fmtMonto(totales.impInsol)}
+                  </td>
+                  <td className="border-t border-slate-200 px-2 py-1.5 text-right font-mono tabular-nums text-slate-700">
+                    {fmtMonto(totales.impReaj)}
+                  </td>
+                  <td className="border-t border-slate-200 px-2 py-1.5 text-right font-mono tabular-nums text-slate-700">
+                    {fmtMonto(totales.mora)}
+                  </td>
+                  <td className="border-t border-slate-200 px-2 py-1.5 text-right font-mono tabular-nums text-slate-700">
+                    {fmtMonto(totales.costoEmis)}
+                  </td>
+                </tr>
+              </tfoot>
             </table>
           )}
         </div>
