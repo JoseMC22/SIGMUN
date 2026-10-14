@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { AlertCircle, ChevronLeft, ChevronRight, RotateCcw, SearchX, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AlertCircle, ChevronLeft, ChevronRight, Download, RotateCcw, SearchX, X } from "lucide-react";
 import { useModalStack, isTopModal } from "@/hooks/use-modal-topmost";
 
 interface Props {
@@ -92,6 +92,9 @@ export default function OrdenanzaDetalleModal({
   // Paginación en memoria dentro del modal.
   const [page, setPage] = useState(1);
 
+  // Exportar a Excel en curso (T3): deshabilita el botón Exportar.
+  const [exporting, setExporting] = useState(false);
+
   // Ordenamiento por columna de monto (T1): click alterna asc/desc.
   const [sort, setSort] = useState<{
     key: MontoKey;
@@ -122,34 +125,67 @@ export default function OrdenanzaDetalleModal({
   // proyecto: nunca click en el backdrop).
   const modalId = useModalStack(isOpen);
 
-  const loadDetalle = useCallback(async (idordenanza: number) => {
-    setLoading(true);
-    setError(null);
-    setDetalle(null);
-    // Apertura o re-consulta (Reintentar) → siempre vuelve a la página 1
-    // y limpia los filtros (el master nuevo trae otro universo de datos).
-    setPage(1);
-    setFiltroAnno("todos");
-    setFiltroTipo("todos");
-    setBusqueda("");
-    try {
-      const res = await fetch(
-        `/api/mantenimiento-tablas/ordenanzas/detalle?idordenanza=${idordenanza}`,
-      );
-      if (!res.ok) throw new Error("Error al consultar el detalle");
-      const json = await res.json();
-      setDetalle(json.data ?? []);
-    } catch {
-      setError("Error al consultar el detalle");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  // Caché en memoria por idordenanza (T3, Map): evita re-consultar al
+  // cerrar y reabrir el mismo master o al volver a él. Instancia-local
+  // (useRef) para no filtrar datos entre masters ni entre montajes.
+  const cacheRef = useRef(new Map<number, OrdenanzaDetalleRow[]>());
+  // Controlador del request en vuelo (T3): se aborta al cerrar, al cambiar
+  // de master, al reintentar o al desmontar; las respuestas tardías se
+  // ignoran vía guards con signal.aborted (race del master anterior).
+  // Nota: el signal NO se adjunta al fetch para mantener la llamada GET de
+  // un solo argumento que afirma page.test.tsx (fuera del alcance
+  // autorizado); la cancelación es lógica vía los guards.
+  const abortRef = useRef<AbortController | null>(null);
 
-  // Al abrir (o cambiar el master): reset + consulta del detalle.
+  const loadDetalle = useCallback(
+    async (idordenanza: number, opts?: { invalidate?: boolean }) => {
+      // Toda carga nueva cancela la anterior en vuelo.
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+      setLoading(true);
+      setError(null);
+      setDetalle(null);
+      // Apertura o re-consulta (Reintentar) → siempre vuelve a la página 1
+      // y limpia los filtros (el master nuevo trae otro universo de datos).
+      setPage(1);
+      setFiltroAnno("todos");
+      setFiltroTipo("todos");
+      setBusqueda("");
+      // Caché en memoria por idordenanza; Reintentar la invalida.
+      if (!opts?.invalidate && cacheRef.current.has(idordenanza)) {
+        setDetalle(cacheRef.current.get(idordenanza) ?? []);
+        setLoading(false);
+        return;
+      }
+      try {
+        const res = await fetch(
+          `/api/mantenimiento-tablas/ordenanzas/detalle?idordenanza=${idordenanza}`,
+        );
+        // Respuesta tardía de un master anterior → se ignora (race).
+        if (controller.signal.aborted) return;
+        if (!res.ok) throw new Error("Error al consultar el detalle");
+        const json = await res.json();
+        if (controller.signal.aborted) return;
+        const data = (json.data ?? []) as OrdenanzaDetalleRow[];
+        cacheRef.current.set(idordenanza, data);
+        setDetalle(data);
+      } catch {
+        if (controller.signal.aborted) return;
+        setError("Error al consultar el detalle");
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    },
+    [],
+  );
+
+  // Al abrir (o cambiar el master): reset + consulta del detalle. Al
+  // cerrar, cambiar de master o desmontar: aborta el request en vuelo.
   useEffect(() => {
     if (!isOpen || !ordenanza) return;
     loadDetalle(ordenanza.idordenanza);
+    return () => abortRef.current?.abort();
   }, [isOpen, ordenanza, loadDetalle]);
 
   useEffect(() => {
@@ -198,6 +234,37 @@ export default function OrdenanzaDetalleModal({
     }),
     { impInsol: 0, impReaj: 0, mora: 0, costoEmis: 0 },
   );
+
+  // Exportar a Excel del detalle FILTRADO (T3): mismo patrón que page.tsx
+  // (dynamic import de xlsx, json_to_sheet con encabezados en español,
+  // writeFile). Función simple (no hook) porque usa `sorted`, calculado
+  // tras el early return de isOpen.
+  const exportDetalle = async () => {
+    if (!ordenanza || sorted.length === 0 || exporting) return;
+    setExporting(true);
+    try {
+      const XLSX = await import("xlsx");
+      const ws = XLSX.utils.json_to_sheet(
+        sorted.map((r) => ({
+          "Año": r.anno,
+          "Tipo rec.": r.tipoRec,
+          "Concepto": r.concepto,
+          "Imp. insol.": r.impInsol,
+          "Imp. reaj.": r.impReaj,
+          "Mora": r.mora,
+          "Costo emis.": r.costoEmis,
+        })),
+      );
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Detalle");
+      XLSX.writeFile(
+        wb,
+        `ordenanza-${ordenanza.idordenanza}-detalle-${new Date().toISOString().slice(0, 10)}.xlsx`,
+      );
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const handlePageChange = (newPage: number) => {
     if (newPage < 1 || newPage > totalPages) return;
@@ -253,7 +320,8 @@ export default function OrdenanzaDetalleModal({
               <button
                 type="button"
                 onClick={() =>
-                  ordenanza && loadDetalle(ordenanza.idordenanza)
+                  ordenanza &&
+                  loadDetalle(ordenanza.idordenanza, { invalidate: true })
                 }
                 className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-red-600 px-4 py-1.5 text-xs font-medium text-white transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400/40"
               >
@@ -540,13 +608,24 @@ export default function OrdenanzaDetalleModal({
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md border border-slate-200 px-4 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
-          >
-            Cerrar
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={exportDetalle}
+              disabled={loading || exporting || sorted.length === 0}
+              className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 px-4 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+            >
+              <Download size={13} />
+              {exporting ? "Exportando…" : "Exportar"}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md border border-slate-200 px-4 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
+            >
+              Cerrar
+            </button>
+          </div>
         </div>
       </div>
     </div>
