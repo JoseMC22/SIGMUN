@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { ConflictException, Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 import { toIsoDateParam } from '../../common/utils/date-utils';
 import {
@@ -194,18 +194,38 @@ export class OrdenanzasService {
    * operador (de sesión), estacion e idordenanza (PK del detalle).
    * tipo/observacion/estado NO se envían: el modo 4 no los devuelve y el
    * modo 8 los pisaría en blanco.
+   *
+   * Anti-duplicidad (año, tipo_rec) dentro del master, excluyendo la propia
+   * fila: la base NO tiene unique constraint en (cidordenanza, anno,
+   * tipo_rec) — solo la PK idordenanza — así que la verificación es
+   * responsabilidad del backend (una lectura modo 4) y rechaza con 409.
    */
   async editarDetalle(
     idordenanza: number,
     input: EditarDetalleInput,
     operador: string,
   ): Promise<{ message: string }> {
+    const anno = trimChar(input.anno);
+    const tipoRec = trimChar(input.tipoRec);
+    const { data: filas } = await this.detalle(input.cidordenanza);
+    const duplicada = filas.some(
+      (f) =>
+        f.idDetalle !== idordenanza &&
+        f.anno === anno &&
+        f.tipoRec === tipoRec,
+    );
+    if (duplicada) {
+      throw new ConflictException(
+        `Ya existe otra fila con año ${anno} y tipo ${tipoRec} en esta ordenanza`,
+      );
+    }
+
     try {
       await this.db.executeProcedure('caja.sp_ordenanzas', {
         msquery: 8, // 8 = UPDATE detalle.
         cidordenanza: input.cidordenanza,
-        anno: trimChar(input.anno),
-        tipo_rec: trimChar(input.tipoRec),
+        anno,
+        tipo_rec: tipoRec,
         imp_insol: input.impInsol,
         imp_reaj: input.impReaj,
         mora: input.mora,

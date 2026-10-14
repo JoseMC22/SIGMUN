@@ -1,3 +1,4 @@
+import { ConflictException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { OrdenanzasService } from './ordenanzas.service';
 import { DatabaseService } from '../../database/database.service';
@@ -333,8 +334,24 @@ describe('OrdenanzasService', () => {
       });
     });
 
+    // Fila propia tal como la devuelve el modo 4 (la validación
+    // anti-duplicidad la excluye por idDetalle).
+    const selfRow = {
+      IDORDENANZA: 9,
+      CIDORDENANZA: 2,
+      'Año': '2013',
+      TIPO_REC: '02.01',
+      CONCEPTO: 'IMPUESTO AL PATRIMONIO PREDIAL',
+      IMP_INSOL: 46.2,
+      IMP_REAJ: 0,
+      MORA: 10.5,
+      COSTO_EMIS: 2.5,
+    };
+
     it('executes caja.sp_ordenanzas with msquery=8 sending ONLY the known params (no tipo/observacion/estado)', async () => {
-      mockExecuteProcedure.mockResolvedValueOnce({ recordset: [] });
+      mockExecuteProcedure
+        .mockResolvedValueOnce({ recordset: [selfRow] }) // validación: sin duplicados
+        .mockResolvedValueOnce({ recordset: [] }); // modo 8
 
       await expect(
         service.editarDetalle(9, validInput, 'ADMIN'),
@@ -342,24 +359,31 @@ describe('OrdenanzasService', () => {
         message: 'Detalle de ordenanza actualizado exitosamente',
       });
 
-      expect(mockExecuteProcedure).toHaveBeenCalledTimes(1);
-      expect(mockExecuteProcedure).toHaveBeenCalledWith('caja.sp_ordenanzas', {
-        msquery: 8, // 8 = UPDATE detalle; tipo/observacion/estado NO viajan.
-        cidordenanza: 2,
-        anno: '2013',
-        tipo_rec: '02.01',
-        imp_insol: 46.2,
-        imp_reaj: 0,
-        mora: 10.5,
-        costo_emis: 2.5,
-        operador: 'ADMIN',
-        estacion: 'PC-SISTEMAS',
-        idordenanza: 9, // PK del detalle (WHERE IDORDENANZA = @idordenanza).
-      });
+      // 1 = lectura modo 4 (anti-duplicidad) + 1 = UPDATE modo 8.
+      expect(mockExecuteProcedure).toHaveBeenCalledTimes(2);
+      expect(mockExecuteProcedure).toHaveBeenNthCalledWith(
+        2,
+        'caja.sp_ordenanzas',
+        {
+          msquery: 8, // 8 = UPDATE detalle; tipo/observacion/estado NO viajan.
+          cidordenanza: 2,
+          anno: '2013',
+          tipo_rec: '02.01',
+          imp_insol: 46.2,
+          imp_reaj: 0,
+          mora: 10.5,
+          costo_emis: 2.5,
+          operador: 'ADMIN',
+          estacion: 'PC-SISTEMAS',
+          idordenanza: 9, // PK del detalle (WHERE IDORDENANZA = @idordenanza).
+        },
+      );
     });
 
     it('trims the anno/tipoRec char padding and rethrows the SP error after logging', async () => {
-      mockExecuteProcedure.mockResolvedValueOnce({ recordset: [] });
+      mockExecuteProcedure
+        .mockResolvedValueOnce({ recordset: [selfRow] }) // validación
+        .mockResolvedValueOnce({ recordset: [] }); // modo 8
 
       await service.editarDetalle(
         9,
@@ -367,18 +391,75 @@ describe('OrdenanzasService', () => {
         'ADMIN',
       );
 
-      expect(mockExecuteProcedure).toHaveBeenCalledWith(
+      expect(mockExecuteProcedure).toHaveBeenNthCalledWith(
+        2,
         'caja.sp_ordenanzas',
         expect.objectContaining({ anno: '2013', tipo_rec: '02.01' }),
       );
 
-      mockExecuteProcedure.mockRejectedValueOnce(
-        new Error('expects parameter'),
-      );
+      mockExecuteProcedure
+        .mockResolvedValueOnce({ recordset: [selfRow] }) // validación
+        .mockRejectedValueOnce(new Error('expects parameter')); // modo 8
 
       await expect(
         service.editarDetalle(9, validInput, 'ADMIN'),
       ).rejects.toThrow('expects parameter');
+    });
+
+    it('rejects with 409 without calling mode 8 when another row already uses (anno, tipo_rec)', async () => {
+      mockExecuteProcedure.mockResolvedValueOnce({
+        recordset: [
+          { ...selfRow, IDORDENANZA: 9, 'Año': '2012', TIPO_REC: '02.02' },
+          { ...selfRow, IDORDENANZA: 10, 'Año': '2013', TIPO_REC: '02.01' },
+        ],
+      });
+
+      const err = await service
+        .editarDetalle(9, validInput, 'ADMIN')
+        .then(
+          () => {
+            throw new Error('should have rejected with ConflictException');
+          },
+          (e) => e,
+        );
+
+      expect(err).toBeInstanceOf(ConflictException);
+      expect(err?.status).toBe(409);
+      expect(err?.message).toContain(
+        'Ya existe otra fila con año 2013 y tipo 02.01 en esta ordenanza',
+      );
+      // Solo la lectura modo 4: el UPDATE jamás se ejecutó.
+      expect(mockExecuteProcedure).toHaveBeenCalledTimes(1);
+    });
+
+    it('allows keeping the row own (anno, tipo_rec) when nothing else uses them', async () => {
+      mockExecuteProcedure
+        .mockResolvedValueOnce({ recordset: [selfRow] }) // validación
+        .mockResolvedValueOnce({ recordset: [] }); // modo 8
+
+      await expect(
+        service.editarDetalle(9, validInput, 'ADMIN'),
+      ).resolves.toEqual({
+        message: 'Detalle de ordenanza actualizado exitosamente',
+      });
+      expect(mockExecuteProcedure).toHaveBeenCalledTimes(2);
+    });
+
+    it('allows moving to a free (anno, tipo_rec) when no other row uses them', async () => {
+      mockExecuteProcedure
+        .mockResolvedValueOnce({
+          recordset: [
+            { ...selfRow, IDORDENANZA: 9, 'Año': '2012', TIPO_REC: '02.02' },
+          ],
+        }) // validación: la propia fila tiene otra llave, nadie usa 2013/02.01
+        .mockResolvedValueOnce({ recordset: [] }); // modo 8
+
+      await expect(
+        service.editarDetalle(9, validInput, 'ADMIN'),
+      ).resolves.toEqual({
+        message: 'Detalle de ordenanza actualizado exitosamente',
+      });
+      expect(mockExecuteProcedure).toHaveBeenCalledTimes(2);
     });
   });
 });
