@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertCircle, ChevronLeft, ChevronRight, Download, RotateCcw, SearchX, X } from "lucide-react";
+import { AlertCircle, ChevronLeft, ChevronRight, Download, Pencil, RotateCcw, SearchX, X } from "lucide-react";
 import { useModalStack, isTopModal } from "@/hooks/use-modal-topmost";
+import EditarDetalleModal from "./editar-detalle-modal";
 
 interface Props {
   isOpen: boolean;
@@ -16,12 +17,15 @@ interface Props {
 }
 
 // Contrato del GET /api/mantenimiento-tablas/ordenanzas/detalle?idordenanza=N
-// (iteración 4): el service llama caja.sp_ordenanzas @msquery=4 RE-MODELADO
-// (re-verificado en vivo 13/10 ~16:32) — SELECT con JOIN a
+// (iteración 4 + llaves T3): el service llama caja.sp_ordenanzas @msquery=4
+// RE-MODELADO (re-verificado en vivo 13/10 ~16:32) — SELECT con JOIN a
 // CAJA.TIPO_INGRESOS_DET y `WHERE CIDORDENANZA = @idordenanza`: el SP ya
 // filtra server-side (volumen real: idordenanza=1 → 115 filas; 2 → 5) y el
-// modal solo renderiza las 7 columnas nuevas.
+// modal solo renderiza las columnas nuevas. idDetalle = PK del detalle
+// (WHERE del modo 8), cidordenanza = master de la fila.
 interface OrdenanzaDetalleRow {
+  idDetalle: number;
+  cidordenanza: number;
   anno: string;
   tipoRec: string;
   concepto: string;
@@ -100,6 +104,12 @@ export default function OrdenanzaDetalleModal({
     key: MontoKey;
     dir: "asc" | "desc";
   } | null>(null);
+
+  // Edición de fila del detalle (T4): fila seleccionada para el modal hijo
+  // + feedback sutil de guardado exitoso (patrón page.tsx).
+  const [editingRow, setEditingRow] = useState<OrdenanzaDetalleRow | null>(null);
+  const [savedFeedback, setSavedFeedback] = useState(false);
+  const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const toggleSort = (key: MontoKey) => {
     setSort((prev) => {
@@ -187,6 +197,26 @@ export default function OrdenanzaDetalleModal({
     loadDetalle(ordenanza.idordenanza);
     return () => abortRef.current?.abort();
   }, [isOpen, ordenanza, loadDetalle]);
+
+  // Limpieza del timer del feedback al desmontar.
+  useEffect(() => {
+    return () => {
+      if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
+    };
+  }, []);
+
+  // Éxito del modal de edición del detalle (T4): cerrar el hijo + feedback
+  // sutil + invalidar la caché T3 del master + re-consultar (patrón
+  // handleEditarOrdenanzaSaved de page.tsx).
+  const handleEditarDetalleSaved = useCallback(() => {
+    if (!ordenanza) return;
+    setEditingRow(null);
+    setSavedFeedback(true);
+    if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
+    feedbackTimer.current = setTimeout(() => setSavedFeedback(false), 4000);
+    cacheRef.current.delete(ordenanza.idordenanza);
+    loadDetalle(ordenanza.idordenanza);
+  }, [ordenanza, loadDetalle]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -315,6 +345,17 @@ export default function OrdenanzaDetalleModal({
 
         {/* Body */}
         <div className="max-h-[70vh] overflow-y-auto p-5">
+          {/* Feedback sutil de edición exitosa (T4, patrón page.tsx) */}
+          {savedFeedback && (
+            <div
+              data-testid="detalle-saved-feedback"
+              className="mb-3 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2"
+            >
+              <span className="text-xs font-medium text-emerald-700">
+                Detalle de ordenanza actualizado exitosamente
+              </span>
+            </div>
+          )}
           {loading && <DetalleSkeleton />}
 
           {!loading && error && (
@@ -447,7 +488,7 @@ export default function OrdenanzaDetalleModal({
                   <th className="border-b border-slate-100 px-2 py-1.5 w-[11%]">
                     Tipo rec.
                   </th>
-                  <th className="border-b border-slate-100 px-2 py-1.5 w-[36%]">
+                  <th className="border-b border-slate-100 px-2 py-1.5 w-[30%]">
                     Concepto
                   </th>
                   {MONTO_COLS.map((col) => (
@@ -479,12 +520,18 @@ export default function OrdenanzaDetalleModal({
                       </button>
                     </th>
                   ))}
+                  {/* Editar por fila (T4): abre el modal hijo con la fila
+                      (idDetalle+cidordenanza). Columna al final para no
+                      mover los índices de las celdas de montos. */}
+                  <th className="border-b border-slate-100 px-2 py-1.5 w-[6%] text-right">
+                    Acciones
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {pageData.map((row, idx) => (
                   <tr
-                    key={`${row.anno}-${row.tipoRec}-${idx}`}
+                    key={row.idDetalle ?? `${row.anno}-${row.tipoRec}-${idx}`}
                     className={`align-top transition hover:bg-slate-50 ${
                       idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"
                     }`}
@@ -517,13 +564,25 @@ export default function OrdenanzaDetalleModal({
                     <td className="px-2 py-1 text-right font-mono tabular-nums text-slate-700">
                       {fmtMonto(row.costoEmis)}
                     </td>
+                    <td className="px-2 py-1 text-right">
+                      <button
+                        type="button"
+                        onClick={() => setEditingRow(row)}
+                        aria-label={`Editar detalle ${row.idDetalle}`}
+                        title="Editar"
+                        className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-0.5 text-[10px] font-medium text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40"
+                      >
+                        <Pencil size={11} />
+                        Editar
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
               <tfoot data-testid="detalle-totales">
                 <tr className="bg-slate-50 font-semibold">
                   <td
-                    colSpan={4}
+                    colSpan={5}
                     className="border-t border-slate-200 px-2 py-1.5 text-right text-[10px] uppercase tracking-wider text-slate-500"
                   >
                     Totales ({sorted.length})
@@ -634,6 +693,16 @@ export default function OrdenanzaDetalleModal({
           </div>
         </div>
       </div>
+
+      {/* Modal hijo de edición del detalle (T4): al guardar invalida la
+          caché T3 del master + re-consulta + feedback (sin auto-cerrar en
+          el hijo: el padre cierra). */}
+      <EditarDetalleModal
+        isOpen={editingRow !== null}
+        detalle={editingRow}
+        onClose={() => setEditingRow(null)}
+        onSuccess={handleEditarDetalleSaved}
+      />
     </div>
   );
 }

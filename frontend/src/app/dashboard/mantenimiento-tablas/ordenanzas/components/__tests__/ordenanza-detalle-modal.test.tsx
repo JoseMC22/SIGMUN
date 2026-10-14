@@ -1,7 +1,18 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+﻿import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 import OrdenanzaDetalleModal from "../ordenanza-detalle-modal";
+
+// El modal hijo de edición resuelve `estacion` con checkSessionAction
+// (patrón editar-ordenanza-modal); se mockea para no depender de
+// next/headers en jsdom cuando el padre lo renderiza.
+vi.mock("@/actions/auth/auth", () => ({
+  checkSessionAction: vi.fn(async () => ({
+    authenticated: true,
+    user: null,
+    hostname: "",
+  })),
+}));
 
 // `xlsx` se importa dinámico en el modal (patrón page.tsx); se mockea el
 // módulo con fns hoisted para asertar sobre las mismas instancias sin
@@ -480,5 +491,99 @@ describe("OrdenanzaDetalleModal T3 — exportar y fetch robusto", () => {
         .querySelectorAll<HTMLTableRowElement>("tbody tr"),
     ).toHaveLength(1);
     expect(screen.getByTestId("detalle-footer").textContent).toContain("de 1");
+  });
+});
+
+describe("OrdenanzaDetalleModal T4 — editar detalle por fila", () => {
+  // Filas con las llaves T3 del GET (idDetalle = PK del detalle para el
+  // WHERE del modo 8, cidordenanza = master).
+  const keyedRows = [
+    { idDetalle: 9, cidordenanza: 7, ...rows[0] },
+    { idDetalle: 10, cidordenanza: 7, ...rows[1] },
+  ];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFetch.mockImplementation((url: unknown, init?: RequestInit) => {
+      if (
+        typeof url === "string" &&
+        /\/detalle\/\d+$/.test(url) &&
+        init?.method === "PATCH"
+      ) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            message: "Detalle de ordenanza actualizado exitosamente",
+          }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: keyedRows }),
+      });
+    });
+  });
+
+  it("muestra un botón Editar por fila que abre el modal de edición con la fila (idDetalle+cidordenanza)", async () => {
+    openModal();
+    const tabla = await screen.findByTestId("detalle-table");
+    const editButtons = within(tabla).getAllByRole("button", {
+      name: /editar/i,
+    });
+    expect(editButtons).toHaveLength(2);
+
+    fireEvent.click(editButtons[0]);
+
+    // Modal de edición pre-cargado con la fila (año/tipo_rec/montos).
+    expect(
+      await screen.findByRole("heading", { name: /editar detalle/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByDisplayValue("2013")).toHaveAttribute("id", "editar-detalle-anno");
+    expect(screen.getByDisplayValue("02.01")).toHaveAttribute("id", "editar-detalle-tiporec");
+    expect(screen.getByDisplayValue("100")).toHaveAttribute("id", "editar-detalle-impinsol");
+  });
+
+  it("al guardar invalida la caché T3 del master, re-consulta y muestra feedback", async () => {
+    openModal();
+    const tabla = await screen.findByTestId("detalle-table");
+    fireEvent.click(
+      within(tabla).getAllByRole("button", { name: /editar/i })[0],
+    );
+    await screen.findByRole("heading", { name: /editar detalle/i });
+
+    // GET inicial = 1 llamada.
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+
+    // Guardar sin cambios → PATCH a la PK + re-consulta del detalle.
+    fireEvent.submit(
+      screen.getByRole("button", { name: /^guardar$/i }).closest("form")!,
+    );
+
+    await waitFor(() => {
+      const patchCalls = mockFetch.mock.calls.filter(
+        ([, init]) => (init as RequestInit | undefined)?.method === "PATCH",
+      );
+      expect(patchCalls).toHaveLength(1);
+    });
+    const [patchUrl, patchInit] = mockFetch.mock.calls.find(
+      ([, init]) => (init as RequestInit | undefined)?.method === "PATCH",
+    ) as [string, RequestInit];
+    expect(patchUrl).toBe(
+      "/api/mantenimiento-tablas/ordenanzas/detalle/9",
+    );
+    expect(JSON.parse((patchInit.body as string) ?? "{}")).toMatchObject({
+      cidordenanza: 7,
+      anno: "2013",
+    });
+
+    // Re-consulta: el GET se repite (caché invalidada) + feedback visible +
+    // modal de edición cerrado.
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(3));
+    expect(
+      await screen.findByTestId("detalle-saved-feedback"),
+    ).toHaveTextContent(/actualizado exitosamente/i);
+    expect(
+      screen.queryByRole("heading", { name: /editar detalle/i }),
+    ).not.toBeInTheDocument();
   });
 });
