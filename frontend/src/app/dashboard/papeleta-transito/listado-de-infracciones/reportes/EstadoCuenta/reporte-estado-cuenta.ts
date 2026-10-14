@@ -93,6 +93,12 @@ function generarBloquesTributo(items: DatoItemEstadoCuenta[]): string {
             <td class="col-label">Descuento</td>
             <td class="col-val">${descuentoStr}</td>
           </tr>
+          ${item.costas > 0 ? `
+          <tr>
+            <td class="col-label">Costas</td>
+            <td class="col-val">${Number(item.costas).toFixed(2)}</td>
+          </tr>
+          ` : ""}
           <tr>
             <td class="col-label">Total Deuda</td>
             <td class="col-val">${totalDeudaStr}</td>
@@ -152,7 +158,7 @@ export function construirConfigPdfEstadoCuenta(
       ["Domici.", data.domicilio || data.direccion || "-"],
       ["N° Liquidación", data.nroLiquidacion || "-"],
     ],
-    columnas: ["Tributo", "Papeleta(PIT)", "Placa", "Infraccion", "Total Deuda", "Descuento", "Insoluto", "Fecha Aplic."],
+    columnas: ["Tributo", "Papeleta(PIT)", "Placa", "Infraccion", "Insoluto", "Descuento", "Costas", "Total Deuda", "Fecha Aplic."],
     filas: data.items.map((item) => [
       String(item.tributo ?? ""),
       String(item.numPapeleta ?? ""),
@@ -160,7 +166,8 @@ export function construirConfigPdfEstadoCuenta(
       String(item.codInfraccion ?? ""),
       (item.valPapeleta ?? 0).toFixed(2),
       (item.descuento ?? 0).toFixed(2),
-      (item.insoluto ?? 0).toFixed(2),
+      (item.costas ?? 0).toFixed(2),
+      (item.saldoDeuda ?? 0).toFixed(2),
       String(item.fecInfraccion ?? ""),
     ]),
   };

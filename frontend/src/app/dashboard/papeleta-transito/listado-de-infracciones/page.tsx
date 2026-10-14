@@ -25,10 +25,11 @@ import {
   Send,
   Trash2,
   History,
+  DollarSign,
 } from "lucide-react";
 import { checkSessionAction } from "@/actions/auth/auth";
 import { searchInfraccionesAction, obtenerDatosReporteEstadoCuentaAction, obtenerDatosReporteResolucionSancionAction } from "@/actions/papeleta-transito/listado-de-infracciones";
-import { gravamenSinPlacaAction, imprimirRecordPendienteAction, verFraccionamientoAction, generarLiquidacionAction, eliminarPapeletaAction, cargarDetalleInfraccionAction } from "@/actions/papeleta-transito/acciones-infraccion";
+import { gravamenSinPlacaAction, imprimirRecordPendienteAction, verFraccionamientoAction, generarLiquidacionAction, eliminarPapeletaAction, cargarDetalleInfraccionAction, listarCostasAction } from "@/actions/papeleta-transito/acciones-infraccion";
 import { obtenerPlantillaEstadoCuentaAction, obtenerPlantillaResolucionSancionAction, obtenerPlantillaRecordAction } from "@/actions/papeleta-transito/reportes-infracciones";
 import { construirHtmlReporteEstadoCuenta, construirConfigPdfEstadoCuenta } from "./reportes/EstadoCuenta/reporte-estado-cuenta";
 import { construirHtmlReporteResolucion, construirConfigPdfResolucion } from "./reportes/ResolucionSancion/reporte-resolucion";
@@ -46,6 +47,7 @@ import CertGravamenModal from "./cert-gravamen-modal";
 import CertGravamenSinPlacaModal from "./cert-gravamen-sin-placa-modal";
 import EnvioCoactivoModal from "./envio-coactivo-modal";
 import HistorialModificacionesModal from "./historial-modificaciones-modal";
+import CostasInfraccionModal from "./costas-infraccion-modal";
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -188,6 +190,7 @@ export default function ListadoDeInfraccionesPage() {
   const [showEnvioCoactivo, setShowEnvioCoactivo] = useState(false);
   const [showHistorialModificaciones, setShowHistorialModificaciones] = useState(false);
   const [historialTargetRow, setHistorialTargetRow] = useState<InfraccionRow | null>(null);
+  const [showCostasInfraccion, setShowCostasInfraccion] = useState(false);
   const [editData, setEditData] = useState<Record<string, string> | undefined>(undefined);
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -625,7 +628,7 @@ export default function ListadoDeInfraccionesPage() {
         infracClean = `${parts[0]}-${parts[1]}-${parts[2].padStart(6, "0")}`;
       }
 
-      const [plantilla, datosRes] = await Promise.all([
+      const [plantilla, datosRes, costasRes] = await Promise.all([
         obtenerPlantillaEstadoCuentaAction(),
         obtenerDatosReporteEstadoCuentaAction({
           ninfrac: infracClean || row.id,
@@ -633,22 +636,30 @@ export default function ListadoDeInfraccionesPage() {
           placa: row.placa,
           conductor: row.conductor,
         }),
+        listarCostasAction(codigoClean, ""),
       ]);
       if (!plantilla.success) { alert(`Error al cargar plantilla: ${plantilla.error}`); return; }
       if (!datosRes.success) { alert(`Error al obtener datos: ${datosRes.error}`); return; }
 
       let nroLiq = "";
-      // Disparar generación de liquidación en segundo plano sin bloquear el UI ni esperar su respuesta
-      generarLiquidacionAction({
-        codigo: codigoClean,
-        infraccion: infracClean,
-        usuario: usuarioLogueado,
-        idrecibo: row.idRecibo?.trim() ?? "",
-      }).then((res) => {
-        if (res.success && res.nliqui) {
-          nroLiq = res.nliqui;
+      try {
+        const resLiq = await generarLiquidacionAction({
+          codigo: codigoClean,
+          infraccion: infracClean,
+          usuario: usuarioLogueado,
+          idrecibo: row.idRecibo?.trim() ?? "",
+        });
+        if (resLiq.success && resLiq.nliqui) {
+          nroLiq = resLiq.nliqui;
         }
-      }).catch(() => {});
+      } catch {}
+
+      const listaCostas = costasRes?.success && Array.isArray(costasRes.data) ? costasRes.data : [];
+      const papTag = (row.codigoInfraccion || "").trim().toUpperCase();
+      const costasDeEstaPapeleta = papTag
+        ? listaCostas.filter((c: any) => (c.observacion || "").toUpperCase().includes(`[PAP:${papTag}]`))
+        : [];
+      const totalCostas = costasDeEstaPapeleta.reduce((sum: number, c: any) => sum + (parseFloat(c.monto) || 0), 0);
 
       const rows: any[] = Array.isArray(datosRes.data) ? datosRes.data : [];
       const items = rows.map((r: any) => {
@@ -664,7 +675,8 @@ export default function ListadoDeInfraccionesPage() {
         // imp_reaj viene como un número (ej: -294.8), tomamos su valor absoluto para la propiedad descuento
         const rawReaj = isArr ? (parseFloat(r[10] ?? 0) || 0) : (parseFloat(r.imp_reaj ?? 0) || 0);
         const desc = Math.abs(rawReaj);
-        const sald = isArr ? (parseFloat(r[12] ?? 0) || 0) : (parseFloat(r.total ?? r.saldo ?? 0) || (valInsol - desc));
+        const baseSaldo = isArr ? (parseFloat(r[12] ?? 0) || 0) : (parseFloat(r.total ?? r.saldo ?? 0) || (valInsol - desc));
+        const sald = baseSaldo + totalCostas;
 
         return {
           numPapeleta,
@@ -677,7 +689,7 @@ export default function ListadoDeInfraccionesPage() {
           descuento: desc,
           insoluto: valInsol,
           reincidencia: 0,
-          costas: 0,
+          costas: totalCostas,
           saldoDeuda: sald,
           estado: "PENDIENTE",
         };
@@ -914,18 +926,6 @@ export default function ListadoDeInfraccionesPage() {
                 className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-sat-cyan transition">
                 <History size={13} />
               </button>
-              {/* TODO: Ocultar temporalmente — Resolución de Sanción no está lista para producción
-              <button type="button" title="Imprimir Resolución de Sanción"
-                onClick={(e) => { e.stopPropagation(); setSelectedRowId(row.id); handleImprimirResolucionSancion(row); }}
-                className={`rounded p-1 transition ${row.imp === "N" ? "text-slate-300 cursor-not-allowed" : "text-slate-400 hover:bg-slate-100 hover:text-sat-cyan"}`}>
-                <Printer size={13} />
-              </button>
-              <button type="button" title="Resolución de Sanción"
-                onClick={(e) => { e.stopPropagation(); setSelectedRowId(row.id); handleGenerarResolucionSancion(row); }}
-                className={`rounded p-1 transition ${row.gnr === "N" ? "text-slate-300 cursor-not-allowed" : "text-slate-400 hover:bg-slate-100 hover:text-sat-cyan"}`}>
-                <FileText size={13} />
-              </button>
-              */}
               <button type="button" title="Cambio de Estado"
                 onClick={(e) => { e.stopPropagation(); setSelectedRowId(row.id); handleCambioEstado(row); }}
                 className={`rounded p-1 transition ${row.cmb === "N" ? "text-slate-300 cursor-not-allowed" : "text-slate-400 hover:bg-slate-100 hover:text-sat-cyan"}`}>
@@ -940,6 +940,19 @@ export default function ListadoDeInfraccionesPage() {
                 onClick={(e) => { e.stopPropagation(); setSelectedRowId(row.id); handleImprimirEstadoCuenta(row); }}
                 className={`rounded p-1 transition ${row.imp === "N" ? "text-slate-300 cursor-not-allowed" : "text-slate-400 hover:bg-slate-100 hover:text-sat-cyan"}`}>
                 <Receipt size={13} />
+              </button>
+              <button type="button" title={["COAC", "COACTIVO"].includes(row.estado?.toUpperCase() ?? "") ? "Costas" : "Solo disponible para papeletas en estado Coactivo"}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!["COAC", "COACTIVO"].includes(row.estado?.toUpperCase() ?? "")) {
+                    alert(`No puede gestionar Costas para una infracción en estado "${row.estado}". El estado debe ser Coactivo.`);
+                    return;
+                  }
+                  setSelectedRowId(row.id);
+                  setShowCostasInfraccion(true);
+                }}
+                className={`rounded p-1 transition ${["COAC", "COACTIVO"].includes(row.estado?.toUpperCase() ?? "") ? "text-slate-400 hover:bg-slate-100 hover:text-amber-500" : "text-slate-300 cursor-not-allowed"}`}>
+                <DollarSign size={13} />
               </button>
             </div>
           </td>
@@ -1254,6 +1267,15 @@ export default function ListadoDeInfraccionesPage() {
           setShowHistorialModificaciones(false);
           setHistorialTargetRow(null);
         }}
+      />
+      <CostasInfraccionModal
+        isOpen={showCostasInfraccion}
+        ninfrac={selectedRow?.id ?? null}
+        codigo={selectedRow?.codigo || selectedRow?.codigoPropietario || ""}
+        numeroPapeleta={selectedRow?.codigoInfraccion}
+        nombreInfractor={selectedRow?.conductor || selectedRow?.propietario}
+        idrecibo={selectedRow?.idRecibo}
+        onClose={() => setShowCostasInfraccion(false)}
       />
 
       {/* ── Reporte viewer (Estado de Cuenta / Resolución de Sanción) ── */}

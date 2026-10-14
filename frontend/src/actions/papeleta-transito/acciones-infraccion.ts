@@ -892,3 +892,154 @@ export async function obtenerHistorialModificacionesAction(ninfrac: string) {
     return { success: false as const, error: error instanceof Error ? error.message : "Error de conexión" };
   }
 }
+
+// ── Costas de Infracción ──────────────────────────────────
+
+export interface BandejaCostaItem {
+  idrecibo: string;
+  expediente: string;
+  monto: string;
+  estadocosta: string;
+  estadogasto: string;
+  periodo: string;
+}
+
+export interface CostaItem {
+  idcosta: string;
+  idrecibo: string;
+  expediente: string;
+  conceptos: string;
+  monto: string;
+  cantidad: string;
+  uit1: string;
+  tipo: string;
+  subtipo: string;
+  observacion: string;
+  anno: string;
+  periodo: string;
+}
+
+export async function consultarBandejaCostasAction(codigo: string) {
+  try {
+    const response = await authFetch("/papeleta-transito/acciones/consultar-bandeja-costas", {
+      method: "POST",
+      body: JSON.stringify({ codigo }),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      return { success: false as const, error: (err as { message?: string }).message ?? `Error ${response.status}` };
+    }
+    const json = await response.json();
+    return { success: true as const, data: (json.data ?? []) as BandejaCostaItem[] };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : "Error de conexión" };
+  }
+}
+
+export async function listarCostasAction(codigo: string, expediente: string) {
+  try {
+    const response = await authFetch("/papeleta-transito/acciones/listar-costas", {
+      method: "POST",
+      body: JSON.stringify({ codigo, expediente }),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      return { success: false as const, error: (err as { message?: string }).message ?? `Error ${response.status}` };
+    }
+    const json = await response.json();
+    return { success: true as const, data: (json.data ?? []) as CostaItem[] };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : "Error de conexión" };
+  }
+}
+
+export interface GrabarCostaData {
+  idcosta: string;
+  idrecibo: string;
+  expediente: string;
+  codigo: string;
+  anno: string;
+  periodo: string;
+  observacion: string;
+  tipo: string;
+  subtipo: string;
+  cantidad: string;
+  monto: string;
+}
+
+export async function grabarCostaAction(data: GrabarCostaData) {
+  try {
+    const response = await authFetch("/papeleta-transito/acciones/grabar-costa", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      return { success: false as const, error: (err as { message?: string }).message ?? `Error ${response.status}` };
+    }
+    return { success: true as const, ...(await response.json()) };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : "Error de conexión" };
+  }
+}
+
+export async function eliminarCostasAction(items: { idcosta: string }[]) {
+  try {
+    const response = await authFetch("/papeleta-transito/acciones/eliminar-costas", {
+      method: "POST",
+      body: JSON.stringify({ items }),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      return { success: false as const, error: (err as { message?: string }).message ?? `Error ${response.status}` };
+    }
+    return { success: true as const, ...(await response.json()) };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : "Error de conexión" };
+  }
+}
+
+export interface ConceptoCosta {
+  id: string;
+  name: string;
+  measure: string;
+}
+
+export async function autocompletarConceptoCostasAction(termino: string) {
+  try {
+    const response = await authFetch("/papeleta-transito/acciones/autocompletar-concepto-costas", {
+      method: "POST",
+      body: JSON.stringify({ termino }),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      return { success: false as const, error: (err as { message?: string }).message ?? `Error ${response.status}` };
+    }
+    const json = await response.json();
+    return { success: true as const, data: (json.data ?? []) as ConceptoCosta[] };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : "Error de conexión" };
+  }
+}
+
+// ── Datos del contribuyente para header de Costas (sp_MCostas @msquery=13) ──
+
+export async function obtenerDatosContribuyenteCostasAction(codigo: string, numDocu: string) {
+  try {
+    const response = await authFetch("/papeleta-transito/acciones/datos-contribuyente-costas", {
+      method: "POST",
+      body: JSON.stringify({ codigo, num_docu: numDocu }),
+    });
+    if (!response.ok) {
+      return { success: false as const, error: `Error ${response.status}` };
+    }
+    const json = await response.json();
+    return {
+      success: true as const,
+      data: json.data as { nombres?: string; num_docu?: string; Dir_Fisca?: string; anno?: string } | undefined,
+    };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : "Error de conexión" };
+  }
+}
+

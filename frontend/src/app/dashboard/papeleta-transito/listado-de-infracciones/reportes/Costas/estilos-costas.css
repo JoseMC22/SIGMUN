@@ -1,0 +1,202 @@
+/* ============================================================
+   Reporte Liquidación Costas - SAT ICA
+   Diseñado para coincidir con rpt_liquidacion (JasperReports)
+   ============================================================ */
+
+@page {
+  size: A4 portrait;
+  margin: 10mm 15mm;
+}
+
+@media print {
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .page {
+    box-shadow: none !important;
+  }
+}
+
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  background: #ffffff !important;
+  color: #000000;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 9pt;
+}
+
+.page {
+  background: #ffffff;
+  width: 555px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* ---- HEADER ---- */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.logo-cell {
+  flex: 0 0 90px;
+}
+
+.logo-badge {
+  background-color: #003d99;
+  color: #ffffff;
+  padding: 4px 6px;
+  text-align: center;
+  border-radius: 3px;
+  width: 88px;
+}
+
+.logo-sat {
+  font-size: 16pt;
+  font-weight: bold;
+  line-height: 1;
+  letter-spacing: 1px;
+}
+
+.logo-ica {
+  color: #66ccff;
+}
+
+.logo-subtext {
+  font-size: 5pt;
+  font-weight: bold;
+  color: #cce5ff;
+  margin-top: 2px;
+  border-top: 1px solid rgba(255,255,255,0.35);
+  padding-top: 2px;
+  line-height: 1.3;
+}
+
+.inst-cell {
+  display: flex;
+  flex-direction: column;
+}
+
+.inst-name {
+  font-size: 9pt;
+  font-weight: bold;
+  color: #000000;
+}
+
+.inst-dept {
+  font-size: 8.5pt;
+  font-weight: bold;
+  color: #000000;
+}
+
+.inst-web {
+  font-size: 7.5pt;
+  color: #000000;
+}
+
+/* ---- TÍTULO ---- */
+.titulo {
+  text-align: center;
+  font-size: 10pt;
+  font-weight: bold;
+  color: #000000;
+  margin: 14px 0 18px 0;
+}
+
+/* ---- DATOS TABLE ---- */
+.datos-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 14px;
+}
+
+.datos-table tr {
+  height: 18px;
+}
+
+.datos-table td {
+  font-size: 8.5pt;
+  color: #000000;
+  vertical-align: middle;
+  padding: 1px 0;
+}
+
+.lbl {
+  font-weight: bold;
+  width: 100px;
+  white-space: nowrap;
+}
+
+.val {
+  font-weight: normal;
+  padding-left: 2px;
+}
+
+.lbl-r {
+  font-weight: bold;
+  width: 90px;
+  text-align: left;
+  padding-left: 10px;
+  white-space: nowrap;
+}
+
+.val-r {
+  font-weight: normal;
+  padding-left: 2px;
+}
+
+.bold {
+  font-weight: bold;
+}
+
+/* ---- COSTAS TOTAL ---- */
+.costas-row {
+  text-align: center;
+  font-size: 8.5pt;
+  margin: 28px 0 16px 0;
+  font-weight: bold;
+}
+
+.costas-lbl {
+  margin-right: 6px;
+}
+
+.costas-sep {
+  margin-right: 10px;
+}
+
+.costas-val {
+  font-weight: normal;
+}
+
+/* ---- SON EN LETRAS ---- */
+.son-row {
+  display: flex;
+  align-items: center;
+  padding-left: 16px;
+  font-size: 8.5pt;
+  margin-top: 6px;
+}
+
+.son-lbl {
+  font-weight: bold;
+  width: 55px;
+  flex-shrink: 0;
+}
+
+.son-val {
+  font-weight: bold;
+  text-align: center;
+  flex: 1;
+}

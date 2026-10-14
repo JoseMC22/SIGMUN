@@ -1,0 +1,42 @@
+-- ============================================================================
+-- FIX: rama mscount (@busc=6) de Rentas.sp_Mcontribuyente
+-- Evidencia (sondas read-only 2026-10-07 contra 192.168.3.205/Base_sigmun):
+--   COUNT N/paterno='VAEZ'  -> 0   | DATA N/paterno='VAEZ' 1..15 -> 7 filas
+--   COUNT C/codigo='0237582' -> 92122 (toda la tabla) | DATA -> 1 fila
+--   COUNT R / COUNT D consistentes con DATA.
+-- Causa: el WHERE de mscount no espeja al de msconsulta (@busc=5):
+--   1) filtro tipo 'C' comentado  -> COUNT ignora el codigo.
+--   2) filtro tipo 'N' exige (a AND m) en vez de (a OR m); con LEFT JOIN,
+--      si no hay relacionado (m.* NULL) la fila nunca cuenta.
+-- Afecta tambien a DJ (usa busc=6 + busc=5 identicos).
+-- Aplicar: solo estos 2 hunks sobre la definicion viva (lineas ~997-1010).
+-- ============================================================================
+
+-- HUNK 1: restaurar filtro 'C' en mscount (ANTES estaba comentado).
+-- OJO: con alias a.codigo (sin alias es ambiguo: m.codigo existe por el join).
+-- Reemplazar:
+--   -- if(@tipo_busqueda='C')
+--   -- begin
+--   --  if (len(ltrim(rtrim(@codigo)))>0)
+--   --   SET @SQL_inc = @SQL_inc + ' and codigo=''' + right('0000000'+@codigo,7)  + ''''
+--   -- end
+-- Por:
+--   IF (@tipo_busqueda = 'C')
+--     BEGIN
+--       IF (len(ltrim(rtrim(@codigo))) > 0)
+--         SET @SQL_inc = @SQL_inc + ' and a.codigo=''' + right('0000000' + @codigo, 7) + ''''
+--     END
+
+-- HUNK 2: filtro 'N' en mscount con OR como msconsulta (ANTES era AND).
+-- Reemplazar:
+--         SET @SQL_inc =
+--               @SQL_inc + ' and (a.nombres LIKE ''%' + ltrim(rtrim(@nombres)) + '%'' and a.paterno LIKE ''%' + ltrim(rtrim(@paterno)
+--               ) + '%'' and a.materno LIKE ''%' + ltrim(rtrim(@materno)) + '%'')    
+-- 		      and (m.nombres LIKE ''%' + ltrim(rtrim(@nombres)) + '%'' and m.paterno LIKE ''%'
+--               + ltrim(rtrim(@paterno)) + '%'' and m.materno LIKE ''%' + ltrim(rtrim(@materno)) + '%'')'
+-- Por:
+--         SET @SQL_inc =
+--               @SQL_inc + ' and ((a.nombres LIKE ''%' + ltrim(rtrim(@nombres)) + '%'' and a.paterno LIKE ''%' + ltrim(rtrim(@paterno)
+--               ) + '%'' and a.materno LIKE ''%' + ltrim(rtrim(@materno)) + '%'')    
+-- 		      or (m.nombres LIKE ''%' + ltrim(rtrim(@nombres)) + '%'' and m.paterno LIKE ''%'
+--               + ltrim(rtrim(@paterno)) + '%'' and m.materno LIKE ''%' + ltrim(rtrim(@materno)) + '%''))'
