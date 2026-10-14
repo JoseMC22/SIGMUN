@@ -60,7 +60,11 @@ export interface OrdenanzasResponse {
 // server-side por @idordenanza (volumen real: idordenanza=1 → 115 filas,
 // idordenanza=2 → 5): NO vuelve idordenanza/cidordenanza ni estado/fec_venc/
 // observacion/tipo de la forma vieja.
+// (T3/detalle-editar): el DBA agregó las llaves al SELECT — `IDORDENANZA`
+// (PK del detalle, number) y `CIDORDENANZA` (master, number).
 export interface SpOrdenanzaDetalleRow {
+  IDORDENANZA?: number | null;
+  CIDORDENANZA?: number | null;
   'Año'?: string | null;
   TIPO_REC?: string | null;
   CONCEPTO?: string | null;
@@ -71,12 +75,14 @@ export interface SpOrdenanzaDetalleRow {
 }
 
 /**
- * Fila de detalle de ordenanza normalizada (7 campos del SP re-modelado):
- * campos char/varchar recortados (null → ''), montos numéricos. Ya NO hay
- * idordenanza/cidordenanza/estado/fec_venc de la forma vieja (el JOIN trae
- * concepto y el filtro va server-side).
+ * Fila de detalle de ordenanza normalizada (7 campos del SP re-modelado +
+ * llaves T3): campos char/varchar recortados (null → ''), montos numéricos.
+ * `idDetalle` es la PK del detalle (WHERE del modo 8) y `cidordenanza` el
+ * master al que pertenece.
  */
 export interface OrdenanzaDetalleRow {
+  idDetalle: number;
+  cidordenanza: number;
   anno: string;
   tipoRec: string;
   concepto: string;
@@ -84,6 +90,23 @@ export interface OrdenanzaDetalleRow {
   impReaj: number;
   mora: number;
   costoEmis: number;
+}
+
+/**
+ * Input del update del detalle (T3, @msquery=8): SOLO los params con valor
+ * conocido (el modo 4 no devuelve tipo/observacion/estado y enviarlos en
+ * blanco los pisaría). `estacion` viaja aparte del body HTTP (header
+ * x-estacion) porque el SP la exige sin default.
+ */
+export interface EditarDetalleInput {
+  cidordenanza: number;
+  anno: string;
+  tipoRec: string;
+  impInsol: number;
+  impReaj: number;
+  mora: number;
+  costoEmis: number;
+  estacion: string;
 }
 
 /**

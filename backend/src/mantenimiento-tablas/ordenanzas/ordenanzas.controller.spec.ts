@@ -17,6 +17,7 @@ describe('OrdenanzasController', () => {
     crear: jest.fn(),
     editar: jest.fn(),
     detalle: jest.fn(),
+    editarDetalle: jest.fn(),
   };
 
   // Fila de ejemplo alineada con el SP en vivo (S3): char sin padding
@@ -197,6 +198,8 @@ describe('OrdenanzasController', () => {
     // ~16:32): Año/TIPO_REC/CONCEPTO + montos — el backend ya NO filtra en
     // memoria (el SP filtra server-side con @idordenanza).
     const detalleRow: OrdenanzaDetalleRow = {
+      idDetalle: 9,
+      cidordenanza: 1,
       anno: '2013',
       tipoRec: '02.01',
       concepto: 'IMPUESTO AL PATRIMONIO PREDIAL',
@@ -224,6 +227,89 @@ describe('OrdenanzasController', () => {
         );
       }
       expect(mockService.detalle).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── PATCH /mantenimiento-tablas/ordenanzas/detalle/:id (update detalle, T3/S1, msquery=8) ──
+
+  describe('PATCH /mantenimiento-tablas/ordenanzas/detalle/:id', () => {
+    // Body del update detalle (T3): cidordenanza + anno YYYY + tipoRec +
+    // 4 montos ≥ 0. La estación viaja por header x-estacion (el SP la exige
+    // sin default); el operador sale de la sesión.
+    const validBody = {
+      cidordenanza: 2,
+      anno: '2013',
+      tipoRec: '02.01',
+      impInsol: 46.2,
+      impReaj: 0,
+      mora: 10.5,
+      costoEmis: 2.5,
+    };
+
+    // req.user viene del JwtAuthGuard (patrón mantenimiento-vias).
+    const req = { user: { username: 'ADMIN' }, headers: {} };
+
+    it('should update the detalle row delegating to the service with the PK + session operator', async () => {
+      mockService.editarDetalle.mockResolvedValue({
+        message: 'Detalle de ordenanza actualizado exitosamente',
+      });
+
+      const result = await controller.editarDetalle('9', validBody, req as never);
+
+      expect(result).toEqual({
+        message: 'Detalle de ordenanza actualizado exitosamente',
+      });
+      expect(mockService.editarDetalle).toHaveBeenCalledTimes(1);
+      expect(mockService.editarDetalle).toHaveBeenCalledWith(
+        9,
+        { ...validBody, estacion: '' },
+        'ADMIN',
+      );
+    });
+
+    it('should forward the x-estacion header as estacion', async () => {
+      mockService.editarDetalle.mockResolvedValue({
+        message: 'Detalle de ordenanza actualizado exitosamente',
+      });
+
+      const reqWithEstacion = {
+        user: { username: 'ADMIN' },
+        headers: { 'x-estacion': 'PC-SISTEMAS' },
+      };
+
+      await controller.editarDetalle('9', validBody, reqWithEstacion as never);
+
+      expect(mockService.editarDetalle).toHaveBeenCalledWith(
+        9,
+        { ...validBody, estacion: 'PC-SISTEMAS' },
+        'ADMIN',
+      );
+    });
+
+    it('should NOT call the service on empty/non-numeric/negative id (BadRequestException)', async () => {
+      // Vacío (coerce Number('') = 0, no positivo), texto y negativo → 400.
+      for (const invalid of ['', 'abc', '-1']) {
+        await expect(
+          controller.editarDetalle(invalid, validBody, req as never),
+        ).rejects.toThrow(BadRequestException);
+      }
+      expect(mockService.editarDetalle).not.toHaveBeenCalled();
+    });
+
+    it('should reject an invalid anno (not YYYY) or negative amounts with BadRequestException without calling the service', async () => {
+      for (const invalidBody of [
+        { ...validBody, anno: '13' },
+        { ...validBody, anno: '2013 ' },
+        { ...validBody, tipoRec: '' },
+        { ...validBody, impInsol: -1 },
+        { ...validBody, mora: -0.5 },
+      ]) {
+        await expect(
+          controller.editarDetalle('9', invalidBody, req as never),
+        ).rejects.toThrow(BadRequestException);
+      }
+
+      expect(mockService.editarDetalle).not.toHaveBeenCalled();
     });
   });
 });

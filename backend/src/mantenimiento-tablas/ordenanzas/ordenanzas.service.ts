@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 import { toIsoDateParam } from '../../common/utils/date-utils';
 import {
+  EditarDetalleInput,
   OrdenanzaRow,
   OrdenanzaDetalleRow,
   SpOrdenanzaRow,
@@ -64,13 +65,17 @@ function toNumber(value: number | string | null | undefined): number {
 }
 
 /**
- * Fila del detalle re-modelado (iteración 4): el recordset llega con claves
- * del SELECT del JOIN — `Año` (alias entre corchetes, exacto, con ñ),
+ * Fila del detalle re-modelado (iteración 4 + llaves T3): el recordset llega
+ * con claves del SELECT del JOIN — `IDORDENANZA` (PK del detalle),
+ * `CIDORDENANZA` (master), `Año` (alias entre corchetes, exacto, con ñ),
  * TIPO_REC y CONCEPTO (textos) + IMP_INSOL/IMP_REAJ/MORA/COSTO_EMIS
- * (montos). char/varchar → trim (null → ''); montos → Number (null → 0).
+ * (montos). char/varchar → trim (null → ''); montos → Number (null → 0);
+ * llaves → Number (null → 0).
  */
 function mapDetalleRow(row: SpOrdenanzaDetalleRow): OrdenanzaDetalleRow {
   return {
+    idDetalle: Number(row.IDORDENANZA ?? 0),
+    cidordenanza: Number(row.CIDORDENANZA ?? 0),
     anno: trimChar(row['Año']),
     tipoRec: trimChar(row.TIPO_REC),
     concepto: trimChar(row.CONCEPTO),
@@ -178,6 +183,41 @@ export class OrdenanzasService {
       return { message: 'Ordenanza actualizada exitosamente' };
     } catch (error) {
       this.logger.error('Error al actualizar ordenanza', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update de fila del detalle (T3, @msquery=8 = UPDATE en CAJA.DOrdenanzas
+   * `WHERE IDORDENANZA = @idordenanza`). Se envían SOLO los params con valor
+   * conocido: cidordenanza, anno/tipo_rec (char → trim), los 4 montos,
+   * operador (de sesión), estacion e idordenanza (PK del detalle).
+   * tipo/observacion/estado NO se envían: el modo 4 no los devuelve y el
+   * modo 8 los pisaría en blanco.
+   */
+  async editarDetalle(
+    idordenanza: number,
+    input: EditarDetalleInput,
+    operador: string,
+  ): Promise<{ message: string }> {
+    try {
+      await this.db.executeProcedure('caja.sp_ordenanzas', {
+        msquery: 8, // 8 = UPDATE detalle.
+        cidordenanza: input.cidordenanza,
+        anno: trimChar(input.anno),
+        tipo_rec: trimChar(input.tipoRec),
+        imp_insol: input.impInsol,
+        imp_reaj: input.impReaj,
+        mora: input.mora,
+        costo_emis: input.costoEmis,
+        operador,
+        estacion: input.estacion,
+        idordenanza, // PK del detalle (llave del WHERE).
+      });
+
+      return { message: 'Detalle de ordenanza actualizado exitosamente' };
+    } catch (error) {
+      this.logger.error('Error al actualizar el detalle de ordenanza', error);
       throw error;
     }
   }

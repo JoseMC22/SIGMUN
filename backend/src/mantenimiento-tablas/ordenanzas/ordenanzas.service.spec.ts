@@ -229,6 +229,8 @@ describe('OrdenanzasService', () => {
       // filtro en memoria), mapeadas a camelCase nuevo.
       expect(result.data).toHaveLength(2);
       expect(result.data[0]).toEqual({
+        idDetalle: 0, // Fixture sin llaves del SP viejo → 0 (T3 las agrega).
+        cidordenanza: 0,
         anno: '2013',
         tipoRec: '02.01', // char padded del SP recortado
         concepto: 'IMPUESTO AL PATRIMONIO PREDIAL',
@@ -263,6 +265,8 @@ describe('OrdenanzasService', () => {
 
       expect(result.data).toHaveLength(1);
       expect(result.data[0]).toEqual({
+        idDetalle: 0, // Fixture sin llaves del SP viejo → 0 (T3 las agrega).
+        cidordenanza: 0,
         anno: '2013',
         tipoRec: '0.1',
         concepto: 'DERECHO DE EMISIÓN',
@@ -285,6 +289,96 @@ describe('OrdenanzasService', () => {
       mockExecuteProcedure.mockRejectedValueOnce(new Error('expects parameter'));
 
       await expect(service.detalle(1)).rejects.toThrow('expects parameter');
+    });
+  });
+
+  // ── editarDetalle (@msquery=8 = UPDATE detalle, T3) ──
+
+  describe('editarDetalle', () => {
+    const validInput = {
+      cidordenanza: 2,
+      anno: '2013',
+      tipoRec: '02.01',
+      impInsol: 46.2,
+      impReaj: 0,
+      mora: 10.5,
+      costoEmis: 2.5,
+      estacion: 'PC-SISTEMAS',
+    };
+
+    it('maps the new mode-4 keys (IDORDENANZA PK + CIDORDENANZA master) in detalle rows', async () => {
+      mockExecuteProcedure.mockResolvedValueOnce({
+        recordset: [
+          {
+            IDORDENANZA: 9,
+            CIDORDENANZA: 2,
+            'Año': '2013',
+            TIPO_REC: '02.01',
+            CONCEPTO: 'IMPUESTO AL PATRIMONIO PREDIAL',
+            IMP_INSOL: 46.2,
+            IMP_REAJ: 0,
+            MORA: 10.5,
+            COSTO_EMIS: 2.5,
+          },
+        ],
+      });
+
+      const result = await service.detalle(2);
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]).toMatchObject({
+        idDetalle: 9,
+        cidordenanza: 2,
+        anno: '2013',
+      });
+    });
+
+    it('executes caja.sp_ordenanzas with msquery=8 sending ONLY the known params (no tipo/observacion/estado)', async () => {
+      mockExecuteProcedure.mockResolvedValueOnce({ recordset: [] });
+
+      await expect(
+        service.editarDetalle(9, validInput, 'ADMIN'),
+      ).resolves.toEqual({
+        message: 'Detalle de ordenanza actualizado exitosamente',
+      });
+
+      expect(mockExecuteProcedure).toHaveBeenCalledTimes(1);
+      expect(mockExecuteProcedure).toHaveBeenCalledWith('caja.sp_ordenanzas', {
+        msquery: 8, // 8 = UPDATE detalle; tipo/observacion/estado NO viajan.
+        cidordenanza: 2,
+        anno: '2013',
+        tipo_rec: '02.01',
+        imp_insol: 46.2,
+        imp_reaj: 0,
+        mora: 10.5,
+        costo_emis: 2.5,
+        operador: 'ADMIN',
+        estacion: 'PC-SISTEMAS',
+        idordenanza: 9, // PK del detalle (WHERE IDORDENANZA = @idordenanza).
+      });
+    });
+
+    it('trims the anno/tipoRec char padding and rethrows the SP error after logging', async () => {
+      mockExecuteProcedure.mockResolvedValueOnce({ recordset: [] });
+
+      await service.editarDetalle(
+        9,
+        { ...validInput, anno: '2013 ', tipoRec: '02.01   ' },
+        'ADMIN',
+      );
+
+      expect(mockExecuteProcedure).toHaveBeenCalledWith(
+        'caja.sp_ordenanzas',
+        expect.objectContaining({ anno: '2013', tipo_rec: '02.01' }),
+      );
+
+      mockExecuteProcedure.mockRejectedValueOnce(
+        new Error('expects parameter'),
+      );
+
+      await expect(
+        service.editarDetalle(9, validInput, 'ADMIN'),
+      ).rejects.toThrow('expects parameter');
     });
   });
 });
