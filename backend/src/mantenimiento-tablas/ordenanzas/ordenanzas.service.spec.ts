@@ -445,6 +445,31 @@ describe('OrdenanzasService', () => {
       expect(mockExecuteProcedure).toHaveBeenCalledTimes(2);
     });
 
+    it('maps the SQL unique-violation error (2627) to 409 for the concurrent window', async () => {
+      mockExecuteProcedure
+        .mockResolvedValueOnce({ recordset: [selfRow] }) // validación: sin duplicados
+        .mockRejectedValueOnce(
+          Object.assign(new Error('Violation of UNIQUE KEY constraint'), {
+            number: 2627,
+          }),
+        ); // modo 8: el índice único frenó al segundo concurrente
+
+      const err = await service
+        .editarDetalle(9, validInput, 'ADMIN')
+        .then(
+          () => {
+            throw new Error('should have rejected with ConflictException');
+          },
+          (e) => e,
+        );
+
+      expect(err).toBeInstanceOf(ConflictException);
+      expect(err?.status).toBe(409);
+      expect(err?.message).toContain(
+        'Ya existe otra fila con año 2013 y tipo 02.01 en esta ordenanza',
+      );
+    });
+
     it('allows moving to a free (anno, tipo_rec) when no other row uses them', async () => {
       mockExecuteProcedure
         .mockResolvedValueOnce({

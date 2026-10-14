@@ -65,6 +65,17 @@ function toNumber(value: number | string | null | undefined): number {
 }
 
 /**
+ * Violación de unicidad de SQL Server: 2627 (UNIQUE CONSTRAINT) o 2601
+ * (UNIQUE INDEX). Con el índice único en (cidordenanza, anno, tipo_rec,
+ * tipo), el UPDATE concurrente que pase la verificación previa cae aquí:
+ * se mapea a 409 en vez de 500.
+ */
+function isUniqueViolation(error: unknown): boolean {
+  const num = (error as { number?: unknown })?.number;
+  return num === 2627 || num === 2601;
+}
+
+/**
  * Fila del detalle re-modelado (iteración 4 + llaves T3): el recordset llega
  * con claves del SELECT del JOIN — `IDORDENANZA` (PK del detalle),
  * `CIDORDENANZA` (master), `Año` (alias entre corchetes, exacto, con ñ),
@@ -196,9 +207,9 @@ export class OrdenanzasService {
    * modo 8 los pisaría en blanco.
    *
    * Anti-duplicidad (año, tipo_rec) dentro del master, excluyendo la propia
-   * fila: la base NO tiene unique constraint en (cidordenanza, anno,
-   * tipo_rec) — solo la PK idordenanza — así que la verificación es
-   * responsabilidad del backend (una lectura modo 4) y rechaza con 409.
+   * fila: verificación previa por lectura modo 4 (rechaza con 409) + red de
+   * seguridad mapeando el error 2627/2601 del índice único
+   * (cidordenanza, anno, tipo_rec, tipo) a 409 para la ventana concurrente.
    */
   async editarDetalle(
     idordenanza: number,
@@ -237,6 +248,11 @@ export class OrdenanzasService {
 
       return { message: 'Detalle de ordenanza actualizado exitosamente' };
     } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new ConflictException(
+          `Ya existe otra fila con año ${anno} y tipo ${tipoRec} en esta ordenanza`,
+        );
+      }
       this.logger.error('Error al actualizar el detalle de ordenanza', error);
       throw error;
     }
