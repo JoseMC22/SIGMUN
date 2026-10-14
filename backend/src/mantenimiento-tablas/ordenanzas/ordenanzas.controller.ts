@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query, Req, UseGuards, BadRequestException } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards, BadRequestException } from '@nestjs/common';
 import type { Request } from 'express';
 import { z } from 'zod';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -8,6 +8,15 @@ import {
   OrdenanzasDetalleResponse,
 } from './dto/ordenanzas.types';
 import { CrearOrdenanzaSchema } from './dto/crear-ordenanza.dto';
+
+// Validación Zod del id de ruta del update (T6): coerce int positivo; el
+// valor vacío hace coerce Number('') = 0 y cae en el error de positive().
+const EditarOrdenanzaParamsSchema = z.object({
+  id: z.coerce
+    .number({ invalid_type_error: 'id debe ser un número' })
+    .int('id debe ser un número entero')
+    .positive('id debe ser un entero positivo'),
+});
 
 // Validación Zod del query del detalle (T7/T9): coerce int positivo; el
 // valor vacío hace coerce Number('') = 0 y cae en el error de positive().
@@ -47,6 +56,32 @@ export class OrdenanzasController {
     }
     const operador = (req.user as any)?.username || '';
     return this.ordenanzasService.crear(parsed.data, operador);
+  }
+
+  /**
+   * Update de ordenanza master (T6, @msquery=7 = UPDATE, NO toca estado).
+   * El id de ruta se valida Zod int positivo y el body reutiliza
+   * CrearOrdenanzaSchema (mismo manejo BadRequest que crear); el operador
+   * sale del usuario de sesión inyectado por el JwtAuthGuard.
+   */
+  @Patch(':id')
+  async editar(
+    @Param('id') id: string,
+    @Body() body: Record<string, unknown>,
+    @Req() req: Request,
+  ): Promise<{ message: string }> {
+    const parsedParams = EditarOrdenanzaParamsSchema.safeParse({ id: id ?? '' });
+    if (!parsedParams.success) {
+      const msg = parsedParams.error.errors.map((e) => e.message).join('; ');
+      throw new BadRequestException(msg || 'id inválido');
+    }
+    const parsed = CrearOrdenanzaSchema.safeParse(body);
+    if (!parsed.success) {
+      const msg = parsed.error.errors.map((e) => e.message).join('; ');
+      throw new BadRequestException(msg || 'Datos inválidos');
+    }
+    const operador = (req.user as any)?.username || '';
+    return this.ordenanzasService.editar(parsedParams.data.id, parsed.data, operador);
   }
 
   /**

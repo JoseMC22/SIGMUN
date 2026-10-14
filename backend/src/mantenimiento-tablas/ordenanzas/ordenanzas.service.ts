@@ -151,6 +151,38 @@ export class OrdenanzasService {
   }
 
   /**
+   * Update de ordenanza master (T6, @msquery=7 = UPDATE en
+   * CAJA.MORDENANZAS). Misma forma de llamada que el modo 4 + valores
+   * editados: criterio, descripcion, fdesde/fhasta (YYYY-MM-DD → YYYYMMDD
+   * con toIsoDateParam), observacion, operador (de sesión), estacion, y la
+   * llave idordenanza del WHERE. NO toca estado.
+   */
+  async editar(
+    idordenanza: number,
+    dto: CrearOrdenanzaDto,
+    operador: string,
+  ): Promise<{ message: string }> {
+    try {
+      await this.db.executeProcedure('caja.sp_ordenanzas', {
+        msquery: 7, // 7 = UPDATE master; NO toca estado.
+        criterio: dto.criterio,
+        descripcion: dto.descripcion,
+        fdesde: toIsoDateParam(dto.fdesde),
+        fhasta: toIsoDateParam(dto.fhasta),
+        observacion: dto.observacion,
+        operador,
+        estacion: dto.estacion,
+        idordenanza, // Llave del WHERE (modo 4 + valores editados).
+      });
+
+      return { message: 'Ordenanza actualizada exitosamente' };
+    } catch (error) {
+      this.logger.error('Error al actualizar ordenanza', error);
+      throw error;
+    }
+  }
+
+  /**
    * Consulta de detalle master-detalle (T9, @msquery=4 re-modelado: SELECT
    * con JOIN a CAJA.TIPO_INGRESOS_DET — `do.ANNO [Año], do.TIPO_REC,
    * det.CONCEPTO, do.IMP_INSOL, do.IMP_REAJ, do.MORA, do.COSTO_EMIS`).
