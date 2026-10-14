@@ -59,7 +59,9 @@ describe("EditarOrdenanzaModal", () => {
     expect(
       screen.getByRole("heading", { name: /editar ordenanza/i }),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText(/criterio/i)).toHaveValue(1);
+    // Criterio fijo en 12 y deshabilitado (aunque el master traiga otro).
+    expect(screen.getByLabelText(/criterio/i)).toHaveValue(12);
+    expect(screen.getByLabelText(/criterio/i)).toBeDisabled();
     expect(screen.getByLabelText(/descripción/i)).toHaveValue("Pronto Pago");
     // ISO datetime del master → YYYY-MM-DD del input date.
     expect(screen.getByLabelText(/vigencia desde/i)).toHaveValue("2013-09-01");
@@ -88,15 +90,16 @@ describe("EditarOrdenanzaModal", () => {
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledTimes(1);
     });
-    // PATCH (msquery=7 en el backend) con el mismo body del alta + valores
-    // editados; estación resuelta de la sesión del cliente ("" en jsdom).
+    // PATCH (msquery=7 en el backend) con criterio fijo en 12 aunque el
+    // master traiga otro valor + campos editados; estación resuelta de la
+    // sesión del cliente ("" en jsdom).
     expect(mockFetch).toHaveBeenCalledWith(
       "/api/mantenimiento-tablas/ordenanzas/5",
       expect.objectContaining({ method: "PATCH" }),
     );
     const patchBody = JSON.parse(mockFetch.mock.calls[0][1]?.body ?? "{}");
     expect(patchBody).toEqual({
-      criterio: 1,
+      criterio: 12,
       descripcion: "Pronto Pago 2024",
       fdesde: "2013-09-01",
       fhasta: "2013-09-30",

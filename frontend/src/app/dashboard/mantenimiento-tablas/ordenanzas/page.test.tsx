@@ -581,8 +581,9 @@ describe("OrdenanzasPage", () => {
       expect.objectContaining({ method: "PATCH" }),
     );
     const patchBody = JSON.parse(mockFetch.mock.calls[1][1]?.body ?? "{}");
+    // Criterio fijo en 12 aunque la fila master traiga otro valor.
     expect(patchBody).toEqual({
-      criterio: 1,
+      criterio: 12,
       descripcion: "Pronto Pago 2024",
       fdesde: row1.fec_desde.slice(0, 10),
       fhasta: row1.fec_hasta.slice(0, 10),

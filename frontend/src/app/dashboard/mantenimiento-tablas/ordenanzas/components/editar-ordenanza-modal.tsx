@@ -22,14 +22,14 @@ interface Props {
 
 // Validación inline (previa al PATCH; el backend re-valida con Zod).
 interface FormErrors {
-  criterio?: string;
   descripcion?: string;
   fdesde?: string;
   fhasta?: string;
 }
 
 // Contrato del PATCH /api/mantenimiento-tablas/ordenanzas/:id (T6):
-// { criterio, descripcion, fdesde, fhasta, observacion, estacion }.
+// { criterio: 12 (fijo, no editable), descripcion, fdesde, fhasta,
+// observacion, estacion }.
 // El backend llama caja.sp_ordenanzas @msquery=7 (UPDATE del master, NO
 // toca estado). estacion se resuelve desde la sesión del cliente (patrón
 // nueva-ordenanza-modal).
@@ -39,7 +39,9 @@ export default function EditarOrdenanzaModal({
   onSuccess,
   ordenanza,
 }: Props) {
-  const [criterio, setCriterio] = useState("");
+// Criterio FIJO en edición (decisión del usuario): siempre 12, no
+// editable. Se muestra deshabilitado y se envía constante en el PATCH.
+const CRITERIO_FIJO = 12;
   const [descripcion, setDescripcion] = useState("");
   const [fdesde, setFdesde] = useState("");
   const [fhasta, setFhasta] = useState("");
@@ -55,7 +57,6 @@ export default function EditarOrdenanzaModal({
   // de sesión (éste último gana).
   useEffect(() => {
     if (!isOpen || !ordenanza) return;
-    setCriterio(ordenanza.criterio);
     setDescripcion(ordenanza.descripcion);
     setFdesde(ordenanza.fec_desde.slice(0, 10));
     setFhasta(ordenanza.fec_hasta.slice(0, 10));
@@ -75,11 +76,6 @@ export default function EditarOrdenanzaModal({
 
   const validate = (): FormErrors => {
     const errs: FormErrors = {};
-    if (criterio.trim() === "") {
-      errs.criterio = "El criterio es obligatorio";
-    } else if (!Number.isInteger(Number(criterio))) {
-      errs.criterio = "El criterio debe ser un número entero";
-    }
     if (!descripcion.trim()) {
       errs.descripcion = "La descripción es obligatoria";
     }
@@ -109,7 +105,7 @@ export default function EditarOrdenanzaModal({
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            criterio: Number(criterio),
+            criterio: CRITERIO_FIJO,
             descripcion: descripcion.trim(),
             fdesde,
             fhasta,
@@ -178,29 +174,23 @@ export default function EditarOrdenanzaModal({
             </div>
           )}
 
-          {/* Criterio */}
+          {/* Criterio fijo en 12 (no editable): se muestra
+              deshabilitado y viaja constante en el PATCH. */}
           <div>
             <label
               htmlFor="editar-criterio"
               className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1"
             >
-              Criterio *
+              Criterio
             </label>
             <input
               id="editar-criterio"
               type="number"
-              step="1"
-              value={criterio}
-              onChange={(e) => setCriterio(e.target.value)}
-              placeholder="Ej: 11"
-              className={inputClass(errors.criterio)}
-              autoFocus
+              value={CRITERIO_FIJO}
+              disabled
+              aria-label="Criterio (fijo en 12, no editable)"
+              className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] text-slate-500"
             />
-            {errors.criterio && (
-              <p className="mt-1 text-[10px] font-medium text-red-500">
-                {errors.criterio}
-              </p>
-            )}
           </div>
 
           {/* Descripción */}
@@ -218,6 +208,7 @@ export default function EditarOrdenanzaModal({
               onChange={(e) => setDescripcion(e.target.value)}
               placeholder="Ej: Pronto Pago"
               className={inputClass(errors.descripcion)}
+              autoFocus
             />
             {errors.descripcion && (
               <p className="mt-1 text-[10px] font-medium text-red-500">
