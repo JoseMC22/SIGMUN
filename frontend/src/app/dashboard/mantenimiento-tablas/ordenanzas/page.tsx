@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import NuevaOrdenanzaModal from "./components/nueva-ordenanza-modal";
+import EditarOrdenanzaModal from "./components/editar-ordenanza-modal";
 import OrdenanzaDetalleModal from "./components/ordenanza-detalle-modal";
 
 // ─── Types ─────────────────────────────────────────────────
@@ -110,7 +111,13 @@ export default function OrdenanzasPage() {
   // Alta de ordenanza (T5): modal + feedback sutil de éxito.
   const [showNuevaModal, setShowNuevaModal] = useState(false);
   const [successFeedback, setSuccessFeedback] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Edición de ordenanza (T6): master seleccionado; null = modal cerrado.
+  const [editarOrdenanza, setEditarOrdenanza] = useState<OrdenanzaRow | null>(
+    null,
+  );
 
   // Detalle de ordenanza (T8): master seleccionado; null = modal cerrado.
   const [detalleOrdenanza, setDetalleOrdenanza] = useState<OrdenanzaRow | null>(
@@ -198,6 +205,19 @@ export default function OrdenanzasPage() {
   // Éxito del modal: cerrar + feedback sutil + re-consultar la lista.
   const handleNuevaOrdenanzaSaved = useCallback(() => {
     setShowNuevaModal(false);
+    setSuccessMessage("Ordenanza creada exitosamente");
+    setSuccessFeedback(true);
+    if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
+    feedbackTimer.current = setTimeout(() => setSuccessFeedback(false), 4000);
+    loadOrdenanzas();
+  }, [loadOrdenanzas]);
+
+  // ── Edición de ordenanza (T6) ────────────────────────────
+
+  // Éxito del modal de edición: cerrar + feedback sutil + re-consultar.
+  const handleEditarOrdenanzaSaved = useCallback(() => {
+    setEditarOrdenanza(null);
+    setSuccessMessage("Ordenanza actualizada exitosamente");
     setSuccessFeedback(true);
     if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
     feedbackTimer.current = setTimeout(() => setSuccessFeedback(false), 4000);
@@ -242,10 +262,8 @@ export default function OrdenanzasPage() {
             )}
           </button>
 
-          {/* Ver detalle (T8) + alta (T5): el SP no tiene modo UPDATE y el
-              modo 5 está comentado (no-op) → Editar queda DESHABILITADO
-              (tooltip "Pendiente cambio de SP (UPDATE)"); eliminar sigue
-              fuera (T6 "Diferir ambos"). */}
+          {/* Ver detalle (T8) + alta (T5) + editar (T6: UPDATE vía PATCH
+              @msquery=7). Eliminar sigue fuera ("Diferir ambos"). */}
           <button
             type="button"
             onClick={() => setShowNuevaModal(true)}
@@ -328,10 +346,9 @@ export default function OrdenanzasPage() {
                   {estadoLabel(row.estado)}
                 </span>
               </td>
-              {/* Acciones (T8): Ver detalle (msquery=4) y Editar
-                  DESHABILITADO (T6: el SP no tiene modo UPDATE; jamás
-                  wirear a msquery 1 = alta o 5 = no-op). Eliminar sigue
-                  fuera (decisión "Diferir ambos"). */}
+              {/* Acciones (T8/T6): Ver detalle (msquery=4) y Editar
+                  (PATCH @msquery=7, pre-cargado con la fila master).
+                  Eliminar sigue fuera (decisión "Diferir ambos"). */}
               <td className="px-2 py-1">
                 <div className="flex items-center justify-center gap-0.5">
                   <button
@@ -345,10 +362,10 @@ export default function OrdenanzasPage() {
                   </button>
                   <button
                     type="button"
-                    disabled
                     aria-label="Editar"
-                    title="Pendiente cambio de SP (UPDATE)"
-                    className="cursor-not-allowed rounded-md p-1 text-slate-300"
+                    title="Editar"
+                    onClick={() => setEditarOrdenanza(row)}
+                    className="rounded-md p-1 text-sat-cyan transition hover:bg-cyan-50 focus:outline-none focus:ring-2 focus:ring-sat-cyan/30"
                   >
                     <Pencil size={13} />
                   </button>
@@ -497,7 +514,7 @@ export default function OrdenanzasPage() {
         </div>
       </div>
 
-      {/* Feedback sutil de alta exitosa (T5) */}
+      {/* Feedback sutil de alta/edición exitosa (T5/T6) */}
       {successFeedback && (
         <div
           data-testid="success-feedback"
@@ -505,7 +522,7 @@ export default function OrdenanzasPage() {
         >
           <CheckCircle size={14} className="shrink-0 text-emerald-500" />
           <span className="text-xs font-medium text-emerald-700">
-            Ordenanza creada exitosamente
+            {successMessage}
           </span>
         </div>
       )}
@@ -532,6 +549,15 @@ export default function OrdenanzasPage() {
         isOpen={showNuevaModal}
         onClose={() => setShowNuevaModal(false)}
         onSuccess={handleNuevaOrdenanzaSaved}
+      />
+
+      {/* Modal de edición de la ordenanza seleccionada (T6: PATCH
+          /:id → @msquery=7 vía onSuccess cierra + refresca + feedback) */}
+      <EditarOrdenanzaModal
+        isOpen={editarOrdenanza !== null}
+        ordenanza={editarOrdenanza}
+        onClose={() => setEditarOrdenanza(null)}
+        onSuccess={handleEditarOrdenanzaSaved}
       />
 
       {/* Modal de detalle de la ordenanza seleccionada (T8, read-only:

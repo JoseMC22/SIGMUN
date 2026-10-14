@@ -507,7 +507,7 @@ describe("OrdenanzasPage", () => {
 
   // ── Acciones por fila (T8/iteración 3) ───────────────────
 
-  it("renderiza Ver detalle (habilitado) y Editar (deshabilitado con tooltip del SP sin UPDATE) en cada fila", async () => {
+  it("renderiza Ver detalle y Editar (habilitado, T6: UPDATE vía PATCH msquery=7) en cada fila", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ data: [row1, row2] }),
@@ -522,13 +522,89 @@ describe("OrdenanzasPage", () => {
 
     const editBtns = screen.getAllByRole("button", { name: "Editar" });
     expect(editBtns).toHaveLength(2);
-    // Decisión del usuario (T6): sin UPDATE en el SP el botón de editar es
-    // SIEMPRE deshabilitado con el tooltip del cambio pendiente — jamás
-    // wireado a msquery 1 (alta) o 5 (no-op).
+    // T6: el SP ya tiene modo UPDATE (msquery=7) → el botón abre el modal
+    // de edición pre-cargado con la fila master.
     for (const btn of editBtns) {
-      expect(btn).toBeDisabled();
-      expect(btn).toHaveAttribute("title", "Pendiente cambio de SP (UPDATE)");
+      expect(btn).not.toBeDisabled();
     }
+  });
+
+  it("abre el modal de edición pre-cargado desde la fila, guarda vía PATCH y refresca la lista con feedback", async () => {
+    mockFetch
+      // GET al montar
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: [row1, row2] }),
+      })
+      // PATCH del update
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ message: "Ordenanza actualizada exitosamente" }),
+      })
+      // GET de re-consulta tras el update
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: [row1, row2] }),
+      });
+
+    render(<OrdenanzasPage />);
+
+    fireEvent.click(
+      (await screen.findAllByRole("button", { name: "Editar" }))[0],
+    );
+
+    // Modal pre-cargado con la fila master (fechas YYYY-MM-DD).
+    expect(
+      await screen.findByRole("heading", { name: /editar ordenanza/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/descripción/i)).toHaveValue(
+      row1.descripcion,
+    );
+    expect(screen.getByLabelText(/vigencia desde/i)).toHaveValue(
+      row1.fec_desde.slice(0, 10),
+    );
+
+    fireEvent.change(screen.getByLabelText(/descripción/i), {
+      target: { value: "Pronto Pago 2024" },
+    });
+    fireEvent.submit(
+      screen.getByRole("button", { name: /^guardar$/i }).closest("form")!,
+    );
+
+    // PATCH al endpoint con el id del master.
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+    });
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      2,
+      "/api/mantenimiento-tablas/ordenanzas/1",
+      expect.objectContaining({ method: "PATCH" }),
+    );
+    const patchBody = JSON.parse(mockFetch.mock.calls[1][1]?.body ?? "{}");
+    expect(patchBody).toEqual({
+      criterio: 1,
+      descripcion: "Pronto Pago 2024",
+      fdesde: row1.fec_desde.slice(0, 10),
+      fhasta: row1.fec_hasta.slice(0, 10),
+      observacion: row1.observacion,
+      estacion: "",
+    });
+
+    // Re-consulta GET tras el update.
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      3,
+      "/api/mantenimiento-tablas/ordenanzas",
+    );
+
+    // Modal cerrado + feedback de éxito + lista refrescada.
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("heading", { name: /editar ordenanza/i }),
+      ).not.toBeInTheDocument();
+    });
+    expect(
+      screen.getByText(/ordenanza actualizada exitosamente/i),
+    ).toBeInTheDocument();
   });
 
   it("abre el modal de detalle desde el ícono de la fila, consulta el endpoint con el id del master y renderiza las columnas nuevas (sin ID/Estado/Fec. venc.)", async () => {
