@@ -58,6 +58,12 @@ const formatFecha = (iso: string) => {
   });
 };
 
+// Dominio de estado CONFIRMADO por el usuario: '0' = Activo,
+// '1' = No activo. Cualquier otro valor crudo se muestra tal cual
+// (defensivo: sin semántica inventada).
+const estadoLabel = (estado: string) =>
+  estado === "0" ? "Activo" : estado === "1" ? "No activo" : estado;
+
 // ─── Skeleton ──────────────────────────────────────────────
 
 // Espejo pulsante del card de resultados: barra de encabezado + filas.
@@ -171,7 +177,7 @@ export default function OrdenanzasPage() {
           "Vigencia Desde": formatFecha(r.fec_desde),
           "Vigencia Hasta": formatFecha(r.fec_hasta),
           "Observación": r.observacion,
-          "Estado": r.estado,
+          "Estado": estadoLabel(r.estado),
         })),
       );
       const wb = XLSX.utils.book_new();
@@ -307,10 +313,19 @@ export default function OrdenanzasPage() {
                 {row.observacion}
               </td>
               <td className="px-3 py-1 text-center">
-                {/* Iteración 1: valor crudo del dominio en badge sutil,
-                    sin semántica inventada hasta confirmar el dominio. */}
-                <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 ring-1 ring-slate-200">
-                  {row.estado}
+                {/* T4: etiqueta del dominio confirmado — Activo (verde)
+                    vs. No activo (gris sutil); valor fuera del dominio
+                    crudo en badge neutro (defensivo). */}
+                <span
+                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ${
+                    row.estado === "0"
+                      ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                      : row.estado === "1"
+                        ? "bg-slate-100 text-slate-500 ring-slate-200"
+                        : "bg-slate-100 text-slate-600 ring-slate-200"
+                  }`}
+                >
+                  {estadoLabel(row.estado)}
                 </span>
               </td>
               {/* Acciones (T8): Ver detalle (msquery=4) y Editar
