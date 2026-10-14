@@ -228,6 +228,107 @@ describe("OrdenanzaDetalleModal T2 — filtros", () => {
   });
 });
 
+describe("OrdenanzaDetalleModal T5 — orden por defecto", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  // Datos desordenados a propósito: el SP no garantiza orden.
+  const desordenadas = [
+    {
+      anno: "2014",
+      tipoRec: "02.02",
+      concepto: "SERVICIO DE LIMPIEZA PUBLICA",
+      impInsol: 50,
+      impReaj: 20,
+      mora: 1.5,
+      costoEmis: 7.25,
+    },
+    {
+      anno: "2013",
+      tipoRec: "02.02",
+      concepto: "TASA DE SEGUNDA",
+      impInsol: 70,
+      impReaj: 5,
+      mora: 2,
+      costoEmis: 1,
+    },
+    {
+      anno: "2013",
+      tipoRec: "02.01",
+      concepto: "IMPUESTO AL PATRIMONIO PREDIAL",
+      impInsol: 100,
+      impReaj: 10,
+      mora: 5,
+      costoEmis: 2.5,
+    },
+  ];
+
+  const annoTipoDe = (tabla: HTMLElement) =>
+    Array.from(
+      tabla.querySelectorAll<HTMLTableRowElement>("tbody tr"),
+      (f) => `${f.cells[1].textContent}/${f.cells[2].textContent}`,
+    );
+
+  it("ordena por defecto por año asc y luego tipoRec asc sin orden por montos activo", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ data: desordenadas }),
+    });
+    openModal();
+    const tabla = await screen.findByTestId("detalle-table");
+    expect(annoTipoDe(tabla)).toEqual([
+      "2013/02.01",
+      "2013/02.02",
+      "2014/02.02",
+    ]);
+  });
+
+  it("el export respeta el orden por defecto (filtros, paginación, totales y export heredan `sorted`)", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ data: desordenadas }),
+    });
+    openModal();
+    await screen.findByTestId("detalle-table");
+
+    fireEvent.click(screen.getByRole("button", { name: /^exportar$/i }));
+
+    await waitFor(() => {
+      expect(xlsxMocks.json_to_sheet).toHaveBeenCalledTimes(1);
+    });
+    const sheetArg = xlsxMocks.json_to_sheet.mock.calls[0]?.[0] as unknown as Array<
+      Record<string, unknown>
+    >;
+    expect(sheetArg.map((r) => `${r["Año"]}/${r["Tipo rec."]}`)).toEqual([
+      "2013/02.01",
+      "2013/02.02",
+      "2014/02.02",
+    ]);
+  });
+
+  it("el click en un monto sigue funcionando como override del orden por defecto", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ data: desordenadas }),
+    });
+    openModal();
+    const tabla = await screen.findByTestId("detalle-table");
+    const firstImpInsol = () =>
+      tabla.querySelector<HTMLTableRowElement>("tbody tr")!.cells[4]
+        .textContent;
+
+    // Orden por defecto: 2013/02.01 primero (impInsol 100)
+    expect(firstImpInsol()).toBe(fmtMonto(100));
+
+    // Click asc en Imp. insol.: override por montos (50 primero)
+    fireEvent.click(
+      screen.getByRole("button", { name: /imp\. insol\./i }),
+    );
+    await waitFor(() => expect(firstImpInsol()).toBe(fmtMonto(50)));
+  });
+});
+
 describe("OrdenanzaDetalleModal T3 — exportar y fetch robusto", () => {
   beforeEach(() => {
     vi.clearAllMocks();
