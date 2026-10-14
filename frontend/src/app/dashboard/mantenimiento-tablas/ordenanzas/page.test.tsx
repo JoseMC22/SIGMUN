@@ -156,8 +156,8 @@ describe("OrdenanzasPage", () => {
       `${fmtFecha(row1.fec_desde)} – ${fmtFecha(row1.fec_hasta)}`,
     );
     expect(f1.cells[4]).toHaveTextContent(row1.observacion);
-    // T4: dominio de estado confirmado — '0' se muestra como "Activo".
-    expect(f1.cells[5]).toHaveTextContent("Activo");
+    // T4: dominio de estado corregido — '0' se muestra como "No activo".
+    expect(f1.cells[5]).toHaveTextContent("No activo");
 
     expect(f2.cells[0]).toHaveTextContent("2");
     expect(f2.cells[2]).toHaveTextContent("Fraccionamiento");
@@ -169,14 +169,14 @@ describe("OrdenanzasPage", () => {
     expect(screen.getByText("2 registros")).toBeInTheDocument();
   });
 
-  // ── Estado del listado (T4: dominio '0'→Activo, '1'→No activo) ──
+  // ── Estado del listado (T4: dominio '1'→Activo, '0'→No activo) ──
 
-  it("mapea el dominio de estado: '0' → Activo (badge verde), '1' → No activo (badge gris), otro valor crudo tal cual", async () => {
-    const rowNoActivo = { ...row1, idordenanza: 3, estado: "1" };
+  it("mapea el dominio de estado: '1' → Activo (badge verde), '0' → No activo (badge gris), otro valor crudo tal cual", async () => {
+    const rowActivo = { ...row1, idordenanza: 3, estado: "1" };
     const rowRaro = { ...row1, idordenanza: 4, estado: "9" };
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ data: [row1, rowNoActivo, rowRaro] }),
+      json: async () => ({ data: [rowActivo, row1, rowRaro] }),
     });
 
     render(<OrdenanzasPage />);
@@ -230,8 +230,8 @@ describe("OrdenanzasPage", () => {
       Record<string, unknown>
     >;
     expect(sheetArg.map((r) => r["Estado"])).toEqual([
-      "Activo",
       "No activo",
+      "Activo",
     ]);
   });
 

@@ -58,11 +58,11 @@ const formatFecha = (iso: string) => {
   });
 };
 
-// Dominio de estado CONFIRMADO por el usuario: '0' = Activo,
-// '1' = No activo. Cualquier otro valor crudo se muestra tal cual
+// Dominio de estado CORREGIDO por el usuario: '1' = Activo,
+// '0' = No activo. Cualquier otro valor crudo se muestra tal cual
 // (defensivo: sin semántica inventada).
 const estadoLabel = (estado: string) =>
-  estado === "0" ? "Activo" : estado === "1" ? "No activo" : estado;
+  estado === "1" ? "Activo" : estado === "0" ? "No activo" : estado;
 
 // ─── Skeleton ──────────────────────────────────────────────
 
@@ -318,9 +318,9 @@ export default function OrdenanzasPage() {
                     crudo en badge neutro (defensivo). */}
                 <span
                   className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ${
-                    row.estado === "0"
+                    row.estado === "1"
                       ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
-                      : row.estado === "1"
+                      : row.estado === "0"
                         ? "bg-slate-100 text-slate-500 ring-slate-200"
                         : "bg-slate-100 text-slate-600 ring-slate-200"
                   }`}
