@@ -37,11 +37,12 @@ const EditarDetalleParamsSchema = z.object({
 });
 
 // Validación Zod del body del alta del detalle (ordenanzas-detalle-alta,
-// @msquery=2 = INSERT): formulario COMPLETO — master + anno YYYY exacto
+// @msquery=2 = INSERT): campos del formulario — master + anno YYYY exacto
 // char 4 + tipo/tipoRec min(1) + 4 montos ≥ 0 + observacion string (admite
-// '' legítimo) + estado EXACTAMENTE 1 char + fecvenc YYYY-MM-DD (viaja tal
-// cual al SP, varchar(10) ISO). La estación viaja por header x-estacion
-// (el SP la exige sin default), igual que el PATCH.
+// '' legítimo). `estado` y `fecvenc` YA NO son entrada del cliente: el
+// service los fija ('1' y hoy Lima). Zod strippea las claves desconocidas,
+// así que un cliente que igual los mande no cambia nada. La estación viaja
+// por header x-estacion (el SP la exige sin default), igual que el PATCH.
 const CrearDetalleSchema = z.object({
   cidordenanza: z.coerce
     .number({ invalid_type_error: 'cidordenanza debe ser un número' })
@@ -71,12 +72,6 @@ const CrearDetalleSchema = z.object({
   observacion: z.string({
     invalid_type_error: 'observacion debe ser un texto',
   }),
-  estado: z
-    .string({ invalid_type_error: 'estado debe ser un texto' })
-    .length(1, 'estado debe tener exactamente 1 caracter'),
-  fecvenc: z
-    .string({ invalid_type_error: 'fecvenc debe ser un texto' })
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'fecvenc debe tener el formato YYYY-MM-DD'),
 });
 
 // Validación Zod del body del update del detalle (T3 + T7 con los 19
@@ -151,10 +146,10 @@ export class OrdenanzasController {
 
   /**
    * Alta de fila del detalle (ordenanzas-detalle-alta, @msquery=2 = INSERT
-   * en CAJA.DOrdenanzas). El body trae el formulario COMPLETO validado con
-   * CrearDetalleSchema; la estación viaja por header x-estacion (el SP la
-   * exige sin default) y el operador sale del usuario de sesión inyectado
-   * por el JwtAuthGuard.
+   * en CAJA.DOrdenanzas). El body trae el formulario validado con
+   * CrearDetalleSchema (estado/fecvenc NO son entrada: los fija el service);
+   * la estación viaja por header x-estacion (el SP la exige sin default) y
+   * el operador sale del usuario de sesión inyectado por el JwtAuthGuard.
    *
    * OJO rutas: `@Post('detalle')` (POST) no colisiona con `@Get('detalle')`
    * (distinto método) ni con `@Post()` (distinto path).

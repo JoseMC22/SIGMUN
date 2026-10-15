@@ -1,6 +1,6 @@
 import { ConflictException, Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
-import { toIsoDateParam } from '../../common/utils/date-utils';
+import { toIsoDateParam, toLimaIsoDate } from '../../common/utils/date-utils';
 import {
   EditarDetalleInput,
   OrdenanzaRow,
@@ -103,10 +103,11 @@ function mapDetalleRow(row: SpOrdenanzaDetalleRow): OrdenanzaDetalleRow {
 
 /**
  * Input del alta del detalle (ordenanzas-detalle-alta, @msquery=2 = INSERT
- * en CAJA.DOrdenanzas): formulario COMPLETO todo editable + `fecvenc`
- * (YYYY-MM-DD tal cual, varchar(10) ISO) + `estacion` por header x-estacion
- * (el SP la exige sin default). `idordenanza` NO va en el input: es
- * IDENTITY en el INSERT y viaja 0 (sin uso en la rama, como criterio 12 y
+ * en CAJA.DOrdenanzas): campos del formulario + `estacion` por header
+ * x-estacion (el SP la exige sin default). `estado` y `fecvenc` NO son
+ * entrada del cliente: el service los fija ('1' y el día calendario de
+ * Lima en YYYY-MM-DD). `idordenanza` tampoco va en el input: es IDENTITY en
+ * el INSERT y viaja 0 (sin uso en la rama, como criterio 12 y
  * descripcion/fdesde/fhasta '').
  */
 export interface CrearDetalleInput {
@@ -119,8 +120,6 @@ export interface CrearDetalleInput {
   mora: number;
   costoEmis: number;
   observacion: string;
-  estado: string;
-  fecvenc: string;
   estacion: string;
 }
 
@@ -302,8 +301,11 @@ export class OrdenanzasService {
    * Alta de fila del detalle (ordenanzas-detalle-alta, @msquery=2 = INSERT
    * en CAJA.DOrdenanzas con LOS 19 params sin default: criterio 12,
    * descripcion/fdesde/fhasta '', idordenanza 0 — sin uso en la rama, igual
-   * que el modo 8 — y `fecvenc` YYYY-MM-DD tal cual, varchar(10) ISO no
-   * ambiguo, el SP no lo normaliza).
+   * que el modo 8).
+   *
+   * `estado` es fijo `'1'` y `fecvenc` es el día calendario de Lima de hoy
+   * en YYYY-MM-DD (varchar(10) ISO no ambiguo, el SP no lo normaliza): el
+   * servidor es la autoridad, NO se toman del cliente.
    *
    * Anti-duplicidad (año, tipo_rec) dentro del master IGUAL que
    * `editarDetalle` pero SIN fila propia que excluir: verificación previa
@@ -318,7 +320,6 @@ export class OrdenanzasService {
     const tipoRec = trimChar(input.tipoRec);
     const tipo = trimChar(input.tipo);
     const observacion = trimChar(input.observacion);
-    const estado = trimChar(input.estado);
     const { data: filas } = await this.detalle(input.cidordenanza);
     const duplicada = filas.some(
       (f) => f.anno === anno && f.tipoRec === tipoRec,
@@ -347,8 +348,8 @@ export class OrdenanzasService {
         imp_reaj: input.impReaj,
         mora: input.mora,
         costo_emis: input.costoEmis,
-        estado,
-        fecvenc: input.fecvenc, // YYYY-MM-DD tal cual (varchar(10) ISO).
+        estado: '1', // Fijo: el alta nace activa (NO viene del cliente).
+        fecvenc: toLimaIsoDate(), // Hoy (día Lima) YYYY-MM-DD varchar(10) ISO.
         idordenanza: 0, // Sin uso en la rama (IDENTITY en el INSERT).
       });
 

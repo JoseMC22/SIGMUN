@@ -517,6 +517,19 @@ describe('OrdenanzasService', () => {
   // ── crearDetalle (@msquery=2 = INSERT detalle, ordenanzas-detalle-alta) ──
 
   describe('crearDetalle', () => {
+    // Reloj congelado (determinismo): estado y fecvenc los fija el SERVICE
+    // (dejan de ser entrada del cliente), así que el spec depende del "hoy
+    // Lima". 2026-10-15T12:00:00Z = 15 Oct 07:00 en Lima (UTC-5) → día
+    // 2026-10-15.
+    beforeEach(() => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2026-10-15T12:00:00Z'));
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
     const validInput = {
       cidordenanza: 2,
       anno: '2013',
@@ -527,12 +540,10 @@ describe('OrdenanzasService', () => {
       mora: 10.5,
       costoEmis: 2.5,
       observacion: '',
-      estado: '1',
-      fecvenc: '2013-09-30',
       estacion: 'PC-SISTEMAS',
     };
 
-    it('executes caja.sp_ordenanzas with msquery=2 sending ALL 19 params (fecvenc travels YYYY-MM-DD as-is, idordenanza 0)', async () => {
+    it('executes caja.sp_ordenanzas with msquery=2 sending ALL 19 params (estado fijo 1 y fecvenc = hoy Lima, idordenanza 0)', async () => {
       mockExecuteProcedure
         .mockResolvedValueOnce({ recordset: [] }) // validación modo 4: sin duplicados
         .mockResolvedValueOnce({ recordset: [] }); // modo 2
@@ -565,14 +576,14 @@ describe('OrdenanzasService', () => {
           imp_reaj: 0,
           mora: 10.5,
           costo_emis: 2.5,
-          estado: '1',
-          fecvenc: '2013-09-30', // YYYY-MM-DD tal cual (varchar(10) ISO).
+          estado: '1', // Fijo del servidor (NO viene del cliente).
+          fecvenc: '2026-10-15', // Hoy Lima YYYY-MM-DD (varchar(10) ISO).
           idordenanza: 0, // Sin uso en la rama (IDENTITY en el INSERT).
         },
       );
     });
 
-    it('trims the anno/tipo/tipoRec/observacion/estado char padding and keeps fecvenc as-is', async () => {
+    it('trims the anno/tipo/tipoRec char padding and fija estado 1 + fecvenc hoy Lima', async () => {
       mockExecuteProcedure
         .mockResolvedValueOnce({ recordset: [] }) // validación
         .mockResolvedValueOnce({ recordset: [] }); // modo 2
@@ -583,7 +594,6 @@ describe('OrdenanzasService', () => {
           anno: '2013 ',
           tipo: '02.01   ',
           tipoRec: '02.01   ',
-          estado: '1 ',
         },
         'ADMIN',
       );
@@ -596,8 +606,27 @@ describe('OrdenanzasService', () => {
           tipo: '02.01',
           tipo_rec: '02.01',
           estado: '1',
-          fecvenc: '2013-09-30',
+          fecvenc: '2026-10-15',
         }),
+      );
+    });
+
+    it('fija fecvenc al día calendario de Lima, no al día UTC (borde: en UTC ya es el día siguiente)', async () => {
+      // 2026-10-16T02:00:00Z = 15 Oct 21:00 en Lima (UTC-5): el día UTC ya
+      // es el 16, pero el día Lima es el 15. Falla si se usan getters UTC o
+      // locales del servidor en lugar de America/Lima.
+      jest.setSystemTime(new Date('2026-10-16T02:00:00Z'));
+
+      mockExecuteProcedure
+        .mockResolvedValueOnce({ recordset: [] }) // validación
+        .mockResolvedValueOnce({ recordset: [] }); // modo 2
+
+      await service.crearDetalle(validInput, 'ADMIN');
+
+      expect(mockExecuteProcedure).toHaveBeenNthCalledWith(
+        2,
+        'caja.sp_ordenanzas',
+        expect.objectContaining({ fecvenc: '2026-10-15' }),
       );
     });
 

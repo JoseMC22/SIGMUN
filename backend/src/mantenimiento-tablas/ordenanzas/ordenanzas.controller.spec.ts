@@ -346,9 +346,10 @@ describe('OrdenanzasController', () => {
 
   describe('POST /mantenimiento-tablas/ordenanzas/detalle', () => {
     // Body del alta detalle: master + anno YYYY + tipo/tipoRec + 4 montos
-    // ≥ 0 + observacion (string, admite '') + estado (1 char) + fecvenc
-    // YYYY-MM-DD. La estación viaja por header x-estacion (el SP la exige
-    // sin default); el operador sale de la sesión.
+    // ≥ 0 + observacion (string, admite ''). estado y fecvenc YA NO son
+    // entrada del cliente: el service los fija ('1' y hoy Lima). La estación
+    // viaja por header x-estacion (el SP la exige sin default); el operador
+    // sale de la sesión.
     const validBody = {
       cidordenanza: 2,
       anno: '2013',
@@ -359,8 +360,6 @@ describe('OrdenanzasController', () => {
       mora: 10.5,
       costoEmis: 2.5,
       observacion: '',
-      estado: '1',
-      fecvenc: '2013-09-30',
     };
 
     // req.user viene del JwtAuthGuard (patrón mantenimiento-vias).
@@ -386,24 +385,20 @@ describe('OrdenanzasController', () => {
       );
     });
 
-    it('should reject a malformed fecvenc (not YYYY-MM-DD) with BadRequestException without calling the service', async () => {
-      for (const fecvenc of ['30/09/2013', '2013-9-3', '2013/09/30', '']) {
-        await expect(
-          controller.crearDetalle({ ...validBody, fecvenc }, req as never),
-        ).rejects.toThrow(BadRequestException);
-      }
+    it('should ignore extra estado/fecvenc keys in the body (Zod strips them; the service is the authority)', async () => {
+      mockService.crearDetalle.mockResolvedValue({
+        message: 'Detalle de ordenanza registrado exitosamente',
+      });
 
-      expect(mockService.crearDetalle).not.toHaveBeenCalled();
-    });
+      await controller.crearDetalle(
+        { ...validBody, estado: '9', fecvenc: '1999-01-01' },
+        req as never,
+      );
 
-    it('should reject a long estado (not exactly 1 char) with BadRequestException without calling the service', async () => {
-      for (const estado of ['12', 'ACT', '']) {
-        await expect(
-          controller.crearDetalle({ ...validBody, estado }, req as never),
-        ).rejects.toThrow(BadRequestException);
-      }
-
-      expect(mockService.crearDetalle).not.toHaveBeenCalled();
+      expect(mockService.crearDetalle).toHaveBeenCalledWith(
+        { ...validBody, estacion: 'PC-SISTEMAS' },
+        'ADMIN',
+      );
     });
 
     it('should reject an invalid anno (not YYYY), empty tipo/tipoRec or negative amounts with BadRequestException without calling the service', async () => {

@@ -44,6 +44,23 @@ function buildYmdFromLimaWallDay(value: Date): string {
 }
 
 /**
+ * Día calendario (wall) de America/Lima (UTC-5, sin DST) en `YYYY-MM-DD`.
+ *
+ * A diferencia de `toIsoDateParam` (que devuelve `YYYYMMDD` para params
+ * smalldatetime, con su propio manejo de input sucio), este helper devuelve
+ * `YYYY-MM-DD` para el param `fecvenc` (varchar(10)): el SP no lo normaliza
+ * y lo inserta tal cual, así que se envía ya calculado en ISO no ambiguo.
+ * Reutiliza `limaDayFormat` para que el día sea el que ve el operador en
+ * Lima, sin depender del TZ del servidor.
+ */
+export function toLimaIsoDate(value: Date = new Date()): string {
+  const parts = limaDayFormat.formatToParts(value);
+  const get = (type: string): string =>
+    parts.find((p) => p.type === type)?.value ?? '';
+  return `${get('year')}-${get('month')}-${get('day')}`;
+}
+
+/**
  * Normalizes `value` to `YYYYMMDD` for SQL Server date params.
  * Idempotent: an already-normalized `YYYYMMDD` string is returned as-is.
  * Returns `''` for empty/invalid input and reports it via `onInvalid`
