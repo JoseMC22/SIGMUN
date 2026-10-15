@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   FileSearch,
   Search,
@@ -24,18 +24,25 @@ import {
 
 const toNum = (value: unknown) => (typeof value === "number" ? value : Number(value) || 0);
 
-const fmtMoney = (value: unknown) =>
+export const fmtMoney = (value: unknown) =>
   toNum(value).toLocaleString("es-PE", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
 
-const fmtDate = (iso: string | null | undefined) => {
+export const fmtDate = (iso: string | null | undefined) => {
   if (!iso) return "—";
   const fecha = iso.slice(0, 10);
   const [y, m, d] = fecha.split("-");
   return d && m && y ? `${d}/${m}/${y}` : "—";
 };
+
+// Datos que cada panel expone a la página para el exportador a PDF.
+export interface PanelExportData {
+  titulo: string;
+  cabecera: LiquidacionCabecera | null;
+  detalle: LiquidacionDetalleRow[];
+}
 
 type PanelState =
   | { kind: "idle" }
@@ -90,21 +97,29 @@ function CabeceraBlock({ cabecera, testId }: { cabecera: LiquidacionCabecera; te
         </span>
       </div>
       <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 px-3 py-2.5">
-        {fields.map((f) => (
-          <div key={f.label} className="min-w-0">
-            <dt className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">
-              {f.label}
-            </dt>
-            <dd
-              className={`truncate text-[11px] text-slate-700 ${
-                f.mono ? "font-mono" : ""
-              } ${f.label === "Monto" ? "font-semibold text-slate-800" : ""}`}
-              title={f.value}
-            >
-              {f.value}
-            </dd>
-          </div>
-        ))}
+        {fields.map((f) => {
+          // La Observación es una cadena larga tipo %*,*-delimitada sin
+          // espacios: ocupa las dos columnas del grid y quebra carácter a
+          // carácter en lugar de truncarse.
+          const isObservacion = f.label === "Observación";
+          return (
+            <div key={f.label} className={isObservacion ? "col-span-2" : "min-w-0"}>
+              <dt className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">
+                {f.label}
+              </dt>
+              <dd
+                className={`${
+                  isObservacion ? "break-all" : "truncate"
+                } text-[11px] text-slate-700 ${f.mono ? "font-mono" : ""} ${
+                  f.label === "Monto" ? "font-semibold text-slate-800" : ""
+                }`}
+                title={f.value}
+              >
+                {f.value}
+              </dd>
+            </div>
+          );
+        })}
       </dl>
     </div>
   );
@@ -216,13 +231,25 @@ function DetalleTable({ detalle }: { detalle: LiquidacionDetalleRow[] }) {
 interface ComparacionPanelProps {
   titulo: string;
   testIdPrefix: string;
+  /** Informa a la página qué datos tiene cargados (o null) para el exportador a PDF. */
+  onLoadedData?: (data: PanelExportData | null) => void;
 }
 
-export function ComparacionPanel({ titulo, testIdPrefix }: ComparacionPanelProps) {
+export function ComparacionPanel({ titulo, testIdPrefix, onLoadedData }: ComparacionPanelProps) {
   const [numero, setNumero] = useState("");
   const [state, setState] = useState<PanelState>({ kind: "idle" });
 
   const loading = state.kind === "loading";
+
+  useEffect(() => {
+    if (!onLoadedData) return;
+    onLoadedData(
+      state.kind === "cargada"
+        ? { titulo, cabecera: state.cabecera, detalle: state.detalle }
+        : null,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, titulo]);
 
   const handleBuscar = async () => {
     const trimmed = numero.trim();

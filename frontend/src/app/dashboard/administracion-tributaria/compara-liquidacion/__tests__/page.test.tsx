@@ -77,6 +77,12 @@ function panelB() {
   return within(screen.getByTestId("panel-b"));
 }
 
+// Observación larga real (cadena %*,*-delimitada sin espacios) para T7.
+const observacionLarga =
+  "0263958%*2025*%*02.30*,*02.01*,*00.16*,*02.01*,*02.01*,*02.01*%*00.00*,*00.00*,*0.00*,*0.00*%*FIN*";
+
+const cabeceraConObservacion = { ...cabeceraOk, observacion: observacionLarga };
+
 describe("ComparaLiquidacionPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -222,5 +228,33 @@ describe("ComparaLiquidacionPage", () => {
     // El panel A sigue mostrando su cabecera cargada.
     expect(within(screen.getByTestId("cabecera-a")).getByText("26-00000001")).toBeInTheDocument();
     expect(mockAction).toHaveBeenCalledTimes(2);
+  });
+
+  // ── T7: Observación completa ─────────────────────────────────
+
+  it("muestra la observación completa de la cabecera sin truncar", async () => {
+    mockAction.mockResolvedValueOnce({
+      success: true,
+      cabecera: cabeceraConObservacion,
+      detalle: detalleOk,
+    });
+
+    render(<ComparaLiquidacionPage />);
+
+    fireEvent.change(panelA().getByLabelText(/número de liquidación/i), {
+      target: { value: "26-00000001" },
+    });
+    fireEvent.click(panelA().getByRole("button", { name: /buscar/i }));
+
+    const header = await screen.findByTestId("cabecera-a");
+    // La cadena completa está en el DOM, sin cortes.
+    expect(within(header).getByText(observacionLarga)).toBeInTheDocument();
+
+    // Sin truncate; con break-all para que la cadena sin espacios quebre;
+    // el wrapper de Observación ocupa las dos columnas del grid.
+    const dd = within(header).getByText(observacionLarga);
+    expect(dd).not.toHaveClass("truncate");
+    expect(dd).toHaveClass("break-all");
+    expect(dd.closest("div")).toHaveClass("col-span-2");
   });
 });
