@@ -682,12 +682,8 @@ describe("OrdenanzaDetalleModal alta — botón Nuevo + refresh", () => {
     fireEvent.change(within(altaForm).getByLabelText(/costo emis/i), {
       target: { value: "0" },
     });
-    fireEvent.change(within(altaForm).getByLabelText(/estado/i), {
-      target: { value: "1" },
-    });
-    fireEvent.change(within(altaForm).getByLabelText(/vencimiento/i), {
-      target: { value: "2015-12-31" },
-    });
+    // estado y fecha de vencimiento ya NO son campos del alta: los fija el
+    // backend (1 y la fecha actual) y el modal los muestra solo lectura.
 
     // Guardar → POST al detalle + re-consulta del detalle.
     fireEvent.submit(altaForm);
@@ -708,9 +704,11 @@ describe("OrdenanzaDetalleModal alta — botón Nuevo + refresh", () => {
       anno: "2015",
       tipo: "02.03",
       tipoRec: "02.03",
-      estado: "1",
-      fecvenc: "2015-12-31",
     });
+    // estado/fecvenc ya no viajan en el body (autoridad del backend).
+    const postBody = JSON.parse((postInit.body as string) ?? "{}");
+    expect(postBody).not.toHaveProperty("estado");
+    expect(postBody).not.toHaveProperty("fecvenc");
 
     // Re-consulta: el GET se repite (caché invalidada) + feedback visible +
     // modal de alta cerrado.
