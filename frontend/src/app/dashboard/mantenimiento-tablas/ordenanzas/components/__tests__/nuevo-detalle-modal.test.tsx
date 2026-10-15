@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import NuevoDetalleModal from "../nuevo-detalle-modal";
 
@@ -39,7 +39,9 @@ function openModal(props = {}) {
   return { onClose, onSuccess };
 }
 
-// Completa el formulario válido (todo editable, sin defaults inventados).
+// Completa el formulario válido: anno, tipo, tipo_rec, 4 montos y
+// observación. estado y fecha de vencimiento YA NO son campos del cliente
+// (los fija el servidor), así que no se completan.
 function fillValidForm() {
   fireEvent.change(screen.getByLabelText(/año/i), {
     target: { value: "2013" },
@@ -65,12 +67,6 @@ function fillValidForm() {
   fireEvent.change(screen.getByLabelText(/observaci/i), {
     target: { value: "" },
   });
-  fireEvent.change(screen.getByLabelText(/estado/i), {
-    target: { value: "1" },
-  });
-  fireEvent.change(screen.getByLabelText(/vencimiento/i), {
-    target: { value: "2013-09-30" },
-  });
 }
 
 describe("NuevoDetalleModal", () => {
@@ -78,7 +74,17 @@ describe("NuevoDetalleModal", () => {
     vi.clearAllMocks();
   });
 
-  it("muestra el master fijo solo lectura y el formulario completo vacío", () => {
+  afterEach(() => {
+    // Algunos casos congelan el reloj para el "hoy" mostrado.
+    vi.useRealTimers();
+  });
+
+  it("muestra el master fijo y estado/vencimiento como solo lectura (sin inputs editables)", () => {
+    // Reloj congelado: el día mostrado se calcula en partes locales.
+    // 2026-10-15T12:00:00Z → 2026-10-15.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-15T12:00:00Z"));
+
     openModal();
 
     expect(
@@ -87,16 +93,25 @@ describe("NuevoDetalleModal", () => {
     // Master fijo por contexto (solo lectura, sin inputs editables).
     expect(screen.getByText(/#2\b/)).toBeInTheDocument();
     expect(screen.getByText(/pronto pago/i)).toBeInTheDocument();
-    // Formulario completo vacío: anno, tipo, tipo_rec, 4 montos,
-    // observacion, estado, fec_venc.
+    // Formulario: anno, tipo, tipo_rec y 4 montos editables (vacío).
     expect(screen.getByLabelText(/año/i)).toHaveValue("");
     expect(screen.getByLabelText(/^tipo \*$/i)).toHaveValue("");
     expect(screen.getByLabelText(/tipo rec/i)).toHaveValue("");
     expect(screen.getByLabelText(/imp\. insol/i)).toHaveValue(null);
-    expect(screen.getByLabelText(/vencimiento/i)).toHaveValue("");
+    // estado y fecha de vencimiento NO son inputs del cliente: no hay campo
+    // de vencimiento ni los ids de input; se muestran solo lectura.
+    expect(screen.queryByLabelText(/vencimiento/i)).toBeNull();
+    expect(document.getElementById("nuevo-detalle-estado")).toBeNull();
+    expect(document.getElementById("nuevo-detalle-fecvenc")).toBeNull();
+    expect(screen.getByTestId("nuevo-detalle-estado-fijo")).toHaveTextContent(
+      "1",
+    );
+    expect(screen.getByTestId("nuevo-detalle-fecvenc-fijo")).toHaveTextContent(
+      "2026-10-15",
+    );
   });
 
-  it("guarda vía POST al endpoint del detalle con el body completo y llama onSuccess sin auto-cerrar", async () => {
+  it("guarda vía POST al endpoint del detalle sin estado/fecvenc y llama onSuccess sin auto-cerrar", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
@@ -124,6 +139,19 @@ describe("NuevoDetalleModal", () => {
     expect(postCall).not.toHaveProperty("signal");
     expect(postCall.headers).toMatchObject({ "x-estacion": "" });
     const postBody = JSON.parse(postCall.body ?? "{}");
+    // estado y fecvenc NO viajan: el backend es la autoridad. Se afirma el
+    // set EXACTO de claves (no solo la ausencia de las dos).
+    expect(Object.keys(postBody).sort()).toEqual([
+      "anno",
+      "cidordenanza",
+      "costoEmis",
+      "impInsol",
+      "impReaj",
+      "mora",
+      "observacion",
+      "tipo",
+      "tipoRec",
+    ]);
     expect(postBody).toEqual({
       cidordenanza: 2,
       anno: "2013",
@@ -134,8 +162,6 @@ describe("NuevoDetalleModal", () => {
       mora: 10.5,
       costoEmis: 2.5,
       observacion: "",
-      estado: "1",
-      fecvenc: "2013-09-30",
     });
 
     // Al guardar: onSuccess (el padre invalida caché + re-consulta +
@@ -174,17 +200,17 @@ describe("NuevoDetalleModal", () => {
     expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
-  it("bloquea el submit con anno/estado/fecvenc inválidos o montos negativos sin llamar al backend", () => {
+  it("bloquea el submit con anno inválido, tipo/tipoRec vacíos o montos negativos sin llamar al backend", () => {
     openModal();
     fillValidForm();
 
     fireEvent.change(screen.getByLabelText(/año/i), {
       target: { value: "13" },
     });
-    fireEvent.change(screen.getByLabelText(/estado/i), {
-      target: { value: "12" },
+    fireEvent.change(screen.getByLabelText(/^tipo \*$/i), {
+      target: { value: "" },
     });
-    fireEvent.change(screen.getByLabelText(/vencimiento/i), {
+    fireEvent.change(screen.getByLabelText(/tipo rec/i), {
       target: { value: "" },
     });
     fireEvent.change(screen.getByLabelText(/mora/i), {
@@ -196,11 +222,10 @@ describe("NuevoDetalleModal", () => {
     );
 
     expect(screen.getByText(/formato yyyy/i)).toBeInTheDocument();
-    expect(screen.getByText(/exactamente 1 caracter/i)).toBeInTheDocument();
-    // jsdom sanitiza input[type=date]: un valor no-ISO ("30/09/2013")
-    // queda en "" → el error honesto es "obligatoria" (la rama de formato
-    // YYYY-MM-DD es defensiva; el 400 malformado se cubre en el controller).
-    expect(screen.getByText(/vencimiento es obligatoria/i)).toBeInTheDocument();
+    expect(screen.getByText(/^el tipo es obligatorio$/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/tipo de recurso es obligatorio/i),
+    ).toBeInTheDocument();
     expect(screen.getByText(/mayor o igual a 0/i)).toBeInTheDocument();
     expect(mockFetch).not.toHaveBeenCalled();
   });

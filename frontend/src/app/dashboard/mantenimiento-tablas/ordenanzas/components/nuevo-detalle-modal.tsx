@@ -21,8 +21,9 @@ interface Props {
 }
 
 // Validación inline espejo del Zod del POST (previa al POST; el backend
-// re-valida): anno YYYY, tipo/tipoRec min 1, 4 montos ≥ 0, estado
-// exactamente 1 char, fecvenc YYYY-MM-DD. observacion admite '' legítimo.
+// re-valida): anno YYYY, tipo/tipoRec min 1 y 4 montos ≥ 0. observacion
+// admite '' legítimo. estado y fecvenc NO se validan: no son entrada del
+// cliente (los fija el servidor) y se muestran solo lectura.
 interface FormErrors {
   anno?: string;
   tipo?: string;
@@ -31,16 +32,24 @@ interface FormErrors {
   impReaj?: string;
   mora?: string;
   costoEmis?: string;
-  estado?: string;
-  fecvenc?: string;
+}
+
+// "Hoy" en el reloj local del cliente (YYYY-MM-DD), solo informativo: el
+// backend es la autoridad y recalcula el día calendario de Lima.
+function hoyLocalIso(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 // Contrato del POST /api/mantenimiento-tablas/ordenanzas/detalle
-// (ordenanzas-detalle-alta, @msquery=2 = INSERT): formulario COMPLETO
-// { cidordenanza (fijo por contexto), anno YYYY, tipo, tipoRec,
-// impInsol, impReaj, mora, costoEmis, observacion, estado (1 char),
-// fecvenc YYYY-MM-DD tal cual }. estacion viaja por header x-estacion y
-// se resuelve desde la sesión del cliente (patrón editar-detalle-modal).
+// (ordenanzas-detalle-alta, @msquery=2 = INSERT): { cidordenanza (fijo por
+// contexto), anno YYYY, tipo, tipoRec, impInsol, impReaj, mora, costoEmis,
+// observacion }. estado y fecvenc NO viajan: el backend los fija ('1' y el
+// día calendario de Lima). estacion viaja por header x-estacion y se
+// resuelve desde la sesión del cliente (patrón editar-detalle-modal).
 export default function NuevoDetalleModal({
   isOpen,
   onClose,
@@ -55,8 +64,6 @@ export default function NuevoDetalleModal({
   const [mora, setMora] = useState("");
   const [costoEmis, setCostoEmis] = useState("");
   const [observacion, setObservacion] = useState("");
-  const [estado, setEstado] = useState("");
-  const [fecvenc, setFecvenc] = useState("");
   const [errors, setErrors] = useState<FormErrors>({});
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -80,8 +87,6 @@ export default function NuevoDetalleModal({
     setMora("");
     setCostoEmis("");
     setObservacion("");
-    setEstado("");
-    setFecvenc("");
     setErrors({});
     setError(null);
     setSaving(false);
@@ -130,14 +135,6 @@ export default function NuevoDetalleModal({
       errs.mora = "Debe ser un número mayor o igual a 0";
     if (validateMonto(costoEmis) === null)
       errs.costoEmis = "Debe ser un número mayor o igual a 0";
-    if (estado.trim().length !== 1) {
-      errs.estado = "El estado debe tener exactamente 1 caracter";
-    }
-    if (!fecvenc) {
-      errs.fecvenc = "La fecha de vencimiento es obligatoria";
-    } else if (!/^\d{4}-\d{2}-\d{2}$/.test(fecvenc)) {
-      errs.fecvenc = "La fecha debe tener el formato YYYY-MM-DD";
-    }
     return errs;
   };
 
@@ -171,8 +168,6 @@ export default function NuevoDetalleModal({
           mora: Number(mora),
           costoEmis: Number(costoEmis),
           observacion,
-          estado: estado.trim(),
-          fecvenc,
         }),
       });
 
@@ -422,49 +417,30 @@ export default function NuevoDetalleModal({
             />
           </div>
 
-          {/* Estado + fecha de vencimiento */}
+          {/* Estado + fecha de vencimiento: fijos por el servidor, solo
+              lectura informativa (no son campos del cliente). */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label
-                htmlFor="nuevo-detalle-estado"
-                className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1"
+              <span className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                Estado
+              </span>
+              <div
+                data-testid="nuevo-detalle-estado-fijo"
+                className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] font-mono tabular-nums text-slate-500"
               >
-                Estado *
-              </label>
-              <input
-                id="nuevo-detalle-estado"
-                type="text"
-                value={estado}
-                onChange={(e) => setEstado(e.target.value)}
-                placeholder="Ej: 1"
-                maxLength={1}
-                className={`${inputClass(errors.estado)} font-mono tabular-nums`}
-              />
-              {errors.estado && (
-                <p className="mt-1 text-[10px] font-medium text-red-500">
-                  {errors.estado}
-                </p>
-              )}
+                1
+              </div>
             </div>
             <div>
-              <label
-                htmlFor="nuevo-detalle-fecvenc"
-                className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1"
+              <span className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                Fecha de vencimiento
+              </span>
+              <div
+                data-testid="nuevo-detalle-fecvenc-fijo"
+                className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] font-mono tabular-nums text-slate-500"
               >
-                Fecha de vencimiento *
-              </label>
-              <input
-                id="nuevo-detalle-fecvenc"
-                type="date"
-                value={fecvenc}
-                onChange={(e) => setFecvenc(e.target.value)}
-                className={`${inputClass(errors.fecvenc)} font-mono tabular-nums`}
-              />
-              {errors.fecvenc && (
-                <p className="mt-1 text-[10px] font-medium text-red-500">
-                  {errors.fecvenc}
-                </p>
-              )}
+                {hoyLocalIso()}
+              </div>
             </div>
           </div>
 
