@@ -142,6 +142,11 @@ describe("EditarDetalleModal", () => {
 
     const { onSuccess, onClose } = openModal();
 
+    // T8: el submit pristine ya no llama al backend — se ensucia el form.
+    fireEvent.change(screen.getByLabelText(/mora/i), {
+      target: { value: "12.75" },
+    });
+
     fireEvent.submit(
       screen.getByRole("button", { name: /^guardar$/i }).closest("form")!,
     );
@@ -174,5 +179,37 @@ describe("EditarDetalleModal", () => {
     expect(screen.getByText(/formato yyyy/i)).toBeInTheDocument();
     expect(screen.getByText(/mayor o igual a 0/i)).toBeInTheDocument();
     expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("cierra sin llamar al backend cuando no hubo cambios (Guardar deshabilitado)", () => {
+    const { onSuccess, onClose } = openModal();
+
+    // Pristine: Guardar deshabilitado con pista.
+    const guardar = screen.getByRole("button", { name: /^guardar$/i });
+    expect(guardar).toBeDisabled();
+    expect(guardar).toHaveAttribute("title", "Sin cambios para guardar");
+
+    // El submit intacto (p.ej. Enter) no hace PATCH: cierra en silencio.
+    fireEvent.submit(guardar.closest("form")!);
+
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onSuccess).not.toHaveBeenCalled();
+
+    // "46.20" equivale a 46.2 (comparación numérica, no de texto)...
+    fireEvent.change(screen.getByLabelText(/imp\. insol/i), {
+      target: { value: "46.20" },
+    });
+    expect(
+      screen.getByRole("button", { name: /^guardar$/i }),
+    ).toBeDisabled();
+
+    // ...pero un cambio real habilita Guardar.
+    fireEvent.change(screen.getByLabelText(/mora/i), {
+      target: { value: "12.75" },
+    });
+    expect(
+      screen.getByRole("button", { name: /^guardar$/i }),
+    ).not.toBeDisabled();
   });
 });

@@ -74,6 +74,14 @@ const CRITERIO_FIJO = 12;
 
   if (!isOpen || !ordenanza) return null;
 
+  // T8: sin cambios no hay PATCH — el formulario se compara con la fila
+  // pre-cargada (trim). El criterio es fijo en 12 en ambos lados.
+  const sinCambios =
+    descripcion.trim() === ordenanza.descripcion.trim() &&
+    fdesde === ordenanza.fec_desde.slice(0, 10) &&
+    fhasta === ordenanza.fec_hasta.slice(0, 10) &&
+    observacion.trim() === ordenanza.observacion.trim();
+
   const validate = (): FormErrors => {
     const errs: FormErrors = {};
     if (!descripcion.trim()) {
@@ -96,6 +104,12 @@ const CRITERIO_FIJO = 12;
     setErrors(errs);
     setError(null);
     if (Object.keys(errs).length > 0) return;
+
+    // T8: formulario intacto → se cierra sin llamar al backend.
+    if (sinCambios) {
+      onClose();
+      return;
+    }
 
     setSaving(true);
     try {
@@ -290,7 +304,8 @@ const CRITERIO_FIJO = 12;
             </button>
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || sinCambios}
+              title={sinCambios ? "Sin cambios para guardar" : undefined}
               className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-4 py-1.5 text-xs font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 disabled:opacity-50"
             >
               {saving && <Loader2 size={12} className="animate-spin" />}

@@ -554,7 +554,16 @@ describe("OrdenanzaDetalleModal T4 — editar detalle por fila", () => {
     // GET inicial = 1 llamada.
     expect(mockFetch).toHaveBeenCalledTimes(1);
 
-    // Guardar sin cambios → PATCH a la PK + re-consulta del detalle.
+    // T8: el submit pristine ya no llama al backend — se ensucia un monto
+    // (scoped al form de edición: la grilla detrás también dice "Mora").
+    const editForm = screen
+      .getByRole("button", { name: /^guardar$/i })
+      .closest("form")!;
+    fireEvent.change(within(editForm).getByLabelText(/mora/i), {
+      target: { value: "6" },
+    });
+
+    // Guardar con cambios → PATCH a la PK + re-consulta del detalle.
     fireEvent.submit(
       screen.getByRole("button", { name: /^guardar$/i }).closest("form")!,
     );

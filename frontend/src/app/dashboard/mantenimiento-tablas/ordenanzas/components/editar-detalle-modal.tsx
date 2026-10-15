@@ -87,6 +87,19 @@ export default function EditarDetalleModal({
 
   if (!isOpen || !detalle) return null;
 
+  // T8: sin cambios no hay PATCH — el formulario se compara con la fila
+  // pre-cargada. Montos por valor numérico ("46.20" ≡ 46.2); un campo
+  // vaciado cuenta como cambio para que la validación hable, no el silencio.
+  const mismoMonto = (raw: string, actual: number) =>
+    raw.trim() !== "" && Number(raw) === actual;
+  const sinCambios =
+    anno.trim() === detalle.anno.trim() &&
+    tipoRec.trim() === detalle.tipoRec.trim() &&
+    mismoMonto(impInsol, detalle.impInsol) &&
+    mismoMonto(impReaj, detalle.impReaj) &&
+    mismoMonto(mora, detalle.mora) &&
+    mismoMonto(costoEmis, detalle.costoEmis);
+
   const validateMonto = (raw: string): number | null => {
     if (raw.trim() === "") return null;
     const n = Number(raw);
@@ -122,6 +135,12 @@ export default function EditarDetalleModal({
     setErrors(errs);
     setError(null);
     if (Object.keys(errs).length > 0) return;
+
+    // T8: formulario intacto → se cierra sin llamar al backend.
+    if (sinCambios) {
+      onClose();
+      return;
+    }
 
     setSaving(true);
     try {
@@ -370,7 +389,8 @@ export default function EditarDetalleModal({
             </button>
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || sinCambios}
+              title={sinCambios ? "Sin cambios para guardar" : undefined}
               className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-4 py-1.5 text-xs font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 disabled:opacity-50"
             >
               {saving && <Loader2 size={12} className="animate-spin" />}
