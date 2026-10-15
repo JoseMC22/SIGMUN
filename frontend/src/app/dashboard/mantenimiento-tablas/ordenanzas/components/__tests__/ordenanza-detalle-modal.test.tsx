@@ -496,10 +496,10 @@ describe("OrdenanzaDetalleModal T3 — exportar y fetch robusto", () => {
 
 describe("OrdenanzaDetalleModal T4 — editar detalle por fila", () => {
   // Filas con las llaves T3 del GET (idDetalle = PK del detalle para el
-  // WHERE del modo 8, cidordenanza = master).
+  // WHERE del modo 8, cidordenanza = master) + las 3 preservadas T7.
   const keyedRows = [
-    { idDetalle: 9, cidordenanza: 7, ...rows[0] },
-    { idDetalle: 10, cidordenanza: 7, ...rows[1] },
+    { idDetalle: 9, cidordenanza: 7, ...rows[0], tipo: "02.01", observacion: "", estado: "1" },
+    { idDetalle: 10, cidordenanza: 7, ...rows[1], tipo: "02.02", observacion: "", estado: "1" },
   ];
 
   beforeEach(() => {
@@ -574,6 +574,10 @@ describe("OrdenanzaDetalleModal T4 — editar detalle por fila", () => {
     expect(JSON.parse((patchInit.body as string) ?? "{}")).toMatchObject({
       cidordenanza: 7,
       anno: "2013",
+      // Preservados T7: viajan tal cual desde la fila, sin inputs visibles.
+      tipo: "02.01",
+      observacion: "",
+      estado: "1",
     });
 
     // Re-consulta: el GET se repite (caché invalidada) + feedback visible +

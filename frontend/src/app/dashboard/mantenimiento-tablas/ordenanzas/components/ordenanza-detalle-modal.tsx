@@ -22,7 +22,9 @@ interface Props {
 // CAJA.TIPO_INGRESOS_DET y `WHERE CIDORDENANZA = @idordenanza`: el SP ya
 // filtra server-side (volumen real: idordenanza=1 → 115 filas; 2 → 5) y el
 // modal solo renderiza las columnas nuevas. idDetalle = PK del detalle
-// (WHERE del modo 8), cidordenanza = master de la fila.
+// (WHERE del modo 8), cidordenanza = master de la fila. T7: tipo/
+// observacion/estado preservados del GET (el modal de edición los devuelve
+// tal cual, NO editables, sin columnas visibles nuevas).
 interface OrdenanzaDetalleRow {
   idDetalle: number;
   cidordenanza: number;
@@ -33,6 +35,9 @@ interface OrdenanzaDetalleRow {
   impReaj: number;
   mora: number;
   costoEmis: number;
+  tipo: string;
+  observacion: string;
+  estado: string;
 }
 
 // Paginación en memoria DENTRO del modal (T10): 10 por página client-side

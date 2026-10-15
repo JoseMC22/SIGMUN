@@ -11,6 +11,8 @@ interface Props {
   onSuccess: () => void;
   // Fila del detalle seleccionada en la grilla (el modal pre-carga sus
   // valores editables). idDetalle = PK del detalle (WHERE del modo 8).
+  // T7: tipo/observacion/estado preservados (NO editables, sin inputs
+  // visibles: viajan tal cual en el PATCH para que el modo 8 no los pise).
   detalle: {
     idDetalle: number;
     cidordenanza: number;
@@ -21,6 +23,9 @@ interface Props {
     impReaj: number;
     mora: number;
     costoEmis: number;
+    tipo: string;
+    observacion: string;
+    estado: string;
   } | null;
 }
 
@@ -34,11 +39,13 @@ interface FormErrors {
   costoEmis?: string;
 }
 
-// Contrato del PATCH /api/mantenimiento-tablas/ordenanzas/detalle/:id (T3):
-// { cidordenanza, anno YYYY, tipoRec, impInsol, impReaj, mora, costoEmis }.
-// El backend llama caja.sp_ordenanzas @msquery=8 (UPDATE del detalle, NO
-// toca tipo/observacion/estado). estacion viaja por header x-estacion y se
-// resuelve desde la sesión del cliente (patrón editar-ordenanza-modal).
+// Contrato del PATCH /api/mantenimiento-tablas/ordenanzas/detalle/:id
+// (T3 + T7 con los 19 params): { cidordenanza, anno YYYY, tipoRec,
+// impInsol, impReaj, mora, costoEmis } editables + { tipo, observacion,
+// estado } PRESERVADOS desde la fila (NO editables, sin inputs visibles).
+// El backend llama caja.sp_ordenanzas @msquery=8 (UPDATE del detalle).
+// estacion viaja por header x-estacion y se resuelve desde la sesión del
+// cliente (patrón editar-ordenanza-modal).
 export default function EditarDetalleModal({
   isOpen,
   onClose,
@@ -137,6 +144,11 @@ export default function EditarDetalleModal({
             impReaj: Number(impReaj),
             mora: Number(mora),
             costoEmis: Number(costoEmis),
+            // Preservados T7: desde la fila, tal cual (NO editables, sin
+            // inputs visibles) para que el modo 8 no los pise en blanco.
+            tipo: detalle.tipo,
+            observacion: detalle.observacion,
+            estado: detalle.estado,
           }),
         },
       );

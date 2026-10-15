@@ -21,7 +21,9 @@ const mockFetch = vi.fn();
 global.fetch = mockFetch;
 
 // Fila del detalle tal como la entrega el GET con llaves T3 (idDetalle =
-// PK del detalle para el WHERE del modo 8, cidordenanza = master).
+// PK del detalle para el WHERE del modo 8, cidordenanza = master) + las 3
+// preservadas T7 (tipo/observacion/estado: el front las devuelve tal cual,
+// no editables).
 const detalle = {
   idDetalle: 9,
   cidordenanza: 2,
@@ -32,6 +34,9 @@ const detalle = {
   impReaj: 0,
   mora: 10.5,
   costoEmis: 2.5,
+  tipo: "02.01",
+  observacion: "",
+  estado: "1",
 };
 
 function openModal(props = {}) {
@@ -112,6 +117,10 @@ describe("EditarDetalleModal", () => {
       impReaj: 0,
       mora: 12.75,
       costoEmis: 2.5,
+      // Preservados T7: viajan tal cual desde la fila, sin inputs visibles.
+      tipo: "02.01",
+      observacion: "",
+      estado: "1",
     });
 
     // Al guardar: onSuccess (el padre invalida caché + re-consulta +
