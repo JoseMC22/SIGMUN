@@ -600,3 +600,126 @@ describe("OrdenanzaDetalleModal T4 — editar detalle por fila", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+describe("OrdenanzaDetalleModal alta — botón Nuevo + refresh", () => {
+  // Filas con las llaves T3 del GET (idDetalle = PK del detalle para el
+  // WHERE del modo 8, cidordenanza = master) + las 3 preservadas T7.
+  const keyedRows = [
+    { idDetalle: 9, cidordenanza: 7, ...rows[0], tipo: "02.01", observacion: "", estado: "1" },
+    { idDetalle: 10, cidordenanza: 7, ...rows[1], tipo: "02.02", observacion: "", estado: "1" },
+  ];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFetch.mockImplementation((url: unknown, init?: RequestInit) => {
+      if (
+        typeof url === "string" &&
+        url === "/api/mantenimiento-tablas/ordenanzas/detalle" &&
+        init?.method === "POST"
+      ) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            message: "Detalle de ordenanza registrado exitosamente",
+          }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: keyedRows }),
+      });
+    });
+  });
+
+  it("muestra un botón Nuevo que abre el modal de alta con el master fijo solo lectura", async () => {
+    openModal();
+    await screen.findByTestId("detalle-table");
+
+    fireEvent.click(screen.getByRole("button", { name: /^nuevo$/i }));
+
+    // Modal de alta con el master fijo por contexto (solo lectura).
+    expect(
+      await screen.findByRole("heading", { name: /nuevo detalle/i }),
+    ).toBeInTheDocument();
+    // Línea exacta del master en el alta (el header del padre trae
+    // "#7 · Criterio 1 · Pronto Pago": no colisiona por el segmento medio).
+    expect(screen.getByText("#7 · Pronto Pago")).toBeInTheDocument();
+  });
+
+  it("al guardar invalida la caché T3 del master, re-consulta y muestra feedback", async () => {
+    openModal();
+    await screen.findByTestId("detalle-table");
+
+    // GET inicial = 1 llamada.
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("button", { name: /^nuevo$/i }));
+    await screen.findByRole("heading", { name: /nuevo detalle/i });
+
+    // Alta con formulario completo (scoped al form de alta: la grilla
+    // detrás también dice "Mora").
+    const altaForm = screen
+      .getByRole("button", { name: /^guardar$/i })
+      .closest("form")!;
+    fireEvent.change(within(altaForm).getByLabelText(/año/i), {
+      target: { value: "2015" },
+    });
+    fireEvent.change(within(altaForm).getByLabelText(/^tipo \*$/i), {
+      target: { value: "02.03" },
+    });
+    fireEvent.change(within(altaForm).getByLabelText(/tipo rec/i), {
+      target: { value: "02.03" },
+    });
+    fireEvent.change(within(altaForm).getByLabelText(/imp\. insol/i), {
+      target: { value: "10" },
+    });
+    fireEvent.change(within(altaForm).getByLabelText(/imp\. reaj/i), {
+      target: { value: "0" },
+    });
+    fireEvent.change(within(altaForm).getByLabelText(/mora/i), {
+      target: { value: "0" },
+    });
+    fireEvent.change(within(altaForm).getByLabelText(/costo emis/i), {
+      target: { value: "0" },
+    });
+    fireEvent.change(within(altaForm).getByLabelText(/estado/i), {
+      target: { value: "1" },
+    });
+    fireEvent.change(within(altaForm).getByLabelText(/vencimiento/i), {
+      target: { value: "2015-12-31" },
+    });
+
+    // Guardar → POST al detalle + re-consulta del detalle.
+    fireEvent.submit(altaForm);
+
+    await waitFor(() => {
+      const postCalls = mockFetch.mock.calls.filter(
+        ([, init]) => (init as RequestInit | undefined)?.method === "POST",
+      );
+      expect(postCalls).toHaveLength(1);
+    });
+    const [postUrl, postInit] = mockFetch.mock.calls.find(
+      ([, init]) => (init as RequestInit | undefined)?.method === "POST",
+    ) as [string, RequestInit];
+    expect(postUrl).toBe("/api/mantenimiento-tablas/ordenanzas/detalle");
+    expect(postInit).not.toHaveProperty("signal");
+    expect(JSON.parse((postInit.body as string) ?? "{}")).toMatchObject({
+      cidordenanza: 7,
+      anno: "2015",
+      tipo: "02.03",
+      tipoRec: "02.03",
+      estado: "1",
+      fecvenc: "2015-12-31",
+    });
+
+    // Re-consulta: el GET se repite (caché invalidada) + feedback visible +
+    // modal de alta cerrado.
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(3));
+    expect(
+      await screen.findByTestId("detalle-created-feedback"),
+    ).toHaveTextContent(/registrado exitosamente/i);
+    expect(
+      screen.queryByRole("heading", { name: /nuevo detalle/i }),
+    ).not.toBeInTheDocument();
+  });
+});

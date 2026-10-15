@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertCircle, ChevronLeft, ChevronRight, Download, Pencil, RotateCcw, SearchX, X } from "lucide-react";
+import { AlertCircle, ChevronLeft, ChevronRight, Download, Pencil, Plus, RotateCcw, SearchX, X } from "lucide-react";
 import { useModalStack, isTopModal } from "@/hooks/use-modal-topmost";
 import EditarDetalleModal from "./editar-detalle-modal";
+import NuevoDetalleModal from "./nuevo-detalle-modal";
 
 interface Props {
   isOpen: boolean;
@@ -114,6 +115,10 @@ export default function OrdenanzaDetalleModal({
   // + feedback sutil de guardado exitoso (patrón page.tsx).
   const [editingRow, setEditingRow] = useState<OrdenanzaDetalleRow | null>(null);
   const [savedFeedback, setSavedFeedback] = useState(false);
+  // Alta de fila del detalle (ordenanzas-detalle-alta): apertura del modal
+  // hijo de alta + feedback propio de registro exitoso.
+  const [nuevoOpen, setNuevoOpen] = useState(false);
+  const [createdFeedback, setCreatedFeedback] = useState(false);
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const toggleSort = (key: MontoKey) => {
@@ -219,6 +224,19 @@ export default function OrdenanzaDetalleModal({
     setSavedFeedback(true);
     if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
     feedbackTimer.current = setTimeout(() => setSavedFeedback(false), 4000);
+    cacheRef.current.delete(ordenanza.idordenanza);
+    loadDetalle(ordenanza.idordenanza);
+  }, [ordenanza, loadDetalle]);
+
+  // Éxito del modal de alta del detalle (ordenanzas-detalle-alta): mismo
+  // patrón que la edición (el hijo NO se auto-cierra: el padre cierra +
+  // feedback propio + invalida la caché T3 del master + re-consulta).
+  const handleNuevoDetalleSaved = useCallback(() => {
+    if (!ordenanza) return;
+    setNuevoOpen(false);
+    setCreatedFeedback(true);
+    if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
+    feedbackTimer.current = setTimeout(() => setCreatedFeedback(false), 4000);
     cacheRef.current.delete(ordenanza.idordenanza);
     loadDetalle(ordenanza.idordenanza);
   }, [ordenanza, loadDetalle]);
@@ -358,6 +376,18 @@ export default function OrdenanzaDetalleModal({
             >
               <span className="text-xs font-medium text-emerald-700">
                 Detalle de ordenanza actualizado exitosamente
+              </span>
+            </div>
+          )}
+          {/* Feedback sutil de alta exitosa (ordenanzas-detalle-alta,
+              mismo patrón que la edición con mensaje propio). */}
+          {createdFeedback && (
+            <div
+              data-testid="detalle-created-feedback"
+              className="mb-3 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2"
+            >
+              <span className="text-xs font-medium text-emerald-700">
+                Detalle de ordenanza registrado exitosamente
               </span>
             </div>
           )}
@@ -679,6 +709,19 @@ export default function OrdenanzaDetalleModal({
           )}
 
           <div className="flex items-center gap-2">
+            {/* Alta de fila del detalle (ordenanzas-detalle-alta): acción
+                primaria del footer junto a Exportar/Cerrar (no en la barra
+                de filtros, zona densa de control); visible también con el
+                detalle vacío, cuando el alta más se necesita. */}
+            <button
+              type="button"
+              onClick={() => setNuevoOpen(true)}
+              disabled={loading}
+              className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-4 py-1.5 text-xs font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Plus size={13} />
+              Nuevo
+            </button>
             <button
               type="button"
               onClick={exportDetalle}
@@ -707,6 +750,24 @@ export default function OrdenanzaDetalleModal({
         detalle={editingRow}
         onClose={() => setEditingRow(null)}
         onSuccess={handleEditarDetalleSaved}
+      />
+
+      {/* Modal hijo de alta del detalle (ordenanzas-detalle-alta): master
+          fijo por contexto (solo lectura) + al guardar invalida la caché
+          T3 del master + re-consulta + feedback (sin auto-cerrar en el
+          hijo: el padre cierra). */}
+      <NuevoDetalleModal
+        isOpen={nuevoOpen}
+        master={
+          ordenanza
+            ? {
+                cidordenanza: ordenanza.idordenanza,
+                descripcion: ordenanza.descripcion,
+              }
+            : null
+        }
+        onClose={() => setNuevoOpen(false)}
+        onSuccess={handleNuevoDetalleSaved}
       />
     </div>
   );
