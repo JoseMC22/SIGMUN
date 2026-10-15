@@ -17,6 +17,7 @@ import { MantenimientoViasModule } from './administracion-tributaria/mantenimien
 import { DeclaracionJuradaModule } from './administracion-tributaria/declaracion-jurada/declaracion-jurada.module';
 import { MaestroContribuyentesModule } from './administracion-tributaria/maestro-contribuyentes/maestro-contribuyentes.module';
 import { PrediosContribuyentesModule } from './administracion-tributaria/predios-contribuyentes/predios-contribuyentes.module';
+import { ComparaLiquidacionModule } from './administracion-tributaria/compara-liquidacion/compara-liquidacion.module';
 import { ContribuyentesSinValoresModule } from './cobranza/contribuyentes-sin-valores/contribuyentes-sin-valores.module';
 import { ReporteConstanciaNoAdeudoModule } from './cobranza/reporte-constancia-no-adeudo/reporte-constancia-no-adeudo.module';
 import { ReporteFraccCuotasImpagasModule } from './cobranza/reporte-fracc-cuotas-impagas/reporte-fracc-cuotas-impagas.module';
@@ -76,6 +77,8 @@ import { StorageModule } from './storage/storage.module';
     MaestroContribuyentesModule,
     // Módulo de administración tributaria - predios por contribuyente
     PrediosContribuyentesModule,
+    // Módulo de administración tributaria - comparativo de liquidaciones
+    ComparaLiquidacionModule,
     // Módulo de cobranza - contribuyentes sin valores tributarios
     ContribuyentesSinValoresModule,
     // Módulo de cobranza - reporte de constancias de no adeudo
