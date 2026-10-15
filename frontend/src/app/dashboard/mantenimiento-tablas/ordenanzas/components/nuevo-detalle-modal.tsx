@@ -21,11 +21,13 @@ interface Props {
 }
 
 // Validación inline espejo del Zod del POST (previa al POST; el backend
-// re-valida): anno YYYY, tipo/tipoRec min 1 y 4 montos ≥ 0. observacion
-// admite '' legítimo. estado y fecvenc NO se validan: no son entrada del
-// cliente (los fija el servidor) y se muestran solo lectura.
+// re-valida): rango de años (annoDesde/annoHasta YYYY, desde ≤ hasta, tope
+// de 100 años), tipo/tipoRec min 1 y 4 montos ≥ 0. observacion admite ''
+// legítimo. estado y fecvenc NO se validan: no son entrada del cliente
+// (los fija el servidor) y se muestran solo lectura.
 interface FormErrors {
-  anno?: string;
+  annoDesde?: string;
+  annoHasta?: string;
   tipo?: string;
   tipoRec?: string;
   impInsol?: string;
@@ -45,18 +47,21 @@ function hoyLocalIso(): string {
 }
 
 // Contrato del POST /api/mantenimiento-tablas/ordenanzas/detalle
-// (ordenanzas-detalle-alta, @msquery=2 = INSERT): { cidordenanza (fijo por
-// contexto), anno YYYY, tipo, tipoRec, impInsol, impReaj, mora, costoEmis,
-// observacion }. estado y fecvenc NO viajan: el backend los fija ('1' y el
-// día calendario de Lima). estacion viaja por header x-estacion y se
-// resuelve desde la sesión del cliente (patrón editar-detalle-modal).
+// (ordenanzas-detalle-rango-anios, @msquery=2 = INSERT): { cidordenanza
+// (fijo por contexto), annoDesde/annoHasta (RANGO YYYY), tipo, tipoRec,
+// impInsol, impReaj, mora, costoEmis, observacion }. El backend inserta una
+// fila por año del rango y responde { message, creados, salteados }. estado
+// y fecvenc NO viajan: el backend los fija ('1' y el día calendario de
+// Lima). estacion viaja por header x-estacion y se resuelve desde la
+// sesión del cliente (patrón editar-detalle-modal).
 export default function NuevoDetalleModal({
   isOpen,
   onClose,
   onSuccess,
   master,
 }: Props) {
-  const [anno, setAnno] = useState("");
+  const [annoDesde, setAnnoDesde] = useState("");
+  const [annoHasta, setAnnoHasta] = useState("");
   const [tipo, setTipo] = useState("");
   const [tipoRec, setTipoRec] = useState("");
   const [impInsol, setImpInsol] = useState("");
@@ -66,6 +71,10 @@ export default function NuevoDetalleModal({
   const [observacion, setObservacion] = useState("");
   const [errors, setErrors] = useState<FormErrors>({});
   const [error, setError] = useState<string | null>(null);
+  // Resultado con años salteados: el backend registró algunos años pero
+  // salteó otros (ya existían). Se muestra un banner y se espera a que el
+  // usuario confirme con "Listo" antes de llamar a onSuccess.
+  const [resultado, setResultado] = useState<{ message: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [estacion, setEstacion] = useState("");
 
@@ -79,7 +88,8 @@ export default function NuevoDetalleModal({
   // sesión lo trae, el hostname de sesión (éste último gana).
   useEffect(() => {
     if (!isOpen) return;
-    setAnno("");
+    setAnnoDesde("");
+    setAnnoHasta("");
     setTipo("");
     setTipoRec("");
     setImpInsol("");
@@ -89,6 +99,7 @@ export default function NuevoDetalleModal({
     setObservacion("");
     setErrors({});
     setError(null);
+    setResultado(null);
     setSaving(false);
     setEstacion("");
     const pcFromStorage = getPcName?.() ?? "";
@@ -118,8 +129,24 @@ export default function NuevoDetalleModal({
 
   const validate = (): FormErrors => {
     const errs: FormErrors = {};
-    if (!/^\d{4}$/.test(anno.trim())) {
-      errs.anno = "El año debe tener el formato YYYY";
+    const desdeValido = /^\d{4}$/.test(annoDesde.trim());
+    const hastaValido = /^\d{4}$/.test(annoHasta.trim());
+    if (!desdeValido) {
+      errs.annoDesde = "El año debe tener el formato YYYY";
+    }
+    if (!hastaValido) {
+      errs.annoHasta = "El año debe tener el formato YYYY";
+    }
+    // Solo compara cuando ambos tienen formato válido: si no, el error de
+    // formato ya cubre el caso.
+    if (desdeValido && hastaValido) {
+      const desde = Number(annoDesde.trim());
+      const hasta = Number(annoHasta.trim());
+      if (desde > hasta) {
+        errs.annoHasta = "El año desde no puede ser mayor que el año hasta";
+      } else if (hasta - desde > 99) {
+        errs.annoHasta = "El rango no puede superar los 100 años";
+      }
     }
     if (!tipo.trim()) {
       errs.tipo = "El tipo es obligatorio";
@@ -140,7 +167,9 @@ export default function NuevoDetalleModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (saving) return;
+    // No-op mientras se muestra el resultado con años salteados: el usuario
+    // debe confirmar con "Listo".
+    if (saving || resultado) return;
 
     const errs = validate();
     setErrors(errs);
@@ -160,7 +189,8 @@ export default function NuevoDetalleModal({
         },
         body: JSON.stringify({
           cidordenanza: master.cidordenanza,
-          anno: anno.trim(),
+          annoDesde: annoDesde.trim(),
+          annoHasta: annoHasta.trim(),
           tipo: tipo.trim(),
           tipoRec: tipoRec.trim(),
           impInsol: Number(impInsol),
@@ -173,7 +203,7 @@ export default function NuevoDetalleModal({
 
       if (!res.ok) {
         // 4xx del backend → mensaje del body (Zod/NestJS: message string o
-        // string[] de errores de validación; 409 duplicado (año, tipo_rec)
+        // string[] de errores de validación; 409 (todos los años existen)
         // incluido); sin body JSON → genérico.
         let msg = "Error al guardar el detalle";
         try {
@@ -189,6 +219,24 @@ export default function NuevoDetalleModal({
         }
         setError(msg);
         return;
+      }
+
+      // 2xx: el backend devuelve { message, creados, salteados }. Si salteó
+      // años, se reporta inline y se espera confirmación ("Listo"); sin
+      // salteados (o body no parseable) → comportamiento actual (onSuccess).
+      try {
+        const body = await res.json();
+        if (Array.isArray(body?.salteados) && body.salteados.length > 0) {
+          setResultado({
+            message:
+              typeof body.message === "string" && body.message.trim()
+                ? body.message
+                : "Se registraron los años nuevos.",
+          });
+          return;
+        }
+      } catch {
+        // Body no JSON pero 2xx: comportamiento actual.
       }
 
       onSuccess();
@@ -238,31 +286,64 @@ export default function NuevoDetalleModal({
             </div>
           )}
 
-          {/* Año + tipo + tipo de recurso */}
-          <div className="grid grid-cols-3 gap-3">
+          {resultado && (
+            <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+              <AlertCircle size={14} className="text-amber-500 shrink-0" />
+              <span className="text-xs text-amber-700">{resultado.message}</span>
+            </div>
+          )}
+
+          {/* Rango de años (desde/hasta): el backend inserta una fila por año. */}
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label
-                htmlFor="nuevo-detalle-anno"
+                htmlFor="nuevo-detalle-anno-desde"
                 className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1"
               >
-                Año *
+                Año desde *
               </label>
               <input
-                id="nuevo-detalle-anno"
+                id="nuevo-detalle-anno-desde"
                 type="text"
-                value={anno}
-                onChange={(e) => setAnno(e.target.value)}
+                value={annoDesde}
+                onChange={(e) => setAnnoDesde(e.target.value)}
                 placeholder="Ej: 2013"
                 maxLength={4}
-                className={`${inputClass(errors.anno)} font-mono tabular-nums`}
+                className={`${inputClass(errors.annoDesde)} font-mono tabular-nums`}
                 autoFocus
               />
-              {errors.anno && (
+              {errors.annoDesde && (
                 <p className="mt-1 text-[10px] font-medium text-red-500">
-                  {errors.anno}
+                  {errors.annoDesde}
                 </p>
               )}
             </div>
+            <div>
+              <label
+                htmlFor="nuevo-detalle-anno-hasta"
+                className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1"
+              >
+                Año hasta *
+              </label>
+              <input
+                id="nuevo-detalle-anno-hasta"
+                type="text"
+                value={annoHasta}
+                onChange={(e) => setAnnoHasta(e.target.value)}
+                placeholder="Ej: 2026"
+                maxLength={4}
+                className={`${inputClass(errors.annoHasta)} font-mono tabular-nums`}
+              />
+              {errors.annoHasta && (
+                <p className="mt-1 text-[10px] font-medium text-red-500">
+                  {errors.annoHasta}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Tipo + tipo de recurso */}
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label
                 htmlFor="nuevo-detalle-tipo"
@@ -446,21 +527,33 @@ export default function NuevoDetalleModal({
 
           {/* Footer */}
           <div className="flex items-center justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-md border border-slate-200 px-4 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-4 py-1.5 text-xs font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 disabled:opacity-50"
-            >
-              {saving && <Loader2 size={12} className="animate-spin" />}
-              {saving ? "Guardando..." : "Guardar"}
-            </button>
+            {resultado ? (
+              <button
+                type="button"
+                onClick={onSuccess}
+                className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-4 py-1.5 text-xs font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40"
+              >
+                Listo
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="rounded-md border border-slate-200 px-4 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-4 py-1.5 text-xs font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 disabled:opacity-50"
+                >
+                  {saving && <Loader2 size={12} className="animate-spin" />}
+                  {saving ? "Guardando..." : "Guardar"}
+                </button>
+              </>
+            )}
           </div>
         </form>
       </div>

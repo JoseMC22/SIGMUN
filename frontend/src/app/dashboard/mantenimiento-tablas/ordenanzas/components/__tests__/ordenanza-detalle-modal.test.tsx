@@ -661,8 +661,11 @@ describe("OrdenanzaDetalleModal alta — botón Nuevo + refresh", () => {
     const altaForm = screen
       .getByRole("button", { name: /^guardar$/i })
       .closest("form")!;
-    fireEvent.change(within(altaForm).getByLabelText(/año/i), {
+    fireEvent.change(within(altaForm).getByLabelText(/año desde/i), {
       target: { value: "2015" },
+    });
+    fireEvent.change(within(altaForm).getByLabelText(/año hasta/i), {
+      target: { value: "2016" },
     });
     fireEvent.change(within(altaForm).getByLabelText(/^tipo \*$/i), {
       target: { value: "02.03" },
@@ -701,7 +704,8 @@ describe("OrdenanzaDetalleModal alta — botón Nuevo + refresh", () => {
     expect(postInit).not.toHaveProperty("signal");
     expect(JSON.parse((postInit.body as string) ?? "{}")).toMatchObject({
       cidordenanza: 7,
-      anno: "2015",
+      annoDesde: "2015",
+      annoHasta: "2016",
       tipo: "02.03",
       tipoRec: "02.03",
     });
