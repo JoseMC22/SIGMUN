@@ -239,12 +239,13 @@ describe("OrdenanzaDetalleModal T2 — filtros", () => {
   });
 });
 
-describe("OrdenanzaDetalleModal T5 — orden por defecto", () => {
+describe("OrdenanzaDetalleModal — orden del SP por defecto (IDORDENANZA)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  // Datos desordenados a propósito: el SP no garantiza orden.
+  // Filas en el orden EXACTO en que las devuelve el SP (ORDER BY IDORDENANZA):
+  // el front NO las re-ordena mientras no haya click en un monto.
   const desordenadas = [
     {
       anno: "2014",
@@ -281,7 +282,7 @@ describe("OrdenanzaDetalleModal T5 — orden por defecto", () => {
       (f) => `${f.cells[1].textContent}/${f.cells[2].textContent}`,
     );
 
-  it("ordena por defecto por año asc y luego tipoRec asc sin orden por montos activo", async () => {
+  it("conserva el orden del SP (IDORDENANZA) sin re-ordenar en el cliente", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ data: desordenadas }),
@@ -289,13 +290,13 @@ describe("OrdenanzaDetalleModal T5 — orden por defecto", () => {
     openModal();
     const tabla = await screen.findByTestId("detalle-table");
     expect(annoTipoDe(tabla)).toEqual([
-      "2013/02.01",
-      "2013/02.02",
       "2014/02.02",
+      "2013/02.02",
+      "2013/02.01",
     ]);
   });
 
-  it("el export respeta el orden por defecto (filtros, paginación, totales y export heredan `sorted`)", async () => {
+  it("el export respeta el orden del SP (filtros, paginación, totales y export heredan `sorted`)", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ data: desordenadas }),
@@ -312,31 +313,29 @@ describe("OrdenanzaDetalleModal T5 — orden por defecto", () => {
       Record<string, unknown>
     >;
     expect(sheetArg.map((r) => `${r["Año"]}/${r["Tipo rec."]}`)).toEqual([
-      "2013/02.01",
-      "2013/02.02",
       "2014/02.02",
+      "2013/02.02",
+      "2013/02.01",
     ]);
   });
 
-  it("el click en un monto sigue funcionando como override del orden por defecto", async () => {
+  it("el click en un monto sigue funcionando como override del orden del SP", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ data: desordenadas }),
     });
     openModal();
     const tabla = await screen.findByTestId("detalle-table");
-    const firstImpInsol = () =>
-      tabla.querySelector<HTMLTableRowElement>("tbody tr")!.cells[4]
+    const firstCostoEmis = () =>
+      tabla.querySelector<HTMLTableRowElement>("tbody tr")!.cells[7]
         .textContent;
 
-    // Orden por defecto: 2013/02.01 primero (impInsol 100)
-    expect(firstImpInsol()).toBe(fmtMonto(100));
+    // Orden del SP: primero la fila que el endpoint devolvió primero (costoEmis 7.25)
+    expect(firstCostoEmis()).toBe(fmtMonto(7.25));
 
-    // Click asc en Imp. insol.: override por montos (50 primero)
-    fireEvent.click(
-      screen.getByRole("button", { name: /imp\. insol\./i }),
-    );
-    await waitFor(() => expect(firstImpInsol()).toBe(fmtMonto(50)));
+    // Click asc en Costo emis.: override por montos (1 primero)
+    fireEvent.click(screen.getByRole("button", { name: /costo emis\./i }));
+    await waitFor(() => expect(firstCostoEmis()).toBe(fmtMonto(1)));
   });
 });
 

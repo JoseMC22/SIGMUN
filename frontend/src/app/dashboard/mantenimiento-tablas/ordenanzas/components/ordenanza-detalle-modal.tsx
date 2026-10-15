@@ -254,12 +254,12 @@ export default function OrdenanzaDetalleModal({
 
   // Paginación en memoria sobre el detalle completo (el endpoint ya trae
   // SOLO las filas del master pedido; el SP filtra server-side).
-  // T2: filtros client-side (año/tipoRec/concepto) → T5: orden ESTABLE
-  // por defecto por (anno, tipoRec) asc con comparación de strings
-  // (anno es char 4) cuando no hay orden por montos → T1: ordenamiento
-  // por montos con click como override intacto; todo aplicado ANTES de
-  // paginar; totales sobre las filas filtradas completas (no solo la
-  // página visible).
+  // T2: filtros client-side (año/tipoRec/concepto) → T1: ordenamiento por
+  // montos con click como override → T5 (REVERTIDA el 2026-10-15, pedido
+  // del usuario): el front YA NO re-ordena cuando no hay click en un monto;
+  // se conserva el orden que devuelve el SP (ORDER BY IDORDENANZA = orden
+  // de carga). Todo aplicado ANTES de paginar; totales sobre las filas
+  // filtradas completas (no solo la página visible).
   const rows = detalle ?? [];
   const annos = [...new Set(rows.map((r) => r.anno))].sort();
   const tipos = [...new Set(rows.map((r) => r.tipoRec))].sort();
@@ -270,12 +270,12 @@ export default function OrdenanzaDetalleModal({
       (filtroTipo === "todos" || r.tipoRec === filtroTipo) &&
       (q === "" || r.concepto.toLowerCase().includes(q)),
   );
-  const cmpStr = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
   const sorted =
     sort === null
-      ? [...filtered].sort(
-          (a, b) => cmpStr(a.anno, b.anno) || cmpStr(a.tipoRec, b.tipoRec),
-        )
+      ? // Sin click en una columna: passthrough del orden del SP.
+        // `filtered` ya es un array nuevo (viene de .filter), así que
+        // reutilizarlo no muta `rows`.
+        filtered
       : [...filtered].sort((a, b) =>
           sort.dir === "asc"
             ? a[sort.key] - b[sort.key]
