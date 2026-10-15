@@ -532,7 +532,8 @@ describe('OrdenanzasService', () => {
 
     const validInput = {
       cidordenanza: 2,
-      anno: '2013',
+      annoDesde: '2013',
+      annoHasta: '2013',
       tipo: '02.01',
       tipoRec: '02.01',
       impInsol: 46.2,
@@ -543,15 +544,22 @@ describe('OrdenanzasService', () => {
       estacion: 'PC-SISTEMAS',
     };
 
-    it('executes caja.sp_ordenanzas with msquery=2 sending ALL 19 params (estado fijo 1 y fecvenc = hoy Lima, idordenanza 0)', async () => {
-      mockExecuteProcedure
-        .mockResolvedValueOnce({ recordset: [] }) // validación modo 4: sin duplicados
-        .mockResolvedValueOnce({ recordset: [] }); // modo 2
+    // El alta itera el rango: 1 lectura modo 4 (anti-duplicidad) + 1 INSERT
+    // modo 2 por año libre → el mock registra una llamada por año, en orden.
+    const annosLlamados = () =>
+      mockExecuteProcedure.mock.calls
+        .slice(1) // slice(1): la 1ra llamada es la lectura modo 4.
+        .map(([, params]) => (params as { anno: string }).anno);
+
+    it('un año suelto (desde === hasta) hace UN INSERT modo 2 con los 19 params (estado 1 y fecvenc hoy Lima)', async () => {
+      mockExecuteProcedure.mockResolvedValue({ recordset: [] });
 
       await expect(
         service.crearDetalle(validInput, 'ADMIN'),
       ).resolves.toEqual({
-        message: 'Detalle de ordenanza registrado exitosamente',
+        message: 'Se registraron 1 año (2013 a 2013).',
+        creados: ['2013'],
+        salteados: [],
       });
 
       // 1 = lectura modo 4 (anti-duplicidad) + 1 = INSERT modo 2.
@@ -583,15 +591,135 @@ describe('OrdenanzasService', () => {
       );
     });
 
-    it('trims the anno/tipo/tipoRec char padding and fija estado 1 + fecvenc hoy Lima', async () => {
+    it('un rango 2013→2016 sin existentes inserta los 4 años EN ORDEN (una llamada secuencial por año)', async () => {
+      mockExecuteProcedure.mockResolvedValue({ recordset: [] });
+
+      const result = await service.crearDetalle(
+        { ...validInput, annoDesde: '2013', annoHasta: '2016' },
+        'ADMIN',
+      );
+
+      expect(result).toEqual({
+        message: 'Se registraron 4 años (2013 a 2016).',
+        creados: ['2013', '2014', '2015', '2016'],
+        salteados: [],
+      });
+
+      // 1 lectura + 4 INSERT, en orden (el bucle es secuencial: for await).
+      expect(mockExecuteProcedure).toHaveBeenCalledTimes(5);
+      expect(annosLlamados()).toEqual(['2013', '2014', '2015', '2016']);
+    });
+
+    it('saltea los años ya existentes (mismo tipoRec) y registra el resto', async () => {
       mockExecuteProcedure
-        .mockResolvedValueOnce({ recordset: [] }) // validación
-        .mockResolvedValueOnce({ recordset: [] }); // modo 2
+        .mockResolvedValueOnce({
+          recordset: [
+            {
+              IDORDENANZA: 9,
+              CIDORDENANZA: 2,
+              'Año': '2014',
+              TIPO_REC: '02.01',
+              CONCEPTO: 'IMPUESTO AL PATRIMONIO PREDIAL',
+              IMP_INSOL: 46.2,
+              IMP_REAJ: 0,
+              MORA: 10.5,
+              COSTO_EMIS: 2.5,
+              tipo: '02.01',
+              observacion: '',
+              estado: '1',
+            },
+          ],
+        }) // lectura modo 4: 2014 ya existe para 02.01
+        .mockResolvedValue({ recordset: [] }); // modo 2 (2013, 2015, 2016)
+
+      const result = await service.crearDetalle(
+        { ...validInput, annoDesde: '2013', annoHasta: '2016' },
+        'ADMIN',
+      );
+
+      expect(result).toEqual({
+        message:
+          'Se registraron 3 años (2013 a 2016). Se salteó 1 por ya existir: 2014.',
+        creados: ['2013', '2015', '2016'],
+        salteados: ['2014'],
+      });
+
+      // 1 lectura + 3 INSERT: 2014 se salteó SIN llamar al SP.
+      expect(mockExecuteProcedure).toHaveBeenCalledTimes(4);
+      expect(annosLlamados()).toEqual(['2013', '2015', '2016']);
+    });
+
+    it('rechaza con 409 sin llamar al INSERT modo 2 cuando TODOS los años del rango ya existen', async () => {
+      mockExecuteProcedure.mockResolvedValueOnce({
+        recordset: ['2013', '2014', '2015', '2016'].map((anno) => ({
+          IDORDENANZA: 1,
+          CIDORDENANZA: 2,
+          'Año': anno,
+          TIPO_REC: '02.01',
+          CONCEPTO: 'X',
+          IMP_INSOL: 1,
+          IMP_REAJ: 0,
+          MORA: 0,
+          COSTO_EMIS: 0,
+          tipo: '02.01',
+          observacion: '',
+          estado: '1',
+        })),
+      });
+
+      const err = await service
+        .crearDetalle(
+          { ...validInput, annoDesde: '2013', annoHasta: '2016' },
+          'ADMIN',
+        )
+        .then(
+          () => {
+            throw new Error('should have rejected with ConflictException');
+          },
+          (e) => e,
+        );
+
+      expect(err).toBeInstanceOf(ConflictException);
+      expect(err?.status).toBe(409);
+      expect(err?.message).toContain('2013 a 2016');
+      // Sólo la lectura modo 4: el bucle salteó todos los años y el INSERT
+      // modo 2 jamás se ejecutó (no se registró nada).
+      expect(mockExecuteProcedure).toHaveBeenCalledTimes(1);
+    });
+
+    it('ante una violación de unicidad (2627/2601) en un año, lo saltea y CONTINÚA con el resto', async () => {
+      for (const number of [2627, 2601]) {
+        mockExecuteProcedure.mockReset();
+        mockExecuteProcedure
+          .mockResolvedValueOnce({ recordset: [] }) // lectura modo 4
+          .mockResolvedValueOnce({ recordset: [] }) // 2013 OK
+          .mockRejectedValueOnce(
+            Object.assign(new Error('Violation of UNIQUE KEY constraint'), {
+              number,
+            }),
+          ) // 2014: el índice único frenó al concurrente
+          .mockResolvedValueOnce({ recordset: [] }); // 2015 OK (el bucle siguió)
+
+        const result = await service.crearDetalle(
+          { ...validInput, annoDesde: '2013', annoHasta: '2015' },
+          'ADMIN',
+        );
+
+        expect(result.creados).toEqual(['2013', '2015']);
+        expect(result.salteados).toEqual(['2014']);
+        // 2014 se intentó, 2015 sí se insertó → el bucle NO se cortó.
+        expect(annosLlamados()).toEqual(['2013', '2014', '2015']);
+      }
+    });
+
+    it('trims el padding char de año/tipo/tipoRec y fija estado 1 + fecvenc hoy Lima', async () => {
+      mockExecuteProcedure.mockResolvedValue({ recordset: [] });
 
       await service.crearDetalle(
         {
           ...validInput,
-          anno: '2013 ',
+          annoDesde: ' 2013 ',
+          annoHasta: '2013',
           tipo: '02.01   ',
           tipoRec: '02.01   ',
         },
@@ -617,9 +745,7 @@ describe('OrdenanzasService', () => {
       // locales del servidor en lugar de America/Lima.
       jest.setSystemTime(new Date('2026-10-16T02:00:00Z'));
 
-      mockExecuteProcedure
-        .mockResolvedValueOnce({ recordset: [] }) // validación
-        .mockResolvedValueOnce({ recordset: [] }); // modo 2
+      mockExecuteProcedure.mockResolvedValue({ recordset: [] });
 
       await service.crearDetalle(validInput, 'ADMIN');
 
@@ -630,70 +756,9 @@ describe('OrdenanzasService', () => {
       );
     });
 
-    it('rejects with 409 without calling mode 2 when ANY row already uses (anno, tipo_rec)', async () => {
-      mockExecuteProcedure.mockResolvedValueOnce({
-        recordset: [
-          {
-            IDORDENANZA: 9,
-            CIDORDENANZA: 2,
-            'Año': '2013',
-            TIPO_REC: '02.01',
-            CONCEPTO: 'IMPUESTO AL PATRIMONIO PREDIAL',
-            IMP_INSOL: 46.2,
-            IMP_REAJ: 0,
-            MORA: 10.5,
-            COSTO_EMIS: 2.5,
-            tipo: '02.01',
-            observacion: '',
-            estado: '1',
-          },
-        ],
-      });
-
-      const err = await service.crearDetalle(validInput, 'ADMIN').then(
-        () => {
-          throw new Error('should have rejected with ConflictException');
-        },
-        (e) => e,
-      );
-
-      expect(err).toBeInstanceOf(ConflictException);
-      expect(err?.status).toBe(409);
-      expect(err?.message).toContain(
-        'Ya existe otra fila con año 2013 y tipo 02.01 en esta ordenanza',
-      );
-      // Solo la lectura modo 4: el INSERT jamás se ejecutó.
-      expect(mockExecuteProcedure).toHaveBeenCalledTimes(1);
-    });
-
-    it('maps the SQL unique-violation errors (2627 and 2601) to 409 for the concurrent window', async () => {
-      for (const number of [2627, 2601]) {
-        mockExecuteProcedure
-          .mockResolvedValueOnce({ recordset: [] }) // validación: sin duplicados
-          .mockRejectedValueOnce(
-            Object.assign(new Error('Violation of UNIQUE KEY constraint'), {
-              number,
-            }),
-          ); // modo 2: el índice único frenó al segundo concurrente
-
-        const err = await service.crearDetalle(validInput, 'ADMIN').then(
-          () => {
-            throw new Error('should have rejected with ConflictException');
-          },
-          (e) => e,
-        );
-
-        expect(err).toBeInstanceOf(ConflictException);
-        expect(err?.status).toBe(409);
-        expect(err?.message).toContain(
-          'Ya existe otra fila con año 2013 y tipo 02.01 en esta ordenanza',
-        );
-      }
-    });
-
-    it('rethrows the SP error after logging', async () => {
+    it('rethrows a non-unique SP error after logging (corta el bucle)', async () => {
       mockExecuteProcedure
-        .mockResolvedValueOnce({ recordset: [] }) // validación
+        .mockResolvedValueOnce({ recordset: [] }) // lectura modo 4
         .mockRejectedValueOnce(new Error('expects parameter')); // modo 2
 
       await expect(service.crearDetalle(validInput, 'ADMIN')).rejects.toThrow(

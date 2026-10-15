@@ -345,14 +345,16 @@ describe('OrdenanzasController', () => {
   // ── POST /mantenimiento-tablas/ordenanzas/detalle (alta detalle, ordenanzas-detalle-alta, msquery=2) ──
 
   describe('POST /mantenimiento-tablas/ordenanzas/detalle', () => {
-    // Body del alta detalle: master + anno YYYY + tipo/tipoRec + 4 montos
-    // ≥ 0 + observacion (string, admite ''). estado y fecvenc YA NO son
-    // entrada del cliente: el service los fija ('1' y hoy Lima). La estación
-    // viaja por header x-estacion (el SP la exige sin default); el operador
-    // sale de la sesión.
+    // Body del alta detalle (ordenanzas-detalle-rango-anios): master +
+    // rango annoDesde/annoHasta (YYYY) + tipo/tipoRec + 4 montos ≥ 0 +
+    // observacion (string, admite ''). estado y fecvenc YA NO son entrada
+    // del cliente: el service los fija ('1' y hoy Lima). La estación viaja
+    // por header x-estacion (el SP la exige sin default); el operador sale
+    // de la sesión.
     const validBody = {
       cidordenanza: 2,
-      anno: '2013',
+      annoDesde: '2013',
+      annoHasta: '2016',
       tipo: '02.01',
       tipoRec: '02.01',
       impInsol: 46.2,
@@ -368,15 +370,19 @@ describe('OrdenanzasController', () => {
       headers: { 'x-estacion': 'PC-SISTEMAS' },
     };
 
-    it('should create the detalle row delegating to the service with the session operator + x-estacion header', async () => {
+    it('should create the detalle rows delegating to the service with the year range + session operator + x-estacion header', async () => {
       mockService.crearDetalle.mockResolvedValue({
-        message: 'Detalle de ordenanza registrado exitosamente',
+        message: 'Se registraron 4 años (2013 a 2016).',
+        creados: ['2013', '2014', '2015', '2016'],
+        salteados: [],
       });
 
       const result = await controller.crearDetalle(validBody, req as never);
 
       expect(result).toEqual({
-        message: 'Detalle de ordenanza registrado exitosamente',
+        message: 'Se registraron 4 años (2013 a 2016).',
+        creados: ['2013', '2014', '2015', '2016'],
+        salteados: [],
       });
       expect(mockService.crearDetalle).toHaveBeenCalledTimes(1);
       expect(mockService.crearDetalle).toHaveBeenCalledWith(
@@ -387,7 +393,9 @@ describe('OrdenanzasController', () => {
 
     it('should ignore extra estado/fecvenc keys in the body (Zod strips them; the service is the authority)', async () => {
       mockService.crearDetalle.mockResolvedValue({
-        message: 'Detalle de ordenanza registrado exitosamente',
+        message: 'Se registraron 4 años (2013 a 2016).',
+        creados: ['2013', '2014', '2015', '2016'],
+        salteados: [],
       });
 
       await controller.crearDetalle(
@@ -401,10 +409,14 @@ describe('OrdenanzasController', () => {
       );
     });
 
-    it('should reject an invalid anno (not YYYY), empty tipo/tipoRec or negative amounts with BadRequestException without calling the service', async () => {
+    it('should reject an invalid year range (bad format, desde > hasta, > 100 años), empty tipo/tipoRec or negative amounts with BadRequestException without calling the service', async () => {
       for (const invalidBody of [
-        { ...validBody, anno: '13' },
-        { ...validBody, anno: '2013 ' },
+        { ...validBody, annoDesde: '13' }, // formato inválido
+        { ...validBody, annoDesde: '2013 ' }, // padding
+        { ...validBody, annoHasta: '13' },
+        { ...validBody, annoHasta: '2013 ' },
+        { ...validBody, annoDesde: '2016', annoHasta: '2013' }, // desde > hasta
+        { ...validBody, annoDesde: '1900', annoHasta: '2100' }, // rango > 100
         { ...validBody, tipo: '' },
         { ...validBody, tipoRec: '' },
         { ...validBody, impInsol: -1 },
@@ -419,9 +431,51 @@ describe('OrdenanzasController', () => {
       expect(mockService.crearDetalle).not.toHaveBeenCalled();
     });
 
+    it('should reject a "desde > hasta" range with the specific message (not the 100-year message)', async () => {
+      const err = await controller
+        .crearDetalle(
+          { ...validBody, annoDesde: '2016', annoHasta: '2013' },
+          req as never,
+        )
+        .then(
+          () => {
+            throw new Error('should have rejected with BadRequestException');
+          },
+          (e) => e,
+        );
+
+      expect(err).toBeInstanceOf(BadRequestException);
+      expect(err?.message).toContain(
+        'annoDesde no puede ser mayor que annoHasta',
+      );
+      expect(mockService.crearDetalle).not.toHaveBeenCalled();
+    });
+
+    it('should reject a range larger than 100 years with the specific message', async () => {
+      const err = await controller
+        .crearDetalle(
+          { ...validBody, annoDesde: '1900', annoHasta: '2100' },
+          req as never,
+        )
+        .then(
+          () => {
+            throw new Error('should have rejected with BadRequestException');
+          },
+          (e) => e,
+        );
+
+      expect(err).toBeInstanceOf(BadRequestException);
+      expect(err?.message).toContain(
+        'El rango de años no puede superar los 100 años',
+      );
+      expect(mockService.crearDetalle).not.toHaveBeenCalled();
+    });
+
     it('should accept an empty observacion (may legitimately be blank)', async () => {
       mockService.crearDetalle.mockResolvedValue({
-        message: 'Detalle de ordenanza registrado exitosamente',
+        message: 'Se registraron 4 años (2013 a 2016).',
+        creados: ['2013', '2014', '2015', '2016'],
+        salteados: [],
       });
 
       const result = await controller.crearDetalle(
@@ -430,7 +484,9 @@ describe('OrdenanzasController', () => {
       );
 
       expect(result).toEqual({
-        message: 'Detalle de ordenanza registrado exitosamente',
+        message: 'Se registraron 4 años (2013 a 2016).',
+        creados: ['2013', '2014', '2015', '2016'],
+        salteados: [],
       });
       expect(mockService.crearDetalle).toHaveBeenCalledTimes(1);
     });

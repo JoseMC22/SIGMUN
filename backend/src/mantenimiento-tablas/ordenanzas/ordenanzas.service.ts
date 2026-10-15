@@ -102,9 +102,11 @@ function mapDetalleRow(row: SpOrdenanzaDetalleRow): OrdenanzaDetalleRow {
 }
 
 /**
- * Input del alta del detalle (ordenanzas-detalle-alta, @msquery=2 = INSERT
- * en CAJA.DOrdenanzas): campos del formulario + `estacion` por header
- * x-estacion (el SP la exige sin default). `estado` y `fecvenc` NO son
+ * Input del alta del detalle (ordenanzas-detalle-rango-anios, @msquery=2 =
+ * INSERT en CAJA.DOrdenanzas): campos del formulario + `estacion` por header
+ * x-estacion (el SP la exige sin default). El alta recibe un RANGO de años
+ * (`annoDesde`/`annoHasta`, YYYY) en lugar de un único `anno`: el service
+ * inserta una fila por cada año del rango. `estado` y `fecvenc` NO son
  * entrada del cliente: el service los fija ('1' y el día calendario de
  * Lima en YYYY-MM-DD). `idordenanza` tampoco va en el input: es IDENTITY en
  * el INSERT y viaja 0 (sin uso en la rama, como criterio 12 y
@@ -112,7 +114,8 @@ function mapDetalleRow(row: SpOrdenanzaDetalleRow): OrdenanzaDetalleRow {
  */
 export interface CrearDetalleInput {
   cidordenanza: number;
-  anno: string;
+  annoDesde: string;
+  annoHasta: string;
   tipo: string;
   tipoRec: string;
   impInsol: number;
@@ -298,71 +301,118 @@ export class OrdenanzasService {
   }
 
   /**
-   * Alta de fila del detalle (ordenanzas-detalle-alta, @msquery=2 = INSERT
-   * en CAJA.DOrdenanzas con LOS 19 params sin default: criterio 12,
+   * Alta de filas del detalle (ordenanzas-detalle-rango-anios, @msquery=2 =
+   * INSERT en CAJA.DOrdenanzas con LOS 19 params sin default: criterio 12,
    * descripcion/fdesde/fhasta '', idordenanza 0 — sin uso en la rama, igual
    * que el modo 8).
    *
+   * El alta recibe un RANGO de años (`annoDesde`/`annoHasta`) y hace UN
+   * INSERT por año libre, con un bucle SECUENCIAL (`for ... await`, jamás
+   * `Promise.all`: el SP es un único recurso y el orden importa). El rango
+   * lo acota el controller (≤ 100 años, desde ≤ hasta).
+   *
+   * Anti-duplicidad (año, tipo_rec) dentro del master: UNA sola lectura
+   * modo 4 arma un `Set` de años existentes para el `tipoRec` pedido (misma
+   * semántica que la validación previa `f.anno === anno && f.tipoRec ===
+   * tipoRec`); cada año del rango que ya esté en el Set se SALTEÓ sin
+   * llamar al SP. La red de seguridad es el error 2627/2601 del índice
+   * único (cidordenanza, anno, tipo_rec, tipo): si un año choca en el
+   * bucle, ESE año se saltea y el bucle CONTINÚA (ventana concurrente).
+   * Un error NO-duplicado se loguea y se re-lanza (corta el bucle). Si
+   * NINGÚN año del rango pudo registrarse → 409.
+   *
    * `estado` es fijo `'1'` y `fecvenc` es el día calendario de Lima de hoy
    * en YYYY-MM-DD (varchar(10) ISO no ambiguo, el SP no lo normaliza): el
-   * servidor es la autoridad, NO se toman del cliente.
+   * servidor es la autoridad, NO se toman del cliente, y son IDÉNTICOS
+   * para todos los años (se calcula UNA vez fuera del bucle).
    *
-   * Anti-duplicidad (año, tipo_rec) dentro del master IGUAL que
-   * `editarDetalle` pero SIN fila propia que excluir: verificación previa
-   * por lectura modo 4 (rechaza con 409) + red de seguridad mapeando el
-   * error 2627/2601 del índice único a 409 para la ventana concurrente.
+   * Reintento seguro: si un error no-duplicado corta el bucle a mitad, los
+   * años ya insertados quedan; reintentar el MISMO rango los saltea y
+   * completa el resto. No hace falta transacción.
    */
   async crearDetalle(
     input: CrearDetalleInput,
     operador: string,
-  ): Promise<{ message: string }> {
-    const anno = trimChar(input.anno);
+  ): Promise<{ message: string; creados: string[]; salteados: string[] }> {
     const tipoRec = trimChar(input.tipoRec);
     const tipo = trimChar(input.tipo);
     const observacion = trimChar(input.observacion);
+    const desde = parseInt(trimChar(input.annoDesde), 10);
+    const hasta = parseInt(trimChar(input.annoHasta), 10);
+
+    // UNA sola lectura (modo 4) + Set en memoria: evita N lecturas y
+    // preserva la semántica previa de (anno, tipoRec).
     const { data: filas } = await this.detalle(input.cidordenanza);
-    const duplicada = filas.some(
-      (f) => f.anno === anno && f.tipoRec === tipoRec,
+    const existentes = new Set(
+      filas.filter((f) => f.tipoRec === tipoRec).map((f) => f.anno),
     );
-    if (duplicada) {
+
+    // Autoridad del servidor, calculada UNA vez para todo el rango.
+    const hoy = toLimaIsoDate();
+
+    const creados: string[] = [];
+    const salteados: string[] = [];
+
+    for (let y = desde; y <= hasta; y++) {
+      const anno = String(y).padStart(4, '0');
+
+      if (existentes.has(anno)) {
+        salteados.push(anno);
+        continue;
+      }
+
+      try {
+        await this.db.executeProcedure('caja.sp_ordenanzas', {
+          msquery: 2, // 2 = INSERT detalle (LOS 19 params sin default).
+          criterio: 12, // Fijo del dominio (no usado en la rama del modo 2).
+          descripcion: '',
+          fdesde: '',
+          fhasta: '',
+          observacion,
+          operador,
+          estacion: input.estacion,
+          cidordenanza: input.cidordenanza,
+          anno,
+          tipo,
+          tipo_rec: tipoRec,
+          imp_insol: input.impInsol,
+          imp_reaj: input.impReaj,
+          mora: input.mora,
+          costo_emis: input.costoEmis,
+          estado: '1', // Fijo: el alta nace activa (NO viene del cliente).
+          fecvenc: hoy, // Hoy (día Lima) YYYY-MM-DD varchar(10) ISO.
+          idordenanza: 0, // Sin uso en la rama (IDENTITY en el INSERT).
+        });
+
+        creados.push(anno);
+        // Evita un doble INSERT si el rango trajera el mismo año repetido.
+        existentes.add(anno);
+      } catch (error) {
+        if (isUniqueViolation(error)) {
+          // Carrera con otro alta: este año se saltea, el bucle CONTINÚA.
+          salteados.push(anno);
+          continue;
+        }
+        this.logger.error('Error al registrar el detalle de ordenanza', error);
+        throw error;
+      }
+    }
+
+    if (creados.length === 0) {
+      // El bucle ya salteó todos los años: NO se llamó al SP del INSERT.
       throw new ConflictException(
-        `Ya existe otra fila con año ${anno} y tipo ${tipoRec} en esta ordenanza`,
+        `No se registró ningún año del rango ${desde} a ${hasta}: todos ya existen para el tipo ${tipoRec}`,
       );
     }
 
-    try {
-      await this.db.executeProcedure('caja.sp_ordenanzas', {
-        msquery: 2, // 2 = INSERT detalle (LOS 19 params sin default).
-        criterio: 12, // Fijo del dominio (no usado en la rama del modo 2).
-        descripcion: '',
-        fdesde: '',
-        fhasta: '',
-        observacion,
-        operador,
-        estacion: input.estacion,
-        cidordenanza: input.cidordenanza,
-        anno,
-        tipo,
-        tipo_rec: tipoRec,
-        imp_insol: input.impInsol,
-        imp_reaj: input.impReaj,
-        mora: input.mora,
-        costo_emis: input.costoEmis,
-        estado: '1', // Fijo: el alta nace activa (NO viene del cliente).
-        fecvenc: toLimaIsoDate(), // Hoy (día Lima) YYYY-MM-DD varchar(10) ISO.
-        idordenanza: 0, // Sin uso en la rama (IDENTITY en el INSERT).
-      });
-
-      return { message: 'Detalle de ordenanza registrado exitosamente' };
-    } catch (error) {
-      if (isUniqueViolation(error)) {
-        throw new ConflictException(
-          `Ya existe otra fila con año ${anno} y tipo ${tipoRec} en esta ordenanza`,
-        );
-      }
-      this.logger.error('Error al registrar el detalle de ordenanza', error);
-      throw error;
+    const plural = (n: number, singular: string, plural_: string) =>
+      n === 1 ? singular : plural_;
+    let message = `Se registraron ${creados.length} ${plural(creados.length, 'año', 'años')} (${desde} a ${hasta}).`;
+    if (salteados.length > 0) {
+      message += ` Se ${plural(salteados.length, 'salteó', 'saltearon')} ${salteados.length} por ya existir: ${salteados.join(', ')}.`;
     }
+
+    return { message, creados, salteados };
   }
 
   /**

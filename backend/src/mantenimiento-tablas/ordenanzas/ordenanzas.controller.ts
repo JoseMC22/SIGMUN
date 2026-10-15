@@ -36,43 +36,62 @@ const EditarDetalleParamsSchema = z.object({
     .positive('id debe ser un entero positivo'),
 });
 
-// Validación Zod del body del alta del detalle (ordenanzas-detalle-alta,
-// @msquery=2 = INSERT): campos del formulario — master + anno YYYY exacto
-// char 4 + tipo/tipoRec min(1) + 4 montos ≥ 0 + observacion string (admite
-// '' legítimo). `estado` y `fecvenc` YA NO son entrada del cliente: el
-// service los fija ('1' y hoy Lima). Zod strippea las claves desconocidas,
-// así que un cliente que igual los mande no cambia nada. La estación viaja
-// por header x-estacion (el SP la exige sin default), igual que el PATCH.
-const CrearDetalleSchema = z.object({
-  cidordenanza: z.coerce
-    .number({ invalid_type_error: 'cidordenanza debe ser un número' })
-    .int('cidordenanza debe ser un número entero')
-    .positive('cidordenanza debe ser un entero positivo'),
-  anno: z
-    .string({ invalid_type_error: 'anno debe ser un texto' })
-    .regex(/^\d{4}$/, 'anno debe tener el formato YYYY'),
-  tipo: z
-    .string({ invalid_type_error: 'tipo debe ser un texto' })
-    .min(1, 'tipo es obligatorio'),
-  tipoRec: z
-    .string({ invalid_type_error: 'tipoRec debe ser un texto' })
-    .min(1, 'tipoRec es obligatorio'),
-  impInsol: z.coerce
-    .number({ invalid_type_error: 'impInsol debe ser un número' })
-    .min(0, 'impInsol debe ser mayor o igual a 0'),
-  impReaj: z.coerce
-    .number({ invalid_type_error: 'impReaj debe ser un número' })
-    .min(0, 'impReaj debe ser mayor o igual a 0'),
-  mora: z.coerce
-    .number({ invalid_type_error: 'mora debe ser un número' })
-    .min(0, 'mora debe ser mayor o igual a 0'),
-  costoEmis: z.coerce
-    .number({ invalid_type_error: 'costoEmis debe ser un número' })
-    .min(0, 'costoEmis debe ser mayor o igual a 0'),
-  observacion: z.string({
-    invalid_type_error: 'observacion debe ser un texto',
-  }),
-});
+// Validación Zod del body del alta del detalle (ordenanzas-detalle-rango-
+// anios, @msquery=2 = INSERT): campos del formulario — master + rango de
+// años `annoDesde`/`annoHasta` (YYYY exacto char 4, desde ≤ hasta, tope de
+// 100 años) + tipo/tipoRec min(1) + 4 montos ≥ 0 + observacion string
+// (admite '' legítimo). `estado` y `fecvenc` YA NO son entrada del cliente:
+// el service los fija ('1' y hoy Lima). Zod strippea las claves
+// desconocidas, así que un cliente que igual los mande no cambia nada. La
+// estación viaja por header x-estacion (el SP la exige sin default), igual
+// que el PATCH.
+//
+// El tope de 100 años evita que un typo (ej. 1024→2026) dispare cientos de
+// INSERT; el service itera el rango y hace UN INSERT por año. Los refinements
+// cubren las condiciones mutuamente excluyentes: `desde > hasta` (el rango
+// negativo siempre cumple el tope) y exceso de rango (desde ≤ hasta).
+const CrearDetalleSchema = z
+  .object({
+    cidordenanza: z.coerce
+      .number({ invalid_type_error: 'cidordenanza debe ser un número' })
+      .int('cidordenanza debe ser un número entero')
+      .positive('cidordenanza debe ser un entero positivo'),
+    annoDesde: z
+      .string({ invalid_type_error: 'annoDesde debe ser un texto' })
+      .regex(/^\d{4}$/, 'annoDesde debe tener el formato YYYY'),
+    annoHasta: z
+      .string({ invalid_type_error: 'annoHasta debe ser un texto' })
+      .regex(/^\d{4}$/, 'annoHasta debe tener el formato YYYY'),
+    tipo: z
+      .string({ invalid_type_error: 'tipo debe ser un texto' })
+      .min(1, 'tipo es obligatorio'),
+    tipoRec: z
+      .string({ invalid_type_error: 'tipoRec debe ser un texto' })
+      .min(1, 'tipoRec es obligatorio'),
+    impInsol: z.coerce
+      .number({ invalid_type_error: 'impInsol debe ser un número' })
+      .min(0, 'impInsol debe ser mayor o igual a 0'),
+    impReaj: z.coerce
+      .number({ invalid_type_error: 'impReaj debe ser un número' })
+      .min(0, 'impReaj debe ser mayor o igual a 0'),
+    mora: z.coerce
+      .number({ invalid_type_error: 'mora debe ser un número' })
+      .min(0, 'mora debe ser mayor o igual a 0'),
+    costoEmis: z.coerce
+      .number({ invalid_type_error: 'costoEmis debe ser un número' })
+      .min(0, 'costoEmis debe ser mayor o igual a 0'),
+    observacion: z.string({
+      invalid_type_error: 'observacion debe ser un texto',
+    }),
+  })
+  .refine(
+    (d) => Number(d.annoDesde) <= Number(d.annoHasta),
+    { message: 'annoDesde no puede ser mayor que annoHasta' },
+  )
+  .refine(
+    (d) => Number(d.annoHasta) - Number(d.annoDesde) <= 99,
+    { message: 'El rango de años no puede superar los 100 años' },
+  );
 
 // Validación Zod del body del update del detalle (T3 + T7 con los 19
 // params): campos editables (anno YYYY exacto char 4, tipoRec, 4 montos ≥
@@ -145,11 +164,14 @@ export class OrdenanzasController {
   }
 
   /**
-   * Alta de fila del detalle (ordenanzas-detalle-alta, @msquery=2 = INSERT
-   * en CAJA.DOrdenanzas). El body trae el formulario validado con
-   * CrearDetalleSchema (estado/fecvenc NO son entrada: los fija el service);
-   * la estación viaja por header x-estacion (el SP la exige sin default) y
-   * el operador sale del usuario de sesión inyectado por el JwtAuthGuard.
+   * Alta de filas del detalle (ordenanzas-detalle-rango-anios, @msquery=2 =
+   * INSERT en CAJA.DOrdenanzas). El body trae el formulario validado con
+   * CrearDetalleSchema: un RANGO de años (annoDesde/annoHasta) que el
+   * service itera insertando una fila por año; devuelve `{ message, creados,
+   * salteados }` para que el front reporte los años salteados. estado/fecvenc
+   * NO son entrada: los fija el service; la estación viaja por header
+   * x-estacion (el SP la exige sin default) y el operador sale del usuario
+   * de sesión inyectado por el JwtAuthGuard.
    *
    * OJO rutas: `@Post('detalle')` (POST) no colisiona con `@Get('detalle')`
    * (distinto método) ni con `@Post()` (distinto path).
@@ -158,7 +180,7 @@ export class OrdenanzasController {
   async crearDetalle(
     @Body() body: Record<string, unknown>,
     @Req() req: Request,
-  ): Promise<{ message: string }> {
+  ): Promise<{ message: string; creados: string[]; salteados: string[] }> {
     const parsed = CrearDetalleSchema.safeParse(body);
     if (!parsed.success) {
       const msg = parsed.error.errors.map((e) => e.message).join('; ');
