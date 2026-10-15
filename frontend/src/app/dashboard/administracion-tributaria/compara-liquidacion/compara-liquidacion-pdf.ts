@@ -5,15 +5,42 @@ export type { PanelExportData };
 
 // ─── Exportación a PDF (lado a lado, landscape) ──────────────
 
+/** Coerción dura: ningún valor puede renderizarse como "[object Object]".
+ * Un objetoinválido llega como JSON legible, vacío/null llegan como "—". */
+const toText = (value: unknown): string => {
+  if (value === null || value === undefined) return "—";
+  if (typeof value === "number") return Number.isFinite(value) ? String(value) : "—";
+  if (typeof value === "boolean") return value ? "Sí" : "No";
+  if (typeof value === "string") return value.length ? value : "—";
+  if (typeof value === "bigint") return String(value);
+  try {
+    return JSON.stringify(value) ?? "—";
+  } catch {
+    return "—";
+  }
+};
+
+/** Monto solo si es número finito; cualquier otra cosa cae al toText (nunca "S/. 0.00" falso). */
+const montoText = (value: unknown): string =>
+  typeof value === "number" && Number.isFinite(value)
+    ? `S/. ${fmtMoney(value)}`
+    : toText(value);
+
+/** Número de liquidación para el título: string con contenido, si no "Sin datos". */
+const titleNumero = (cabecera?: LiquidacionCabecera | null): string =>
+  typeof cabecera?.numero === "string" && cabecera.numero.length
+    ? cabecera.numero
+    : "Sin datos";
+
 const cabeceraFields = (cabecera: LiquidacionCabecera): [string, string][] => [
-  ["Contribuyente (Código)", cabecera.codigo || "—"],
-  ["Monto", `S/. ${fmtMoney(cabecera.monto)}`],
-  ["Estado", cabecera.estado || "—"],
-  ["Usuario", cabecera.usuario || "—"],
-  ["Terminal", cabecera.terminal || "—"],
-  ["F. Registro", fmtDate(cabecera.fregistro)],
-  ["F. Vencimiento", fmtDate(cabecera.fvencimiento)],
-  ["Observación", cabecera.observacion || "—"],
+  ["Contribuyente (Código)", toText(cabecera.codigo)],
+  ["Monto", montoText(cabecera.monto)],
+  ["Estado", toText(cabecera.estado)],
+  ["Usuario", toText(cabecera.usuario)],
+  ["Terminal", toText(cabecera.terminal)],
+  ["F. Registro", fmtDate(toText(cabecera.fregistro))],
+  ["F. Vencimiento", fmtDate(toText(cabecera.fvencimiento))],
+  ["Observación", toText(cabecera.observacion)],
 ];
 
 const detalleColumns: { key: keyof LiquidacionDetalleRow; label: string; align?: "right" }[] = [
@@ -34,9 +61,7 @@ const detalleFilas = (detalle: LiquidacionDetalleRow[]): string[][] =>
   detalle.map((row) =>
     detalleColumns.map((col) => {
       const value = row[col.key];
-      const text =
-        value === null || value === undefined || value === "" ? "—" : String(value);
-      return col.align === "right" ? fmtMoney(text) : text;
+      return col.align === "right" ? montoText(value) : toText(value);
     }),
   );
 
@@ -63,7 +88,7 @@ export async function generarComparaLiquidacionPdf(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(13);
   doc.text(
-    `Comparación de Liquidaciones: ${paneles[0].cabecera?.numero ?? "Sin datos"} vs ${paneles[1].cabecera?.numero ?? "Sin datos"}`,
+    `Comparación de Liquidaciones: ${titleNumero(paneles[0].cabecera)} vs ${titleNumero(paneles[1].cabecera)}`,
     leftMargin,
     16,
   );
@@ -85,13 +110,18 @@ export async function generarComparaLiquidacionPdf(
     autoTable(doc, {
       startY: y,
       margin: { left: panel === paneles[0] ? leftMargin : midX, right: panel === paneles[0] ? midX - gutter / 2 : leftMargin },
+      // OJO: la fila debe ser un ARRAY de celdas; `head: [{...}]` (objeto
+      // suelto) hace que autoTable lea el objeto como fila de valores planos y
+      // renderice `colSpan` como celda "2" y `styles` como "[object Object]".
       head: [
-        {
-          content: `${panel.titulo} — ${panel.cabecera.numero || "—"}`,
-          colSpan: 2,
-          // Typings de CellDef del plugin no exponen halign/fontStyle en styles.
-          styles: { halign: "left", fontStyle: "bold" } as never,
-        },
+        [
+          {
+            content: `${panel.titulo} — ${toText(panel.cabecera.numero)}`,
+            colSpan: 2,
+            // Typings de CellDef del plugin no exponen halign/fontStyle en styles.
+            styles: { halign: "left", fontStyle: "bold" } as never,
+          },
+        ],
       ],
       body: cabeceraFields(panel.cabecera),
       styles: { fontSize: 8, cellPadding: 1.5 },
@@ -127,9 +157,9 @@ export async function generarComparaLiquidacionPdf(
 
   const filename = [
     "compara-liquidacion",
-    paneles[0].cabecera?.numero ?? "sin-datos",
+    titleNumero(paneles[0].cabecera),
     "vs",
-    paneles[1].cabecera?.numero ?? "sin-datos",
+    titleNumero(paneles[1].cabecera),
   ]
     .join("-")
     .replace(/[^a-zA-Z0-9.\-_]/g, "");
