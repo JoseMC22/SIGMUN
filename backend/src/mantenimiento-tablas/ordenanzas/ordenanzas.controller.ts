@@ -36,9 +36,11 @@ const EditarDetalleParamsSchema = z.object({
     .positive('id debe ser un entero positivo'),
 });
 
-// Validación Zod del body del update del detalle (T3): SOLO los campos con
-// valor conocido (el modo 4 no devuelve tipo/observacion/estado y el modo 8
-// los pisaría). Montos ≥ 0; anno YYYY exacto (char 4 del SP).
+// Validación Zod del body del update del detalle (T3 + T7 con los 19
+// params): campos editables (anno YYYY exacto char 4, tipoRec, 4 montos ≥
+// 0) + tipo/observacion/estado PRESERVADOS del modo 4 (viajan tal cual al
+// modo 8, NO editables: tipo/estado min(1), observacion permite '' porque
+// la fila real trae '' legítimo).
 const EditarDetalleSchema = z.object({
   cidordenanza: z.coerce
     .number({ invalid_type_error: 'cidordenanza debe ser un número' })
@@ -62,6 +64,15 @@ const EditarDetalleSchema = z.object({
   costoEmis: z.coerce
     .number({ invalid_type_error: 'costoEmis debe ser un número' })
     .min(0, 'costoEmis debe ser mayor o igual a 0'),
+  tipo: z
+    .string({ invalid_type_error: 'tipo debe ser un texto' })
+    .min(1, 'tipo es obligatorio'),
+  observacion: z.string({
+    invalid_type_error: 'observacion debe ser un texto',
+  }),
+  estado: z
+    .string({ invalid_type_error: 'estado debe ser un texto' })
+    .min(1, 'estado es obligatorio'),
 });
 
 @Controller('mantenimiento-tablas/ordenanzas')
@@ -96,12 +107,13 @@ export class OrdenanzasController {
   }
 
   /**
-   * Update de fila del detalle (T3, @msquery=8 = UPDATE en CAJA.DOrdenanzas,
-   * NO toca tipo/observacion/estado). El id de ruta es la PK del detalle
-   * (WHERE del modo 8) validada Zod int positivo; el body trae SOLO los
-   * campos conocidos validados con EditarDetalleSchema. La estación viaja
-   * por header x-estacion (el SP la exige sin default) y el operador sale
-   * del usuario de sesión inyectado por el JwtAuthGuard.
+   * Update de fila del detalle (T3, @msquery=8 = UPDATE en CAJA.DOrdenanzas
+   * + T7 con los 19 params: tipo/observacion/estado preservados). El id de
+   * ruta es la PK del detalle (WHERE del modo 8) validada Zod int positivo;
+   * el body trae los campos editables + los 3 preservados validados con
+   * EditarDetalleSchema. La estación viaja por header x-estacion (el SP la
+   * exige sin default) y el operador sale del usuario de sesión inyectado
+   * por el JwtAuthGuard.
    *
    * OJO rutas: `@Patch('detalle/:id')` (2 segmentos) no colisiona con
    * `@Patch(':id')` (1 segmento) ni con `@Get('detalle')` (distinto método).

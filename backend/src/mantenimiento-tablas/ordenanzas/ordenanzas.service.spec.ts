@@ -239,6 +239,9 @@ describe('OrdenanzasService', () => {
         impReaj: 0,
         mora: 10.5,
         costoEmis: 2.5,
+        tipo: '', // Fixture sin las 3 llaves nuevas (T7) → ''
+        observacion: '',
+        estado: '',
       });
       expect(result.data[1]).toMatchObject({
         tipoRec: '02.02',
@@ -275,6 +278,9 @@ describe('OrdenanzasService', () => {
         impReaj: 12.3, // string → Number
         mora: 0, // undefined → 0
         costoEmis: 0,
+        tipo: '', // Fixture sin las 3 llaves nuevas (T7) → ''
+        observacion: '',
+        estado: '',
       });
     });
 
@@ -305,9 +311,12 @@ describe('OrdenanzasService', () => {
       mora: 10.5,
       costoEmis: 2.5,
       estacion: 'PC-SISTEMAS',
+      tipo: '02.01',
+      observacion: '',
+      estado: '1',
     };
 
-    it('maps the new mode-4 keys (IDORDENANZA PK + CIDORDENANZA master) in detalle rows', async () => {
+    it('maps the new mode-4 keys (IDORDENANZA PK + CIDORDENANZA master + tipo/observacion/estado) in detalle rows', async () => {
       mockExecuteProcedure.mockResolvedValueOnce({
         recordset: [
           {
@@ -320,6 +329,9 @@ describe('OrdenanzasService', () => {
             IMP_REAJ: 0,
             MORA: 10.5,
             COSTO_EMIS: 2.5,
+            tipo: '02.01   ',
+            observacion: null,
+            estado: '1',
           },
         ],
       });
@@ -331,6 +343,9 @@ describe('OrdenanzasService', () => {
         idDetalle: 9,
         cidordenanza: 2,
         anno: '2013',
+        tipo: '02.01', // char padded del SP recortado
+        observacion: '', // null → ''
+        estado: '1',
       });
     });
 
@@ -346,9 +361,12 @@ describe('OrdenanzasService', () => {
       IMP_REAJ: 0,
       MORA: 10.5,
       COSTO_EMIS: 2.5,
+      tipo: '02.01',
+      observacion: '',
+      estado: '1',
     };
 
-    it('executes caja.sp_ordenanzas with msquery=8 sending ONLY the known params (no tipo/observacion/estado)', async () => {
+    it('executes caja.sp_ordenanzas with msquery=8 sending ALL 19 params (preserved tipo/observacion/estado travel as-is)', async () => {
       mockExecuteProcedure
         .mockResolvedValueOnce({ recordset: [selfRow] }) // validación: sin duplicados
         .mockResolvedValueOnce({ recordset: [] }); // modo 8
@@ -365,16 +383,24 @@ describe('OrdenanzasService', () => {
         2,
         'caja.sp_ordenanzas',
         {
-          msquery: 8, // 8 = UPDATE detalle; tipo/observacion/estado NO viajan.
+          msquery: 8, // 8 = UPDATE detalle; los 19 params sin default.
+          criterio: 12, // Fijo del dominio (no usado en la rama del modo 8).
+          descripcion: '',
+          fdesde: '',
+          fhasta: '',
+          observacion: '', // Preservado del input (viaja tal cual).
+          operador: 'ADMIN',
+          estacion: 'PC-SISTEMAS',
           cidordenanza: 2,
           anno: '2013',
+          tipo: '02.01', // Preservado del input (viaja tal cual).
           tipo_rec: '02.01',
           imp_insol: 46.2,
           imp_reaj: 0,
           mora: 10.5,
           costo_emis: 2.5,
-          operador: 'ADMIN',
-          estacion: 'PC-SISTEMAS',
+          estado: '1', // Preservado del input (viaja tal cual).
+          fecvenc: '', // El SP usa getdate(); viaja vacío.
           idordenanza: 9, // PK del detalle (WHERE IDORDENANZA = @idordenanza).
         },
       );

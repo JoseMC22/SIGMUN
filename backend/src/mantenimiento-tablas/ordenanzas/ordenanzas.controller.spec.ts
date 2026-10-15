@@ -207,6 +207,9 @@ describe('OrdenanzasController', () => {
       impReaj: 0,
       mora: 10.5,
       costoEmis: 2.5,
+      tipo: '02.01',
+      observacion: '',
+      estado: '1',
     };
 
     it('should return { data: [row] } and delegate to the service with the id coerced to int', async () => {
@@ -233,9 +236,10 @@ describe('OrdenanzasController', () => {
   // ── PATCH /mantenimiento-tablas/ordenanzas/detalle/:id (update detalle, T3/S1, msquery=8) ──
 
   describe('PATCH /mantenimiento-tablas/ordenanzas/detalle/:id', () => {
-    // Body del update detalle (T3): cidordenanza + anno YYYY + tipoRec +
-    // 4 montos ≥ 0. La estación viaja por header x-estacion (el SP la exige
-    // sin default); el operador sale de la sesión.
+    // Body del update detalle (T3 + T7): cidordenanza + anno YYYY +
+    // tipoRec + 4 montos ≥ 0 + tipo/observacion/estado preservados (no
+    // editables, viajan tal cual al modo 8). La estación viaja por header
+    // x-estacion (el SP la exige sin default); el operador sale de la sesión.
     const validBody = {
       cidordenanza: 2,
       anno: '2013',
@@ -244,6 +248,9 @@ describe('OrdenanzasController', () => {
       impReaj: 0,
       mora: 10.5,
       costoEmis: 2.5,
+      tipo: '02.01',
+      observacion: '',
+      estado: '1',
     };
 
     // req.user viene del JwtAuthGuard (patrón mantenimiento-vias).
@@ -296,11 +303,15 @@ describe('OrdenanzasController', () => {
       expect(mockService.editarDetalle).not.toHaveBeenCalled();
     });
 
-    it('should reject an invalid anno (not YYYY) or negative amounts with BadRequestException without calling the service', async () => {
+    it('should reject an invalid anno (not YYYY), empty tipo/estado or negative amounts with BadRequestException without calling the service', async () => {
       for (const invalidBody of [
         { ...validBody, anno: '13' },
         { ...validBody, anno: '2013 ' },
         { ...validBody, tipoRec: '' },
+        { ...validBody, tipo: '' },
+        { ...validBody, estado: '' },
+        { ...validBody, tipo: undefined },
+        { ...validBody, estado: undefined },
         { ...validBody, impInsol: -1 },
         { ...validBody, mora: -0.5 },
       ]) {
@@ -310,6 +321,23 @@ describe('OrdenanzasController', () => {
       }
 
       expect(mockService.editarDetalle).not.toHaveBeenCalled();
+    });
+
+    it('should accept an empty observacion (preserved, may legitimately be blank)', async () => {
+      mockService.editarDetalle.mockResolvedValue({
+        message: 'Detalle de ordenanza actualizado exitosamente',
+      });
+
+      const result = await controller.editarDetalle(
+        '9',
+        { ...validBody, observacion: '' },
+        req as never,
+      );
+
+      expect(result).toEqual({
+        message: 'Detalle de ordenanza actualizado exitosamente',
+      });
+      expect(mockService.editarDetalle).toHaveBeenCalledTimes(1);
     });
   });
 });

@@ -76,11 +76,12 @@ function isUniqueViolation(error: unknown): boolean {
 }
 
 /**
- * Fila del detalle re-modelado (iteración 4 + llaves T3): el recordset llega
- * con claves del SELECT del JOIN — `IDORDENANZA` (PK del detalle),
- * `CIDORDENANZA` (master), `Año` (alias entre corchetes, exacto, con ñ),
- * TIPO_REC y CONCEPTO (textos) + IMP_INSOL/IMP_REAJ/MORA/COSTO_EMIS
- * (montos). char/varchar → trim (null → ''); montos → Number (null → 0);
+ * Fila del detalle re-modelado (iteración 4 + llaves T3 + 3 preservadas
+ * T7): el recordset llega con claves del SELECT del JOIN — `IDORDENANZA`
+ * (PK del detalle), `CIDORDENANZA` (master), `Año` (alias entre corchetes,
+ * exacto, con ñ), TIPO_REC y CONCEPTO (textos) + IMP_INSOL/IMP_REAJ/MORA/
+ * COSTO_EMIS (montos) + `tipo`/`observacion`/`estado` (minúsculas, DBA
+ * 15/10). char/varchar → trim (null → ''); montos → Number (null → 0);
  * llaves → Number (null → 0).
  */
 function mapDetalleRow(row: SpOrdenanzaDetalleRow): OrdenanzaDetalleRow {
@@ -94,6 +95,9 @@ function mapDetalleRow(row: SpOrdenanzaDetalleRow): OrdenanzaDetalleRow {
     impReaj: toNumber(row.IMP_REAJ),
     mora: toNumber(row.MORA),
     costoEmis: toNumber(row.COSTO_EMIS),
+    tipo: trimChar(row.tipo),
+    observacion: trimChar(row.observacion),
+    estado: trimChar(row.estado),
   };
 }
 
@@ -200,11 +204,13 @@ export class OrdenanzasService {
 
   /**
    * Update de fila del detalle (T3, @msquery=8 = UPDATE en CAJA.DOrdenanzas
-   * `WHERE IDORDENANZA = @idordenanza`). Se envían SOLO los params con valor
-   * conocido: cidordenanza, anno/tipo_rec (char → trim), los 4 montos,
-   * operador (de sesión), estacion e idordenanza (PK del detalle).
-   * tipo/observacion/estado NO se envían: el modo 4 no los devuelve y el
-   * modo 8 los pisaría en blanco.
+   * `WHERE IDORDENANZA = @idordenanza` + T7 con LOS 19 params sin default:
+   * el SP exige todos (error 201 sin ellos; EXEC_OK con los 19, probado en
+   * vivo con ROLLBACK). `tipo`/`observacion`/`estado` viajan PRESERVADOS
+   * del input (tal cual, NO editables): enviarlos en blanco BORRARÍA datos
+   * (fila 1 real: tipo='02.01', estado='1'). descripcion/fdesde/fhasta/
+   * fecvenc viajan '' (no usados en la rama; el SP usa getdate() para
+   * fec_venc) y criterio fijo 12 del dominio.
    *
    * Anti-duplicidad (año, tipo_rec) dentro del master, excluyendo la propia
    * fila: verificación previa por lectura modo 4 (rechaza con 409) + red de
@@ -218,6 +224,9 @@ export class OrdenanzasService {
   ): Promise<{ message: string }> {
     const anno = trimChar(input.anno);
     const tipoRec = trimChar(input.tipoRec);
+    const tipo = trimChar(input.tipo);
+    const observacion = trimChar(input.observacion);
+    const estado = trimChar(input.estado);
     const { data: filas } = await this.detalle(input.cidordenanza);
     const duplicada = filas.some(
       (f) =>
@@ -233,16 +242,24 @@ export class OrdenanzasService {
 
     try {
       await this.db.executeProcedure('caja.sp_ordenanzas', {
-        msquery: 8, // 8 = UPDATE detalle.
+        msquery: 8, // 8 = UPDATE detalle (LOS 19 params sin default).
+        criterio: 12, // Fijo del dominio (no usado en la rama del modo 8).
+        descripcion: '',
+        fdesde: '',
+        fhasta: '',
+        observacion, // Preservado del input (viaja tal cual).
+        operador,
+        estacion: input.estacion,
         cidordenanza: input.cidordenanza,
         anno,
+        tipo, // Preservado del input (viaja tal cual).
         tipo_rec: tipoRec,
         imp_insol: input.impInsol,
         imp_reaj: input.impReaj,
         mora: input.mora,
         costo_emis: input.costoEmis,
-        operador,
-        estacion: input.estacion,
+        estado, // Preservado del input (viaja tal cual).
+        fecvenc: '', // El SP usa getdate() para fec_venc.
         idordenanza, // PK del detalle (llave del WHERE).
       });
 

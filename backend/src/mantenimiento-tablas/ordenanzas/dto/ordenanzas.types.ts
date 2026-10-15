@@ -62,6 +62,10 @@ export interface OrdenanzasResponse {
 // observacion/tipo de la forma vieja.
 // (T3/detalle-editar): el DBA agregó las llaves al SELECT — `IDORDENANZA`
 // (PK del detalle, number) y `CIDORDENANZA` (master, number).
+// (T7): el DBA agregó `tipo`, `observacion` y `estado` al SELECT del modo 4
+// (llaves reales en MINÚSCULAS, verificadas en vivo 15/10: fila 1
+// tipo='02.01', observacion='', estado='1'). Sin ellas el modo 8 las
+// pisaría en blanco (trampa mortal del Diagnóstico modo 8).
 export interface SpOrdenanzaDetalleRow {
   IDORDENANZA?: number | null;
   CIDORDENANZA?: number | null;
@@ -72,13 +76,18 @@ export interface SpOrdenanzaDetalleRow {
   IMP_REAJ?: number | string | null;
   MORA?: number | string | null;
   COSTO_EMIS?: number | string | null;
+  tipo?: string | null;
+  observacion?: string | null;
+  estado?: string | null;
 }
 
 /**
  * Fila de detalle de ordenanza normalizada (7 campos del SP re-modelado +
- * llaves T3): campos char/varchar recortados (null → ''), montos numéricos.
- * `idDetalle` es la PK del detalle (WHERE del modo 8) y `cidordenanza` el
- * master al que pertenece.
+ * llaves T3 + 3 preservadas T7): campos char/varchar recortados (null →
+ * ''), montos numéricos. `idDetalle` es la PK del detalle (WHERE del modo
+ * 8) y `cidordenanza` el master al que pertenece. `tipo`/`observacion`/
+ * `estado` viajan preservados al modo 8 (el front los devuelve tal cual,
+ * no editables).
  */
 export interface OrdenanzaDetalleRow {
   idDetalle: number;
@@ -90,13 +99,16 @@ export interface OrdenanzaDetalleRow {
   impReaj: number;
   mora: number;
   costoEmis: number;
+  tipo: string;
+  observacion: string;
+  estado: string;
 }
 
 /**
- * Input del update del detalle (T3, @msquery=8): SOLO los params con valor
- * conocido (el modo 4 no devuelve tipo/observacion/estado y enviarlos en
- * blanco los pisaría). `estacion` viaja aparte del body HTTP (header
- * x-estacion) porque el SP la exige sin default.
+ * Input del update del detalle (T3, @msquery=8 + T7 con los 19 params):
+ * `tipo`/`observacion`/`estado` preservados del modo 4 (el front los
+ * devuelve tal cual, NO editables). `estacion` viaja aparte del body HTTP
+ * (header x-estacion) porque el SP la exige sin default.
  */
 export interface EditarDetalleInput {
   cidordenanza: number;
@@ -107,6 +119,9 @@ export interface EditarDetalleInput {
   mora: number;
   costoEmis: number;
   estacion: string;
+  tipo: string;
+  observacion: string;
+  estado: string;
 }
 
 /**
