@@ -36,6 +36,49 @@ const EditarDetalleParamsSchema = z.object({
     .positive('id debe ser un entero positivo'),
 });
 
+// Validación Zod del body del alta del detalle (ordenanzas-detalle-alta,
+// @msquery=2 = INSERT): formulario COMPLETO — master + anno YYYY exacto
+// char 4 + tipo/tipoRec min(1) + 4 montos ≥ 0 + observacion string (admite
+// '' legítimo) + estado EXACTAMENTE 1 char + fecvenc YYYY-MM-DD (viaja tal
+// cual al SP, varchar(10) ISO). La estación viaja por header x-estacion
+// (el SP la exige sin default), igual que el PATCH.
+const CrearDetalleSchema = z.object({
+  cidordenanza: z.coerce
+    .number({ invalid_type_error: 'cidordenanza debe ser un número' })
+    .int('cidordenanza debe ser un número entero')
+    .positive('cidordenanza debe ser un entero positivo'),
+  anno: z
+    .string({ invalid_type_error: 'anno debe ser un texto' })
+    .regex(/^\d{4}$/, 'anno debe tener el formato YYYY'),
+  tipo: z
+    .string({ invalid_type_error: 'tipo debe ser un texto' })
+    .min(1, 'tipo es obligatorio'),
+  tipoRec: z
+    .string({ invalid_type_error: 'tipoRec debe ser un texto' })
+    .min(1, 'tipoRec es obligatorio'),
+  impInsol: z.coerce
+    .number({ invalid_type_error: 'impInsol debe ser un número' })
+    .min(0, 'impInsol debe ser mayor o igual a 0'),
+  impReaj: z.coerce
+    .number({ invalid_type_error: 'impReaj debe ser un número' })
+    .min(0, 'impReaj debe ser mayor o igual a 0'),
+  mora: z.coerce
+    .number({ invalid_type_error: 'mora debe ser un número' })
+    .min(0, 'mora debe ser mayor o igual a 0'),
+  costoEmis: z.coerce
+    .number({ invalid_type_error: 'costoEmis debe ser un número' })
+    .min(0, 'costoEmis debe ser mayor o igual a 0'),
+  observacion: z.string({
+    invalid_type_error: 'observacion debe ser un texto',
+  }),
+  estado: z
+    .string({ invalid_type_error: 'estado debe ser un texto' })
+    .length(1, 'estado debe tener exactamente 1 caracter'),
+  fecvenc: z
+    .string({ invalid_type_error: 'fecvenc debe ser un texto' })
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'fecvenc debe tener el formato YYYY-MM-DD'),
+});
+
 // Validación Zod del body del update del detalle (T3 + T7 con los 19
 // params): campos editables (anno YYYY exacto char 4, tipoRec, 4 montos ≥
 // 0) + tipo/observacion/estado PRESERVADOS del modo 4 (viajan tal cual al
@@ -104,6 +147,37 @@ export class OrdenanzasController {
     }
     const operador = (req.user as any)?.username || '';
     return this.ordenanzasService.crear(parsed.data, operador);
+  }
+
+  /**
+   * Alta de fila del detalle (ordenanzas-detalle-alta, @msquery=2 = INSERT
+   * en CAJA.DOrdenanzas). El body trae el formulario COMPLETO validado con
+   * CrearDetalleSchema; la estación viaja por header x-estacion (el SP la
+   * exige sin default) y el operador sale del usuario de sesión inyectado
+   * por el JwtAuthGuard.
+   *
+   * OJO rutas: `@Post('detalle')` (POST) no colisiona con `@Get('detalle')`
+   * (distinto método) ni con `@Post()` (distinto path).
+   */
+  @Post('detalle')
+  async crearDetalle(
+    @Body() body: Record<string, unknown>,
+    @Req() req: Request,
+  ): Promise<{ message: string }> {
+    const parsed = CrearDetalleSchema.safeParse(body);
+    if (!parsed.success) {
+      const msg = parsed.error.errors.map((e) => e.message).join('; ');
+      throw new BadRequestException(msg || 'Datos inválidos');
+    }
+    const operador = (req.user as any)?.username || '';
+    const rawEstacion = req.headers?.['x-estacion'];
+    const estacion = Array.isArray(rawEstacion)
+      ? (rawEstacion[0] ?? '')
+      : (rawEstacion ?? '');
+    return this.ordenanzasService.crearDetalle(
+      { ...parsed.data, estacion },
+      operador,
+    );
   }
 
   /**

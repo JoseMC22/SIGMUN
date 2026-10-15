@@ -101,6 +101,29 @@ function mapDetalleRow(row: SpOrdenanzaDetalleRow): OrdenanzaDetalleRow {
   };
 }
 
+/**
+ * Input del alta del detalle (ordenanzas-detalle-alta, @msquery=2 = INSERT
+ * en CAJA.DOrdenanzas): formulario COMPLETO todo editable + `fecvenc`
+ * (YYYY-MM-DD tal cual, varchar(10) ISO) + `estacion` por header x-estacion
+ * (el SP la exige sin default). `idordenanza` NO va en el input: es
+ * IDENTITY en el INSERT y viaja 0 (sin uso en la rama, como criterio 12 y
+ * descripcion/fdesde/fhasta '').
+ */
+export interface CrearDetalleInput {
+  cidordenanza: number;
+  anno: string;
+  tipo: string;
+  tipoRec: string;
+  impInsol: number;
+  impReaj: number;
+  mora: number;
+  costoEmis: number;
+  observacion: string;
+  estado: string;
+  fecvenc: string;
+  estacion: string;
+}
+
 @Injectable()
 export class OrdenanzasService {
   private readonly logger = new Logger(OrdenanzasService.name);
@@ -271,6 +294,72 @@ export class OrdenanzasService {
         );
       }
       this.logger.error('Error al actualizar el detalle de ordenanza', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Alta de fila del detalle (ordenanzas-detalle-alta, @msquery=2 = INSERT
+   * en CAJA.DOrdenanzas con LOS 19 params sin default: criterio 12,
+   * descripcion/fdesde/fhasta '', idordenanza 0 — sin uso en la rama, igual
+   * que el modo 8 — y `fecvenc` YYYY-MM-DD tal cual, varchar(10) ISO no
+   * ambiguo, el SP no lo normaliza).
+   *
+   * Anti-duplicidad (año, tipo_rec) dentro del master IGUAL que
+   * `editarDetalle` pero SIN fila propia que excluir: verificación previa
+   * por lectura modo 4 (rechaza con 409) + red de seguridad mapeando el
+   * error 2627/2601 del índice único a 409 para la ventana concurrente.
+   */
+  async crearDetalle(
+    input: CrearDetalleInput,
+    operador: string,
+  ): Promise<{ message: string }> {
+    const anno = trimChar(input.anno);
+    const tipoRec = trimChar(input.tipoRec);
+    const tipo = trimChar(input.tipo);
+    const observacion = trimChar(input.observacion);
+    const estado = trimChar(input.estado);
+    const { data: filas } = await this.detalle(input.cidordenanza);
+    const duplicada = filas.some(
+      (f) => f.anno === anno && f.tipoRec === tipoRec,
+    );
+    if (duplicada) {
+      throw new ConflictException(
+        `Ya existe otra fila con año ${anno} y tipo ${tipoRec} en esta ordenanza`,
+      );
+    }
+
+    try {
+      await this.db.executeProcedure('caja.sp_ordenanzas', {
+        msquery: 2, // 2 = INSERT detalle (LOS 19 params sin default).
+        criterio: 12, // Fijo del dominio (no usado en la rama del modo 2).
+        descripcion: '',
+        fdesde: '',
+        fhasta: '',
+        observacion,
+        operador,
+        estacion: input.estacion,
+        cidordenanza: input.cidordenanza,
+        anno,
+        tipo,
+        tipo_rec: tipoRec,
+        imp_insol: input.impInsol,
+        imp_reaj: input.impReaj,
+        mora: input.mora,
+        costo_emis: input.costoEmis,
+        estado,
+        fecvenc: input.fecvenc, // YYYY-MM-DD tal cual (varchar(10) ISO).
+        idordenanza: 0, // Sin uso en la rama (IDENTITY en el INSERT).
+      });
+
+      return { message: 'Detalle de ordenanza registrado exitosamente' };
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new ConflictException(
+          `Ya existe otra fila con año ${anno} y tipo ${tipoRec} en esta ordenanza`,
+        );
+      }
+      this.logger.error('Error al registrar el detalle de ordenanza', error);
       throw error;
     }
   }

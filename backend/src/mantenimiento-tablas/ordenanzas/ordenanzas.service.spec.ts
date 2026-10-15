@@ -513,4 +513,163 @@ describe('OrdenanzasService', () => {
       expect(mockExecuteProcedure).toHaveBeenCalledTimes(2);
     });
   });
+
+  // ── crearDetalle (@msquery=2 = INSERT detalle, ordenanzas-detalle-alta) ──
+
+  describe('crearDetalle', () => {
+    const validInput = {
+      cidordenanza: 2,
+      anno: '2013',
+      tipo: '02.01',
+      tipoRec: '02.01',
+      impInsol: 46.2,
+      impReaj: 0,
+      mora: 10.5,
+      costoEmis: 2.5,
+      observacion: '',
+      estado: '1',
+      fecvenc: '2013-09-30',
+      estacion: 'PC-SISTEMAS',
+    };
+
+    it('executes caja.sp_ordenanzas with msquery=2 sending ALL 19 params (fecvenc travels YYYY-MM-DD as-is, idordenanza 0)', async () => {
+      mockExecuteProcedure
+        .mockResolvedValueOnce({ recordset: [] }) // validación modo 4: sin duplicados
+        .mockResolvedValueOnce({ recordset: [] }); // modo 2
+
+      await expect(
+        service.crearDetalle(validInput, 'ADMIN'),
+      ).resolves.toEqual({
+        message: 'Detalle de ordenanza registrado exitosamente',
+      });
+
+      // 1 = lectura modo 4 (anti-duplicidad) + 1 = INSERT modo 2.
+      expect(mockExecuteProcedure).toHaveBeenCalledTimes(2);
+      expect(mockExecuteProcedure).toHaveBeenNthCalledWith(
+        2,
+        'caja.sp_ordenanzas',
+        {
+          msquery: 2, // 2 = INSERT detalle; los 19 params sin default.
+          criterio: 12, // Fijo del dominio (no usado en la rama del modo 2).
+          descripcion: '',
+          fdesde: '',
+          fhasta: '',
+          observacion: '',
+          operador: 'ADMIN',
+          estacion: 'PC-SISTEMAS',
+          cidordenanza: 2,
+          anno: '2013',
+          tipo: '02.01',
+          tipo_rec: '02.01',
+          imp_insol: 46.2,
+          imp_reaj: 0,
+          mora: 10.5,
+          costo_emis: 2.5,
+          estado: '1',
+          fecvenc: '2013-09-30', // YYYY-MM-DD tal cual (varchar(10) ISO).
+          idordenanza: 0, // Sin uso en la rama (IDENTITY en el INSERT).
+        },
+      );
+    });
+
+    it('trims the anno/tipo/tipoRec/observacion/estado char padding and keeps fecvenc as-is', async () => {
+      mockExecuteProcedure
+        .mockResolvedValueOnce({ recordset: [] }) // validación
+        .mockResolvedValueOnce({ recordset: [] }); // modo 2
+
+      await service.crearDetalle(
+        {
+          ...validInput,
+          anno: '2013 ',
+          tipo: '02.01   ',
+          tipoRec: '02.01   ',
+          estado: '1 ',
+        },
+        'ADMIN',
+      );
+
+      expect(mockExecuteProcedure).toHaveBeenNthCalledWith(
+        2,
+        'caja.sp_ordenanzas',
+        expect.objectContaining({
+          anno: '2013',
+          tipo: '02.01',
+          tipo_rec: '02.01',
+          estado: '1',
+          fecvenc: '2013-09-30',
+        }),
+      );
+    });
+
+    it('rejects with 409 without calling mode 2 when ANY row already uses (anno, tipo_rec)', async () => {
+      mockExecuteProcedure.mockResolvedValueOnce({
+        recordset: [
+          {
+            IDORDENANZA: 9,
+            CIDORDENANZA: 2,
+            'Año': '2013',
+            TIPO_REC: '02.01',
+            CONCEPTO: 'IMPUESTO AL PATRIMONIO PREDIAL',
+            IMP_INSOL: 46.2,
+            IMP_REAJ: 0,
+            MORA: 10.5,
+            COSTO_EMIS: 2.5,
+            tipo: '02.01',
+            observacion: '',
+            estado: '1',
+          },
+        ],
+      });
+
+      const err = await service.crearDetalle(validInput, 'ADMIN').then(
+        () => {
+          throw new Error('should have rejected with ConflictException');
+        },
+        (e) => e,
+      );
+
+      expect(err).toBeInstanceOf(ConflictException);
+      expect(err?.status).toBe(409);
+      expect(err?.message).toContain(
+        'Ya existe otra fila con año 2013 y tipo 02.01 en esta ordenanza',
+      );
+      // Solo la lectura modo 4: el INSERT jamás se ejecutó.
+      expect(mockExecuteProcedure).toHaveBeenCalledTimes(1);
+    });
+
+    it('maps the SQL unique-violation errors (2627 and 2601) to 409 for the concurrent window', async () => {
+      for (const number of [2627, 2601]) {
+        mockExecuteProcedure
+          .mockResolvedValueOnce({ recordset: [] }) // validación: sin duplicados
+          .mockRejectedValueOnce(
+            Object.assign(new Error('Violation of UNIQUE KEY constraint'), {
+              number,
+            }),
+          ); // modo 2: el índice único frenó al segundo concurrente
+
+        const err = await service.crearDetalle(validInput, 'ADMIN').then(
+          () => {
+            throw new Error('should have rejected with ConflictException');
+          },
+          (e) => e,
+        );
+
+        expect(err).toBeInstanceOf(ConflictException);
+        expect(err?.status).toBe(409);
+        expect(err?.message).toContain(
+          'Ya existe otra fila con año 2013 y tipo 02.01 en esta ordenanza',
+        );
+      }
+    });
+
+    it('rethrows the SP error after logging', async () => {
+      mockExecuteProcedure
+        .mockResolvedValueOnce({ recordset: [] }) // validación
+        .mockRejectedValueOnce(new Error('expects parameter')); // modo 2
+
+      await expect(service.crearDetalle(validInput, 'ADMIN')).rejects.toThrow(
+        'expects parameter',
+      );
+    });
+  });
 });

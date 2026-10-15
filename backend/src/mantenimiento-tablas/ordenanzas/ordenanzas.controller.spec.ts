@@ -18,6 +18,7 @@ describe('OrdenanzasController', () => {
     editar: jest.fn(),
     detalle: jest.fn(),
     editarDetalle: jest.fn(),
+    crearDetalle: jest.fn(),
   };
 
   // Fila de ejemplo alineada con el SP en vivo (S3): char sin padding
@@ -338,6 +339,105 @@ describe('OrdenanzasController', () => {
         message: 'Detalle de ordenanza actualizado exitosamente',
       });
       expect(mockService.editarDetalle).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // ── POST /mantenimiento-tablas/ordenanzas/detalle (alta detalle, ordenanzas-detalle-alta, msquery=2) ──
+
+  describe('POST /mantenimiento-tablas/ordenanzas/detalle', () => {
+    // Body del alta detalle: master + anno YYYY + tipo/tipoRec + 4 montos
+    // ≥ 0 + observacion (string, admite '') + estado (1 char) + fecvenc
+    // YYYY-MM-DD. La estación viaja por header x-estacion (el SP la exige
+    // sin default); el operador sale de la sesión.
+    const validBody = {
+      cidordenanza: 2,
+      anno: '2013',
+      tipo: '02.01',
+      tipoRec: '02.01',
+      impInsol: 46.2,
+      impReaj: 0,
+      mora: 10.5,
+      costoEmis: 2.5,
+      observacion: '',
+      estado: '1',
+      fecvenc: '2013-09-30',
+    };
+
+    // req.user viene del JwtAuthGuard (patrón mantenimiento-vias).
+    const req = {
+      user: { username: 'ADMIN' },
+      headers: { 'x-estacion': 'PC-SISTEMAS' },
+    };
+
+    it('should create the detalle row delegating to the service with the session operator + x-estacion header', async () => {
+      mockService.crearDetalle.mockResolvedValue({
+        message: 'Detalle de ordenanza registrado exitosamente',
+      });
+
+      const result = await controller.crearDetalle(validBody, req as never);
+
+      expect(result).toEqual({
+        message: 'Detalle de ordenanza registrado exitosamente',
+      });
+      expect(mockService.crearDetalle).toHaveBeenCalledTimes(1);
+      expect(mockService.crearDetalle).toHaveBeenCalledWith(
+        { ...validBody, estacion: 'PC-SISTEMAS' },
+        'ADMIN',
+      );
+    });
+
+    it('should reject a malformed fecvenc (not YYYY-MM-DD) with BadRequestException without calling the service', async () => {
+      for (const fecvenc of ['30/09/2013', '2013-9-3', '2013/09/30', '']) {
+        await expect(
+          controller.crearDetalle({ ...validBody, fecvenc }, req as never),
+        ).rejects.toThrow(BadRequestException);
+      }
+
+      expect(mockService.crearDetalle).not.toHaveBeenCalled();
+    });
+
+    it('should reject a long estado (not exactly 1 char) with BadRequestException without calling the service', async () => {
+      for (const estado of ['12', 'ACT', '']) {
+        await expect(
+          controller.crearDetalle({ ...validBody, estado }, req as never),
+        ).rejects.toThrow(BadRequestException);
+      }
+
+      expect(mockService.crearDetalle).not.toHaveBeenCalled();
+    });
+
+    it('should reject an invalid anno (not YYYY), empty tipo/tipoRec or negative amounts with BadRequestException without calling the service', async () => {
+      for (const invalidBody of [
+        { ...validBody, anno: '13' },
+        { ...validBody, anno: '2013 ' },
+        { ...validBody, tipo: '' },
+        { ...validBody, tipoRec: '' },
+        { ...validBody, impInsol: -1 },
+        { ...validBody, mora: -0.5 },
+        { ...validBody, cidordenanza: 0 },
+      ]) {
+        await expect(
+          controller.crearDetalle(invalidBody, req as never),
+        ).rejects.toThrow(BadRequestException);
+      }
+
+      expect(mockService.crearDetalle).not.toHaveBeenCalled();
+    });
+
+    it('should accept an empty observacion (may legitimately be blank)', async () => {
+      mockService.crearDetalle.mockResolvedValue({
+        message: 'Detalle de ordenanza registrado exitosamente',
+      });
+
+      const result = await controller.crearDetalle(
+        { ...validBody, observacion: '' },
+        req as never,
+      );
+
+      expect(result).toEqual({
+        message: 'Detalle de ordenanza registrado exitosamente',
+      });
+      expect(mockService.crearDetalle).toHaveBeenCalledTimes(1);
     });
   });
 });
