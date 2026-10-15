@@ -1,11 +1,37 @@
 "use client";
 
-import { Scale } from "lucide-react";
+import { useCallback, useState } from "react";
+import { Scale, FileDown, Loader2 } from "lucide-react";
 import { ComparacionPanel } from "./liquidacion-panel";
+import { generarComparaLiquidacionPdf, type PanelExportData } from "./compara-liquidacion-pdf";
 
 // ─── Main Page ────────────────────────────────────────────
 
 export default function ComparaLiquidacionPage() {
+  // Cada panel informa su resultado cargado (o null) para el exportador.
+  const [paneles, setPaneles] = useState<[PanelExportData | null, PanelExportData | null]>([
+    null,
+    null,
+  ]);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExportar = useCallback(async () => {
+    if (!paneles.some(Boolean)) return;
+    setExporting(true);
+    try {
+      await generarComparaLiquidacionPdf([
+        paneles[0] ?? { titulo: "Liquidación A", cabecera: null, detalle: [] },
+        paneles[1] ?? { titulo: "Liquidación B", cabecera: null, detalle: [] },
+      ]);
+    } catch {
+      // La descarga es best-effort: no interrumpe la comparación en pantalla.
+    } finally {
+      setExporting(false);
+    }
+  }, [paneles]);
+
+  const hayResultados = paneles.some(Boolean);
+
   return (
     <div className="space-y-4">
       {/* Page header */}
@@ -28,13 +54,43 @@ export default function ComparaLiquidacionPage() {
               Consulte y compare dos liquidaciones lado a lado: cabecera y detalle por secuencia
             </p>
           </div>
+          <button
+            type="button"
+            onClick={handleExportar}
+            disabled={!hayResultados || exporting}
+            className="ml-auto inline-flex items-center gap-1.5 rounded-md bg-white/10 px-3.5 py-2 text-xs font-medium text-white ring-1 ring-white/15 backdrop-blur-sm transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/30 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {exporting ? (
+              <>
+                <Loader2 size={14} className="animate-spin" />
+                Exportando...
+              </>
+            ) : (
+              <>
+                <FileDown size={14} />
+                Exportar a PDF
+              </>
+            )}
+          </button>
         </div>
       </div>
 
       {/* Dos paneles independientes, uno junto al otro (apilados en pantallas angostas) */}
       <div className="grid gap-4 grid-cols-1 xl:grid-cols-2">
-        <ComparacionPanel titulo="Liquidación A" testIdPrefix="a" />
-        <ComparacionPanel titulo="Liquidación B" testIdPrefix="b" />
+        <ComparacionPanel
+          titulo="Liquidación A"
+          testIdPrefix="a"
+          onLoadedData={(data) =>
+            setPaneles(([, b]) => [data, b] as [PanelExportData | null, PanelExportData | null])
+          }
+        />
+        <ComparacionPanel
+          titulo="Liquidación B"
+          testIdPrefix="b"
+          onLoadedData={(data) =>
+            setPaneles(([a]) => [a, data] as [PanelExportData | null, PanelExportData | null])
+          }
+        />
       </div>
     </div>
   );
