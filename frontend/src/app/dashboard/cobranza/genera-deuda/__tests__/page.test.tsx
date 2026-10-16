@@ -42,43 +42,6 @@ const standardResult = {
   totalPages: 1,
 };
 
-const placaItem = {
-  codigo: "0279126",
-  nombresCompletos: "QUISPE MAMANI JUAN CARLOS",
-  numDoc: "40123456",
-  direFis: "AV. LOS PINOS 145",
-  placa: "ABC123",
-  row: 1,
-};
-
-const placaResult = {
-  success: true as const,
-  data: [placaItem],
-  total: 1,
-  page: 1,
-  pageSize: 10,
-  totalPages: 1,
-};
-
-const direccionItem = {
-  codigo: "0279126",
-  nombre: "QUISPE MAMANI JUAN CARLOS",
-  codPred: "10452",
-  anexo: "0001",
-  subAnexo: "0001",
-  direccion: "AV. LOS PINOS 145",
-  row: 1,
-};
-
-const direccionResult = {
-  success: true as const,
-  data: [direccionItem],
-  total: 1,
-  page: 1,
-  pageSize: 10,
-  totalPages: 1,
-};
-
 // ── Helpers ───────────────────────────────────────────────
 
 function grid() {
@@ -111,37 +74,44 @@ describe("GeneraDeudaPage", () => {
     mockAction.mockResolvedValue(emptyResult);
   });
 
-  it("renderiza el formulario con las 6 opciones de tipo de búsqueda", async () => {
+  it("renderiza el formulario con exactamente 4 opciones de tipo de búsqueda (C/N/R/D)", async () => {
     render(<GeneraDeudaPage />);
     await waitForInitialSearch();
 
     const select = screen.getByLabelText(/tipo búsqueda/i);
-    for (const label of [
-      "Código",
-      "Nombre",
-      "Razón Social",
-      "Documento",
-      "Dirección Predio",
-      "Placa",
-    ]) {
+    for (const label of ["Código", "Nombre", "Razón Social", "Documento"]) {
       expect(within(select).getByRole("option", { name: label })).toBeInTheDocument();
     }
+    // Los modos Dirección Predio y Placa fueron eliminados.
+    expect(within(select).queryByRole("option", { name: "Dirección Predio" })).not.toBeInTheDocument();
+    expect(within(select).queryByRole("option", { name: "Placa" })).not.toBeInTheDocument();
+    expect(within(select).getAllByRole("option")).toHaveLength(4);
 
-    // Modo C por defecto: input de código, checkbox Infracción y botón Buscar.
+    // El checkbox Infracción fue eliminado.
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Infracción")).not.toBeInTheDocument();
+
+    // Modo C por defecto: input de código y botón Buscar.
     expect(screen.getByLabelText("Código")).toBeInTheDocument();
-    expect(screen.getByRole("checkbox", { name: "Infracción" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /buscar/i })).toBeInTheDocument();
   });
 
-  it("dispara la búsqueda automática al montar con la página 1", async () => {
+  it("dispara la búsqueda automática al montar con la página 1 y sin checkfrac", async () => {
     render(<GeneraDeudaPage />);
     await waitFor(() => expect(mockAction).toHaveBeenCalledTimes(1));
 
     expect(mockAction).toHaveBeenCalledWith(
-      expect.objectContaining({ tipoBusqueda: "C", checkfrac: 0, codigo: "" }),
+      expect.objectContaining({ tipoBusqueda: "C", codigo: "" }),
       1,
       10,
     );
+
+    // checkfrac ya no forma parte del payload (el backend lo defaultea a 0)
+    // y tampoco viajan los campos de los modos P/V eliminados.
+    const payload = mockAction.mock.calls[0][0] as Record<string, unknown>;
+    expect(payload).not.toHaveProperty("checkfrac");
+    expect(payload).not.toHaveProperty("placa");
+    expect(payload).not.toHaveProperty("anno");
   });
 
   it("muestra el skeleton mientras carga la búsqueda inicial", async () => {
@@ -164,45 +134,22 @@ describe("GeneraDeudaPage", () => {
     );
   });
 
-  it("muestra el select de año con 'Todos' en modo Dirección Predio", async () => {
-    render(<GeneraDeudaPage />);
-    await waitForInitialSearch();
-
-    // En modo C no hay select de año.
-    expect(screen.queryByLabelText("Año")).not.toBeInTheDocument();
-
-    selectTipo("P");
-
-    const anio = screen.getByLabelText("Año");
-    expect(within(anio).getByRole("option", { name: "Todos" })).toBeInTheDocument();
-    expect(
-      within(anio).getByRole("option", { name: String(new Date().getFullYear()) }),
-    ).toBeInTheDocument();
-
-    // El resto de inputs del modo P.
-    expect(screen.getByLabelText("Código Predio")).toBeInTheDocument();
-    expect(screen.getByLabelText("Nombre Vía")).toBeInTheDocument();
-    expect(screen.getByLabelText("Nombre Urb.")).toBeInTheDocument();
-  });
-
-  it("cambiar el tipo de búsqueda resetea los filtros y el checkbox Infracción", async () => {
+  it("cambiar el tipo de búsqueda resetea los filtros", async () => {
     render(<GeneraDeudaPage />);
     await waitForInitialSearch();
 
     fireEvent.change(screen.getByLabelText("Código"), { target: { value: "279126" } });
-    fireEvent.click(screen.getByRole("checkbox", { name: "Infracción" }));
 
     selectTipo("N");
     // Los inputs del modo N arrancan vacíos.
     expect((screen.getByLabelText("Nombres") as HTMLInputElement).value).toBe("");
 
     selectTipo("C");
-    // De vuelta en C: el código se limpió y el checkbox se desmarcó.
+    // De vuelta en C: el código se limpió.
     expect((screen.getByLabelText("Código") as HTMLInputElement).value).toBe("");
-    expect(screen.getByRole("checkbox", { name: "Infracción" })).not.toBeChecked();
   });
 
-  it("renderiza la grilla estándar (modo C) con sus columnas y sin columna Acciones", async () => {
+  it("renderiza la grilla estándar con sus columnas incluida 'Acciones'", async () => {
     mockAction.mockResolvedValueOnce(standardResult);
 
     render(<GeneraDeudaPage />);
@@ -215,8 +162,8 @@ describe("GeneraDeudaPage", () => {
       "Nombres",
       "Nro. Documento",
       "Dirección",
+      "Acciones",
     ]);
-    expect(within(grid()).queryByText("Acciones")).not.toBeInTheDocument();
 
     expect(within(grid()).getByText("0279126")).toBeInTheDocument();
     expect(within(grid()).getByText("PERSONA NATURAL")).toBeInTheDocument();
@@ -228,56 +175,21 @@ describe("GeneraDeudaPage", () => {
     expect(screen.getByText(/se encontraron/i)).toBeInTheDocument();
   });
 
-  it("renderiza la grilla de placa (modo V) con sus columnas", async () => {
-    mockAction.mockResolvedValueOnce(emptyResult).mockResolvedValueOnce(placaResult);
+  it("cada fila tiene un botón 'Generar Deuda' que dispara el placeholder", async () => {
+    mockAction.mockResolvedValueOnce(standardResult);
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
 
     render(<GeneraDeudaPage />);
-    await waitFor(() => expect(mockAction).toHaveBeenCalledTimes(1));
-
-    selectTipo("V");
-    fireEvent.change(screen.getByLabelText("Placa"), { target: { value: "ABC123" } });
-    fireEvent.click(screen.getByRole("button", { name: /buscar/i }));
-
-    await waitFor(() => expect(mockAction).toHaveBeenCalledTimes(2));
-    expect(mockAction).toHaveBeenLastCalledWith(
-      expect.objectContaining({ tipoBusqueda: "V", placa: "ABC123" }),
-      1,
-      10,
-    );
-
     await waitFor(() => expect(screen.getByTestId("genera-deuda-grid")).toBeInTheDocument());
-    expect(columnHeaders()).toEqual([
-      "Código",
-      "Nombres",
-      "Nro. Documento",
-      "Dirección",
-      "Placa",
-    ]);
-    expect(within(grid()).getByText("ABC123")).toBeInTheDocument();
-  });
 
-  it("renderiza la grilla de dirección (modo P) con sus columnas", async () => {
-    mockAction.mockResolvedValueOnce(emptyResult).mockResolvedValueOnce(direccionResult);
+    const button = within(grid()).getByRole("button", { name: /generar deuda/i });
+    expect(button).toBeInTheDocument();
 
-    render(<GeneraDeudaPage />);
-    await waitFor(() => expect(mockAction).toHaveBeenCalledTimes(1));
+    fireEvent.click(button);
 
-    selectTipo("P");
-    fireEvent.click(screen.getByRole("button", { name: /buscar/i }));
+    expect(alertSpy).toHaveBeenCalledWith("Por desarrollar");
 
-    await waitFor(() => expect(mockAction).toHaveBeenCalledTimes(2));
-
-    await waitFor(() => expect(screen.getByTestId("genera-deuda-grid")).toBeInTheDocument());
-    expect(columnHeaders()).toEqual([
-      "Código",
-      "Nombre",
-      "Cód. Predio",
-      "Anexo",
-      "Sub Anexo",
-      "Dirección",
-    ]);
-    expect(within(grid()).getByText("10452")).toBeInTheDocument();
-    expect(within(grid()).getByText("AV. LOS PINOS 145")).toBeInTheDocument();
+    alertSpy.mockRestore();
   });
 
   it("muestra el estado vacío tras una búsqueda exitosa sin filas", async () => {

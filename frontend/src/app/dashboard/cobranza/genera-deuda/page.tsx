@@ -1,9 +1,11 @@
 "use client";
 
-// Genera Deuda — step 1: contribuyente search cloned from the declaración
-// jurada screen. Later steps will extend this page, so the structure mirrors
-// the source (administracion-tributaria/declaracion-jurada/page.tsx) closely.
-// The search reuses searchContribuyenteAction (DJ backend, JwtAuthGuard only).
+// Genera Deuda — step 1: contribuyente search based on the declaración
+// jurada screen, simplified to the 4 contribuyente modes (C/N/R/D) plus a
+// per-row "Generar Deuda" action. Later steps will extend this page, so the
+// structure mirrors the source (administracion-tributaria/declaracion-jurada)
+// closely. The search reuses searchContribuyenteAction (DJ backend,
+// JwtAuthGuard only).
 
 import { useState, useEffect, useCallback } from "react";
 import {
@@ -15,21 +17,20 @@ import {
   RotateCcw,
   Receipt,
   Users,
+  FilePlus,
 } from "lucide-react";
 import { searchContribuyenteAction } from "@/actions/administracion-tributaria/declaracion-jurada";
-import type { ContribuyenteAnyItem } from "@/actions/administracion-tributaria/declaracion-jurada";
+import type { ContribuyenteListItem } from "@/actions/administracion-tributaria/declaracion-jurada";
 
 // ─── Types ────────────────────────────────────────────────
 
-type TipoBusqueda = "C" | "N" | "R" | "D" | "P" | "V";
+type TipoBusqueda = "C" | "N" | "R" | "D";
 
 const TIPO_BUSQUEDA_OPTIONS: { value: TipoBusqueda; label: string }[] = [
   { value: "C", label: "Código" },
   { value: "N", label: "Nombre" },
   { value: "R", label: "Razón Social" },
   { value: "D", label: "Documento" },
-  { value: "P", label: "Dirección Predio" },
-  { value: "V", label: "Placa" },
 ];
 
 // ─── Loading skeleton ─────────────────────────────────────
@@ -39,7 +40,8 @@ function TableSkeleton() {
     <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden" data-testid="loading-spinner">
       <div className="animate-pulse">
         <div className="bg-slate-100 border-b border-slate-200 px-3 py-2.5">
-          <div className="grid grid-cols-6 gap-4">
+          <div className="grid grid-cols-7 gap-4">
+            <div className="h-3 bg-slate-200 rounded w-3/4" />
             <div className="h-3 bg-slate-200 rounded w-3/4" />
             <div className="h-3 bg-slate-200 rounded w-3/4" />
             <div className="h-3 bg-slate-200 rounded w-3/4" />
@@ -55,12 +57,13 @@ function TableSkeleton() {
               i === 4 ? "border-b-0" : ""
             }`}
           >
-            <div className="grid grid-cols-6 gap-4">
+            <div className="grid grid-cols-7 gap-4">
               <div className="h-3.5 bg-slate-100 rounded w-3/4" />
               <div className="h-3.5 bg-slate-100 rounded w-3/4" />
               <div className="h-3.5 bg-slate-100 rounded w-3/4" />
               <div className="h-3.5 bg-slate-100 rounded w-3/4" />
               <div className="h-3.5 bg-slate-100 rounded w-3/4" />
+              <div className="h-3.5 bg-slate-100 rounded w-1/3" />
               <div className="h-3.5 bg-slate-100 rounded w-1/3" />
             </div>
           </div>
@@ -81,21 +84,9 @@ export default function GeneraDeudaPage() {
     materno: "",
     razon: "",
     numDoc: "",
-    codPred: "",
-    // ── Address/Predio fields ──
-    anno: "",
-    idVia: "",
-    nro: "",
-    dpto: "",
-    mza: "",
-    lte: "",
-    subLte: "",
-    codUrb: "",
-    placa: "",
   });
-  const [checkfrac, setCheckfrac] = useState(0);
 
-  const [data, setData] = useState<ContribuyenteAnyItem[]>([]);
+  const [data, setData] = useState<ContribuyenteListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(10);
@@ -109,8 +100,9 @@ export default function GeneraDeudaPage() {
       setLoading(true);
       setError(null);
       try {
+        // checkfrac se omite: el backend lo defaultea a 0 (búsqueda normal).
         const result = await searchContribuyenteAction(
-          { ...(overrideFilters ?? filters), tipoBusqueda, checkfrac },
+          { ...(overrideFilters ?? filters), tipoBusqueda },
           pageNum,
           pageSize,
         );
@@ -131,7 +123,7 @@ export default function GeneraDeudaPage() {
         setInitialLoading(false);
       }
     },
-    [filters, tipoBusqueda, checkfrac, pageSize],
+    [filters, tipoBusqueda, pageSize],
   );
 
   useEffect(() => {
@@ -141,7 +133,6 @@ export default function GeneraDeudaPage() {
 
   const handleTipoBusquedaChange = (value: TipoBusqueda) => {
     setTipoBusqueda(value);
-    setCheckfrac(0);
     setFilters({
       codigo: "",
       nombres: "",
@@ -149,17 +140,6 @@ export default function GeneraDeudaPage() {
       materno: "",
       razon: "",
       numDoc: "",
-      codPred: "",
-      anno: "",
-      idVia: "",
-      nro: "",
-      dpto: "",
-      mza: "",
-      lte: "",
-      subLte: "",
-      codUrb: "",
-      // ── Placa field ──
-      placa: "",
     });
     setData([]);
     setTotal(0);
@@ -173,13 +153,12 @@ export default function GeneraDeudaPage() {
   };
 
   // Contribuyente codes are always 7 digits with a leading zero ("0279126"),
-  // but users type the short form ("279126"). Papeleta searches (Infracción
-  // checked) use codes starting with "P" and must not be padded.
+  // but users type the short form ("279126"). Only 1-6 digit numeric values
+  // are padded; anything else (e.g. papeleta codes starting with "P") is left
+  // untouched.
   const normalizeCodigo = (value: string): string => {
     const trimmed = value.trim();
-    return checkfrac === 0 && /^\d{1,6}$/.test(trimmed)
-      ? trimmed.padStart(7, "0")
-      : trimmed;
+    return /^\d{1,6}$/.test(trimmed) ? trimmed.padStart(7, "0") : trimmed;
   };
 
   // Runs a search normalizing the codigo first; the padded value is also
@@ -202,6 +181,15 @@ export default function GeneraDeudaPage() {
   const handlePageChange = (newPage: number) => {
     if (newPage < 1 || newPage > totalPages) return;
     executeSearch(newPage);
+  };
+
+  // ── Acción "Generar Deuda" por fila ──────────────────────
+  // TODO: el flujo real de generación de deuda está pendiente de definición;
+  // por ahora solo se muestra el placeholder estándar (mismo patrón que el
+  // botón "Cargo de Notificación" de declaración jurada). Cuando se defina,
+  // este handler es el seam único para conectarlo (recibe la fila completa).
+  const handleGenerarDeuda = (item: ContribuyenteListItem) => {
+    alert("Por desarrollar");
   };
 
   // ── Filter inputs by tipoBusqueda ──────────────────────
@@ -302,139 +290,6 @@ export default function GeneraDeudaPage() {
             />
           </div>
         );
-      case "P":
-        return (
-          <>
-            <div className="w-[160px]">
-              <label htmlFor="codPred" className={labelClass}>Código Predio</label>
-              <input
-                id="codPred"
-                type="text"
-                placeholder="Código predio"
-                value={filters.codPred}
-                onChange={(e) => handleFilterChange("codPred", e.target.value)}
-                onKeyDown={handleKeyDown}
-                className={inputClass}
-              />
-            </div>
-            <div className="w-[120px]">
-              <label htmlFor="anno" className={labelClass}>Año</label>
-              <select
-                id="anno"
-                value={filters.anno}
-                onChange={(e) => handleFilterChange("anno", e.target.value)}
-                className={inputClass}
-              >
-                <option value="">Todos</option>
-                {Array.from({ length: new Date().getFullYear() - 1991 }, (_, i) => {
-                  const y = new Date().getFullYear() - i;
-                  return (
-                    <option key={y} value={String(y)}>{y}</option>
-                  );
-                })}
-              </select>
-            </div>
-            <div className="w-[200px]">
-              <label htmlFor="idVia" className={labelClass}>Nombre Vía</label>
-              <input
-                id="idVia"
-                type="text"
-                placeholder="Nombre vía"
-                value={filters.idVia}
-                onChange={(e) => handleFilterChange("idVia", e.target.value.toUpperCase())}
-                onKeyDown={handleKeyDown}
-                className={inputClass}
-              />
-            </div>
-            <div className="w-[160px]">
-              <label htmlFor="codUrb" className={labelClass}>Nombre Urb.</label>
-              <input
-                id="codUrb"
-                type="text"
-                placeholder="Nombre urbanización"
-                value={filters.codUrb}
-                onChange={(e) => handleFilterChange("codUrb", e.target.value.toUpperCase())}
-                onKeyDown={handleKeyDown}
-                className={inputClass}
-              />
-            </div>
-            <div className="w-[120px]">
-              <label htmlFor="nro" className={labelClass}>Nro.</label>
-              <input
-                id="nro"
-                type="text"
-                placeholder="Nro."
-                value={filters.nro}
-                onChange={(e) => handleFilterChange("nro", e.target.value)}
-                onKeyDown={handleKeyDown}
-                className={inputClass}
-              />
-            </div>
-            <div className="w-[80px]">
-              <label htmlFor="dpto" className={labelClass}>Dpto</label>
-              <input
-                id="dpto"
-                type="text"
-                placeholder="Dpto"
-                value={filters.dpto}
-                onChange={(e) => handleFilterChange("dpto", e.target.value)}
-                onKeyDown={handleKeyDown}
-                className={inputClass}
-              />
-            </div>
-            <div className="w-[80px]">
-              <label htmlFor="mza" className={labelClass}>Mza</label>
-              <input
-                id="mza"
-                type="text"
-                placeholder="Mza"
-                value={filters.mza}
-                onChange={(e) => handleFilterChange("mza", e.target.value)}
-                onKeyDown={handleKeyDown}
-                className={inputClass}
-              />
-            </div>
-            <div className="w-[80px]">
-              <label htmlFor="lte" className={labelClass}>Lte</label>
-              <input
-                id="lte"
-                type="text"
-                placeholder="Lte"
-                value={filters.lte}
-                onChange={(e) => handleFilterChange("lte", e.target.value)}
-                onKeyDown={handleKeyDown}
-                className={inputClass}
-              />
-            </div>
-            <div className="w-[80px]">
-              <label htmlFor="subLte" className={labelClass}>Sub Lte</label>
-              <input
-                id="subLte"
-                type="text"
-                placeholder="Sub Lte"
-                value={filters.subLte}
-                onChange={(e) => handleFilterChange("subLte", e.target.value)}
-                onKeyDown={handleKeyDown}
-                className={inputClass}
-              />
-            </div>
-          </>
-        );
-      case "V":
-        return (
-          <div className="w-[200px]">
-            <label htmlFor="placa" className={labelClass}>Placa</label>
-            <input
-              id="placa"
-              type="text"
-              placeholder="Nro. placa"
-              value={filters.placa}
-              onChange={(e) => handleFilterChange("placa", e.target.value.toUpperCase())}
-              onKeyDown={handleKeyDown}
-              className={inputClass}
-            />
-          </div>
-        );
     }
   };
 
@@ -473,19 +328,6 @@ export default function GeneraDeudaPage() {
           {/* Dynamic filter inputs */}
           {renderFilterInputs()}
 
-          {/* Infracción checkbox */}
-          <div className="flex items-center gap-1.5 pb-0.5">
-            <label className="flex items-center gap-1.5 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={checkfrac === 1}
-                onChange={(e) => setCheckfrac(e.target.checked ? 1 : 0)}
-                className="h-3.5 w-3.5 rounded border-slate-300 text-sat-cyan accent-sat-cyan transition focus:ring-sat-cyan/20"
-              />
-              <span className="text-[11px] font-medium text-slate-600">Infracción</span>
-            </label>
-          </div>
-
           {/* Buscar button */}
           <div className="flex items-center gap-2">
             <button
@@ -504,9 +346,6 @@ export default function GeneraDeudaPage() {
 
   // ── Results table ───────────────────────────────────────
 
-  const isDireccionMode = tipoBusqueda === "P";
-  const isPlacaMode = tipoBusqueda === "V";
-
   const renderGrid = () => (
     <div className="overflow-hidden rounded-lg border border-slate-200 shadow-sm animate-fade-in">
       <table
@@ -516,76 +355,32 @@ export default function GeneraDeudaPage() {
       >
         <thead className="bg-gradient-to-r from-sat-navy to-[#1e3050]">
           <tr>
-            {isPlacaMode ? (
-              <>
-                <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5 w-[8%]">
-                  Código
-                </th>
-                <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5 w-[28%]">
-                  Nombres
-                </th>
-                <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5 w-[12%]">
-                  Nro. Documento
-                </th>
-                <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5 w-[32%]">
-                  Dirección
-                </th>
-                <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5 w-[8%]">
-                  Placa
-                </th>
-              </>
-            ) : isDireccionMode ? (
-              <>
-                <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5 w-[10%]">
-                  Código
-                </th>
-                <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5 w-[28%]">
-                  Nombre
-                </th>
-                <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5 w-[14%]">
-                  Cód. Predio
-                </th>
-                <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5 w-[8%]">
-                  Anexo
-                </th>
-                <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5 w-[8%]">
-                  Sub Anexo
-                </th>
-                <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5 w-[20%]">
-                  Dirección
-                </th>
-              </>
-            ) : (
-              <>
-                <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5 w-[8%]">
-                  Código
-                </th>
-                <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5 w-[12%]">
-                  T. Contribuyente
-                </th>
-                <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5 w-[10%]">
-                  Tipo/Gestor
-                </th>
-                <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5 w-[22%]">
-                  Nombres
-                </th>
-                <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5 w-[10%]">
-                  Nro. Documento
-                </th>
-                <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5 w-[18%]">
-                  Dirección
-                </th>
-              </>
-            )}
+            <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5 w-[8%]">
+              Código
+            </th>
+            <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5 w-[12%]">
+              T. Contribuyente
+            </th>
+            <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5 w-[10%]">
+              Tipo/Gestor
+            </th>
+            <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5 w-[20%]">
+              Nombres
+            </th>
+            <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5 w-[10%]">
+              Nro. Documento
+            </th>
+            <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5 w-[16%]">
+              Dirección
+            </th>
+            <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-3 py-2.5 border-b border-white/5 w-[12%]">
+              Acciones
+            </th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
           {data.map((item, idx) => {
-            const key = isPlacaMode
-              ? `${(item as any).codigo}-${idx}`
-              : isDireccionMode
-              ? `${(item as any).codigo}-${(item as any).codPred}-${idx}`
-              : `${(item as any).codigo}-${idx}`;
+            const key = `${item.codigo}-${idx}`;
 
             return (
               <tr
@@ -594,67 +389,36 @@ export default function GeneraDeudaPage() {
                   idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"
                 }`}
               >
-                {isPlacaMode ? (
-                  <>
-                    <td className="px-3 py-2 text-[11px] font-mono text-slate-700 truncate">
-                      {(item as any).codigo}
-                    </td>
-                    <td className="px-3 py-2 text-[11px] text-slate-700 truncate font-medium">
-                      {(item as any).nombresCompletos}
-                    </td>
-                    <td className="px-3 py-2 text-[11px] text-slate-600 truncate">
-                      {(item as any).numDoc}
-                    </td>
-                    <td className="px-3 py-2 text-[11px] text-slate-600 truncate">
-                      {(item as any).direFis}
-                    </td>
-                    <td className="px-3 py-2 text-[11px] font-mono text-slate-600 truncate">
-                      {(item as any).placa}
-                    </td>
-                  </>
-                ) : isDireccionMode ? (
-                  <>
-                    <td className="px-3 py-2 text-[11px] font-mono text-slate-700 truncate">
-                      {(item as any).codigo}
-                    </td>
-                    <td className="px-3 py-2 text-[11px] text-slate-700 truncate font-medium">
-                      {(item as any).nombre}
-                    </td>
-                    <td className="px-3 py-2 text-[11px] font-mono text-slate-600 truncate">
-                      {(item as any).codPred}
-                    </td>
-                    <td className="px-3 py-2 text-[11px] text-slate-600 truncate">
-                      {(item as any).anexo}
-                    </td>
-                    <td className="px-3 py-2 text-[11px] text-slate-600 truncate">
-                      {(item as any).subAnexo}
-                    </td>
-                    <td className="px-3 py-2 text-[11px] text-slate-600 truncate">
-                      {(item as any).direccion}
-                    </td>
-                  </>
-                ) : (
-                  <>
-                    <td className="px-3 py-2 text-[11px] font-mono text-slate-700 truncate">
-                      {(item as any).codigo}
-                    </td>
-                    <td className="px-3 py-2 text-[11px] text-slate-600 truncate">
-                      {(item as any).tipoDetalle}
-                    </td>
-                    <td className="px-3 py-2 text-[11px] text-slate-600 truncate">
-                      {(item as any).gestion}
-                    </td>
-                    <td className="px-3 py-2 text-[11px] text-slate-700 truncate font-medium">
-                      {(item as any).nombresCompletos}
-                    </td>
-                    <td className="px-3 py-2 text-[11px] text-slate-600 truncate">
-                      {(item as any).numDoc}
-                    </td>
-                    <td className="px-3 py-2 text-[11px] text-slate-600 truncate">
-                      {(item as any).direFis}
-                    </td>
-                  </>
-                )}
+                <td className="px-3 py-2 text-[11px] font-mono text-slate-700 truncate">
+                  {item.codigo}
+                </td>
+                <td className="px-3 py-2 text-[11px] text-slate-600 truncate">
+                  {item.tipoDetalle}
+                </td>
+                <td className="px-3 py-2 text-[11px] text-slate-600 truncate">
+                  {item.gestion}
+                </td>
+                <td className="px-3 py-2 text-[11px] text-slate-700 truncate font-medium">
+                  {item.nombresCompletos}
+                </td>
+                <td className="px-3 py-2 text-[11px] text-slate-600 truncate">
+                  {item.numDoc}
+                </td>
+                <td className="px-3 py-2 text-[11px] text-slate-600 truncate">
+                  {item.direFis}
+                </td>
+                <td className="px-3 py-2">
+                  {/* Acción secundaria por fila: tinte sat-cyan, más callada
+                      que el botón primario "Buscar" (sólido). */}
+                  <button
+                    type="button"
+                    onClick={() => handleGenerarDeuda(item)}
+                    className="inline-flex items-center gap-1 rounded-md border border-sat-cyan/30 bg-sat-cyan/5 px-2 py-1 text-[10px] font-medium text-sat-cyan transition hover:border-sat-cyan/50 hover:bg-sat-cyan/10 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
+                  >
+                    <FilePlus size={11} />
+                    Generar Deuda
+                  </button>
+                </td>
               </tr>
             );
           })}
