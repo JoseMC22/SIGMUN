@@ -107,28 +107,27 @@ function isValidPcName(name: string): boolean {
 
 /**
  * Obtiene el nombre de la PC.
- * Si el usuario configuró manualmente el nombre, se usa ese.
- * Si no, consulta al backend (DNS reverse lookup) y valida el resultado.
+ *
+ * Precedencia (el backend es la fuente autoritativa):
+ *   1. Backend (`GET /auth/client-info`), que resuelve el hostname de esta máquina.
+ *   2. Override manual del usuario — solo si la detección falla.
+ *   3. Cache de sesiones anteriores.
+ *
+ * Nota honesta: isValidPcName() solo rechaza basura evidente (GATEWAY, una IP,
+ * 'a b', etc.); un valor como 'info' es sintácticamente válido y esta
+ * validación NO puede detectarlo. Lo que neutraliza ese valor contaminado es
+ * que el server resuelva el hostname real (INFOSAT01) y gane la precedencia.
  */
 export async function fetchPcName(): Promise<string> {
   if (typeof window === 'undefined') return '';
 
-  // 1. Si el usuario configuró manualmente, usar ese
-  const manual = localStorage.getItem(PC_NAME_MANUAL_KEY);
-  if (manual && manual.trim()) return manual.trim();
-
-  // 2. Si hay un cache válido (no inválido), usarlo
-  const cached = localStorage.getItem(PC_NAME_KEY);
-  if (cached && isValidPcName(cached)) return cached;
-
-  // Si el cache es inválido, limpiarlo
-  if (cached) localStorage.removeItem(PC_NAME_KEY);
-
-  // 3. Consultar backend
+  // 1) Authoritative source: the backend resolves this machine's hostname.
+  // A previously stored value must NEVER win over a successful resolution:
+  // the cache is only rewritten when it is invalid, so a stale-but-valid
+  // value (e.g. 'info') would otherwise be trusted forever and silently
+  // corrupt the audit trail (caja.mrecibos.estacion).
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/client-info`, {
-      credentials: 'include',
-    });
+    const response = await fetch(`${API_BASE_URL}/auth/client-info`, { credentials: 'include' });
     if (response.ok) {
       const data = await response.json();
       if (data.hostname && isValidPcName(data.hostname)) {
@@ -137,8 +136,20 @@ export async function fetchPcName(): Promise<string> {
       }
     }
   } catch {
-    // ignore
+    // Backend unreachable — fall through to the locally stored values.
   }
+
+  // 2) Manual override: only a fallback for when detection fails.
+  const manual = localStorage.getItem(PC_NAME_MANUAL_KEY);
+  if (manual && isValidPcName(manual)) return manual.trim();
+  if (manual) {
+    console.warn(`[api] El nombre de PC manual guardado ("${manual}") no es válido; se ignora.`);
+  }
+
+  // 3) Cache.
+  const cached = localStorage.getItem(PC_NAME_KEY);
+  if (cached && isValidPcName(cached)) return cached;
+  if (cached) localStorage.removeItem(PC_NAME_KEY);
 
   return '';
 }
@@ -158,12 +169,17 @@ export function setPcName(name: string): void {
 
 /**
  * Versión síncrona — retorna el valor de localStorage.
+ * Solo devuelve valores que pasan `isValidPcName`; cualquier valor crudo
+ * (p. ej. un manual inválido como una IP o 'GATEWAY') se descarta en lectura
+ * en vez de propagarse a la auditoría (`caja.mrecibos.estacion`).
  */
 export function getPcName(): string {
   if (typeof window === 'undefined') return '';
   const manual = localStorage.getItem(PC_NAME_MANUAL_KEY);
-  if (manual) return manual;
-  return localStorage.getItem(PC_NAME_KEY) || '';
+  if (manual && isValidPcName(manual)) return manual;
+  const cached = localStorage.getItem(PC_NAME_KEY);
+  if (cached && isValidPcName(cached)) return cached;
+  return '';
 }
 
 /**
