@@ -1153,10 +1153,12 @@ export type GenerarDeudaGuardarPayload = {
   glosa?: string;
 };
 
+export type GenerarDeudaEstado = 'ok' | 'sin_cambios' | 'error';
+
 export async function guardarGenerarDeudaAction(
   payload: GenerarDeudaGuardarPayload,
 ): Promise<
-  | { success: true; data: { idMulta: string | null } }
+  | { success: true; data: { idMulta: string | null; estado: GenerarDeudaEstado } }
   | { success: false; error: string }
 > {
   try {

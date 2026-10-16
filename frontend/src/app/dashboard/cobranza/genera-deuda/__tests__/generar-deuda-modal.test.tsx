@@ -35,7 +35,10 @@ const conceptos = [
   { tipo: "02.02", concepto: "Arbitrios Municipales" },
 ];
 
-const guardarOk = { success: true as const, data: { idMulta: "991" } };
+const guardarOk = {
+  success: true as const,
+  data: { idMulta: "991", estado: "ok" as const },
+};
 
 // ── Helpers ───────────────────────────────────────────────
 
@@ -189,5 +192,104 @@ describe("GenerarDeudaModal", () => {
       screen.queryByText("Se generó correctamente."),
     ).not.toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  // ── Feedback gateado por `estado` (no por idMulta) ───────────────────────
+  //
+  // El SP nunca devuelve el id del recibo: `idMulta` viene null tanto en
+  // éxito como en error. El modal debe mostrar el feedback según `estado`.
+
+  it("estado 'ok' muestra 'Se generó correctamente.'", async () => {
+    mockGuardar.mockResolvedValueOnce({
+      success: true,
+      data: { idMulta: "991", estado: "ok" },
+    });
+    renderOpen();
+    await waitForConceptos();
+
+    fillRequiredFields("150.50");
+    fireEvent.click(screen.getByRole("button", { name: /guardar/i }));
+
+    expect(
+      await screen.findByText("Se generó correctamente."),
+    ).toBeInTheDocument();
+  });
+
+  it("idMulta null + estado 'ok' igual muestra el éxito (caso roto histórico)", async () => {
+    mockGuardar.mockResolvedValueOnce({
+      success: true,
+      data: { idMulta: null, estado: "ok" },
+    });
+    renderOpen();
+    await waitForConceptos();
+
+    fillRequiredFields("150.50");
+    fireEvent.click(screen.getByRole("button", { name: /guardar/i }));
+
+    expect(
+      await screen.findByText("Se generó correctamente."),
+    ).toBeInTheDocument();
+  });
+
+  it("estado 'error' muestra el mensaje de error y NO el éxito", async () => {
+    mockGuardar.mockResolvedValueOnce({
+      success: true,
+      data: { idMulta: null, estado: "error" },
+    });
+    renderOpen();
+    await waitForConceptos();
+
+    fillRequiredFields("150.50");
+    fireEvent.click(screen.getByRole("button", { name: /guardar/i }));
+
+    expect(
+      await screen.findByText(
+        "No se pudo generar la deuda. Revisá los datos e intentá de nuevo.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Se generó correctamente."),
+    ).not.toBeInTheDocument();
+  });
+
+  it("estado 'sin_cambios' muestra el aviso informativo, no un error", async () => {
+    mockGuardar.mockResolvedValueOnce({
+      success: true,
+      data: { idMulta: null, estado: "sin_cambios" },
+    });
+    renderOpen();
+    await waitForConceptos();
+
+    fillRequiredFields("150.50");
+    fireEvent.click(screen.getByRole("button", { name: /guardar/i }));
+
+    expect(
+      await screen.findByText("El proceso no generó ninguna deuda nueva."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Se generó correctamente."),
+    ).not.toBeInTheDocument();
+  });
+
+  // ── Estación visible en el modal ─────────────────────────────────────────
+  //
+  // Lo que se muestra debe ser exactamente lo que se envía al SP
+  // (`caja.mrecibos.estacion`). El usuario ve la estación antes de guardar.
+
+  it("muestra la estación resuelta antes de guardar", async () => {
+    renderOpen();
+
+    // fetchPcName (async, al abrir) resuelve "INFOSAT01" en el beforeEach.
+    expect(await screen.findByText("Estación: INFOSAT01")).toBeInTheDocument();
+  });
+
+  it("avisa cuando no se pudo identificar la estación", async () => {
+    mockFetchPcName.mockResolvedValue("");
+    mockGetPcName.mockReturnValue("");
+    renderOpen();
+
+    expect(
+      await screen.findByText("No se pudo identificar la estación de esta PC."),
+    ).toBeInTheDocument();
   });
 });
