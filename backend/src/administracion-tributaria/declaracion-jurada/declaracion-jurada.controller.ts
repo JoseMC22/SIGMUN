@@ -1,7 +1,10 @@
 import { Controller, Post, Get, Param, Query, Body, UseGuards, BadRequestException } from '@nestjs/common';
 import { ZodError } from 'zod';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { DeclaracionJuradaService } from './declaracion-jurada.service';
+import {
+  DeclaracionJuradaService,
+  GenerarDeudaEstado,
+} from './declaracion-jurada.service';
 import {
   SearchDeclaracionJuradaSchema,
   SearchDeclaracionJuradaDto,
@@ -718,7 +721,7 @@ export class DeclaracionJuradaController {
   async guardarGenerarDeuda(
     @Body() dto: GenerarDeudaGuardarDto,
   ): Promise<
-    | { success: true; data: { idMulta: string | null } }
+    | { success: true; data: { idMulta: string | null; estado: GenerarDeudaEstado } }
     | { success: false; error: string }
   > {
     let parsed: GenerarDeudaGuardarDto;
