@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { searchContribuyenteAction } from "@/actions/administracion-tributaria/declaracion-jurada";
 import type { ContribuyenteListItem } from "@/actions/administracion-tributaria/declaracion-jurada";
+import GenerarDeudaModal from "./generar-deuda-modal";
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -94,6 +95,11 @@ export default function GeneraDeudaPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
+  // Fila seleccionada para "Generar Deuda": si no es null, el modal está
+  // abierto y atado a ese contribuyente.
+  const [deudaTarget, setDeudaTarget] = useState<ContribuyenteListItem | null>(
+    null,
+  );
 
   const executeSearch = useCallback(
     async (pageNum: number, overrideFilters?: typeof filters) => {
@@ -184,12 +190,10 @@ export default function GeneraDeudaPage() {
   };
 
   // ── Acción "Generar Deuda" por fila ──────────────────────
-  // TODO: el flujo real de generación de deuda está pendiente de definición;
-  // por ahora solo se muestra el placeholder estándar (mismo patrón que el
-  // botón "Cargo de Notificación" de declaración jurada). Cuando se defina,
-  // este handler es el seam único para conectarlo (recibe la fila completa).
+  // Abre el modal clonado de declaración jurada atado a la fila clickeada;
+  // el modal recibe el código y el nombre del contribuyente en el header.
   const handleGenerarDeuda = (item: ContribuyenteListItem) => {
-    alert("Por desarrollar");
+    setDeudaTarget(item);
   };
 
   // ── Filter inputs by tipoBusqueda ──────────────────────
@@ -617,6 +621,16 @@ export default function GeneraDeudaPage() {
           {renderPagination()}
         </>
       )}
+
+      {/* Modal "Generar Deuda" — clonado de declaración jurada, atado a la
+          fila seleccionada. Sin onSaved: esta página no tiene grilla de
+          estado de cuenta que refrescar. */}
+      <GenerarDeudaModal
+        isOpen={deudaTarget !== null}
+        onClose={() => setDeudaTarget(null)}
+        codigoContribuyente={deudaTarget?.codigo}
+        nombreContribuyente={deudaTarget?.nombresCompletos}
+      />
     </div>
   );
 }

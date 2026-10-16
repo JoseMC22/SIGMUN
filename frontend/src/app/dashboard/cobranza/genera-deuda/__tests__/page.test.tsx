@@ -10,6 +10,24 @@ vi.mock("@/actions/administracion-tributaria/declaracion-jurada", () => ({
   searchContribuyenteAction: vi.fn(),
 }));
 
+// El modal de "Generar Deuda" se reemplaza por un stub que refleja en
+// atributos data-* las props con las que el page lo renderiza, para poder
+// aseverar el binding fila → modal sin montar el modal real.
+vi.mock("../generar-deuda-modal", () => ({
+  default: (props: {
+    isOpen: boolean;
+    codigoContribuyente?: string;
+    nombreContribuyente?: string;
+  }) => (
+    <div
+      data-testid="generar-deuda-modal"
+      data-open={String(props.isOpen)}
+      data-codigo={props.codigoContribuyente ?? ""}
+      data-nombre={props.nombreContribuyente ?? ""}
+    />
+  ),
+}));
+
 const mockAction = vi.mocked(searchContribuyenteAction);
 
 // ── Fixtures ──────────────────────────────────────────────
@@ -175,19 +193,38 @@ describe("GeneraDeudaPage", () => {
     expect(screen.getByText(/se encontraron/i)).toBeInTheDocument();
   });
 
-  it("cada fila tiene un botón 'Generar Deuda' que dispara el placeholder", async () => {
-    mockAction.mockResolvedValueOnce(standardResult);
+  it("clic en 'Generar Deuda' abre el modal atado a esa fila (y no dispara alert)", async () => {
+    const secondItem = {
+      ...standardItem,
+      codigo: "0279127",
+      nombresCompletos: "ROJAS VEGA MARIA ELENA",
+      row: 2,
+    };
+    mockAction.mockResolvedValueOnce({
+      success: true as const,
+      data: [standardItem, secondItem],
+      total: 2,
+      page: 1,
+      pageSize: 10,
+      totalPages: 1,
+    });
     const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
 
     render(<GeneraDeudaPage />);
     await waitFor(() => expect(screen.getByTestId("genera-deuda-grid")).toBeInTheDocument());
 
-    const button = within(grid()).getByRole("button", { name: /generar deuda/i });
-    expect(button).toBeInTheDocument();
+    // El modal arranca cerrado y sin contribuyente seleccionado.
+    expect(screen.getByTestId("generar-deuda-modal")).toHaveAttribute("data-open", "false");
 
-    fireEvent.click(button);
+    const buttons = within(grid()).getAllByRole("button", { name: /generar deuda/i });
+    expect(buttons).toHaveLength(2);
+    fireEvent.click(buttons[1]);
 
-    expect(alertSpy).toHaveBeenCalledWith("Por desarrollar");
+    const modal = screen.getByTestId("generar-deuda-modal");
+    expect(modal).toHaveAttribute("data-open", "true");
+    expect(modal).toHaveAttribute("data-codigo", "0279127");
+    expect(modal).toHaveAttribute("data-nombre", "ROJAS VEGA MARIA ELENA");
+    expect(alertSpy).not.toHaveBeenCalled();
 
     alertSpy.mockRestore();
   });
