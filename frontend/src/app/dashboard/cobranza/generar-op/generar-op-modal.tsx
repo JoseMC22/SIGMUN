@@ -16,7 +16,11 @@ import {
   type GenerarOpRow,
   type ProcesarOpRow,
 } from "@/actions/cobranza/generar-op";
-import { buildAnnosPack, buildPerio, formatFechaDdMmAaaa } from "./op-params";
+import {
+  buildAnnosPack,
+  buildTrimestresPack,
+  formatFechaDdMmAaaa,
+} from "./op-params";
 
 // Modal de generación de orden de pago.
 //
@@ -133,6 +137,9 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
 
     const fechaDdMmAaaa = formatFechaDdMmAaaa(fecha);
     const annosPack = buildAnnosPack(anioDesde, anioHasta);
+    // @perio para esta familia de SP es la lista de periodos con asteriscos,
+    // no un JSON: el SP la reescribe como literales entrecomillados.
+    const perioPack = buildTrimestresPack(trimestres);
 
     setProcesando(true);
     setResultado(null);
@@ -141,12 +148,7 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
         codigo,
         fechaProyectada: fechaDdMmAaaa,
         annos: annosPack,
-        perio: buildPerio({
-          codigo,
-          fecha: fechaDdMmAaaa,
-          annosPack,
-          trimestres,
-        }),
+        perio: perioPack,
       });
       if (!result.success) {
         setResultado({

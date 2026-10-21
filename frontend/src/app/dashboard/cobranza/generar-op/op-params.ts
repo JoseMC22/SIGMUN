@@ -1,8 +1,11 @@
 // Helpers puros para armar los parámetros de Caja.sp_EstCta_Rentasop_proyectado.
 //
-// El SP recibe @annos y @perio como texto: cada año/trimestre viaja entre
-// comillas dobles dentro de un JSON. Mantener el armado aquí permite testear
-// el formato exacto sin montar el modal.
+// Convención de la familia Caja.sp_EstCta_Rentas*: cada ítem de una lista viaja
+// envuelto en asteriscos (*v1*,*v2*) y el SP los reescribe como literales
+// entrecomillados para armar sus cláusulas `in(...)`. Mismo contrato que usa
+// declaracion-jurada.service.ts (getEstadoCuentaRecibos) sobre la misma
+// familia de SP. Mandar comillas dobles deja la cláusula vacía y el SQL
+// dinámico sale malformado ("Incorrect syntax near the keyword 'and'").
 
 /** Convierte "yyyy-MM-dd" (input date) a "dd/MM/yyyy". "" se conserva. */
 export function formatFechaDdMmAaaa(iso: string): string {
@@ -13,34 +16,26 @@ export function formatFechaDdMmAaaa(iso: string): string {
 }
 
 /**
- * Empaca el rango de años como texto: cada año entre comillas y separado por
- * coma. 2026..2026 => "2026"; 2025..2026 => "2025","2026".
+ * Empaca el rango de años como lista con asteriscos:
+ * 2026..2026 => *2026*; 2025..2026 => *2025*,*2026*.
  */
 export function buildAnnosPack(desde: number, hasta: number): string {
   const años: string[] = [];
   const inicio = Math.min(desde, hasta);
   const fin = Math.max(desde, hasta);
   for (let a = inicio; a <= fin; a++) {
-    años.push(`"${a}"`);
+    años.push(`*${a}*`);
   }
   return años.join(",");
 }
 
 /**
- * Arma el JSON de 4 elementos que espera @perio:
- * [codigo, fecha dd/MM/yyyy, annosPack, trimestres "01","02",...].
- * Los trimestres se ordenan ascendente y se rellenan a dos dígitos.
+ * Empaca los trimestres seleccionados como lista con asteriscos, ordenada
+ * ascendente y a dos dígitos: [1,2,3,4] => *01*,*02*,*03*,*04*.
  */
-export function buildPerio(args: {
-  codigo: string;
-  fecha: string;
-  annosPack: string;
-  trimestres: number[];
-}): string {
-  const { codigo, fecha, annosPack, trimestres } = args;
-  const trimestresPack = [...trimestres]
+export function buildTrimestresPack(trimestres: number[]): string {
+  return [...trimestres]
     .sort((a, b) => a - b)
-    .map((t) => '"' + String(t).padStart(2, "0") + '"')
+    .map((t) => `*${String(t).padStart(2, "0")}*`)
     .join(",");
-  return JSON.stringify([codigo, fecha, annosPack, trimestresPack]);
 }

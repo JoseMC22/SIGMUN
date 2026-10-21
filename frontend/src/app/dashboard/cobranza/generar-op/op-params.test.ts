@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   formatFechaDdMmAaaa,
   buildAnnosPack,
-  buildPerio,
+  buildTrimestresPack,
 } from "./op-params";
 
 describe("formatFechaDdMmAaaa", () => {
@@ -15,38 +15,34 @@ describe("formatFechaDdMmAaaa", () => {
   });
 });
 
+// La familia Caja.sp_EstCta_Rentas* espera cada ítem de lista envuelto en
+// asteriscos y los reescribe como literales entrecomillados. Con comillas
+// dobles la cláusula queda vacía y el SQL dinámico del SP se rompe.
+
 describe("buildAnnosPack", () => {
-  it("empaca un solo año entre comillas", () => {
-    expect(buildAnnosPack(2026, 2026)).toBe('"2026"');
+  it("empaca un solo año con asteriscos", () => {
+    expect(buildAnnosPack(2026, 2026)).toBe("*2026*");
   });
 
   it("empaca un rango de años separado por coma", () => {
-    expect(buildAnnosPack(2025, 2026)).toBe('"2025","2026"');
+    expect(buildAnnosPack(2025, 2026)).toBe("*2025*,*2026*");
+  });
+
+  it("normaliza un rango invertido en lugar de devolver vacío", () => {
+    expect(buildAnnosPack(2026, 2025)).toBe("*2025*,*2026*");
   });
 });
 
-describe("buildPerio", () => {
-  it("arma exactamente el JSON de 4 elementos que espera el SP", () => {
-    const perio = buildPerio({
-      codigo: "0308555",
-      fecha: "21/10/2026",
-      annosPack: '"2026"',
-      trimestres: [1, 2, 3, 4],
-    });
-
-    expect(perio).toBe(
-      '["0308555","21/10/2026","\\"2026\\"","\\"01\\",\\"02\\",\\"03\\",\\"04\\""]',
-    );
+describe("buildTrimestresPack", () => {
+  it("empaca los cuatro trimestres ordenados y a dos dígitos", () => {
+    expect(buildTrimestresPack([1, 2, 3, 4])).toBe("*01*,*02*,*03*,*04*");
   });
 
-  it("ordena los trimestres y los rellena a dos dígitos", () => {
-    const perio = buildPerio({
-      codigo: "0308555",
-      fecha: "21/10/2026",
-      annosPack: '"2026"',
-      trimestres: [3, 1],
-    });
+  it("ordena los trimestres antes de empacar", () => {
+    expect(buildTrimestresPack([3, 1])).toBe("*01*,*03*");
+  });
 
-    expect(perio).toContain('"\\"01\\",\\"03\\""');
+  it("empaca un solo trimestre sin coma", () => {
+    expect(buildTrimestresPack([2])).toBe("*02*");
   });
 });
