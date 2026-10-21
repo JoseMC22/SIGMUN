@@ -254,8 +254,9 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
             </div>
           </div>
 
-          {/* Parámetros */}
-          <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-4">
+          {/* Parámetros. En sm+ los años van con ancho fijo y corto para que
+              "Procesar" entre en la misma línea que los trimestres. */}
+          <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-[minmax(130px,1fr)_92px_92px_minmax(250px,1.7fr)]">
             <div>
               <label htmlFor="op-fecha" className={labelCls}>
                 Fecha
@@ -313,7 +314,7 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
             </div>
             <div>
               <span className={labelCls}>Trimestres</span>
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1">
+              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 pt-1">
                 {TRIMESTRES.map((t) => (
                   <label
                     key={t}
@@ -334,7 +335,7 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
                   type="button"
                   onClick={procesar}
                   disabled={procesando}
-                  className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-[10px] font-medium text-slate-600 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-slate-300 bg-white px-2 py-1 text-[10px] font-medium text-slate-600 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {procesando ? (
                     <Loader2 size={11} className="animate-spin" />
