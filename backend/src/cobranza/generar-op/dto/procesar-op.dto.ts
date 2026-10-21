@@ -16,6 +16,8 @@ import { z } from 'zod';
  */
 export const ProcesarOpSchema = z.object({
   Codigo: z.string().min(1).max(7),
+  /** Tributo que define el SP: predial u vehicular. */
+  Tipo: z.enum(['predial', 'vehicular']).optional().default('predial'),
   Annos: z.string().max(500).optional().default(''),
   Tipos: z.string().max(500).optional().default(''),
   Perio: z.string().max(2000).optional().default(''),

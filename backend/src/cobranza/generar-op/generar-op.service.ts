@@ -6,18 +6,30 @@ import { ProcesarOpResult, ProcesarOpRow } from './generar-op.types';
 /**
  * Proyección de estado de cuenta de rentas para generar orden de pago.
  *
- * Fuente: Caja.sp_EstCta_Rentasop_proyectado (solo lectura).
- * @perio recibe el JSON de 4 elementos que arma el frontend; el resto de
- * filtros sin UI todavía viaja vacío para no inventar valores.
+ * Fuente, según el tributo:
+ * - predial:   Caja.sp_EstCta_Rentasop_proyectado     (concepto 02.01)
+ * - vehicular: Caja.sp_EstCta_Rentasopveh_proyectado  (conceptos 00.30, 25.10)
+ *
+ * Los dos SP son gemelos: mismos 8 parámetros y mismas columnas de salida, con
+ * la misma convención de comillas dobles en @annos/@perio. Solo cambia el
+ * filtro de conceptos, por eso el servicio los elige con un mapa.
  */
+const SP_POR_TIPO: Record<string, string> = {
+  predial: 'Caja.sp_EstCta_Rentasop_proyectado',
+  vehicular: 'Caja.sp_EstCta_Rentasopveh_proyectado',
+};
+
 @Injectable()
 export class GenerarOpService {
-  private readonly SP_PROYECTADO = 'Caja.sp_EstCta_Rentasop_proyectado';
   private readonly logger = new Logger(GenerarOpService.name);
 
   constructor(private readonly db: DatabaseService) {}
 
   async procesar(dto: ProcesarOpDto): Promise<ProcesarOpResult> {
+    // El enum del DTO ya restringe el valor; el fallback cubre llamadas
+    // internas que no pasen por el pipe de validación.
+    const sp = SP_POR_TIPO[dto.Tipo] ?? SP_POR_TIPO.predial;
+
     const params = {
       codigo: dto.Codigo ?? '',
       annos: dto.Annos ?? '',
@@ -30,16 +42,13 @@ export class GenerarOpService {
     };
 
     try {
-      const result = await this.db.executeProcedure<ProcesarOpRow>(
-        this.SP_PROYECTADO,
-        params,
-      );
+      const result = await this.db.executeProcedure<ProcesarOpRow>(sp, params);
       const data = result.recordset ?? [];
       return { success: true, data, total: data.length };
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `[GenerarOp] procesar SP error (codigo=${dto.Codigo}): ${detail}`,
+        `[GenerarOp] procesar ${sp} error (codigo=${dto.Codigo}): ${detail}`,
       );
       return {
         success: false,

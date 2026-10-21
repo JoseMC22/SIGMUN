@@ -215,6 +215,7 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
     try {
       const result = await procesarGenerarOpAction({
         codigo,
+        tipo,
         fechaProyectada: fechaDdMmAaaa,
         annos: annosPack,
         perio: perioPack,

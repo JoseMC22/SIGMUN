@@ -128,8 +128,10 @@ export async function searchGenerarOpAction(
   }
 }
 
-// Proyección de estado de cuenta (Caja.sp_EstCta_Rentasop_proyectado).
-// El frontend arma @annos y @perio con op-params.ts; el backend solo parsea.
+// Proyección de estado de cuenta. El backend elige el SP según el tributo:
+// predial (sp_EstCta_Rentasop_proyectado) o vehicular
+// (sp_EstCta_Rentasopveh_proyectado). El frontend arma @annos y @perio con
+// op-params.ts; el backend solo parsea y enruta.
 
 export type ProcesarOpRow = Record<string, string | number | null>;
 
@@ -147,6 +149,8 @@ export interface ProcesarOpPayload {
   fechaProyectada: string;
   annos: string;
   perio: string;
+  /** Tributo: el backend elige el SP predial o el vehicular. */
+  tipo: "predial" | "vehicular";
 }
 
 export async function procesarGenerarOpAction(
@@ -156,10 +160,11 @@ export async function procesarGenerarOpAction(
     const response = await authFetch("/cobranza/generar-op/procesar", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      // Tipos, Predio y Estado aún no tienen fuente en la interfaz: viajan
-      // vacíos para no inventar filtros.
+      // Tipos y Predio no tienen fuente en la interfaz: viajan vacíos para no
+      // inventar filtros.
       body: JSON.stringify({
         Codigo: payload.codigo,
+        Tipo: payload.tipo,
         Annos: payload.annos,
         Tipos: "",
         // @estado viaja crudo dentro del SQL dinámico del SP (no se
