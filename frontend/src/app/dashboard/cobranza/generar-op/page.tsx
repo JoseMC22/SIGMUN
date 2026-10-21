@@ -10,7 +10,6 @@ import {
   LayoutGrid,
   Building2,
   Car,
-  Info,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -19,10 +18,10 @@ import {
   type GenerarOpRow,
   type TipoBusqueda,
 } from "@/actions/cobranza/generar-op";
+import GenerarOpModal, { type TipoOp } from "./generar-op-modal";
 
-// Interfaz principal clonada de anular-valor. Los dos botones de acción
-// (OP predial / OP vehicular) todavía no tienen backend: avisan que la
-// generación está pendiente en lugar de simular que funcionan.
+// Interfaz principal clonada de anular-valor. Cada botón de acción abre el
+// modal de generación de OP con los datos del contribuyente ya cargados.
 
 // Registros por página.
 
@@ -48,9 +47,6 @@ const NUM_COLS = COLUMNAS.length;
 // fila). El skeleton la cuenta para no desincronizar el ancho.
 
 const GRID_COLS = NUM_COLS + 1;
-
-/** Tributo destino de cada botón de acción. */
-type TipoOp = "predial" | "vehicular";
 
 const OPS: { tipo: TipoOp; label: string; icon: typeof Building2 }[] = [
   { tipo: "predial", label: "OP Predial", icon: Building2 },
@@ -139,8 +135,11 @@ export default function GenerarOpPage() {
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // Aviso de acción: los botones de OP todavía no tienen backend.
-  const [notice, setNotice] = useState<string | null>(null);
+  // Modal de generación de OP: qué contribuyente y qué tributo.
+  const [opModal, setOpModal] = useState<{
+    tipo: TipoOp;
+    row: GenerarOpRow;
+  } | null>(null);
 
   const buildFilters = useCallback(() => {
     // Solo viaja lleno lo del criterio elegido; el resto va vacío y el SP lo
@@ -160,7 +159,6 @@ export default function GenerarOpPage() {
     async (pageNum: number = page) => {
       setLoading(true);
       setError(null);
-      setNotice(null);
       try {
         const result = await searchGenerarOpAction(
           buildFilters(),
@@ -247,16 +245,11 @@ export default function GenerarOpPage() {
   };
 
   /**
-   * Acción por fila. Todavía no existe el endpoint de generación de OP, así que
-   * el aviso deja explícito que no se generó nada. Cuando exista el backend,
-   * este handler es el único punto que hay que cambiar.
+   * Acción por fila: abre el modal de generación de OP con el contribuyente ya
+   * seleccionado. El tributo define el título y el icono del modal.
    */
   const handleGenerarOp = (row: GenerarOpRow, tipo: TipoOp) => {
-    const codigo = String(row.codigo ?? "");
-    const label = tipo === "predial" ? "predial" : "vehicular";
-    setNotice(
-      `Generación de OP ${label} para el código ${codigo}: pendiente de backend.`,
-    );
+    setOpModal({ tipo, row });
   };
 
   // Search Form (criterio en combo + inputs según el tipo elegido)
@@ -626,23 +619,6 @@ export default function GenerarOpPage() {
 
       {renderSearchForm()}
 
-      {/* Aviso de la acción por fila (todavía sin backend) */}
-      {notice && (
-        <div className="flex items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
-          <span className="flex items-center gap-1.5">
-            <Info size={12} className="shrink-0" />
-            {notice}
-          </span>
-          <button
-            type="button"
-            onClick={() => setNotice(null)}
-            className="shrink-0 rounded px-1.5 py-0.5 font-medium text-amber-700 transition hover:bg-amber-100"
-          >
-            Cerrar
-          </button>
-        </div>
-      )}
-
       {/* Results info */}
       {!loading && !error && !initialLoading && data.length > 0 && (
         <div className="flex items-center justify-between">
@@ -662,6 +638,14 @@ export default function GenerarOpPage() {
           {renderGrid()}
           {renderPagination()}
         </>
+      )}
+
+      {opModal && (
+        <GenerarOpModal
+          tipo={opModal.tipo}
+          contribuyente={opModal.row}
+          onClose={() => setOpModal(null)}
+        />
       )}
     </div>
   );
