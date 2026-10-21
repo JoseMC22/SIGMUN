@@ -127,3 +127,77 @@ export async function searchGenerarOpAction(
     };
   }
 }
+
+// Proyección de estado de cuenta (Caja.sp_EstCta_Rentasop_proyectado).
+// El frontend arma @annos y @perio con op-params.ts; el backend solo parsea.
+
+export type ProcesarOpRow = Record<string, string | number | null>;
+
+export interface ProcesarOpResult {
+  success: boolean;
+  data: ProcesarOpRow[];
+  total: number;
+  error?: string;
+}
+
+export interface ProcesarOpPayload {
+  codigo: string;
+  fechaProyectada: string;
+  annos: string;
+  perio: string;
+}
+
+export async function procesarGenerarOpAction(
+  payload: ProcesarOpPayload,
+): Promise<ProcesarOpResult> {
+  try {
+    const response = await authFetch("/cobranza/generar-op/procesar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      // Tipos, Predio y Estado aún no tienen fuente en la interfaz: viajan
+      // vacíos para no inventar filtros.
+      body: JSON.stringify({
+        Codigo: payload.codigo,
+        Annos: payload.annos,
+        Tipos: "",
+        Perio: payload.perio,
+        Predio: "",
+        Estado: "",
+        FechaProyectada: payload.fechaProyectada,
+      }),
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      return {
+        success: false,
+        data: [],
+        total: 0,
+        error: text || `Error ${response.status}`,
+      };
+    }
+
+    const json = await response.json();
+    if (!json.success) {
+      return {
+        success: false,
+        data: [],
+        total: 0,
+        error: json.error ?? "Error al procesar la orden de pago",
+      };
+    }
+    return {
+      success: true,
+      data: json.data ?? [],
+      total: json.total ?? 0,
+    };
+  } catch {
+    return {
+      success: false,
+      data: [],
+      total: 0,
+      error: "Error de conexión con el servidor",
+    };
+  }
+}

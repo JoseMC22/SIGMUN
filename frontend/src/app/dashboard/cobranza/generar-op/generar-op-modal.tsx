@@ -8,8 +8,15 @@ import {
   FileSpreadsheet,
   AlertCircle,
   Info,
+  Play,
+  Loader2,
 } from "lucide-react";
-import type { GenerarOpRow } from "@/actions/cobranza/generar-op";
+import {
+  procesarGenerarOpAction,
+  type GenerarOpRow,
+  type ProcesarOpRow,
+} from "@/actions/cobranza/generar-op";
+import { buildAnnosPack, buildPerio, formatFechaDdMmAaaa } from "./op-params";
 
 // Modal de generación de orden de pago.
 //
@@ -66,10 +73,15 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
   const [anioHasta, setAnioHasta] = useState(anioActual);
   const [trimestres, setTrimestres] = useState<number[]>([]);
 
-  // Resultado de la última pulsación de "Generar OP". Sin backend todavía.
+  // Resultado de la última pulsación de "Procesar" (datos) o "Generar OP"
+  // (aviso de backend pendiente).
   const [resultado, setResultado] = useState<
-    { kind: "error"; msg: string } | { kind: "pending"; msg: string } | null
+    | { kind: "error"; msg: string }
+    | { kind: "pending"; msg: string }
+    | { kind: "data"; rows: ProcesarOpRow[]; total: number }
+    | null
   >(null);
+  const [procesando, setProcesando] = useState(false);
 
   const codigo = String(contribuyente.codigo ?? "");
 
@@ -88,23 +100,20 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
     setResultado(null);
   };
 
-  const generar = () => {
-    if (!fecha) {
-      setResultado({ kind: "error", msg: "Ingrese la fecha de la orden." });
-      return;
-    }
+  /** Validaciones compartidas por "Procesar" y "Generar OP". */
+  const validar = (): string | null => {
+    if (!fecha) return "Ingrese la fecha de la orden.";
     if (anioDesde > anioHasta) {
-      setResultado({
-        kind: "error",
-        msg: "El año desde no puede ser mayor que el año hasta.",
-      });
-      return;
+      return "El año desde no puede ser mayor que el año hasta.";
     }
-    if (trimestres.length === 0) {
-      setResultado({
-        kind: "error",
-        msg: "Seleccione al menos un trimestre.",
-      });
+    if (trimestres.length === 0) return "Seleccione al menos un trimestre.";
+    return null;
+  };
+
+  const generar = () => {
+    const error = validar();
+    if (error) {
+      setResultado({ kind: "error", msg: error });
       return;
     }
     setResultado({
@@ -115,8 +124,55 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
     });
   };
 
+  const procesar = async () => {
+    const error = validar();
+    if (error) {
+      setResultado({ kind: "error", msg: error });
+      return;
+    }
+
+    const fechaDdMmAaaa = formatFechaDdMmAaaa(fecha);
+    const annosPack = buildAnnosPack(anioDesde, anioHasta);
+
+    setProcesando(true);
+    setResultado(null);
+    try {
+      const result = await procesarGenerarOpAction({
+        codigo,
+        fechaProyectada: fechaDdMmAaaa,
+        annos: annosPack,
+        perio: buildPerio({
+          codigo,
+          fecha: fechaDdMmAaaa,
+          annosPack,
+          trimestres,
+        }),
+      });
+      if (!result.success) {
+        setResultado({
+          kind: "error",
+          msg: result.error ?? "Error al procesar la orden de pago",
+        });
+        return;
+      }
+      setResultado({ kind: "data", rows: result.data, total: result.total });
+    } catch {
+      setResultado({
+        kind: "error",
+        msg: "Error de conexión con el servidor",
+      });
+    } finally {
+      setProcesando(false);
+    }
+  };
+
   const Icon = tipo === "predial" ? Building2 : Car;
   const titulo = tipo === "predial" ? "OP Predial" : "OP Vehicular";
+  // Columnas dinámicas de la proyección: las que devuelva el SP en la 1.ª fila.
+  const columnasResultado =
+    resultado?.kind === "data" && resultado.rows.length > 0
+      ? Object.keys(resultado.rows[0])
+      : [];
 
   return (
     <div
@@ -274,6 +330,19 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
                     T{t}
                   </label>
                 ))}
+                <button
+                  type="button"
+                  onClick={procesar}
+                  disabled={procesando}
+                  className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-[10px] font-medium text-slate-600 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {procesando ? (
+                    <Loader2 size={11} className="animate-spin" />
+                  ) : (
+                    <Play size={11} />
+                  )}
+                  {procesando ? "Procesando..." : "Procesar"}
+                </button>
               </div>
             </div>
           </div>
@@ -298,6 +367,53 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
                   <AlertCircle size={13} className="mt-0.5 shrink-0" />
                   {resultado.msg}
                 </div>
+              ) : resultado?.kind === "data" ? (
+                resultado.rows.length === 0 ? (
+                  <p className="text-center text-[11px] text-slate-400">
+                    Sin resultados para los parámetros seleccionados.
+                  </p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table
+                      className="w-full min-w-[600px] border-collapse"
+                      data-testid="generar-op-procesar-grid"
+                    >
+                      <thead>
+                        <tr className="border-b border-slate-200 bg-slate-50">
+                          {columnasResultado.map((col) => (
+                            <th
+                              key={col}
+                              className="whitespace-nowrap px-2 py-1.5 text-left text-[9px] font-semibold uppercase tracking-wider text-slate-400"
+                            >
+                              {col}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {resultado.rows.map((row, idx) => (
+                          <tr
+                            key={idx}
+                            className={
+                              idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"
+                            }
+                          >
+                            {columnasResultado.map((col) => (
+                              <td
+                                key={col}
+                                className="whitespace-nowrap px-2 py-1 text-[10px] text-slate-600"
+                              >
+                                {row[col] === null || row[col] === undefined
+                                  ? ""
+                                  : String(row[col])}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )
               ) : resultado?.kind === "pending" ? (
                 <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
                   <Info size={13} className="mt-0.5 shrink-0" />
