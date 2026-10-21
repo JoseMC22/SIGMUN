@@ -36,6 +36,51 @@ const ANIO_MIN = 2016;
 
 const TRIMESTRES = [1, 2, 3, 4] as const;
 
+// Columnas de la proyección que devuelve Caja.sp_EstCta_Rentasop_proyectado.
+// El SP devuelve ~27 columnas; acá se muestran las que arman el detalle de la
+// orden de pago. El importe total no viene del SP: se calcula como en el resto
+// de la familia (rd-alcabala), imp_reaj + mora + costo_emis.
+type ResultadoKind = "text" | "mono" | "money" | "factor";
+
+const RESULTADO_COLS: { key: string; header: string; kind: ResultadoKind }[] = [
+  { key: "des_tipo", header: "Tributo", kind: "text" },
+  { key: "cod_pred", header: "Predio", kind: "mono" },
+  { key: "anexo", header: "Anexo", kind: "mono" },
+  { key: "sub_anexo", header: "Subanexo", kind: "mono" },
+  { key: "periodo", header: "Periodo", kind: "text" },
+  { key: "imp_insol", header: "Insoluto", kind: "money" },
+  { key: "fact_reaj", header: "Fac. Reaj.", kind: "factor" },
+  { key: "imp_reaj", header: "Imp. Reaj.", kind: "money" },
+  { key: "fact_mora", header: "Fac. Mora", kind: "factor" },
+  { key: "mora", header: "Interés", kind: "money" },
+  { key: "costo_emis", header: "Costo Emis.", kind: "money" },
+];
+
+function num(value: unknown): number {
+  const n = Number(value ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function totalFila(row: ProcesarOpRow): number {
+  return num(row.imp_reaj) + num(row.mora) + num(row.costo_emis);
+}
+
+function formatCelda(value: unknown, kind: ResultadoKind): string {
+  if (value === null || value === undefined || value === "") return "";
+  if (kind === "money") return num(value).toFixed(2);
+  if (kind === "factor") return num(value).toFixed(4);
+  return String(value);
+}
+
+function celdaCls(kind: ResultadoKind): string {
+  const base = "whitespace-nowrap px-2 py-1 text-[10px] text-slate-600";
+  if (kind === "money" || kind === "factor") {
+    return `${base} font-mono text-right`;
+  }
+  if (kind === "mono") return `${base} font-mono`;
+  return base;
+}
+
 // Fecha de hoy en horario local. `toISOString` usa UTC y adelanta/atrasa el día
 // según la zona: se arma con los componentes locales.
 function hoyLocal(): string {
@@ -171,11 +216,6 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
 
   const Icon = tipo === "predial" ? Building2 : Car;
   const titulo = tipo === "predial" ? "OP Predial" : "OP Vehicular";
-  // Columnas dinámicas de la proyección: las que devuelva el SP en la 1.ª fila.
-  const columnasResultado =
-    resultado?.kind === "data" && resultado.rows.length > 0
-      ? Object.keys(resultado.rows[0])
-      : [];
 
   return (
     <div
@@ -388,19 +428,26 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
                 ) : (
                   <div className="overflow-x-auto">
                     <table
-                      className="w-full min-w-[600px] border-collapse"
+                      className="w-full min-w-[1100px] border-collapse"
                       data-testid="generar-op-procesar-grid"
                     >
                       <thead>
                         <tr className="border-b border-slate-200 bg-slate-50">
-                          {columnasResultado.map((col) => (
+                          {RESULTADO_COLS.map((col) => (
                             <th
-                              key={col}
-                              className="whitespace-nowrap px-2 py-1.5 text-left text-[9px] font-semibold uppercase tracking-wider text-slate-400"
+                              key={col.key}
+                              className={`whitespace-nowrap px-2 py-1.5 text-[9px] font-semibold uppercase tracking-wider text-slate-400 ${
+                                col.kind === "money" || col.kind === "factor"
+                                  ? "text-right"
+                                  : "text-left"
+                              }`}
                             >
-                              {col}
+                              {col.header}
                             </th>
                           ))}
+                          <th className="whitespace-nowrap px-2 py-1.5 text-right text-[9px] font-semibold uppercase tracking-wider text-slate-400">
+                            Total
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
@@ -411,16 +458,21 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
                               idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"
                             }
                           >
-                            {columnasResultado.map((col) => (
+                            {RESULTADO_COLS.map((col) => (
                               <td
-                                key={col}
-                                className="whitespace-nowrap px-2 py-1 text-[10px] text-slate-600"
+                                key={col.key}
+                                className={`${celdaCls(col.kind)}${
+                                  col.key === "des_tipo"
+                                    ? " font-medium text-slate-800"
+                                    : ""
+                                }`}
                               >
-                                {row[col] === null || row[col] === undefined
-                                  ? ""
-                                  : String(row[col])}
+                                {formatCelda(row[col.key], col.kind)}
                               </td>
                             ))}
+                            <td className="whitespace-nowrap px-2 py-1 text-right text-[10px] font-mono font-semibold text-slate-700">
+                              {totalFila(row).toFixed(2)}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
