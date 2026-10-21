@@ -162,9 +162,12 @@ export async function procesarGenerarOpAction(
         Codigo: payload.codigo,
         Annos: payload.annos,
         Tipos: "",
+        // @estado viaja crudo dentro del SQL dinámico del SP (no se
+        // entrecomilla): vacío lo rompe con "syntax near 'and'". '0' es
+        // pendiente, el default de la familia sp_EstCta_Rentas*.
+        Estado: "0",
         Perio: payload.perio,
         Predio: "",
-        Estado: "",
         FechaProyectada: payload.fechaProyectada,
       }),
       cache: "no-store",

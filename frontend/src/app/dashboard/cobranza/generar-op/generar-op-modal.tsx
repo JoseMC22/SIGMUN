@@ -137,8 +137,8 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
 
     const fechaDdMmAaaa = formatFechaDdMmAaaa(fecha);
     const annosPack = buildAnnosPack(anioDesde, anioHasta);
-    // @perio para esta familia de SP es la lista de periodos con asteriscos,
-    // no un JSON: el SP la reescribe como literales entrecomillados.
+    // @perio y @annos viajan entre comillas dobles: el SP las convierte en
+    // literales al armar su in (...) dinámico.
     const perioPack = buildTrimestresPack(trimestres);
 
     setProcesando(true);

@@ -24,7 +24,8 @@ export class GenerarOpService {
       tipos: dto.Tipos ?? '',
       perio: dto.Perio ?? '',
       predio: dto.Predio ?? '',
-      estado: dto.Estado ?? '',
+      // @estado se concatena crudo en el SQL dinámico del SP: vacío lo rompe.
+      estado: dto.Estado || '0',
       fecha_proyectada: dto.FechaProyectada ?? '',
     };
 
