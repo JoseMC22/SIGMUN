@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import {
   X,
   Building2,
@@ -111,6 +111,14 @@ function nombreCompleto(row: GenerarOpRow): string {
   return partes.join(" ") || "—";
 }
 
+/** Esquina superior izquierda del área de contenido del shell. */
+type OffsetContenido = { left: number; top: number };
+
+// useLayoutEffect advierte durante el SSR; en el cliente evita el salto de un
+// frame antes de medir el contenedor.
+const useIsomorphicLayoutEffect =
+  typeof window === "undefined" ? useEffect : useLayoutEffect;
+
 const inputCls =
   "w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] text-slate-700 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none disabled:bg-slate-50 disabled:text-slate-400";
 const labelCls =
@@ -155,6 +163,39 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
     () => subtotalizar(resultado?.kind === "data" ? resultado.rows : []),
     [resultado],
   );
+
+  // El modal se centra sobre el área de contenido del shell, no sobre el
+  // viewport: el sidebar ocupa 240px (64px colapsado) y, con el panel casi a
+  // todo el ancho, centrarlo contra la pantalla lo montaría encima del sidebar.
+  // Se mide en vivo porque el sidebar se colapsa y el offset cambia.
+  const [offsetContenido, setOffsetContenido] =
+    useState<OffsetContenido | null>(null);
+
+  useIsomorphicLayoutEffect(() => {
+    const contenido = document.querySelector("main");
+    if (!contenido) return;
+
+    const medir = () => {
+      const rect = contenido.getBoundingClientRect();
+      setOffsetContenido({ left: rect.left, top: rect.top });
+    };
+
+    medir();
+    window.addEventListener("resize", medir);
+
+    if (typeof ResizeObserver === "undefined") {
+      return () => window.removeEventListener("resize", medir);
+    }
+
+    // Cubre el colapso del sidebar, que cambia el ancho de <main>.
+    const observer = new ResizeObserver(medir);
+    observer.observe(contenido);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", medir);
+    };
+  }, []);
 
   const codigo = String(contribuyente.codigo ?? "");
 
@@ -252,7 +293,14 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
       data-testid="generar-op-modal"
     >
       <div
-        className="flex max-h-[90vh] w-full max-w-[1400px] flex-col rounded-lg bg-white shadow-xl animate-fade-in"
+        className="flex max-h-[90%] w-full max-w-[1400px] flex-col rounded-lg bg-white shadow-xl animate-fade-in"
+        // Con items-center/justify-center el espacio libre se reparte a ambos
+        // lados del margen, así que el panel queda centrado en el área que
+        // empieza en el offset del contenido y no en el viewport.
+        style={{
+          marginLeft: offsetContenido?.left ?? 0,
+          marginTop: offsetContenido?.top ?? 0,
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
