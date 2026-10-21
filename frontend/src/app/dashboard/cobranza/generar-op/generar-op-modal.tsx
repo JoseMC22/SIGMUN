@@ -403,7 +403,7 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
                   type="button"
                   onClick={procesar}
                   disabled={procesando}
-                  className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-slate-300 bg-white px-2 py-1 text-[10px] font-medium text-slate-600 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md bg-sat-cyan px-2 py-1 text-[10px] font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {procesando ? (
                     <Loader2 size={11} className="animate-spin" />
@@ -597,7 +597,7 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
                 </div>
               ) : (
                 <p className="text-center text-[11px] text-slate-400">
-                  Seleccione los parámetros y presione Generar OP.
+                  Seleccione los parámetros y presione Procesar.
                 </p>
               )}
             </div>
@@ -608,18 +608,18 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
         <div className="flex items-center justify-end gap-2 rounded-b-lg border-t border-slate-200 bg-slate-50 px-4 py-3">
           <button
             type="button"
-            onClick={onClose}
-            className="rounded-md border border-slate-300 bg-white px-3.5 py-1.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-300"
-          >
-            Cerrar
-          </button>
-          <button
-            type="button"
             onClick={generar}
             className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-3.5 py-1.5 text-[11px] font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
           >
             <FileSpreadsheet size={12} />
             Generar OP
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md border border-slate-300 bg-white px-3.5 py-1.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-300"
+          >
+            Cerrar
           </button>
         </div>
       </div>
