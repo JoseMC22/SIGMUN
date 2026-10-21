@@ -294,3 +294,26 @@ export async function generarGenerarOpAction(
     };
   }
 }
+
+/**
+ * Descarga el PDF de una OP ya generada como base64.
+ * Devuelve null si el backend responde con error o la petición falla.
+ */
+export async function getGenerarOpPdfAction(
+  idValor: string,
+  numVal: string,
+  anoVal: string,
+): Promise<string | null> {
+  try {
+    const params = new URLSearchParams({ idValor, numVal, anoVal });
+    const response = await authFetch(
+      `/cobranza/generar-op/pdf?${params.toString()}`,
+      { cache: "no-store" },
+    );
+    if (!response.ok) return null;
+    const buffer = Buffer.from(await response.arrayBuffer());
+    return buffer.toString("base64");
+  } catch {
+    return null;
+  }
+}

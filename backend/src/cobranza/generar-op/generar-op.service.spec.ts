@@ -219,4 +219,87 @@ describe('GenerarOpService', () => {
       expect(result.num_val).toBeUndefined();
     });
   });
+
+  /**
+   * Impresión: `Rentas.sp_ImprimeOP @buscar=2` es solo lectura. Devuelve dos
+   * recordsets y la impresión usa el primero (una fila por año).
+   */
+  describe('imprimir', () => {
+    const filaImpresion = {
+      ID_VALOR: '11',
+      NUM_VAL: '0000025',
+      ANO_VAL: '2026',
+      NUMEROP: 'Orden de Pago Vehicular Nº 0000025-2026-VEH-DC-SGO-G/SAT-ICA',
+      FEC_VAL: '21/10/2026',
+      CODIGO: '0281986',
+      NOMBRE: 'HUAROTO CONISLLA TERESA JESUS',
+      NUM_DOC: '21568241',
+      Dirfiscal: 'PP.JJ. LOS ANGELES - MZ LOS ANGELES NRO. 00157 MZ K LTE 16',
+      ANNO: '2017',
+      CADENAUIT: '2017=4050.00',
+      RTRAMO01: 505,
+      RTRAMO02: 0,
+      RTRAMO03: 0,
+      BASE_IMPONIBLE1: '50,500.00',
+      IMP_ANUAL1: '505.00',
+      CUOTAS: '01, 04, 02, 03',
+      IMP_INSOL: 512.6,
+      IMP_INSOLTEXTO: '505.00',
+      IMP_REAJ: 0,
+      MORA: 591.45,
+      COSTO_EMIS: 7.6,
+      IMP_TOTAL: 1104.05,
+      IMP_TOTALTEXTO: '1,104.05',
+      CUOTA_REJ: '2017-01-1.00000',
+      CUOTA_MOR: '2017-01-1.22630',
+      DIRECCION: 'PP.JJ. LOS ANGELES - MZ LOS ANGELES NRO. 00157 MZ K LTE 16',
+      FECHA: 'Actualización',
+      MORATORIO: ' ',
+      FECH_PROYECTADO: '21/10/2026',
+      COD_PRED: 'ADH172   ',
+      FVENCIMIENTO: '21/10/2026',
+      PERIODOROMANO: null,
+    };
+
+    it('llama a sp_ImprimeOP con buscar=2 y los datos de la OP', async () => {
+      executeProcedure.mockResolvedValue({
+        recordset: [filaImpresion],
+        recordsets: [[filaImpresion], [filaImpresion]],
+      });
+
+      const result = await service.imprimir({
+        idValor: '11',
+        numVal: '0000025',
+        anoVal: '2026',
+      });
+
+      expect(executeProcedure).toHaveBeenCalledWith('Rentas.sp_ImprimeOP', {
+        buscar: 2,
+        id_valor: '11',
+        num_val: '0000025',
+        ano_val: '2026',
+      });
+      expect(result.rows).toHaveLength(1);
+      expect(result.rows[0]).toMatchObject({
+        numerOP:
+          'Orden de Pago Vehicular Nº 0000025-2026-VEH-DC-SGO-G/SAT-ICA',
+        nombre: 'HUAROTO CONISLLA TERESA JESUS',
+        anno: '2017',
+        imp_total: 1104.05,
+        costo_emis: 7.6,
+        rtramo01: 505,
+      });
+    });
+
+    it('lanza NotFound si el recordset viene vacío', async () => {
+      executeProcedure.mockResolvedValue({ recordset: [] });
+
+      await expect(
+        service.imprimir({ idValor: '11', numVal: '999', anoVal: '2026' }),
+      ).rejects.toMatchObject({
+        status: 404,
+        response: { success: false, error: 'No se encontró la orden de pago' },
+      });
+    });
+  });
 });

@@ -1,14 +1,18 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import * as mssql from 'mssql';
+import { join } from 'path';
 import { DatabaseService } from '../../database/database.service';
 import { ProcesarOpDto } from './dto/procesar-op.dto';
 import { GenerarOpDto } from './dto/generar-op.dto';
 import {
   GenerarOpResult,
+  ImpresionOpData,
+  mapOpImpresionRow,
   ProcesarOpResult,
   ProcesarOpRow,
 } from './generar-op.types';
 import { buildDataXml } from './generar-op.dataxml';
+import { loadLogoDataUri } from '../../alcabala/impresion-dj-alcabala/declaracion-pdf-generator';
 
 /**
  * Proyección de estado de cuenta de rentas para generar orden de pago.
@@ -277,5 +281,71 @@ export class GenerarOpService {
         ...(process.env.NODE_ENV !== 'production' ? { detail } : {}),
       };
     }
+  }
+
+  /**
+   * Resuelve los datos de impresión de una OP ya generada.
+   *
+   * `Rentas.sp_ImprimeOP @buscar = 2` es de solo lectura y devuelve dos
+   * recordsets; el primero trae los datos del reporte (una fila por año) y el
+   * segundo repite las cadenas concatenadas duplicadas, así que se ignora.
+   */
+  async imprimir(dto: {
+    idValor: string;
+    numVal: string;
+    anoVal: string;
+  }): Promise<ImpresionOpData> {
+    const result = await this.db.executeProcedure<Record<string, unknown>>(
+      'Rentas.sp_ImprimeOP',
+      {
+        buscar: 2,
+        id_valor: dto.idValor,
+        num_val: dto.numVal,
+        ano_val: dto.anoVal,
+      },
+    );
+
+    const rawRows = result.recordset ?? [];
+    if (rawRows.length === 0) {
+      throw new NotFoundException({
+        success: false,
+        error: 'No se encontró la orden de pago',
+      });
+    }
+
+    return {
+      rows: rawRows.map((row) => mapOpImpresionRow(row)),
+      logoDataUri: await this.resolveLogoDataUri(),
+      selloDataUri: await this.resolveSelloDataUri(),
+    };
+  }
+
+  /**
+   * Logo del reporte: `REPORT_IMG_RUTA/logo.png`. Ese env no está configurado
+   * en este repo, así que se cae al logo público del frontend. Si tampoco
+   * existe, se devuelve null y el HTML no dibuja la imagen.
+   */
+  private async resolveLogoDataUri(): Promise<string | null> {
+    const reportImgRuta = process.env.REPORT_IMG_RUTA;
+    if (reportImgRuta) {
+      const desdeReporte = await loadLogoDataUri(
+        join(reportImgRuta, 'logo.png'),
+      );
+      if (desdeReporte) return desdeReporte;
+      // Tolerancia: algunos entornos apuntan REPORT_IMG_RUTA al archivo.
+      const directo = await loadLogoDataUri(reportImgRuta);
+      if (directo) return directo;
+    }
+
+    return loadLogoDataUri(
+      join(process.cwd(), '..', 'frontend', 'public', 'logo_sat_2026.jpeg'),
+    );
+  }
+
+  /** Sello de recepción: solo desde `REPORT_IMG_RUTA/SelloJC.png`. */
+  private async resolveSelloDataUri(): Promise<string | null> {
+    const reportImgRuta = process.env.REPORT_IMG_RUTA;
+    if (!reportImgRuta) return null;
+    return loadLogoDataUri(join(reportImgRuta, 'SelloJC.png'));
   }
 }

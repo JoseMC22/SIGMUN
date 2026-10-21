@@ -10,9 +10,11 @@ import {
   CheckCircle2,
   Play,
   Loader2,
+  Printer,
 } from "lucide-react";
 import {
   generarGenerarOpAction,
+  getGenerarOpPdfAction,
   procesarGenerarOpAction,
   type GenerarOpRow,
   type ProcesarOpRow,
@@ -157,6 +159,7 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
     | { kind: "data"; rows: ProcesarOpRow[]; total: number }
     | {
         kind: "generada";
+        idValor: string;
         numVal: string;
         anoVal: string;
         total: number;
@@ -166,6 +169,8 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
   >(null);
   const [procesando, setProcesando] = useState(false);
   const [generando, setGenerando] = useState(false);
+  const [abriendoPdf, setAbriendoPdf] = useState(false);
+  const [pdfAviso, setPdfAviso] = useState<string | null>(null);
 
   // Cortes por año de la última consulta: se recalculan solo cuando cambian
   // los resultados, no en cada render del modal.
@@ -246,6 +251,41 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
     return null;
   };
 
+  /**
+   * Pide el PDF de la OP y lo abre en una pestaña nueva. Si el backend no
+   * responde, no rompe el flujo: el banner con el número queda visible y se
+   * avisa que el PDF no se pudo abrir.
+   */
+  const abrirPdf = async (idValor: string, numVal: string, anoVal: string) => {
+    setAbriendoPdf(true);
+    setPdfAviso(null);
+    try {
+      const base64 = await getGenerarOpPdfAction(idValor, numVal, anoVal);
+      if (!base64) {
+        setPdfAviso(
+          "No se pudo abrir el PDF de la OP. Probá de nuevo con «Ver OP».",
+        );
+        return;
+      }
+      const byteCharacters = atob(base64);
+      const byteNumbers = new Array<number>(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const blob = new Blob([new Uint8Array(byteNumbers)], {
+        type: "application/pdf",
+      });
+      const blobUrl = URL.createObjectURL(blob);
+      window.open(blobUrl, "_blank");
+    } catch {
+      setPdfAviso(
+        "No se pudo abrir el PDF de la OP. Probá de nuevo con «Ver OP».",
+      );
+    } finally {
+      setAbriendoPdf(false);
+    }
+  };
+
   const generar = async () => {
     const error = validar();
     if (error) {
@@ -282,13 +322,18 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
         });
         return;
       }
+      const idValor =
+        result.id_valor ?? (tipo === "vehicular" ? "11" : "01");
       setResultado({
         kind: "generada",
+        idValor,
         numVal: result.num_val,
         anoVal: result.ano_val,
         total: result.total ?? filasPrevias.length,
         rows: filasPrevias,
       });
+      // La impresión no bloquea el flujo: si falla, el banner ya está visible.
+      void abrirPdf(idValor, result.num_val, result.ano_val);
     } catch {
       setResultado({
         kind: "error",
@@ -562,9 +607,30 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
                     <div className="mb-3 flex items-start gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-800">
                       <CheckCircle2 size={13} className="mt-0.5 shrink-0" />
                       <div className="min-w-0">
-                        <p className="font-semibold">
-                          OP {resultado.numVal}-{resultado.anoVal}
-                        </p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-semibold">
+                            OP {resultado.numVal}-{resultado.anoVal}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void abrirPdf(
+                                resultado.idValor,
+                                resultado.numVal,
+                                resultado.anoVal,
+                              )
+                            }
+                            disabled={abriendoPdf}
+                            className="inline-flex items-center gap-1 rounded border border-emerald-300 bg-white px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 transition hover:bg-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-400/40 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {abriendoPdf ? (
+                              <Loader2 size={10} className="animate-spin" />
+                            ) : (
+                              <Printer size={10} />
+                            )}
+                            {abriendoPdf ? "Abriendo..." : "Ver OP"}
+                          </button>
+                        </div>
                         <p>
                           {resultado.total}{" "}
                           {resultado.total === 1
@@ -572,6 +638,11 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
                             : "recibos incluidos"}
                           . La grilla queda como constancia de lo generado.
                         </p>
+                        {pdfAviso && (
+                          <p className="mt-1 text-[10px] text-amber-700">
+                            {pdfAviso}
+                          </p>
+                        )}
                       </div>
                     </div>
                   )}
