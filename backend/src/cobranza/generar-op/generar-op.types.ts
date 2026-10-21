@@ -5,4 +5,6 @@ export interface ProcesarOpResult {
   data: ProcesarOpRow[];
   total: number;
   error?: string;
+  /** Mensaje crudo del motor SQL. Solo se adjunta fuera de producción. */
+  detail?: string;
 }

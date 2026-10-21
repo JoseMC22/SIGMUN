@@ -138,6 +138,8 @@ export interface ProcesarOpResult {
   data: ProcesarOpRow[];
   total: number;
   error?: string;
+  /** Mensaje crudo del motor SQL. El backend solo lo envía fuera de producción. */
+  detail?: string;
 }
 
 export interface ProcesarOpPayload {
@@ -185,6 +187,7 @@ export async function procesarGenerarOpAction(
         data: [],
         total: 0,
         error: json.error ?? "Error al procesar la orden de pago",
+        detail: json.detail,
       };
     }
     return {

@@ -36,16 +36,19 @@ export class GenerarOpService {
       const data = result.recordset ?? [];
       return { success: true, data, total: data.length };
     } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `[GenerarOp] procesar SP error (codigo=${dto.Codigo}): ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        `[GenerarOp] procesar SP error (codigo=${dto.Codigo}): ${detail}`,
       );
       return {
         success: false,
         data: [],
         total: 0,
         error: 'Error al procesar la orden de pago',
+        // En desarrollo se devuelve el mensaje del motor para poder diagnosticar
+        // el contrato del SP (nombre, parámetros, tipos). En producción no se
+        // expone detalle interno de la base.
+        ...(process.env.NODE_ENV !== 'production' ? { detail } : {}),
       };
     }
   }

@@ -76,7 +76,7 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
   // Resultado de la última pulsación de "Procesar" (datos) o "Generar OP"
   // (aviso de backend pendiente).
   const [resultado, setResultado] = useState<
-    | { kind: "error"; msg: string }
+    | { kind: "error"; msg: string; detail?: string }
     | { kind: "pending"; msg: string }
     | { kind: "data"; rows: ProcesarOpRow[]; total: number }
     | null
@@ -152,6 +152,7 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
         setResultado({
           kind: "error",
           msg: result.error ?? "Error al procesar la orden de pago",
+          detail: result.detail,
         });
         return;
       }
@@ -366,7 +367,16 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
               {resultado?.kind === "error" ? (
                 <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700">
                   <AlertCircle size={13} className="mt-0.5 shrink-0" />
-                  {resultado.msg}
+                  <div className="min-w-0">
+                    <p>{resultado.msg}</p>
+                    {/* Detalle del motor SQL: el backend solo lo envía en dev,
+                        y sirve para diagnosticar el contrato del SP. */}
+                    {resultado.detail && (
+                      <p className="mt-1 break-words font-mono text-[10px] text-red-500/90">
+                        {resultado.detail}
+                      </p>
+                    )}
+                  </div>
                 </div>
               ) : resultado?.kind === "data" ? (
                 resultado.rows.length === 0 ? (
