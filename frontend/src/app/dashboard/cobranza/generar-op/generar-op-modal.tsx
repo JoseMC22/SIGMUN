@@ -252,7 +252,7 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
       data-testid="generar-op-modal"
     >
       <div
-        className="flex max-h-[90vh] w-[95vw] max-w-[1400px] flex-col rounded-lg bg-white shadow-xl animate-fade-in"
+        className="flex max-h-[90vh] w-full max-w-[1400px] flex-col rounded-lg bg-white shadow-xl animate-fade-in"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
