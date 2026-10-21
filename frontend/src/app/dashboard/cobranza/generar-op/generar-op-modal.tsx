@@ -370,9 +370,10 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
             </div>
           </div>
 
-          {/* Parámetros. En sm+ los años van con ancho fijo y corto para que
-              "Procesar" entre en la misma línea que los trimestres. */}
-          <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-[minmax(130px,1fr)_92px_92px_minmax(250px,1.7fr)]">
+          {/* Parámetros. Fecha y años con ancho corto y fijo: una fecha
+              ocupa dd/mm/aaaa, no la mitad de la fila. El resto del ancho va
+              a los trimestres, para que "Procesar" entre en la misma línea. */}
+          <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-[150px_92px_92px_minmax(250px,1fr)]">
             <div>
               <label htmlFor="op-fecha" className={labelCls}>
                 Fecha
