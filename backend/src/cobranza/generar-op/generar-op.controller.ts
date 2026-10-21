@@ -9,7 +9,8 @@ import {
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { GenerarOpService } from './generar-op.service';
 import { ProcesarOpSchema, ProcesarOpDto } from './dto/procesar-op.dto';
-import { ProcesarOpResult } from './generar-op.types';
+import { GenerarOpSchema, GenerarOpDto } from './dto/generar-op.dto';
+import { ProcesarOpResult, GenerarOpResult } from './generar-op.types';
 import { z } from 'zod';
 
 @Controller('cobranza/generar-op')
@@ -43,5 +44,29 @@ export class GenerarOpController {
       };
     }
     return this.service.procesar(dto);
+  }
+
+  /** Generación real de la OP (Rentas.sp_Genera_OP / sp_Genera_OPVEH). */
+  @Post('generar')
+  @HttpCode(HttpStatus.OK)
+  async generar(@Body() body: unknown): Promise<GenerarOpResult> {
+    let dto: GenerarOpDto;
+    try {
+      dto = GenerarOpSchema.parse(body);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const errorMsg =
+          error.issues.map((i) => i.message).join(', ') || 'Parámetros inválidos';
+        return {
+          success: false,
+          error: errorMsg,
+        };
+      }
+      return {
+        success: false,
+        error: 'Parámetros inválidos',
+      };
+    }
+    return this.service.generar(dto);
   }
 }

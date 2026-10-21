@@ -212,3 +212,85 @@ export async function procesarGenerarOpAction(
     };
   }
 }
+
+// Generación real de la OP. El backend re-proyecta server-side con estos
+// mismos filtros y llama a Rentas.sp_Genera_OP / sp_Genera_OPVEH; el cliente
+// nunca manda el nombre del SP ni los importes.
+
+export interface GenerarOpPayload {
+  codigo: string;
+  nombre: string;
+  dirFiscal: string;
+  numDoc: string;
+  fechaProyectada: string; // DD/MM/YYYY
+  annos: string;
+  perio: string;
+  tipo: "predial" | "vehicular";
+}
+
+export interface GenerarOpActionResult {
+  success: boolean;
+  id_valor?: string;
+  num_val?: string;
+  ano_val?: string;
+  total?: number;
+  error?: string;
+  detail?: string;
+}
+
+export async function generarGenerarOpAction(
+  payload: GenerarOpPayload,
+): Promise<GenerarOpActionResult> {
+  try {
+    const response = await authFetch("/cobranza/generar-op/generar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        Codigo: payload.codigo,
+        Tipo: payload.tipo,
+        Annos: payload.annos,
+        Perio: payload.perio,
+        Estado: "0",
+        FechaProyectada: payload.fechaProyectada,
+        Nombre: payload.nombre,
+        DirFiscal: payload.dirFiscal,
+        NumDoc: payload.numDoc,
+        Tipos: "",
+        Predio: "",
+        IdUsuario: "",
+        Operador: "",
+        Estacion: "WEB",
+      }),
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      return {
+        success: false,
+        error: text || `Error ${response.status}`,
+      };
+    }
+
+    const json = await response.json();
+    if (!json.success) {
+      return {
+        success: false,
+        error: json.error ?? "Error al generar la orden de pago",
+        detail: json.detail,
+      };
+    }
+    return {
+      success: true,
+      id_valor: json.id_valor,
+      num_val: json.num_val,
+      ano_val: json.ano_val,
+      total: json.total ?? 0,
+    };
+  } catch {
+    return {
+      success: false,
+      error: "Error de conexión con el servidor",
+    };
+  }
+}

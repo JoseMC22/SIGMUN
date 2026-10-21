@@ -7,11 +7,12 @@ import {
   Car,
   FileSpreadsheet,
   AlertCircle,
-  Info,
+  CheckCircle2,
   Play,
   Loader2,
 } from "lucide-react";
 import {
+  generarGenerarOpAction,
   procesarGenerarOpAction,
   type GenerarOpRow,
   type ProcesarOpRow,
@@ -31,9 +32,10 @@ import {
 
 // Modal de generación de orden de pago.
 //
-// Todavía no existe el endpoint que genera la OP: el formulario valida sus
-// parámetros y deja constancia en Resultados de que la generación está
-// pendiente. Cuando exista el backend, `generar` es el único punto a cambiar.
+// "Procesar" proyecta el estado de cuenta (solo lectura). "Generar OP" llama
+// al backend, que re-proyecta server-side y ejecuta Rentas.sp_Genera_OP /
+// sp_Genera_OPVEH: crea la OP real y devuelve su número. La grilla se conserva
+// después de generar como constancia de los recibos incluidos.
 
 /** Tributo destino de la orden de pago. */
 export type TipoOp = "predial" | "vehicular";
@@ -104,11 +106,15 @@ function hoyLocal(): string {
   return `${y}-${m}-${day}`;
 }
 
-function nombreCompleto(row: GenerarOpRow): string {
+function nombreContribuyente(row: GenerarOpRow): string {
   const partes = [row.nombres, row.paterno, row.materno]
     .map((v) => String(v ?? "").trim())
     .filter(Boolean);
-  return partes.join(" ") || "—";
+  return partes.join(" ") || String(row.razon ?? "");
+}
+
+function nombreCompleto(row: GenerarOpRow): string {
+  return nombreContribuyente(row) || "—";
 }
 
 /** Esquina superior izquierda del área de contenido del shell. */
@@ -144,23 +150,39 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
   const [trimestres, setTrimestres] = useState<number[]>([]);
 
   // Resultado de la última pulsación de "Procesar" (datos) o "Generar OP"
-  // (aviso de backend pendiente).
+  // (OP creada). En "generada" se conservan las filas que se mostraron antes
+  // de generar, como constancia de los recibos incluidos.
   const [resultado, setResultado] = useState<
     | { kind: "error"; msg: string; detail?: string }
-    | { kind: "pending"; msg: string }
     | { kind: "data"; rows: ProcesarOpRow[]; total: number }
+    | {
+        kind: "generada";
+        numVal: string;
+        anoVal: string;
+        total: number;
+        rows: ProcesarOpRow[];
+      }
     | null
   >(null);
   const [procesando, setProcesando] = useState(false);
+  const [generando, setGenerando] = useState(false);
 
   // Cortes por año de la última consulta: se recalculan solo cuando cambian
   // los resultados, no en cada render del modal.
   const cortes = useMemo(
-    () => (resultado?.kind === "data" ? agruparPorAnio(resultado.rows) : []),
+    () =>
+      resultado?.kind === "data" || resultado?.kind === "generada"
+        ? agruparPorAnio(resultado.rows)
+        : [],
     [resultado],
   );
   const totalGeneral = useMemo(
-    () => subtotalizar(resultado?.kind === "data" ? resultado.rows : []),
+    () =>
+      subtotalizar(
+        resultado?.kind === "data" || resultado?.kind === "generada"
+          ? resultado.rows
+          : [],
+      ),
     [resultado],
   );
 
@@ -224,18 +246,57 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
     return null;
   };
 
-  const generar = () => {
+  const generar = async () => {
     const error = validar();
     if (error) {
       setResultado({ kind: "error", msg: error });
       return;
     }
-    setResultado({
-      kind: "pending",
-      msg: `Parámetros listos: ${fecha}, años ${anioDesde}–${anioHasta}, trimestres ${trimestres.join(
-        ", ",
-      )}. La generación de la OP todavía no tiene backend.`,
-    });
+
+    const fechaDdMmAaaa = formatFechaDdMmAaaa(fecha);
+    const annosPack = buildAnnosPack(anioDesde, anioHasta);
+    const perioPack = buildTrimestresPack(trimestres);
+    // Filas ya proyectadas: se conservan visibles después de generar.
+    const filasPrevias =
+      resultado?.kind === "data" || resultado?.kind === "generada"
+        ? resultado.rows
+        : [];
+
+    setGenerando(true);
+    try {
+      const result = await generarGenerarOpAction({
+        codigo,
+        nombre: nombreContribuyente(contribuyente),
+        dirFiscal: String(contribuyente.dirfiscal ?? ""),
+        numDoc: String(contribuyente.num_doc ?? ""),
+        fechaProyectada: fechaDdMmAaaa,
+        annos: annosPack,
+        perio: perioPack,
+        tipo,
+      });
+      if (!result.success || !result.num_val || !result.ano_val) {
+        setResultado({
+          kind: "error",
+          msg: result.error ?? "Error al generar la orden de pago",
+          detail: result.detail,
+        });
+        return;
+      }
+      setResultado({
+        kind: "generada",
+        numVal: result.num_val,
+        anoVal: result.ano_val,
+        total: result.total ?? filasPrevias.length,
+        rows: filasPrevias,
+      });
+    } catch {
+      setResultado({
+        kind: "error",
+        msg: "Error de conexión con el servidor",
+      });
+    } finally {
+      setGenerando(false);
+    }
   };
 
   const procesar = async () => {
@@ -451,7 +512,7 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
                 <button
                   type="button"
                   onClick={procesar}
-                  disabled={procesando}
+                  disabled={procesando || generando}
                   className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md bg-sat-cyan px-2 py-1 text-[10px] font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {procesando ? (
@@ -494,13 +555,32 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
                     )}
                   </div>
                 </div>
-              ) : resultado?.kind === "data" ? (
-                resultado.rows.length === 0 ? (
-                  <p className="text-center text-[11px] text-slate-400">
-                    Sin resultados para los parámetros seleccionados.
-                  </p>
-                ) : (
-                  <div className="overflow-x-auto">
+              ) : resultado?.kind === "data" ||
+                resultado?.kind === "generada" ? (
+                <div>
+                  {resultado.kind === "generada" && (
+                    <div className="mb-3 flex items-start gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-800">
+                      <CheckCircle2 size={13} className="mt-0.5 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="font-semibold">
+                          OP {resultado.numVal}-{resultado.anoVal}
+                        </p>
+                        <p>
+                          {resultado.total}{" "}
+                          {resultado.total === 1
+                            ? "recibo incluido"
+                            : "recibos incluidos"}
+                          . La grilla queda como constancia de lo generado.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {resultado.rows.length === 0 ? (
+                    <p className="text-center text-[11px] text-slate-400">
+                      Sin resultados para los parámetros seleccionados.
+                    </p>
+                  ) : (
+                    <div className="overflow-x-auto">
                     <table
                       className="w-full min-w-[1100px] border-collapse"
                       data-testid="generar-op-procesar-grid"
@@ -638,11 +718,7 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
                       </tbody>
                     </table>
                   </div>
-                )
-              ) : resultado?.kind === "pending" ? (
-                <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
-                  <Info size={13} className="mt-0.5 shrink-0" />
-                  {resultado.msg}
+                  )}
                 </div>
               ) : (
                 <p className="text-center text-[11px] text-slate-400">
@@ -658,10 +734,15 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
           <button
             type="button"
             onClick={generar}
-            className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-3.5 py-1.5 text-[11px] font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
+            disabled={generando}
+            className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-3.5 py-1.5 text-[11px] font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <FileSpreadsheet size={12} />
-            Generar OP
+            {generando ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : (
+              <FileSpreadsheet size={12} />
+            )}
+            {generando ? "Generando..." : "Generar OP"}
           </button>
           <button
             type="button"
