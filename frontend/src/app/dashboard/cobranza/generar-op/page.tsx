@@ -8,6 +8,9 @@ import {
   RotateCcw,
   FolderSearch,
   LayoutGrid,
+  Building2,
+  Car,
+  Info,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -17,9 +20,9 @@ import {
   type TipoBusqueda,
 } from "@/actions/cobranza/generar-op";
 
-// Interfaz principal clonada de anular-valor. La acción por fila (generar la
-// orden de pago) queda pendiente: todavía no hay backend de generar-op, y el
-// modal de anular-valor NO se clona a propósito (anular no es generar).
+// Interfaz principal clonada de anular-valor. Los dos botones de acción
+// (OP predial / OP vehicular) todavía no tienen backend: avisan que la
+// generación está pendiente en lugar de simular que funcionan.
 
 // Registros por página.
 
@@ -40,6 +43,19 @@ const COLUMNAS: { header: string; key: string }[] = [
 ];
 
 const NUM_COLS = COLUMNAS.length;
+
+// La grilla tiene una columna más que COLUMNAS: la de Acción (dos botones por
+// fila). El skeleton la cuenta para no desincronizar el ancho.
+
+const GRID_COLS = NUM_COLS + 1;
+
+/** Tributo destino de cada botón de acción. */
+type TipoOp = "predial" | "vehicular";
+
+const OPS: { tipo: TipoOp; label: string; icon: typeof Building2 }[] = [
+  { tipo: "predial", label: "OP Predial", icon: Building2 },
+  { tipo: "vehicular", label: "OP Vehicular", icon: Car },
+];
 
 const TIPOS: { value: TipoBusqueda; label: string }[] = [
   { value: "C", label: "Código" },
@@ -67,10 +83,10 @@ function TableSkeleton() {
           <div
             className="grid gap-4"
             style={{
-              gridTemplateColumns: `repeat(${NUM_COLS}, minmax(0, 1fr))`,
+              gridTemplateColumns: `repeat(${GRID_COLS}, minmax(0, 1fr))`,
             }}
           >
-            {[...Array(NUM_COLS)].map((_, i) => (
+            {[...Array(GRID_COLS)].map((_, i) => (
               <div key={i} className="h-3 bg-slate-200 rounded w-3/4" />
             ))}
           </div>
@@ -80,10 +96,10 @@ function TableSkeleton() {
             <div
               className="grid gap-4"
               style={{
-                gridTemplateColumns: `repeat(${NUM_COLS}, minmax(0, 1fr))`,
+                gridTemplateColumns: `repeat(${GRID_COLS}, minmax(0, 1fr))`,
               }}
             >
-              {[...Array(NUM_COLS)].map((_, j) => (
+              {[...Array(GRID_COLS)].map((_, j) => (
                 <div
                   key={j}
                   className="h-3.5 bg-slate-100 rounded"
@@ -123,6 +139,8 @@ export default function GenerarOpPage() {
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Aviso de acción: los botones de OP todavía no tienen backend.
+  const [notice, setNotice] = useState<string | null>(null);
 
   const buildFilters = useCallback(() => {
     // Solo viaja lleno lo del criterio elegido; el resto va vacío y el SP lo
@@ -142,6 +160,7 @@ export default function GenerarOpPage() {
     async (pageNum: number = page) => {
       setLoading(true);
       setError(null);
+      setNotice(null);
       try {
         const result = await searchGenerarOpAction(
           buildFilters(),
@@ -225,6 +244,19 @@ export default function GenerarOpPage() {
   const handleRetry = () => {
     setPage(1);
     executeSearch(1);
+  };
+
+  /**
+   * Acción por fila. Todavía no existe el endpoint de generación de OP, así que
+   * el aviso deja explícito que no se generó nada. Cuando exista el backend,
+   * este handler es el único punto que hay que cambiar.
+   */
+  const handleGenerarOp = (row: GenerarOpRow, tipo: TipoOp) => {
+    const codigo = String(row.codigo ?? "");
+    const label = tipo === "predial" ? "predial" : "vehicular";
+    setNotice(
+      `Generación de OP ${label} para el código ${codigo}: pendiente de backend.`,
+    );
   };
 
   // Search Form (criterio en combo + inputs según el tipo elegido)
@@ -453,7 +485,7 @@ export default function GenerarOpPage() {
     <div className="overflow-hidden rounded-lg border border-slate-200 shadow-sm animate-fade-in">
       <div className="overflow-x-auto">
         <table
-          className="w-full border-collapse min-w-[1400px]"
+          className="w-full border-collapse min-w-[1600px]"
           data-testid="generar-op-grid"
           role="grid"
         >
@@ -467,6 +499,9 @@ export default function GenerarOpPage() {
                   {col.header}
                 </th>
               ))}
+              <th className="text-left text-[9px] font-semibold text-white/90 uppercase px-2 py-2 border-b border-white/5 whitespace-nowrap">
+                Acción
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -485,6 +520,23 @@ export default function GenerarOpPage() {
                     {String(row[col.key] ?? "")}
                   </td>
                 ))}
+                <td className="px-2 py-1 whitespace-nowrap">
+                  <div className="flex items-center gap-1">
+                    {OPS.map(({ tipo, label, icon: Icon }) => (
+                      <button
+                        key={tipo}
+                        type="button"
+                        title={`Generar ${label}`}
+                        aria-label={`Generar ${label} de ${String(row.codigo ?? "")}`}
+                        onClick={() => handleGenerarOp(row, tipo)}
+                        className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-medium text-slate-600 transition hover:bg-sat-cyan hover:text-white hover:border-sat-cyan focus:outline-none focus:ring-2 focus:ring-sat-cyan/40"
+                      >
+                        <Icon size={11} />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -573,6 +625,23 @@ export default function GenerarOpPage() {
       </div>
 
       {renderSearchForm()}
+
+      {/* Aviso de la acción por fila (todavía sin backend) */}
+      {notice && (
+        <div className="flex items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
+          <span className="flex items-center gap-1.5">
+            <Info size={12} className="shrink-0" />
+            {notice}
+          </span>
+          <button
+            type="button"
+            onClick={() => setNotice(null)}
+            className="shrink-0 rounded px-1.5 py-0.5 font-medium text-amber-700 transition hover:bg-amber-100"
+          >
+            Cerrar
+          </button>
+        </div>
+      )}
 
       {/* Results info */}
       {!loading && !error && !initialLoading && data.length > 0 && (
