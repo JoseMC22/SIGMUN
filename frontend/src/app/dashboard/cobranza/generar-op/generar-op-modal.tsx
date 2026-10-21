@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import {
   X,
   Building2,
@@ -21,6 +21,13 @@ import {
   buildTrimestresPack,
   formatFechaDdMmAaaa,
 } from "./op-params";
+import {
+  agruparPorAnio,
+  num,
+  subtotalizar,
+  totalFila,
+  type SubtotalCorte,
+} from "./resultado-cortes";
 
 // Modal de generación de orden de pago.
 //
@@ -56,14 +63,20 @@ const RESULTADO_COLS: { key: string; header: string; kind: ResultadoKind }[] = [
   { key: "costo_emis", header: "Costo Emis.", kind: "money" },
 ];
 
-function num(value: unknown): number {
-  const n = Number(value ?? 0);
-  return Number.isFinite(n) ? n : 0;
-}
+// Las columnas identificatorias encabezan la tabla (tributo, predio, anexo,
+// subanexo, periodo): los cortes y subtotales las puentean con un colSpan.
+const COLS_IDENT = Math.max(
+  0,
+  RESULTADO_COLS.findIndex((c) => c.kind === "money"),
+);
 
-function totalFila(row: ProcesarOpRow): number {
-  return num(row.imp_reaj) + num(row.mora) + num(row.costo_emis);
-}
+// Columnas de importe del subtotal, mapeadas 1 a 1 con SubtotalCorte.
+const SUBTOTAL_KEY: Record<string, keyof SubtotalCorte> = {
+  imp_insol: "imp_insol",
+  imp_reaj: "imp_reaj",
+  mora: "mora",
+  costo_emis: "costo_emis",
+};
 
 function formatCelda(value: unknown, kind: ResultadoKind): string {
   if (value === null || value === undefined || value === "") return "";
@@ -131,6 +144,17 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
     | null
   >(null);
   const [procesando, setProcesando] = useState(false);
+
+  // Cortes por año de la última consulta: se recalculan solo cuando cambian
+  // los resultados, no en cada render del modal.
+  const cortes = useMemo(
+    () => (resultado?.kind === "data" ? agruparPorAnio(resultado.rows) : []),
+    [resultado],
+  );
+  const totalGeneral = useMemo(
+    () => subtotalizar(resultado?.kind === "data" ? resultado.rows : []),
+    [resultado],
+  );
 
   const codigo = String(contribuyente.codigo ?? "");
 
@@ -451,30 +475,116 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {resultado.rows.map((row, idx) => (
-                          <tr
-                            key={idx}
-                            className={
-                              idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"
-                            }
-                          >
-                            {RESULTADO_COLS.map((col) => (
+                        {cortes.map((corte) => (
+                          <Fragment key={corte.anno || "sin-anio"}>
+                            {/* Encabezado del corte por año */}
+                            <tr
+                              className="bg-slate-100"
+                              data-testid={`generar-op-corte-${corte.anno || "sin-anio"}`}
+                            >
                               <td
-                                key={col.key}
-                                className={`${celdaCls(col.kind)}${
-                                  col.key === "des_tipo"
-                                    ? " font-medium text-slate-800"
-                                    : ""
-                                }`}
+                                colSpan={COLS_IDENT}
+                                className="whitespace-nowrap px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-700"
                               >
-                                {formatCelda(row[col.key], col.kind)}
+                                {corte.anno ? `Año ${corte.anno}` : "Sin año"}
                               </td>
+                              <td
+                                colSpan={RESULTADO_COLS.length - COLS_IDENT + 1}
+                                className="whitespace-nowrap px-2 py-1 text-right text-[9px] text-slate-400"
+                              >
+                                {corte.rows.length}{" "}
+                                {corte.rows.length === 1
+                                  ? "registro"
+                                  : "registros"}
+                              </td>
+                            </tr>
+
+                            {corte.rows.map((row, idx) => (
+                              <tr
+                                key={`${corte.anno}-${idx}`}
+                                className={
+                                  idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"
+                                }
+                              >
+                                {RESULTADO_COLS.map((col) => (
+                                  <td
+                                    key={col.key}
+                                    className={`${celdaCls(col.kind)}${
+                                      col.key === "des_tipo"
+                                        ? " font-medium text-slate-800"
+                                        : ""
+                                    }`}
+                                  >
+                                    {formatCelda(row[col.key], col.kind)}
+                                  </td>
+                                ))}
+                                <td className="whitespace-nowrap px-2 py-1 text-right text-[10px] font-mono font-semibold text-slate-700">
+                                  {totalFila(row).toFixed(2)}
+                                </td>
+                              </tr>
                             ))}
-                            <td className="whitespace-nowrap px-2 py-1 text-right text-[10px] font-mono font-semibold text-slate-700">
-                              {totalFila(row).toFixed(2)}
+
+                            {/* Subtotal del corte: solo importes, los factores
+                                quedan en blanco porque no se suman. */}
+                            <tr
+                              className="bg-slate-50"
+                              data-testid={`generar-op-subtotal-${corte.anno || "sin-anio"}`}
+                            >
+                              <td
+                                colSpan={COLS_IDENT}
+                                className="whitespace-nowrap px-2 py-1 text-right text-[10px] font-semibold text-slate-500"
+                              >
+                                Subtotal {corte.anno || "sin año"}
+                              </td>
+                              {RESULTADO_COLS.slice(COLS_IDENT).map((col) =>
+                                SUBTOTAL_KEY[col.key] ? (
+                                  <td
+                                    key={col.key}
+                                    className="whitespace-nowrap px-2 py-1 text-right text-[10px] font-mono font-semibold text-slate-600"
+                                  >
+                                    {corte.subtotal[
+                                      SUBTOTAL_KEY[col.key]
+                                    ].toFixed(2)}
+                                  </td>
+                                ) : (
+                                  <td key={col.key} className="px-2 py-1" />
+                                ),
+                              )}
+                              <td className="whitespace-nowrap px-2 py-1 text-right text-[10px] font-mono font-semibold text-slate-700">
+                                {corte.subtotal.total.toFixed(2)}
+                              </td>
+                            </tr>
+                          </Fragment>
+                        ))}
+
+                        {/* Total general de todos los cortes */}
+                        {cortes.length > 1 && (
+                          <tr className="border-t-2 border-slate-300 bg-slate-100">
+                            <td
+                              colSpan={COLS_IDENT}
+                              className="whitespace-nowrap px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-700"
+                            >
+                              Total general
+                            </td>
+                            {RESULTADO_COLS.slice(COLS_IDENT).map((col) =>
+                              SUBTOTAL_KEY[col.key] ? (
+                                <td
+                                  key={col.key}
+                                  className="whitespace-nowrap px-2 py-1.5 text-right text-[10px] font-mono font-bold text-slate-700"
+                                >
+                                  {totalGeneral[
+                                    SUBTOTAL_KEY[col.key]
+                                  ].toFixed(2)}
+                                </td>
+                              ) : (
+                                <td key={col.key} className="px-2 py-1.5" />
+                              ),
+                            )}
+                            <td className="whitespace-nowrap px-2 py-1.5 text-right text-[10px] font-mono font-bold text-slate-800">
+                              {totalGeneral.total.toFixed(2)}
                             </td>
                           </tr>
-                        ))}
+                        )}
                       </tbody>
                     </table>
                   </div>
