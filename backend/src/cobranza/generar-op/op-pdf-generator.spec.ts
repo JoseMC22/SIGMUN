@@ -71,12 +71,22 @@ describe('buildOpPdfHtml', () => {
     expect(html).toContain('>AÑO<');
   });
 
-  it('rotula el tributo según id_valor', () => {
+  it('rotula el tributo según el layout de id_valor', () => {
+    // '11' elige el reporte vehicular y '01' el predial; cada uno imprime su
+    // propio rótulo en la columna TRIBUTO.
     expect(buildOpPdfHtml([opRow()])).toContain('>Vehicular<');
 
     const predial = buildOpPdfHtml([opRow({ id_valor: '01' })]);
     expect(predial).toContain('>Predial<');
     expect(predial).not.toContain('>Vehicular<');
+  });
+
+  it('usa el layout predial solo para tributos distintos de 11', () => {
+    // El predial conserva la tabla de tramos; el vehicular no la tiene.
+    expect(buildOpPdfHtml([opRow({ id_valor: '01' })])).toContain(
+      'AUTOVALUO',
+    );
+    expect(buildOpPdfHtml([opRow()])).not.toContain('AUTOVALUO');
   });
 
   it('alinea el colon de Declaracion Jurada con el del motivo', () => {
@@ -102,13 +112,14 @@ describe('buildOpPdfHtml', () => {
     expect(html).not.toContain('top:53pt;width:74pt');
   });
 
-  it('imprime la placa del vehículo solo en la OP vehicular', () => {
+  it('imprime la placa en la columna PLACA solo en la OP vehicular', () => {
+    // En vehicular `cod_pred` es la placa y va en su propia columna.
     const vehicular = buildOpPdfHtml([opRow()]);
-    expect(vehicular).toContain('>Placa<');
-    expect(vehicular).toContain(': ADH172');
+    expect(vehicular).toContain('>PLACA<');
+    expect(vehicular).toContain('>ADH172<');
 
     const predial = buildOpPdfHtml([opRow({ id_valor: '01' })]);
-    expect(predial).not.toContain('>Placa<');
+    expect(predial).not.toContain('>PLACA<');
     expect(predial).not.toContain('ADH172');
   });
 
@@ -121,10 +132,14 @@ describe('buildOpPdfHtml', () => {
     expect(html).toContain('left:6pt;top:232pt;width:226pt');
   });
 
-  it('calcula el alto del contenido como 176 + 35*filas + 185', () => {
-    expect(buildOpPdfHtml([opRow()])).toContain('data-content-height="396"');
+  it('calcula el alto del contenido con el pie de cada layout', () => {
+    // Vehicular: pie de 192pt. Predial: pie de 185pt.
+    expect(buildOpPdfHtml([opRow()])).toContain('data-content-height="403"');
     expect(buildOpPdfHtml([opRow(), opRow({ anno: '2018' })])).toContain(
-      'data-content-height="431"',
+      'data-content-height="438"',
+    );
+    expect(buildOpPdfHtml([opRow({ id_valor: '01' })])).toContain(
+      'data-content-height="396"',
     );
   });
 

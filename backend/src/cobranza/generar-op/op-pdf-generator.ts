@@ -122,7 +122,7 @@ function titleBand(logoDataUri?: string): string {
   return parts.join('\n');
 }
 
-function headerBand(row: OpImpresionRow): string {
+function headerBandPredial(row: OpImpresionRow): string {
   const y = HEADER_Y;
   const parts: string[] = [];
 
@@ -142,16 +142,6 @@ function headerBand(row: OpImpresionRow): string {
     text(5, y + 40, 97, 'Domicilio Fiscal', { bold: true }),
     text(107, y + 40, 456, ': ' + (row.Dirfiscal ?? '')),
   );
-
-  // La placa solo existe en la OP vehicular; va en el bloque del contribuyente,
-  // a la derecha del documento de identidad.
-  const placa = placaVehiculo(row);
-  if (placa) {
-    parts.push(
-      text(210, y + 27, 40, 'Placa', { bold: true }),
-      text(252, y + 28, 120, ': ' + placa),
-    );
-  }
 
   const parrafo =
     'Por la presente se requiere la cancelacion de la deuda contenida en el presente documento, ' +
@@ -229,14 +219,13 @@ function tributoLabel(row: OpImpresionRow): string {
  *
  * El SP no devuelve una columna `placa`: en la OP vehicular el código predial
  * (`cod_pred`) ES la placa (formato `ADH172`); en predial es el código del
- * predio (`0259376`). Por eso solo se imprime cuando `id_valor` es '11'.
+ * predio (`0259376`). Por eso solo se usa en el layout vehicular.
  */
 function placaVehiculo(row: OpImpresionRow): string {
-  if (String(row.id_valor ?? '').trim() !== '11') return '';
   return String(row.cod_pred ?? '').trim();
 }
 
-function detailBand(row: OpImpresionRow, y: number): string {
+function detailBandPredial(row: OpImpresionRow, y: number): string {
   const parts: string[] = [];
 
   TABLE_X.forEach((x) => parts.push(vLine(x, y, 34)));
@@ -272,7 +261,7 @@ function detailBand(row: OpImpresionRow, y: number): string {
   return parts.join('\n');
 }
 
-function footerBand(rows: OpImpresionRow[], selloDataUri?: string): string {
+function footerBandPredial(rows: OpImpresionRow[], selloDataUri?: string): string {
   const y = DETAIL_Y + DETAIL_H * rows.length;
   const last = rows[rows.length - 1];
   const totalCosto = rows.reduce((acc, row) => acc + (row.costo_emis ?? 0), 0);
@@ -349,16 +338,16 @@ function footerBand(rows: OpImpresionRow[], selloDataUri?: string): string {
     text(387, y + 106, 48, 'Observación:', { size: 7 }),
     hLine(393, y + 135, 174),
     text(
-      221,
+      26,
       y + 153,
-      360,
+      546,
       'Si a la recepcion de esta, Ud. ya realizo el pago de tales conceptos, le rogamos haga caso omiso a la presente.',
       { size: 7 },
     ),
     text(
-      46,
+      26,
       y + 165,
-      492,
+      546,
       'Lugar de Pago: Av. Matías Manzanilla N° 421 Urb. San Miguel - Ica Horario de Atencion: Lunes a Viernes de 8:00 am a 4:30 pm.',
       { size: 7 },
     ),
@@ -368,20 +357,227 @@ function footerBand(rows: OpImpresionRow[], selloDataUri?: string): string {
 }
 
 /**
- * Arma el HTML A4 de la OP. Una fila del SP = un bloque de detalle; el pie se
- * calcula después de la última fila.
+ * Banda de cabecera del reporte VEHICULAR (JRXML `rpt_orpa` vehicular: 11
+ * columnas, con PLACA y sin TRAMO DE AUTOVALUO / ALI-CUOTA).
  */
-export function buildOpPdfHtml(
+function headerBandVehicular(row: OpImpresionRow): string {
+  const y = HEADER_Y;
+  const parts: string[] = [];
+
+  parts.push(
+    text(6, y + 1, 565, row.numerOP, {
+      bold: true,
+      underline: true,
+      align: 'center',
+      height: 13,
+    }),
+    text(5, y + 14, 97, 'Nombre y Razon Social', { bold: true }),
+    text(107, y + 15, 314, ': ' + (row.nombre ?? '')),
+    text(443, y + 15, 57, 'CODIGO', { bold: true }),
+    text(503, y + 15, 65, ': ' + (row.codigo ?? '')),
+    text(5, y + 27, 100, 'Documento de Identidad', { bold: true }),
+    text(107, y + 28, 88, ': ' + (row.num_doc ?? '')),
+    text(5, y + 40, 97, 'Domicilio Fiscal', { bold: true }),
+    text(107, y + 40, 456, ': ' + (row.Dirfiscal ?? '')),
+  );
+
+  const parrafo =
+    'Por la presente se requiere la cancelacion de la deuda contenida en el presente documento, ' +
+    'en un plazo de (3) dias habiles contados a partir del dia siguiente de su notificacion, ' +
+    'bajo apercibimiento de iniciar el procedimiento de Ejecucion Coactiva. La presente se emite ' +
+    'por los tributos y periodos de deudas pendientes que se indican, cuyo monto se ha actualizado al ' +
+    (row.fech_proyectado ?? '') +
+    ' luego de esta fecha se actualizara con una tasa diaria de 0.03%, conforme a la Tasa de Interes Moratorio.';
+  parts.push(text(5, y + 50, 567, parrafo, { align: 'justify', height: 49 }));
+
+  // Mismos criterios que el layout predial: motivo y frase en una sola fila, y
+  // el colon de Declaración arranca donde cae el colon del motivo.
+  parts.push(
+    html(
+      6,
+      y + 92,
+      560,
+      `<b>Motivo de la Determinaci\u00f3n</b>: Se ha verificado la existencia de una deuda tributaria no cancelado dentro de los plazos establecidos`,
+      { nowrap: true },
+    ),
+    text(6, y + 101, 83, 'Declaracion Jurada', { bold: true }),
+    text(110, y + 101, 110, ': Efectuada dentro del Periodo'),
+    text(214, y + 102, 25, row.anno, { size: 7, align: 'center' }),
+  );
+
+  // Tabla: línea superior, verticales y encabezados de dos líneas.
+  parts.push(hLine(6, y + 112, 565));
+  [287, 70, 44, 181, 237, 403, 462, 343].forEach((x) =>
+    parts.push(vLine(x, y + 112, 21)),
+  );
+  [5, 570, 514].forEach((x) => parts.push(vLine(x, y + 113, 20)));
+  parts.push(vLine(116, y + 113, 22));
+
+  const th = (left: number, top: number, width: number, label: string) =>
+    text(left, y + top, width, label, { size: 7, bold: true, align: 'center' });
+
+  parts.push(
+    th(6, 115, 37, 'TRIBUTO'),
+    th(46, 114, 24, 'AÑO'),
+    th(77, 118, 34, 'PLACA'),
+    th(118, 112, 62, 'BASE'),
+    th(118, 122, 62, 'IMPONIBLE'),
+    th(188, 117, 38, 'INSOLUTO'),
+    th(239, 113, 47, 'TRIMESTRES'),
+    th(238, 123, 47, 'ADEUDADOS'),
+    th(296, 117, 38, 'INSOLUTO'),
+    th(353, 118, 43, 'FORMULARIO'),
+    th(416, 112, 40, 'REAJUSTE'),
+    th(416, 122, 40, '(1)'),
+    th(467, 113, 42, 'INTERESES'),
+    th(467, 122, 42, '(2)'),
+    th(525, 117, 34, 'TOTAL'),
+  );
+
+  parts.push(hLine(5, y + 134, 566));
+
+  return parts.join('\n');
+}
+
+/** Una fila del detalle vehicular: un año / concepto. */
+function detailBandVehicular(row: OpImpresionRow, y: number): string {
+  const parts: string[] = [];
+
+  parts.push(hLine(6, y + 34, 565));
+  [70, 44].forEach((x) => parts.push(vLine(x, y - 2, 34)));
+  [570, 5, 237, 287, 343, 403].forEach((x) => parts.push(vLine(x, y, 34)));
+  [181, 116].forEach((x) => parts.push(vLine(x, y, 33)));
+  parts.push(vLine(462, y + 1, 32), vLine(513, y + 1, 33));
+
+  parts.push(
+    text(6, y + 6, 30, 'Impuesto', { size: 6, align: 'center' }),
+    text(6, y + 14, 30, 'Vehicular', { size: 6, align: 'center' }),
+    text(45, y + 7, 25, row.anno, { size: 7, align: 'center' }),
+    text(75, y + 6, 39, placaVehiculo(row), {
+      size: 6,
+      bold: true,
+      align: 'center',
+    }),
+    text(118, y + 7, 62, row.base_imponible1, { size: 7, align: 'right' }),
+    text(182, y + 9, 54, row.imp_anual1, { size: 7, align: 'right' }),
+    text(238, y + 10, 48, row.cuotas, { size: 6, align: 'right' }),
+    text(289, y + 7, 53, row.imp_insoltexto, { size: 7, align: 'right' }),
+    text(355, y + 9, 37, numText(row.costo_emis), { size: 7, align: 'right' }),
+    text(411, y + 10, 49, numText(row.imp_reaj), { size: 6, align: 'right' }),
+    text(470, y + 10, 40, numText(row.mora), { size: 7, align: 'right' }),
+    text(515, y + 10, 54, row.imp_totaltexto, {
+      size: 8,
+      bold: true,
+      align: 'right',
+    }),
+  );
+
+  return parts.join('\n');
+}
+
+/** Pie vehicular (banda de 192pt en el JRXML original). */
+function footerBandVehicular(
   rows: OpImpresionRow[],
-  opts: OpPdfImages = {},
+  selloDataUri?: string,
 ): string {
-  const filas = rows.length > 0 ? rows : [];
-  const contentHeight = DETAIL_Y + DETAIL_H * filas.length + FOOTER_H;
+  const y = DETAIL_Y + DETAIL_H * rows.length;
+  const last = rows[rows.length - 1];
+  const totalCosto = rows.reduce((acc, row) => acc + (row.costo_emis ?? 0), 0);
+  const parts: string[] = [];
 
-  const detalle = filas
-    .map((row, i) => detailBand(row, DETAIL_Y + DETAIL_H * i))
-    .join('\n');
+  // Renglón de totales con sus separadores verticales.
+  parts.push(
+    hLine(6, y + 13, 564),
+    vLine(343, y - 2, 16),
+    vLine(462, y - 1, 14),
+    vLine(513, y, 13),
+    vLine(570, y, 14),
+    vLine(5, y, 14),
+    vLine(403, y + 1, 12),
+    vLine(287, y + 1, 11),
+    text(124, y, 123, 'TOTAL DEUDA S/.', { bold: true, align: 'center' }),
+    text(355, y, 37, totalCosto.toFixed(2), {
+      size: 6,
+      bold: true,
+      align: 'right',
+    }),
+    text(292, y + 1, 48, last.imp_insoltexto, { size: 7, align: 'right' }),
+    text(407, y + 1, 53, numText(last.imp_reaj), { size: 6, align: 'right' }),
+    text(469, y + 1, 40, numText(last.mora), { size: 7, align: 'right' }),
+    text(515, y + 1, 54, last.imp_totaltexto, { size: 7, align: 'right' }),
+    // Mismos criterios que el predial: UIT solo en su renglón y el (1) debajo.
+    html(6, y + 14, 226, `<strong>UIT</strong> ${esc(last.cadenaUIT)}`, {
+      size: 5,
+      nowrap: true,
+    }),
+    text(6, y + 21, 226, '(1) Factores de Reajuste: ' + (last.cuota_rej ?? ''), {
+      size: 5,
+    }),
+    text(6, y + 33, 226, '(2) TIM Aplicada: ' + (last.cuota_mor ?? ''), {
+      size: 5,
+    }),
+    text(4, y + 46, 68, 'Base Legal :', { bold: true, underline: true }),
+  );
 
+  const bullets: [number, string][] = [
+    [56, '- Art. 70 de la Ley Orgánica de Municipalidad Nº 27972'],
+    [68, '- Art. 30º al  37º  Ley de Tributación Municipal, Nº 776'],
+    [78, '- Art. 78º inc. 1 D. S. 133-2013 – EF TUO del Código Tributario'],
+    [87, '- TUO  de la Ley 26979 de Procedimiento de Ejecución Coactiva'],
+  ];
+  bullets.forEach(([top, label]) =>
+    parts.push(text(4, y + top, 210, label, { size: 7 })),
+  );
+
+  parts.push(text(6, y + 118, 565, last.moratorio, { size: 6 }));
+
+  if (selloDataUri) {
+    parts.push(
+      `<img src="${esc(selloDataUri)}" alt="sello" style="position:absolute;left:43pt;top:${y + 120}pt;width:147pt;height:54pt" />`,
+    );
+  }
+
+  // Recuadro de constancia de recepción (117pt de alto en el JRXML vehicular).
+  parts.push(
+    `<div style="position:absolute;left:236pt;top:${y + 21}pt;width:334pt;height:117pt;border:1px solid #000"></div>`,
+    text(238, y + 25, 81, 'Fecha de Recepción  :', { size: 7 }),
+    text(321, y + 25, 17, 'ICA', { size: 7 }),
+    text(372, y + 25, 12, 'De', { size: 7 }),
+    text(499, y + 25, 34, 'Del ' + (last.ano_val ?? ''), { size: 7 }),
+    text(238, y + 41, 80, 'Apellidos y Nombres:', { size: 7 }),
+    hLine(322, y + 49, 174),
+    text(238, y + 57, 17, 'DNI :', { size: 7 }),
+    text(324, y + 57, 21, 'Hora :', { size: 7 }),
+    hLine(347, y + 64, 61),
+    hLine(259, y + 65, 61),
+    text(238, y + 72, 47, 'Parentesco :', { size: 7 }),
+    text(387, y + 73, 63, 'Firma Recepción :', { size: 7 }),
+    hLine(289, y + 80, 95),
+    hLine(454, y + 80, 107),
+    text(238, y + 89, 51, 'Notificado Por:', { size: 7 }),
+    text(387, y + 89, 48, 'Observación:', { size: 7 }),
+    hLine(439, y + 96, 122),
+    hLine(393, y + 118, 174),
+    text(
+      221,
+      y + 137,
+      360,
+      'Si a la recepcion de esta, Ud. ya realizo el pago de tales conceptos, le rogamos haga caso omiso a la presente.',
+      { size: 7 },
+    ),
+    text(
+      46,
+      y + 149,
+      492,
+      'Lugar de Pago: Calle Luis Medina C-261 Urb. San Miguel - ICA Horario de Atencion: Lunes a Viernes de 8:00 am a 5:00 pm',
+      { size: 7, height: 16 },
+    ),
+  );
+
+  return parts.join('\n');
+}
+
+function renderDocument(contentHeight: number, banda: string): string {
   return `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -395,13 +591,54 @@ export function buildOpPdfHtml(
 </head>
 <body>
 <div data-content-height="${contentHeight}" style="position:relative;width:${PAGE_WIDTH}pt;min-height:${Math.max(PAGE_HEIGHT, contentHeight)}pt;font-family:Helvetica,Arial,sans-serif;font-size:8pt;color:#000">
-${titleBand(opts.logoDataUri)}
-${filas.length > 0 ? headerBand(filas[0]) : ''}
-${detalle}
-${filas.length > 0 ? footerBand(filas, opts.selloDataUri) : ''}
+${banda}
 </div>
 </body>
 </html>`;
+}
+
+/**
+ * Arma el HTML A4 de la OP. Una fila del SP = un bloque de detalle; el pie se
+ * calcula después de la última fila.
+ *
+ * El reporte original tiene dos layouts con la misma cabecera de datos y
+ * distinta tabla: predial (TRAMO DE AUTOVALUO / ALI-CUOTA) y vehicular
+ * (PLACA, sin tramos). Se elige por `id_valor`: '11' es vehicular.
+ */
+export function buildOpPdfHtml(
+  rows: OpImpresionRow[],
+  opts: OpPdfImages = {},
+): string {
+  const filas = rows.length > 0 ? rows : [];
+  const vehicular = String(filas[0]?.id_valor ?? '').trim() === '11';
+
+  const contentHeight =
+    DETAIL_Y + DETAIL_H * filas.length + (vehicular ? 192 : FOOTER_H);
+
+  const detalle = filas
+    .map((row, i) =>
+      vehicular
+        ? detailBandVehicular(row, DETAIL_Y + DETAIL_H * i)
+        : detailBandPredial(row, DETAIL_Y + DETAIL_H * i),
+    )
+    .join('\n');
+
+  const banda = [
+    titleBand(opts.logoDataUri),
+    filas.length > 0
+      ? vehicular
+        ? headerBandVehicular(filas[0])
+        : headerBandPredial(filas[0])
+      : '',
+    detalle,
+    filas.length > 0
+      ? vehicular
+        ? footerBandVehicular(filas, opts.selloDataUri)
+        : footerBandPredial(filas, opts.selloDataUri)
+      : '',
+  ].join('\n');
+
+  return renderDocument(contentHeight, banda);
 }
 
 /** Genera el PDF A4 de la OP con `html-pdf-node` (márgenes 0, como el JRXML). */
