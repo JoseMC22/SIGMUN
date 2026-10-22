@@ -80,6 +80,10 @@ coverage/
 !frontend/src/actions/cobranza/anular-valor.test.ts
 !frontend/src/app/dashboard/cobranza/anular-valor/*.test.ts
 
+# Excepcion: el test del modulo op-pdf SI se versiona. Es la unica red del
+# decode base64->Blob que comparten consulta-valores e imprimir la OP.
+!frontend/src/lib/op-pdf.test.ts
+
 # Auto-generated / workspace
 pnpm-lock.yaml
 frontend/pnpm-lock.yaml
