@@ -43,6 +43,7 @@ interface BoxStyle {
   underline?: boolean;
   align?: 'left' | 'center' | 'right' | 'justify';
   height?: number;
+  nowrap?: boolean;
 }
 
 function boxStyle(left: number, top: number, width: number, style: BoxStyle = {}): string {
@@ -57,6 +58,7 @@ function boxStyle(left: number, top: number, width: number, style: BoxStyle = {}
   if (style.bold) css.push('font-weight:bold');
   if (style.underline) css.push('text-decoration:underline');
   if (style.align) css.push(`text-align:${style.align}`);
+  if (style.nowrap) css.push('white-space:nowrap');
   return css.join(';');
 }
 
@@ -151,12 +153,14 @@ function headerBand(row: OpImpresionRow): string {
   parts.push(text(5, y + 50, 567, parrafo, { align: 'justify', height: 49 }));
 
   parts.push(
-    text(6, y + 92, 74, 'Motivo de la Determinación', { bold: true }),
-    text(
-      89,
+    // Motivo y su texto van en una sola fila: el label completo más la frase,
+    // sin que el ancho del label lo parta en dos líneas.
+    html(
+      6,
       y + 92,
-      396,
-      ': Se ha verificado la existencia de una deuda tributaria no cancelado dentro de los plazos establecidos',
+      560,
+      `<b>Motivo de la Determinaci\u00f3n</b>: Se ha verificado la existencia de una deuda tributaria no cancelado dentro de los plazos establecidos`,
+      { nowrap: true },
     ),
     text(6, y + 101, 74, 'Declaracion Jurada', { bold: true }),
     text(89, y + 101, 117, ': Efectuada dentro del Periodo'),

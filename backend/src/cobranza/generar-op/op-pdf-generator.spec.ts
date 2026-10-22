@@ -77,6 +77,17 @@ describe('buildOpPdfHtml', () => {
     expect(predial).not.toContain('>Vehicular<');
   });
 
+  it('pone el motivo y su texto en una sola fila', () => {
+    const html = buildOpPdfHtml([opRow()]);
+
+    expect(html).toContain(
+      '<b>Motivo de la Determinación</b>: Se ha verificado la existencia de una deuda tributaria no cancelado dentro de los plazos establecidos',
+    );
+    // Una sola caja: el label y la frase comparten el mismo div.
+    expect(html).toContain('white-space:nowrap');
+    expect(html).not.toContain('top:53pt;width:74pt');
+  });
+
   it('calcula el alto del contenido como 176 + 35*filas + 185', () => {
     expect(buildOpPdfHtml([opRow()])).toContain('data-content-height="396"');
     expect(buildOpPdfHtml([opRow(), opRow({ anno: '2018' })])).toContain(
