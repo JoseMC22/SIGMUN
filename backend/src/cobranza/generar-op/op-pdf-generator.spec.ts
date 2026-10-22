@@ -109,7 +109,7 @@ describe('buildOpPdfHtml', () => {
     // CARGO DE NOTIFICACIÓN.
     expect(html).toContain('CARGO DE NOTIFICACIÓN');
     expect(html).toContain('Fecha de Recepción');
-    expect(html).toContain('Calle Luis Medina C-261');
+    expect(html).toContain('Av. Matías Manzanilla 421');
   });
 
   it('usa el motivo de varios trimestres cuando periodoRomano viene vacío', () => {
