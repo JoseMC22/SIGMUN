@@ -268,14 +268,9 @@ function headerBandPredial(row: OpImpresionRow): string {
     th(73, 140, 44, 'IMPONIBLE'),
     th(122, 130, 55, 'TRAMO DE'),
     th(122, 140, 55, 'AUTOVALUO'),
-    // "ALI-CUOTA" no entra en 32pt: se le da 38pt centrados para que no se
-    // parta en dos líneas y choque con "CUOTA".
-    text(px(182), y + 131, 35, 'ALI-', {
-      size: 5.5,
-      bold: true,
-      align: 'center',
-      nowrap: true,
-    }),
+    // "ALI-CUOTA" se parte en dos líneas como en el JRXML: "ALI-" arriba y
+    // "CUOTA" abajo, ambas al mismo tamaño.
+    th(182, 130, 35, 'ALI-'),
     th(182, 140, 35, 'CUOTA'),
     th(218, 130, 38, 'INSOLUTO'),
     th(258, 130, 35, 'IMP'),
