@@ -21,6 +21,8 @@ const HEADER_Y = 41;
 const DETAIL_Y = 176;
 const DETAIL_H = 35;
 const FOOTER_H = 185;
+/** Copias de la misma OP que se imprimen en una hoja A4. */
+const OP_COPIES_PER_PAGE = 2;
 
 // Coordenadas X de las verticales de la tabla (cabecera y detalle).
 const TABLE_X = [5, 44, 70, 119, 182, 214, 257, 293, 343, 389, 433, 480, 525, 570];
@@ -608,6 +610,9 @@ ${banda}
  * El reporte original tiene dos layouts con la misma cabecera de datos y
  * distinta tabla: predial (TRAMO DE AUTOVALUO / ALI-CUOTA) y vehicular
  * (PLACA, sin tramos). Se elige por `id_valor`: '11' es vehicular.
+ *
+ * Cada hoja lleva la misma OP dos veces (media hoja cada una) con una línea de
+ * corte a media página.
  */
 export function buildOpPdfHtml(
   rows: OpImpresionRow[],
@@ -642,7 +647,22 @@ export function buildOpPdfHtml(
       : '',
   ].join('\n');
 
-  return renderDocument(contentHeight, banda);
+  // Dos copias por hoja, separadas por la línea de corte a media página. Si la
+  // OP no entra en media hoja, esa copia se escala para no desbordar la página.
+  const slot = PAGE_HEIGHT / OP_COPIES_PER_PAGE;
+  const escala = contentHeight > slot ? slot / contentHeight : 1;
+  const transform = escala < 1 ? `;transform:scale(${escala});transform-origin:top left` : '';
+
+  const copias = Array.from({ length: OP_COPIES_PER_PAGE }, (_, i) => {
+    const top = slot * i;
+    return `<div data-op-copy="${i + 1}" style="position:absolute;left:0pt;top:${top}pt;width:${PAGE_WIDTH}pt;height:${slot}pt;overflow:hidden${transform}">
+${banda}
+</div>`;
+  }).join('\n');
+
+  const lineaCorte = `<div data-cut-line="1" style="position:absolute;left:0pt;top:${slot}pt;width:${PAGE_WIDTH}pt;border-top:1px dashed #000"></div>`;
+
+  return renderDocument(PAGE_HEIGHT, `${copias}\n${lineaCorte}`);
 }
 
 /** Genera el PDF A4 de la OP con `html-pdf-node` (márgenes 0, como el JRXML). */

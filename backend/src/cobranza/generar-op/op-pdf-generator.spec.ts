@@ -160,15 +160,37 @@ describe('buildOpPdfHtml', () => {
     expect(buildOpPdfHtml([opRow()])).toContain('www.satica.gob.pe');
   });
 
-  it('calcula el alto del contenido con el pie de cada layout', () => {
-    // Vehicular: pie de 192pt. Predial: pie de 185pt.
-    expect(buildOpPdfHtml([opRow()])).toContain('data-content-height="403"');
-    expect(buildOpPdfHtml([opRow(), opRow({ anno: '2018' })])).toContain(
-      'data-content-height="438"',
-    );
-    expect(buildOpPdfHtml([opRow({ id_valor: '01' })])).toContain(
-      'data-content-height="396"',
-    );
+  it('imprime la misma OP dos veces por hoja con línea de corte', () => {
+    for (const html of [
+      buildOpPdfHtml([opRow()]),
+      buildOpPdfHtml([opRow({ id_valor: '01' })]),
+    ]) {
+      // Una sola página A4.
+      expect(html).toContain('data-content-height="842"');
+      // Dos copias: la numeración de la OP aparece dos veces.
+      expect(html.match(/data-op-copy=/g)?.length).toBe(2);
+      // El texto de la OP se repite en cada copia.
+      expect(html.split('HUAROTO CONISLLA TERESA JESUS').length - 1).toBe(2);
+      // Línea de corte a media hoja.
+      expect(html).toContain('data-cut-line="1"');
+      expect(html).toContain('left:0pt;top:421pt;width:595pt;border-top:1px dashed');
+      // La segunda copia arranca en la mitad inferior.
+      expect(html).toContain('data-op-copy="2" style="position:absolute;left:0pt;top:421pt');
+    }
+  });
+
+  it('escala la copia cuando la OP no entra en media hoja', () => {
+    // 5 filas de detalle: 176 + 35*5 + 192 = 543pt > 421pt.
+    const html = buildOpPdfHtml([
+      opRow(),
+      opRow({ anno: '2018' }),
+      opRow({ anno: '2019' }),
+      opRow({ anno: '2020' }),
+      opRow({ anno: '2021' }),
+    ]);
+
+    expect(html).toContain('transform:scale(0.7753');
+    expect(html).toContain('transform-origin:top left');
   });
 
   it('escapa HTML inyectado en los valores', () => {
