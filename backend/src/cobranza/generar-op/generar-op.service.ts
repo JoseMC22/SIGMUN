@@ -343,6 +343,7 @@ export class GenerarOpService {
     return {
       rows: rawRows.map((row) => mapOpImpresionRow(row)),
       logoDataUri: await this.resolveLogoDataUri(),
+      logoVehicularDataUri: await this.resolveLogoVehicularDataUri(),
       selloDataUri: await this.resolveSelloDataUri(),
     };
   }
@@ -362,6 +363,25 @@ export class GenerarOpService {
       // Tolerancia: algunos entornos apuntan REPORT_IMG_RUTA al archivo.
       const directo = await loadLogoDataUri(reportImgRuta);
       if (directo) return directo;
+    }
+
+    return loadLogoDataUri(
+      join(process.cwd(), '..', 'frontend', 'public', 'logo_sat_2026.jpeg'),
+    );
+  }
+
+  /**
+   * Logo del reporte vehicular: `logo_sat_2026.jpeg`. Se busca primero en
+   * `REPORT_IMG_RUTA` (instalación) y luego en el público del frontend, que es
+   * donde vive el archivo en este repo.
+   */
+  private async resolveLogoVehicularDataUri(): Promise<string | null> {
+    const reportImgRuta = process.env.REPORT_IMG_RUTA;
+    if (reportImgRuta) {
+      const desdeReporte = await loadLogoDataUri(
+        join(reportImgRuta, 'logo_sat_2026.jpeg'),
+      );
+      if (desdeReporte) return desdeReporte;
     }
 
     return loadLogoDataUri(

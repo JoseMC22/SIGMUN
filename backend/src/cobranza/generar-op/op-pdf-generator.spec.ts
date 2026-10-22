@@ -144,6 +144,19 @@ describe('buildOpPdfHtml', () => {
     expect(html).toContain('left:6pt;top:232pt;width:226pt');
   });
 
+  it('usa el logo SAT 2026 en la esquina del vehicular y oculta el www', () => {
+    const logo = { logoVehicularDataUri: 'data:image/jpeg;base64,AAAA' };
+
+    const vehicular = buildOpPdfHtml([opRow()], logo);
+    expect(vehicular).toContain('src="data:image/jpeg;base64,AAAA"');
+    expect(vehicular).toContain('left:6pt;top:2pt;width:52pt;height:38pt');
+    expect(vehicular).not.toContain('www.satica.gob.pe');
+
+    const predial = buildOpPdfHtml([opRow({ id_valor: '01' })], logo);
+    expect(predial).toContain('www.satica.gob.pe');
+    expect(predial).not.toContain('data:image/jpeg;base64,AAAA');
+  });
+
   it('calcula el alto del contenido con el pie de cada layout', () => {
     // Vehicular: pie de 192pt. Predial: pie de 185pt.
     expect(buildOpPdfHtml([opRow()])).toContain('data-content-height="403"');

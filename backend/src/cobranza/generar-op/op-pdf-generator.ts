@@ -12,6 +12,8 @@ import { OpImpresionRow } from './generar-op.types';
 
 export interface OpPdfImages {
   logoDataUri?: string;
+  /** Logo propio del reporte vehicular (`logo_sat_2026.jpeg`). */
+  logoVehicularDataUri?: string;
   selloDataUri?: string;
 }
 
@@ -96,9 +98,18 @@ function numText(value: number | null): string {
   return value === null ? '' : String(value);
 }
 
-function titleBand(logoDataUri?: string): string {
+function titleBand(
+  logoDataUri?: string,
+  logoVehicularDataUri?: string,
+): string {
   const parts: string[] = [];
-  if (logoDataUri) {
+  // El reporte vehicular usa el logo SAT 2026 en el bloque de marca de la
+  // esquina superior izquierda, en lugar del logo genérico y del pie "www".
+  if (logoVehicularDataUri) {
+    parts.push(
+      `<img src="${esc(logoVehicularDataUri)}" alt="logo" style="position:absolute;left:6pt;top:2pt;width:52pt;height:38pt" />`,
+    );
+  } else if (logoDataUri) {
     parts.push(
       `<img src="${esc(logoDataUri)}" alt="logo" style="position:absolute;left:5pt;top:1pt;width:86pt;height:29pt" />`,
     );
@@ -116,9 +127,11 @@ function titleBand(logoDataUri?: string): string {
       bold: true,
       align: 'center',
     }),
-    text(14, 29, 66, 'www.satica.gob.pe', { size: 7, bold: true }),
-    text(443, 22, 57, 'Fecha', { bold: true }),
   );
+  if (!logoVehicularDataUri) {
+    parts.push(text(14, 29, 66, 'www.satica.gob.pe', { size: 7, bold: true }));
+  }
+  parts.push(text(443, 22, 57, 'Fecha', { bold: true }));
   return parts.join('\n');
 }
 
@@ -624,7 +637,10 @@ export function buildOpPdfHtml(
     .join('\n');
 
   const banda = [
-    titleBand(opts.logoDataUri),
+    titleBand(
+      opts.logoDataUri,
+      vehicular ? opts.logoVehicularDataUri : undefined,
+    ),
     filas.length > 0
       ? vehicular
         ? headerBandVehicular(filas[0])
