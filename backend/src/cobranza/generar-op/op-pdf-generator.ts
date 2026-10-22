@@ -178,6 +178,8 @@ function headerBand(row: OpImpresionRow): string {
 
   parts.push(
     th(6, 115, 37, 'TRIBUTO'),
+    // JRXML rpt_orpa: rótulo de la 2da columna en x=49, y=184 (banda).
+    th(49, 115, 24, 'AÑO'),
     th(73, 112, 44, 'BASE'),
     th(73, 122, 44, 'IMPONIBLE'),
     th(122, 112, 55, 'TRAMO DE'),

@@ -67,6 +67,8 @@ describe('buildOpPdfHtml', () => {
     expect(html).toContain('TOTAL');
     expect(html).toContain('Base Legal');
     expect(html).toContain('tasa diaria de 0.03%');
+    // Rótulo de la segunda columna del detalle (JRXML rpt_orpa: x=49 y=184).
+    expect(html).toContain('>AÑO<');
   });
 
   it('rotula el tributo según id_valor', () => {
