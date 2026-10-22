@@ -143,6 +143,16 @@ function headerBand(row: OpImpresionRow): string {
     text(107, y + 40, 456, ': ' + (row.Dirfiscal ?? '')),
   );
 
+  // La placa solo existe en la OP vehicular; va en el bloque del contribuyente,
+  // a la derecha del documento de identidad.
+  const placa = placaVehiculo(row);
+  if (placa) {
+    parts.push(
+      text(210, y + 27, 40, 'Placa', { bold: true }),
+      text(252, y + 28, 120, ': ' + placa),
+    );
+  }
+
   const parrafo =
     'Por la presente se requiere la cancelacion de la deuda contenida en el presente documento, ' +
     'en un plazo de (3) dias habiles contados a partir del dia siguiente de su notificacion, ' +
@@ -212,6 +222,18 @@ function headerBand(row: OpImpresionRow): string {
  */
 function tributoLabel(row: OpImpresionRow): string {
   return String(row.id_valor ?? '').trim() === '11' ? 'Vehicular' : 'Predial';
+}
+
+/**
+ * Placa del vehículo.
+ *
+ * El SP no devuelve una columna `placa`: en la OP vehicular el código predial
+ * (`cod_pred`) ES la placa (formato `ADH172`); en predial es el código del
+ * predio (`0259376`). Por eso solo se imprime cuando `id_valor` es '11'.
+ */
+function placaVehiculo(row: OpImpresionRow): string {
+  if (String(row.id_valor ?? '').trim() !== '11') return '';
+  return String(row.cod_pred ?? '').trim();
 }
 
 function detailBand(row: OpImpresionRow, y: number): string {

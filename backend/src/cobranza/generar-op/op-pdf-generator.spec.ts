@@ -102,6 +102,16 @@ describe('buildOpPdfHtml', () => {
     expect(html).not.toContain('top:53pt;width:74pt');
   });
 
+  it('imprime la placa del vehículo solo en la OP vehicular', () => {
+    const vehicular = buildOpPdfHtml([opRow()]);
+    expect(vehicular).toContain('>Placa<');
+    expect(vehicular).toContain(': ADH172');
+
+    const predial = buildOpPdfHtml([opRow({ id_valor: '01' })]);
+    expect(predial).not.toContain('>Placa<');
+    expect(predial).not.toContain('ADH172');
+  });
+
   it('pone el párrafo (1) debajo del UIT', () => {
     const html = buildOpPdfHtml([opRow()]);
 
