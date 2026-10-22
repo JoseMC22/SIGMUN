@@ -17,6 +17,8 @@ export interface OpPdfImages {
 
 const PAGE_WIDTH = 595;
 const PAGE_HEIGHT = 842;
+/** Alto del contenedor de cada hoja en el HTML (A4 real en pt). */
+const PAGE_BOX_H = 841;
 const HEADER_Y = 41;
 const DETAIL_Y = 176;
 const DETAIL_H = 35;
@@ -31,6 +33,12 @@ const P_TITLE_H = 40;
 const P_HEADER_H = 148;
 const P_DETAIL_Y = P_MARGIN_Y + P_TITLE_H + P_HEADER_H; // 193
 const P_FOOTER_H = 175;
+
+// CARGO DE NOTIFICACIÓN (subreporte rpt_orpa_cargo): márgenes 5/7.
+const C_MARGIN_X = 5;
+const C_MARGIN_Y = 7;
+/** Alto real del bloque de cargo (título 39 + pageHeader 35 + constancia). */
+const CARGO_H = 245;
 
 function esc(value: unknown): string {
   if (value === null || value === undefined) return '';
@@ -262,7 +270,7 @@ function headerBandPredial(row: OpImpresionRow): string {
     th(122, 140, 55, 'AUTOVALUO'),
     // "ALI-CUOTA" no entra en 32pt: se le da 38pt centrados para que no se
     // parta en dos líneas y choque con "CUOTA".
-    text(px(182), y + 131, 32, 'ALI-CUOTA', {
+    text(px(182), y + 131, 35, 'ALI-', {
       size: 5.5,
       bold: true,
       align: 'center',
@@ -694,7 +702,114 @@ function footerBandVehicular(
   return parts.join('\n');
 }
 
-function renderDocument(contentHeight: number, banda: string): string {
+/**
+ * Banda del CARGO DE NOTIFICACIÓN (`rpt_orpa_cargo` + la banda summary del
+ * maestro `rpt_orpa1`): la cabecera del SAT, el título "CARGO DE NOTIFICACIÓN"
+ * con el número de OP y el recuadro de constancia de recepción.
+ *
+ * Se imprime en su propia hoja, duplicada como la OP.
+ */
+function cargoBand(row: OpImpresionRow, logoDataUri?: string): string {
+  const px = (x: number) => C_MARGIN_X + x;
+  const parts: string[] = [];
+
+  // title (39pt)
+  if (logoDataUri) {
+    parts.push(
+      `<img src="${esc(logoDataUri)}" alt="logo" style="position:absolute;left:${px(5)}pt;top:${C_MARGIN_Y}pt;width:52pt;height:38pt" />`,
+    );
+  } else {
+    parts.push(
+      text(px(14), C_MARGIN_Y + 30, 66, 'www.satica.gob.pe', {
+        size: 7,
+        bold: true,
+      }),
+    );
+  }
+  parts.push(
+    text(px(102), C_MARGIN_Y, 216, 'SERVICIO DE ADMINISTRACION TRIBUTARIA DE ICA', {
+      bold: true,
+    }),
+    text(
+      px(102),
+      C_MARGIN_Y + 10,
+      288,
+      'SUB GERENCIA DE OPERACIONES - DEPARTAMENTO DE COBRANZAS',
+      { bold: true },
+    ),
+    text(px(443), C_MARGIN_Y + 21, 57, 'Fecha', { bold: true }),
+    text(px(504), C_MARGIN_Y + 21, 62, ': ' + (row.fec_val ?? '')),
+  );
+
+  // pageHeader (35pt): título del cargo y número de OP.
+  const y = C_MARGIN_Y + 39 + 35; // 81: arranca la banda summary
+  parts.push(
+    html(
+      px(5),
+      C_MARGIN_Y + 41,
+      561,
+      '<strong>CARGO DE NOTIFICACIÓN<br />' + esc(row.numerOP) + '</strong>',
+      { align: 'center', height: 33 },
+    ),
+  );
+
+  // summary (320pt): recuadro de constancia de recepción.
+  const t = (left: number, top: number, width: number, value: unknown, style: BoxStyle = {}) =>
+    text(px(left), y + top, width, value, style);
+
+  parts.push(
+    `<div style="position:absolute;left:${px(5)}pt;top:${y + 10}pt;width:561pt;height:141pt;border:1px solid #000"></div>`,
+    t(17, 16, 81, 'Fecha de Recepción  :', { size: 7 }),
+    t(98, 16, 17, 'ICA', { size: 7 }),
+    t(150, 16, 12, 'de', { size: 7 }),
+    t(320, 16, 35, 'del 20', { size: 8 }),
+    t(375, 17, 21, 'Hora :', { size: 7 }),
+    t(17, 37, 80, 'Apellidos y Nombres:', { size: 7 }),
+    t(396, 37, 17, 'DNI :', { size: 7 }),
+    t(18, 64, 35, 'Dirección :', { size: 7 }),
+    text(px(59), y + 60, 499, row.Dirfiscal, { size: 7, height: 15 }),
+    t(17, 95, 47, 'Parentesco :', { size: 7 }),
+    t(176, 96, 63, 'Firma Recepción :', { size: 7 }),
+    t(365, 95, 52, 'Observaciónes:', { size: 7 }),
+    t(17, 118, 51, 'Notificado Por:', { size: 7 }),
+    // Líneas del formulario.
+    hLine(px(118), y + 26, 31),
+    hLine(px(162), y + 26, 156),
+    hLine(px(343), y + 25, 22),
+    hLine(px(398), y + 26, 85),
+    hLine(px(98), y + 47, 292),
+    hLine(px(421), y + 46, 124),
+    hLine(px(58), y + 73, 500),
+    hLine(px(68), y + 103, 105),
+    hLine(px(243), y + 103, 112),
+    hLine(px(417), y + 102, 128),
+    hLine(px(68), y + 128, 239),
+    hLine(px(371), y + 127, 174),
+    text(
+      px(5),
+      y + 157,
+      360,
+      'Si a la recepcion de esta, Ud. ya realizo el pago de tales conceptos, le rogamos haga caso omiso a la presente.',
+      { size: 7, italic: true },
+    ),
+  );
+
+  return parts.join('\n');
+}
+
+function renderPage(page: number, contenido: string, extraStyle = ''): string {
+  // 842pt es un pelo más alto que un A4 real (297mm = 841.89pt): si el wrapper
+  // mide 842pt Chrome mete una página en blanco entre cada hoja.
+  return `<div data-page="${page}" style="position:relative;width:${PAGE_WIDTH}pt;height:${PAGE_BOX_H}pt;overflow:hidden;${extraStyle}">
+${contenido}
+</div>`;
+}
+
+function cutLine(top: number): string {
+  return `<div data-cut-line="1" style="position:absolute;left:0pt;top:${top}pt;width:${PAGE_WIDTH}pt;border-top:1px dashed #000"></div>`;
+}
+
+function renderDocument(pages: string[], contentHeight: number): string {
   return `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -707,8 +822,8 @@ function renderDocument(contentHeight: number, banda: string): string {
 </style>
 </head>
 <body>
-<div data-content-height="${contentHeight}" style="position:relative;width:${PAGE_WIDTH}pt;min-height:${Math.max(PAGE_HEIGHT, contentHeight)}pt;font-family:Helvetica,Arial,sans-serif;font-size:8pt;color:#000">
-${banda}
+<div data-content-height="${contentHeight}" style="position:relative;width:${PAGE_WIDTH}pt;font-family:Helvetica,Arial,sans-serif;font-size:8pt;color:#000">
+${pages.join('\n')}
 </div>
 </body>
 </html>`;
@@ -780,9 +895,29 @@ ${banda}
 </div>`;
   }).join('\n');
 
-  const lineaCorte = `<div data-cut-line="1" style="position:absolute;left:0pt;top:${slot}pt;width:${PAGE_WIDTH}pt;border-top:1px dashed #000"></div>`;
+  const pages = [renderPage(1, `${copias}\n${cutLine(slot)}`)];
 
-  return renderDocument(PAGE_HEIGHT, `${copias}\n${lineaCorte}`);
+  // El predial se imprime junto con su CARGO DE NOTIFICACIÓN, duplicado igual
+  // que la OP (dos por hoja, en una segunda página).
+  if (!vehicular && filaBase) {
+    const cargo = cargoBand(filaBase, opts.logoDataUri);
+    const escalaCargo = CARGO_H > slot ? slot / CARGO_H : 1;
+    const transformCargo =
+      escalaCargo < 1
+        ? `;transform:scale(${escalaCargo});transform-origin:top left`
+        : '';
+    const copiasCargo = Array.from({ length: OP_COPIES_PER_PAGE }, (_, i) => {
+      const top = slot * i;
+      return `<div data-cargo-copy="${i + 1}" style="position:absolute;left:0pt;top:${top}pt;width:${PAGE_WIDTH}pt;height:${slot}pt;overflow:hidden${transformCargo}">
+${cargo}
+</div>`;
+    }).join('\n');
+    pages.push(
+      renderPage(2, `${copiasCargo}\n${cutLine(slot)}`, 'break-before:page;'),
+    );
+  }
+
+  return renderDocument(pages, PAGE_BOX_H * pages.length);
 }
 
 /** Genera el PDF A4 de la OP con `html-pdf-node` (márgenes 0, como el JRXML). */

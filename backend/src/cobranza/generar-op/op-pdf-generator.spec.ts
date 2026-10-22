@@ -105,8 +105,10 @@ describe('buildOpPdfHtml', () => {
     expect(html).toContain(
       'del PRIMER trimestre del Impuesto predial 2017 la misma que venció el 27/02/2017',
     );
-    // El formato nuevo no tiene recuadro de constancia de recepción.
-    expect(html).not.toContain('Fecha de Recepción');
+    // El recuadro de recepción ya no va en el cuerpo: se imprime aparte, en el
+    // CARGO DE NOTIFICACIÓN.
+    expect(html).toContain('CARGO DE NOTIFICACIÓN');
+    expect(html).toContain('Fecha de Recepción');
     expect(html).toContain('Calle Luis Medina C-261');
   });
 
@@ -196,12 +198,14 @@ describe('buildOpPdfHtml', () => {
   });
 
   it('imprime la misma OP dos veces por hoja con línea de corte', () => {
-    for (const html of [
-      buildOpPdfHtml([opRow()]),
-      buildOpPdfHtml([opRow({ id_valor: '01' })]),
-    ]) {
-      // Una sola página A4.
-      expect(html).toContain('data-content-height="842"');
+    const vehicular = buildOpPdfHtml([opRow()]);
+    const predial = buildOpPdfHtml([opRow({ id_valor: '01' })]);
+
+    // El vehicular es una sola hoja A4; el predial suma la hoja del cargo.
+    expect(vehicular).toContain('data-content-height="841"');
+    expect(predial).toContain('data-content-height="1682"');
+
+    for (const html of [vehicular, predial]) {
       // Dos copias: la numeración de la OP aparece dos veces.
       expect(html.match(/data-op-copy=/g)?.length).toBe(2);
       // El texto de la OP se repite en cada copia.
@@ -212,6 +216,17 @@ describe('buildOpPdfHtml', () => {
       // La segunda copia arranca en la mitad inferior.
       expect(html).toContain('data-op-copy="2" style="position:absolute;left:0pt;top:421pt');
     }
+  });
+
+  it('agrega la hoja del CARGO DE NOTIFICACIÓN duplicada en el predial', () => {
+    const html = buildOpPdfHtml([opRow({ id_valor: '01' })]);
+
+    expect(html.match(/data-cargo-copy=/g)?.length).toBe(2);
+    expect(html.match(/CARGO DE NOTIFICACIÓN/g)?.length).toBe(2);
+    expect(html).toContain('data-page="2"');
+    expect(html).toContain('break-before:page');
+    // El vehicular no lleva hoja de cargo.
+    expect(buildOpPdfHtml([opRow()])).not.toContain('data-cargo-copy');
   });
 
   it('escala la copia cuando la OP no entra en media hoja', () => {
