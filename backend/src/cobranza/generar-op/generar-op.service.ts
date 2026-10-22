@@ -343,18 +343,29 @@ export class GenerarOpService {
     return {
       rows: rawRows.map((row) => mapOpImpresionRow(row)),
       logoDataUri: await this.resolveLogoDataUri(),
-      logoVehicularDataUri: await this.resolveLogoVehicularDataUri(),
       selloDataUri: await this.resolveSelloDataUri(),
     };
   }
 
   /**
-   * Logo del reporte: `REPORT_IMG_RUTA/logo.png`. Ese env no está configurado
-   * en este repo, así que se cae al logo público del frontend. Si tampoco
-   * existe, se devuelve null y el HTML no dibuja la imagen.
+   * Logo del reporte: `logo_sat_2026.jpeg` (marca SAT 2026), buscado primero en
+   * `REPORT_IMG_RUTA` y luego en el público del frontend. Si no está, se cae al
+   * `logo.png` histórico para no dejar la cabecera sin marca.
    */
   private async resolveLogoDataUri(): Promise<string | null> {
     const reportImgRuta = process.env.REPORT_IMG_RUTA;
+    if (reportImgRuta) {
+      const sat = await loadLogoDataUri(
+        join(reportImgRuta, 'logo_sat_2026.jpeg'),
+      );
+      if (sat) return sat;
+    }
+
+    const satFrontend = await loadLogoDataUri(
+      join(process.cwd(), '..', 'frontend', 'public', 'logo_sat_2026.jpeg'),
+    );
+    if (satFrontend) return satFrontend;
+
     if (reportImgRuta) {
       const desdeReporte = await loadLogoDataUri(
         join(reportImgRuta, 'logo.png'),
@@ -365,28 +376,7 @@ export class GenerarOpService {
       if (directo) return directo;
     }
 
-    return loadLogoDataUri(
-      join(process.cwd(), '..', 'frontend', 'public', 'logo_sat_2026.jpeg'),
-    );
-  }
-
-  /**
-   * Logo del reporte vehicular: `logo_sat_2026.jpeg`. Se busca primero en
-   * `REPORT_IMG_RUTA` (instalación) y luego en el público del frontend, que es
-   * donde vive el archivo en este repo.
-   */
-  private async resolveLogoVehicularDataUri(): Promise<string | null> {
-    const reportImgRuta = process.env.REPORT_IMG_RUTA;
-    if (reportImgRuta) {
-      const desdeReporte = await loadLogoDataUri(
-        join(reportImgRuta, 'logo_sat_2026.jpeg'),
-      );
-      if (desdeReporte) return desdeReporte;
-    }
-
-    return loadLogoDataUri(
-      join(process.cwd(), '..', 'frontend', 'public', 'logo_sat_2026.jpeg'),
-    );
+    return null;
   }
 
   /** Sello de recepción: solo desde `REPORT_IMG_RUTA/SelloJC.png`. */

@@ -111,15 +111,13 @@ export class GenerarOpController {
     }
 
     try {
-      const { rows, logoDataUri, logoVehicularDataUri, selloDataUri } =
-        await this.service.imprimir({
-          idValor: id,
-          numVal: num,
-          anoVal: ano,
-        });
+      const { rows, logoDataUri, selloDataUri } = await this.service.imprimir({
+        idValor: id,
+        numVal: num,
+        anoVal: ano,
+      });
       const buffer = await generateOpPdf(rows, {
         logoDataUri: logoDataUri ?? undefined,
-        logoVehicularDataUri: logoVehicularDataUri ?? undefined,
         selloDataUri: selloDataUri ?? undefined,
       });
 

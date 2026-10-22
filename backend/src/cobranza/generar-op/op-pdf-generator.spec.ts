@@ -144,17 +144,20 @@ describe('buildOpPdfHtml', () => {
     expect(html).toContain('left:6pt;top:232pt;width:226pt');
   });
 
-  it('usa el logo SAT 2026 en la esquina del vehicular y oculta el www', () => {
-    const logo = { logoVehicularDataUri: 'data:image/jpeg;base64,AAAA' };
+  it('dibuja el logo SAT 2026 en la esquina y oculta el www en ambos layouts', () => {
+    const logo = { logoDataUri: 'data:image/jpeg;base64,AAAA' };
 
-    const vehicular = buildOpPdfHtml([opRow()], logo);
-    expect(vehicular).toContain('src="data:image/jpeg;base64,AAAA"');
-    expect(vehicular).toContain('left:6pt;top:2pt;width:52pt;height:38pt');
-    expect(vehicular).not.toContain('www.satica.gob.pe');
+    for (const html of [
+      buildOpPdfHtml([opRow()], logo),
+      buildOpPdfHtml([opRow({ id_valor: '01' })], logo),
+    ]) {
+      expect(html).toContain('src="data:image/jpeg;base64,AAAA"');
+      expect(html).toContain('left:6pt;top:2pt;width:52pt;height:38pt');
+      expect(html).not.toContain('www.satica.gob.pe');
+    }
 
-    const predial = buildOpPdfHtml([opRow({ id_valor: '01' })], logo);
-    expect(predial).toContain('www.satica.gob.pe');
-    expect(predial).not.toContain('data:image/jpeg;base64,AAAA');
+    // Sin logo disponible se mantiene el pie histórico.
+    expect(buildOpPdfHtml([opRow()])).toContain('www.satica.gob.pe');
   });
 
   it('calcula el alto del contenido con el pie de cada layout', () => {

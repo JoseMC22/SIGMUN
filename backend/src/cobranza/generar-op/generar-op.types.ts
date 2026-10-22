@@ -49,7 +49,6 @@ export interface OpImpresionRow {
 export interface ImpresionOpData {
   rows: OpImpresionRow[];
   logoDataUri: string | null;
-  logoVehicularDataUri: string | null;
   selloDataUri: string | null;
 }
 
