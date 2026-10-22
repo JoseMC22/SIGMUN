@@ -100,6 +100,15 @@ describe('buildOpPdfHtml', () => {
     expect(html).not.toContain('top:53pt;width:74pt');
   });
 
+  it('pone el párrafo (1) debajo del UIT', () => {
+    const html = buildOpPdfHtml([opRow()]);
+
+    // Con una fila de detalle el pie arranca en 211pt: el UIT queda en su
+    // propio renglón (225) y el párrafo (1) pasa debajo (232), ambos a x=6.
+    expect(html).toContain('left:6pt;top:225pt;width:226pt');
+    expect(html).toContain('left:6pt;top:232pt;width:226pt');
+  });
+
   it('calcula el alto del contenido como 176 + 35*filas + 185', () => {
     expect(buildOpPdfHtml([opRow()])).toContain('data-content-height="396"');
     expect(buildOpPdfHtml([opRow(), opRow({ anno: '2018' })])).toContain(

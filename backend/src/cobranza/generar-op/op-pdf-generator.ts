@@ -265,41 +265,40 @@ function footerBand(rows: OpImpresionRow[], selloDataUri?: string): string {
       bold: true,
       align: 'right',
     }),
-    html(
-      5,
-      y + 14,
-      52,
-      `<strong>UIT</strong> ${esc(last.cadenaUIT)}`,
-      { size: 5 },
-    ),
-    text(57, y + 14, 171, '(1) Factores de Reajuste: ' + (last.cuota_rej ?? ''), {
+    // El UIT va solo en su renglón; el párrafo (1) arranca debajo, a la altura
+    // del margen, y ya no comparte línea con el UIT.
+    html(6, y + 14, 226, `<strong>UIT</strong> ${esc(last.cadenaUIT)}`, {
+      size: 5,
+      nowrap: true,
+    }),
+    text(6, y + 21, 226, '(1) Factores de Reajuste: ' + (last.cuota_rej ?? ''), {
       size: 5,
     }),
-    text(5, y + 23, 223, '(2) TIM Aplicada: ' + (last.cuota_mor ?? ''), {
+    text(6, y + 33, 226, '(2) TIM Aplicada: ' + (last.cuota_mor ?? ''), {
       size: 5,
     }),
-    text(4, y + 33, 68, 'Base Legal :', { bold: true, underline: true }),
+    text(4, y + 46, 68, 'Base Legal :', { bold: true, underline: true }),
   );
 
   const bullets: [number, string][] = [
-    [43, '- Art. 70 de la Ley Orgánica de Municipalidad Nº 27972'],
-    [55, '- Art. 8º al  20º  Ley de Tributación Municipal, Nº 776'],
-    [65, '- Art. 78º inc. 1 D. S. 133-2013 – EF TUO del Código Tributario'],
-    [74, '- TUO  de la Ley 26979 de Procedimiento de Ejecución Coactiva'],
-    [84, '- Plazo para presentar recurso de reclamacion: 03 dias habiles '],
-    [93, '   (desde el dia siguiente de notificado la presente)'],
+    [56, '- Art. 70 de la Ley Orgánica de Municipalidad Nº 27972'],
+    [68, '- Art. 8º al  20º  Ley de Tributación Municipal, Nº 776'],
+    [78, '- Art. 78º inc. 1 D. S. 133-2013 – EF TUO del Código Tributario'],
+    [87, '- TUO  de la Ley 26979 de Procedimiento de Ejecución Coactiva'],
+    [97, '- Plazo para presentar recurso de reclamacion: 03 dias habiles '],
+    [106, '   (desde el dia siguiente de notificado la presente)'],
   ];
   bullets.forEach(([top, label]) =>
     parts.push(text(4, y + top, 210, label, { size: 7 })),
   );
 
   parts.push(
-    text(6, y + 105, 565, last.moratorio, { size: 6 }),
+    text(6, y + 118, 565, last.moratorio, { size: 6 }),
   );
 
   if (selloDataUri) {
     parts.push(
-      `<img src="${esc(selloDataUri)}" alt="sello" style="position:absolute;left:43pt;top:${y + 107}pt;width:147pt;height:54pt" />`,
+      `<img src="${esc(selloDataUri)}" alt="sello" style="position:absolute;left:43pt;top:${y + 120}pt;width:147pt;height:54pt" />`,
     );
   }
 
@@ -336,7 +335,7 @@ function footerBand(rows: OpImpresionRow[], selloDataUri?: string): string {
       46,
       y + 165,
       492,
-      'Lugar de Pago: Calle Luis Medina C-261 Urb. San Miguel - Ica Horario de Atencion: Lunes a Viernes de 8:00 am a 5:00 pm.',
+      'Lugar de Pago: Av. Matías Manzanilla N° 421 Urb. San Miguel - Ica Horario de Atencion: Lunes a Viernes de 8:00 am a 4:30 pm.',
       { size: 7 },
     ),
   );
