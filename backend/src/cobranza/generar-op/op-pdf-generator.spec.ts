@@ -123,6 +123,18 @@ describe('buildOpPdfHtml', () => {
     expect(predial).not.toContain('ADH172');
   });
 
+  it('alinea los dos últimos párrafos a la izquierda en ambos layouts', () => {
+    // Misma x (26) y misma distancia vertical que el predial en los dos
+    // reportes: con una fila, el pie arranca en 211pt.
+    for (const html of [
+      buildOpPdfHtml([opRow()]),
+      buildOpPdfHtml([opRow({ id_valor: '01' })]),
+    ]) {
+      expect(html).toContain('left:26pt;top:364pt;width:546pt');
+      expect(html).toContain('left:26pt;top:376pt;width:546pt');
+    }
+  });
+
   it('pone el párrafo (1) debajo del UIT', () => {
     const html = buildOpPdfHtml([opRow()]);
 

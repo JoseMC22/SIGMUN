@@ -559,18 +559,18 @@ function footerBandVehicular(
     hLine(439, y + 96, 122),
     hLine(393, y + 118, 174),
     text(
-      221,
-      y + 137,
-      360,
+      26,
+      y + 153,
+      546,
       'Si a la recepcion de esta, Ud. ya realizo el pago de tales conceptos, le rogamos haga caso omiso a la presente.',
       { size: 7 },
     ),
     text(
-      46,
-      y + 149,
-      492,
+      26,
+      y + 165,
+      546,
       'Lugar de Pago: Calle Luis Medina C-261 Urb. San Miguel - ICA Horario de Atencion: Lunes a Viernes de 8:00 am a 5:00 pm',
-      { size: 7, height: 16 },
+      { size: 7 },
     ),
   );
 
