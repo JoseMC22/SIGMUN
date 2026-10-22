@@ -97,6 +97,7 @@ describe('GenerarOpService', () => {
     const filasProyeccion = [
       {
         idrecibo: '1',
+        anno: '2026',
         num_ingr: '0001234',
         imp_insol: 100,
         imp_reaj: 10,
@@ -105,10 +106,20 @@ describe('GenerarOpService', () => {
       },
       {
         idrecibo: '2',
+        anno: '2026',
         num_ingr: '0001235',
         imp_insol: 50,
         imp_reaj: 1,
         mora: 0.5,
+        costo_emis: 2.5,
+      },
+      {
+        idrecibo: '3',
+        anno: '2025',
+        num_ingr: '0001236',
+        imp_insol: 25,
+        imp_reaj: 0,
+        mora: 0,
         costo_emis: 2.5,
       },
     ];
@@ -129,6 +140,7 @@ describe('GenerarOpService', () => {
         IdUsuario: 'WEB',
         Operador: '',
         Estacion: 'WEB',
+        IdRecibos: [1, 2],
         ...over,
       }) as unknown as GenerarOpDto;
 
@@ -207,6 +219,52 @@ describe('GenerarOpService', () => {
         mora: 5.5,
         costo_emis: 5,
       });
+    });
+
+    it('incluye en el XML y en los totales solo las filas seleccionadas', async () => {
+      mockSp();
+
+      const result = await service.generar(dtoGenerar({ IdRecibos: [1] }));
+
+      const dataxml = String(spGeneracionLlamado()?.[1].dataxml ?? '');
+      expect(dataxml).toContain('idrecibo="1"');
+      expect(dataxml).not.toContain('idrecibo="2"');
+      expect(result).toMatchObject({
+        success: true,
+        total: 1,
+        imp_insol: 100,
+        imp_reaj: 10,
+        mora: 5,
+        costo_emis: 2.5,
+      });
+    });
+
+    it('rechaza ids que ya no están en la proyección sin llamar al SP', async () => {
+      mockSp();
+
+      const result = await service.generar(
+        dtoGenerar({ IdRecibos: [1, 999] }),
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain(
+        'Algunos recibos seleccionados ya no están pendientes',
+      );
+      expect(spGeneracionLlamado()).toBeUndefined();
+      expect(queryWithParams).not.toHaveBeenCalled();
+    });
+
+    it('rechaza una selección con dos años distintos sin llamar al SP', async () => {
+      mockSp();
+
+      const result = await service.generar(
+        dtoGenerar({ IdRecibos: [1, 3] }),
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('La selección debe pertenecer a un solo año.');
+      expect(spGeneracionLlamado()).toBeUndefined();
+      expect(queryWithParams).not.toHaveBeenCalled();
     });
 
     it('devuelve error si el recordset de generación viene vacío', async () => {

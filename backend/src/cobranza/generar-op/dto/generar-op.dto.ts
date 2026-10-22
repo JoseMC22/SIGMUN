@@ -26,6 +26,12 @@ export const GenerarOpSchema = z.object({
   IdUsuario: z.string().max(50).optional().default(''),
   Operador: z.string().max(50).optional().default(''),
   Estacion: z.string().max(50).optional().default(''),
+  /**
+   * Recibos (ids de la proyección) que el usuario eligió incluir en la OP.
+   * El cliente elige CUÁLES, nunca los importes: el servicio vuelve a
+   * proyectar y toma los importes de la base.
+   */
+  IdRecibos: z.array(z.coerce.number().int().positive()).min(1),
 });
 
 export type GenerarOpDto = z.infer<typeof GenerarOpSchema>;

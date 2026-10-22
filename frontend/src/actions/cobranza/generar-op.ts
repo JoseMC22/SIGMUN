@@ -226,6 +226,8 @@ export interface GenerarOpPayload {
   annos: string;
   perio: string;
   tipo: "predial" | "vehicular";
+  /** Recibos de la proyección que entran en esta OP (una OP por año). */
+  idRecibos: number[];
 }
 
 export interface GenerarOpActionResult {
@@ -260,6 +262,7 @@ export async function generarGenerarOpAction(
         IdUsuario: "",
         Operador: "",
         Estacion: "WEB",
+        IdRecibos: payload.idRecibos,
       }),
       cache: "no-store",
     });

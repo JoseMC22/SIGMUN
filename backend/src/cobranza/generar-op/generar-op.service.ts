@@ -160,11 +160,38 @@ export class GenerarOpService {
       };
     }
 
-    const rows = proyeccion.data;
-    if (rows.length === 0) {
+    if (proyeccion.data.length === 0) {
       return {
         success: false,
         error: 'No hay recibos pendientes para los filtros seleccionados',
+      };
+    }
+
+    // 1.b. El cliente elige qué filas de la proyección entran en la OP. Si
+    // alguno de los ids pedidos ya no está (se pagó o se generó en otra
+    // pestaña), la proyección y la selección ya no representan lo mismo:
+    // abortar en vez de generar una OP parcial en silencio.
+    const idsSeleccionados = new Set(dto.IdRecibos.map((id) => Number(id)));
+    const rows = proyeccion.data.filter((row) =>
+      idsSeleccionados.has(Number(row.idrecibo)),
+    );
+    if (rows.length !== idsSeleccionados.size) {
+      return {
+        success: false,
+        error:
+          'Algunos recibos seleccionados ya no están pendientes. Vuelva a procesar.',
+      };
+    }
+
+    // Defensa en profundidad: el frontend manda un año por llamada, pero una
+    // OP nunca debe mezclar filas de dos años.
+    const annos = new Set(
+      rows.map((row) => String(row.anno ?? '').trim()),
+    );
+    if (annos.size > 1) {
+      return {
+        success: false,
+        error: 'La selección debe pertenecer a un solo año.',
       };
     }
 
