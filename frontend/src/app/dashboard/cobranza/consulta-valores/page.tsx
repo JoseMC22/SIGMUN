@@ -13,9 +13,13 @@ import {
   ChevronLeft,
   ChevronRight,
   Info,
+  Printer,
+  X,
 } from "lucide-react";
 import { searchConsultaValoresAction } from "@/actions/cobranza/consulta-valores";
 import type { ConsultaValoresRow } from "@/actions/cobranza/consulta-valores";
+import { getGenerarOpPdfAction } from "@/actions/cobranza/generar-op";
+import { abrirPdfBase64 } from "@/lib/op-pdf";
 import { useConsultaValoresExport } from "@/app/dashboard/cobranza/consulta-valores/export-utils";
 
 // Registros por página. El backend solo acepta 15 (grilla) o 100000 (exportación).
@@ -41,6 +45,11 @@ const COLUMNAS: { header: string; key: string; money?: boolean }[] = [
 ];
 
 const NUM_COLS = COLUMNAS.length;
+
+// La grilla agrega una columna de acciones "Imprimir" FUERA del map de
+// COLUMNAS (el conteo COLUMNAS = WS_COLUMNS del export a Excel no cambia);
+// el skeleton la refleja con esta constante, que solo usa el skeleton.
+const NUM_COLS_TOTAL = NUM_COLS + 1;
 
 type TipoCriterio = "codigo" | "nombre" | "num_val";
 
@@ -89,10 +98,10 @@ function TableSkeleton() {
           <div
             className="grid gap-4"
             style={{
-              gridTemplateColumns: `repeat(${NUM_COLS}, minmax(0, 1fr))`,
+              gridTemplateColumns: `repeat(${NUM_COLS_TOTAL}, minmax(0, 1fr))`,
             }}
           >
-            {[...Array(NUM_COLS)].map((_, i) => (
+            {[...Array(NUM_COLS_TOTAL)].map((_, i) => (
               <div key={i} className="h-3 bg-slate-200 rounded w-3/4" />
             ))}
           </div>
@@ -102,10 +111,10 @@ function TableSkeleton() {
             <div
               className="grid gap-4"
               style={{
-                gridTemplateColumns: `repeat(${NUM_COLS}, minmax(0, 1fr))`,
+                gridTemplateColumns: `repeat(${NUM_COLS_TOTAL}, minmax(0, 1fr))`,
               }}
             >
-              {[...Array(NUM_COLS)].map((_, j) => (
+              {[...Array(NUM_COLS_TOTAL)].map((_, j) => (
                 <div
                   key={j}
                   className="h-3.5 bg-slate-100 rounded"
@@ -136,6 +145,12 @@ export default function ConsultaValoresPage() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+
+  // Clave `${id_valor}-${num_val}-${ano_val}` de la fila cuyo PDF se está
+  // abriendo; null cuando ninguna impresión está en curso.
+  const [imprimiendo, setImprimiendo] = useState<string | null>(null);
+  // Aviso no bloqueante del último intento de impresión fallido.
+  const [pdfAviso, setPdfAviso] = useState<string | null>(null);
 
   const buildFilters = useCallback(() => {
     // Solo viaja lleno el criterio elegido; los otros dos van vacíos y el SP
@@ -219,6 +234,38 @@ export default function ConsultaValoresPage() {
   const handlePageChange = (newPage: number) => {
     if (newPage < 1 || newPage > totalPages) return;
     executeSearch(newPage);
+  };
+
+  // Imprimir la Orden de Pago del valor. El backend solo tiene layout de OP
+  // para predial ('01') y vehicular ('11'); el resto de tipos no se imprime.
+
+  const esImprimible = (row: ConsultaValoresRow) =>
+    row.id_valor === "01" || row.id_valor === "11";
+
+  const claveImprimiendo = (row: ConsultaValoresRow) =>
+    `${row.id_valor}-${row.num_val}-${row.ano_val}`;
+
+  const handleImprimir = async (row: ConsultaValoresRow) => {
+    if (imprimiendo) return;
+    const clave = claveImprimiendo(row);
+    setImprimiendo(clave);
+    setPdfAviso(null);
+    try {
+      const base64 = await getGenerarOpPdfAction(
+        String(row.id_valor ?? ""),
+        String(row.num_val ?? ""),
+        String(row.ano_val ?? ""),
+      );
+      if (!base64) {
+        setPdfAviso("No se pudo generar el PDF del valor.");
+        return;
+      }
+      abrirPdfBase64(base64);
+    } catch {
+      setPdfAviso("No se pudo generar el PDF del valor.");
+    } finally {
+      setImprimiendo(null);
+    }
   };
 
   const { exportToExcel } = useConsultaValoresExport({
@@ -404,6 +451,11 @@ export default function ConsultaValoresPage() {
                   {col.header}
                 </th>
               ))}
+              {/* Columna de acciones: fuera del map para no tocar el
+                  contrato COLUMNAS = WS_COLUMNS del export a Excel. */}
+              <th className="text-left text-[9px] font-semibold text-white/90 uppercase px-2 py-2 border-b border-white/5 whitespace-nowrap">
+                Imprimir
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -426,6 +478,28 @@ export default function ConsultaValoresPage() {
                     {celda(row, col)}
                   </td>
                 ))}
+                {/* Celda de impresión: botón para '01'/'11', guion para el
+                    resto (sin layout de OP en el backend). */}
+                <td className="px-2 py-1 text-center">
+                  {esImprimible(row) ? (
+                    <button
+                      type="button"
+                      onClick={() => void handleImprimir(row)}
+                      aria-label={`Imprimir valor N° ${row.num_val}-${row.ano_val}`}
+                      title={`Imprimir valor N° ${row.num_val}-${row.ano_val}`}
+                      disabled={imprimiendo === claveImprimiendo(row)}
+                      className="rounded-md p-1 text-slate-400 transition hover:bg-cyan-50 hover:text-sat-cyan focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {imprimiendo === claveImprimiendo(row) ? (
+                        <Loader2 size={13} className="animate-spin" />
+                      ) : (
+                        <Printer size={13} />
+                      )}
+                    </button>
+                  ) : (
+                    <span className="text-slate-300">—</span>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -514,6 +588,27 @@ export default function ConsultaValoresPage() {
       </div>
 
       {renderSearchForm()}
+
+      {/* Aviso de impresión: no bloquea la grilla y se cierra manualmente. */}
+      {pdfAviso && (
+        <div
+          className="flex items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2"
+          data-testid="pdf-aviso"
+        >
+          <div className="flex items-center gap-1.5 text-[11px] text-amber-700">
+            <AlertCircle size={13} className="shrink-0" />
+            <span>{pdfAviso}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setPdfAviso(null)}
+            aria-label="Cerrar aviso"
+            className="rounded-md p-1 text-amber-400 transition hover:bg-amber-100 hover:text-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-400/40"
+          >
+            <X size={13} />
+          </button>
+        </div>
+      )}
 
       {/* Results info + export buttons */}
       {!loading && !error && !initialLoading && data.length > 0 && (

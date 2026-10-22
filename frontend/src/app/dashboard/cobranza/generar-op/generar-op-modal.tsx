@@ -19,6 +19,7 @@ import {
   type GenerarOpRow,
   type ProcesarOpRow,
 } from "@/actions/cobranza/generar-op";
+import { abrirPdfBase64 } from "@/lib/op-pdf";
 import {
   buildAnnosPack,
   buildTrimestresPack,
@@ -305,16 +306,7 @@ export default function GenerarOpModal({ tipo, contribuyente, onClose }: Props) 
         );
         return;
       }
-      const byteCharacters = atob(base64);
-      const byteNumbers = new Array<number>(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
-      }
-      const blob = new Blob([new Uint8Array(byteNumbers)], {
-        type: "application/pdf",
-      });
-      const blobUrl = URL.createObjectURL(blob);
-      window.open(blobUrl, "_blank");
+      abrirPdfBase64(base64);
     } catch {
       setPdfAviso(
         "No se pudo abrir el PDF de la OP. Probá de nuevo con «Ver OP».",
