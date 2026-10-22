@@ -195,6 +195,17 @@ function headerBand(row: OpImpresionRow): string {
   return parts.join('\n');
 }
 
+/**
+ * Nombre del tributo en la columna TRIBUTO del detalle.
+ *
+ * El JRXML original imprime "Impuesto / Predial" fijo, aunque la OP sea
+ * vehicular. Acá se deriva de `id_valor`: '11' es la OP vehicular y cualquier
+ * otro valor cae en predial, que es el default histórico del reporte.
+ */
+function tributoLabel(row: OpImpresionRow): string {
+  return String(row.id_valor ?? '').trim() === '11' ? 'Vehicular' : 'Predial';
+}
+
 function detailBand(row: OpImpresionRow, y: number): string {
   const parts: string[] = [];
 
@@ -203,7 +214,7 @@ function detailBand(row: OpImpresionRow, y: number): string {
 
   parts.push(
     text(6, y + 6, 30, 'Impuesto', { size: 6, align: 'center' }),
-    text(6, y + 14, 30, 'Predial', { size: 6, align: 'center' }),
+    text(6, y + 14, 30, tributoLabel(row), { size: 6, align: 'center' }),
     text(45, y + 7, 25, row.anno, { size: 7, align: 'center' }),
     text(73, y + 7, 44, row.base_imponible1, { size: 6, align: 'right' }),
     text(122, y + 1, 60, 'Hasta 15 UIT', { size: 6, align: 'center' }),

@@ -69,6 +69,14 @@ describe('buildOpPdfHtml', () => {
     expect(html).toContain('tasa diaria de 0.03%');
   });
 
+  it('rotula el tributo según id_valor', () => {
+    expect(buildOpPdfHtml([opRow()])).toContain('>Vehicular<');
+
+    const predial = buildOpPdfHtml([opRow({ id_valor: '01' })]);
+    expect(predial).toContain('>Predial<');
+    expect(predial).not.toContain('>Vehicular<');
+  });
+
   it('calcula el alto del contenido como 176 + 35*filas + 185', () => {
     expect(buildOpPdfHtml([opRow()])).toContain('data-content-height="396"');
     expect(buildOpPdfHtml([opRow(), opRow({ anno: '2018' })])).toContain(
