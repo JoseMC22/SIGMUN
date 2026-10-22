@@ -20,14 +20,17 @@ const PAGE_HEIGHT = 842;
 const HEADER_Y = 41;
 const DETAIL_Y = 176;
 const DETAIL_H = 35;
-const FOOTER_H = 185;
 /** Copias de la misma OP que se imprimen en una hoja A4. */
 const OP_COPIES_PER_PAGE = 2;
 
-// Coordenadas X de las verticales de la tabla (cabecera y detalle).
-const TABLE_X = [5, 44, 70, 119, 182, 214, 257, 293, 343, 389, 433, 480, 525, 570];
-// Las verticales de la cabecera arrancan un punto más a la izquierda.
-const HEADER_TABLE_X = [6, 44, 70, 119, 182, 214, 257, 293, 343, 389, 433, 480, 525, 570];
+// Layout predial: JRXML con leftMargin=5 y topMargin=5. Título 40pt, cabecera
+// 148pt, detalle 35pt por fila y pie 175pt.
+const P_MARGIN_X = 5;
+const P_MARGIN_Y = 5;
+const P_TITLE_H = 40;
+const P_HEADER_H = 148;
+const P_DETAIL_Y = P_MARGIN_Y + P_TITLE_H + P_HEADER_H; // 193
+const P_FOOTER_H = 175;
 
 function esc(value: unknown): string {
   if (value === null || value === undefined) return '';
@@ -42,6 +45,7 @@ function esc(value: unknown): string {
 interface BoxStyle {
   size?: number;
   bold?: boolean;
+  italic?: boolean;
   underline?: boolean;
   align?: 'left' | 'center' | 'right' | 'justify';
   height?: number;
@@ -58,6 +62,7 @@ function boxStyle(left: number, top: number, width: number, style: BoxStyle = {}
   ];
   if (style.height !== undefined) css.push(`height:${style.height}pt`);
   if (style.bold) css.push('font-weight:bold');
+  if (style.italic) css.push('font-style:italic');
   if (style.underline) css.push('text-decoration:underline');
   if (style.align) css.push(`text-align:${style.align}`);
   if (style.nowrap) css.push('white-space:nowrap');
@@ -98,7 +103,7 @@ function numText(value: number | null): string {
   return value === null ? '' : String(value);
 }
 
-function titleBand(logoDataUri?: string): string {
+function titleBandVehicular(row: OpImpresionRow, logoDataUri?: string): string {
   const parts: string[] = [];
   // El logo SAT 2026 ocupa el bloque de marca de la esquina superior izquierda
   // y reemplaza al pie "www". Sin logo, se mantiene el texto.
@@ -124,100 +129,163 @@ function titleBand(logoDataUri?: string): string {
   if (!logoDataUri) {
     parts.push(text(14, 29, 66, 'www.satica.gob.pe', { size: 7, bold: true }));
   }
-  parts.push(text(443, 22, 57, 'Fecha', { bold: true }));
+  parts.push(
+    text(443, 22, 57, 'Fecha', { bold: true }),
+    text(502, 22, 62, ': ' + (row.fec_val ?? '')),
+  );
+  return parts.join('\n');
+}
+
+/** Título del layout predial (banda de 40pt, con márgenes 5/5). */
+function titleBandPredial(row: OpImpresionRow, logoDataUri?: string): string {
+  const y = P_MARGIN_Y;
+  const px = (x: number) => P_MARGIN_X + x;
+  const parts: string[] = [];
+
+  if (logoDataUri) {
+    parts.push(
+      `<img src="${esc(logoDataUri)}" alt="logo" style="position:absolute;left:${px(5)}pt;top:${y + 1}pt;width:52pt;height:38pt" />`,
+    );
+  } else {
+    parts.push(
+      text(px(14), y + 31, 66, 'www.satica.gob.pe', { size: 7, bold: true }),
+    );
+  }
+
+  parts.push(
+    text(px(102), y + 1, 216, 'SERVICIO DE ADMINISTRACION TRIBUTARIA DE ICA', {
+      bold: true,
+    }),
+    text(
+      px(102),
+      y + 11,
+      288,
+      'SUB GERENCIA DE OPERACIONES - DEPARTAMENTO DE COBRANZAS',
+      { bold: true },
+    ),
+    text(px(443), y + 22, 57, 'Fecha', { bold: true }),
+    text(px(504), y + 22, 62, ': ' + (row.fec_val ?? '')),
+  );
+
   return parts.join('\n');
 }
 
 function headerBandPredial(row: OpImpresionRow): string {
-  const y = HEADER_Y;
+  const y = P_MARGIN_Y + P_TITLE_H; // 45
+  const px = (x: number) => P_MARGIN_X + x;
   const parts: string[] = [];
 
   parts.push(
-    text(6, y + 1, 565, row.numerOP, {
+    text(px(6), y + 1, 566, row.numerOP, {
       bold: true,
       underline: true,
       align: 'center',
       height: 13,
     }),
-    text(5, y + 14, 97, 'Nombre y Razon Social', { bold: true }),
-    text(107, y + 15, 314, ': ' + (row.nombre ?? '')),
-    text(443, y + 15, 57, 'CODIGO', { bold: true }),
-    text(503, y + 15, 65, ': ' + (row.codigo ?? '')),
-    text(5, y + 27, 100, 'Documento de Identidad', { bold: true }),
-    text(107, y + 28, 88, ': ' + (row.num_doc ?? '')),
-    text(5, y + 40, 97, 'Domicilio Fiscal', { bold: true }),
-    text(107, y + 40, 456, ': ' + (row.Dirfiscal ?? '')),
+    text(px(5), y + 14, 97, 'Nombre y Razon Social', { bold: true }),
+    text(px(107), y + 15, 324, ': ' + (row.nombre ?? '')),
+    text(px(443), y + 15, 57, 'CODIGO', { bold: true }),
+    text(px(503), y + 15, 65, ': ' + (row.codigo ?? '')),
+    text(px(5), y + 27, 100, 'Documento de Identidad', { bold: true }),
+    text(px(107), y + 28, 148, ': ' + (row.num_doc ?? '')),
+    text(px(5), y + 40, 97, 'Domicilio Fiscal', { bold: true }),
+    text(px(107), y + 40, 462, ': ' + (row.Dirfiscal ?? '')),
   );
 
-  const parrafo =
-    'Por la presente se requiere la cancelacion de la deuda contenida en el presente documento, ' +
-    'en un plazo de (3) dias habiles contados a partir del dia siguiente de su notificacion, ' +
-    'bajo apercibimiento de iniciar el procedimiento de Ejecucion Coactiva. La presente se emite ' +
-    'por los tributos y periodos de deudas pendientes que se indican, cuyo monto se ha actualizado al ' +
+  // Dos párrafos separados por un salto de línea, como el `\n` del JRXML.
+  const parrafo1 =
+    'De acuerdo a lo señalado en el Art. 78° numeral 1 del TUO Código Tributario corresponde la emisión total o parcial de la Orden de Pago debido a la omisión total o parcial al pago del trbituo autoliquidado por el deudor tributario.';
+  const parrafo2 =
+    'Por lo que se requiere la cancelacion de la deuda contenida en el presente documento, en un plazo de (3) días hábiles contados a partir del dia siguiente de su notificacion, bajo apercibimiento de iniciar el procedimiento de Ejecucion Coactiva. La presente se emite por los tributos y periodos de deudas pendientes que se indican, cuyo monto se ha actualizado al ' +
     (row.fech_proyectado ?? '') +
-    ' luego de esta fecha se actualizara con una tasa diaria de 0.03%, conforme a la Tasa de Interes Moratorio.';
-  parts.push(text(5, y + 50, 567, parrafo, { align: 'justify', height: 49 }));
-
+    ' luego de esta fecha se actualizara con una tasa diaria de 0.03%, conforme a la Tasa de Interes Moratorio fijada.';
   parts.push(
-    // Motivo y su texto van en una sola fila: el label completo más la frase,
-    // sin que el ancho del label lo parta en dos líneas.
     html(
-      6,
-      y + 92,
-      560,
-      `<b>Motivo de la Determinaci\u00f3n</b>: Se ha verificado la existencia de una deuda tributaria no cancelado dentro de los plazos establecidos`,
-      { nowrap: true },
+      px(5),
+      y + 51,
+      567,
+      `${esc(parrafo1)}<br />${esc(parrafo2)}`,
+      { align: 'justify', height: 62 },
     ),
-    text(6, y + 101, 83, 'Declaracion Jurada', { bold: true }),
-    // El colon arranca en 110pt, la misma x donde cae el colon del motivo
-    // (el label del motivo mide 99.07pt y su texto empieza en 110pt).
-    text(110, y + 101, 110, ': Efectuada dentro del Periodo'),
-    text(214, y + 102, 25, row.anno, { size: 7, align: 'center' }),
   );
 
-  // Tabla: línea superior, verticales y encabezados de dos líneas.
-  parts.push(hLine(6, y + 112, 565));
-  HEADER_TABLE_X.forEach((x) => parts.push(vLine(x, y + 112, 21)));
+  // Motivo determinante: el texto cambia según la OP cubra un trimestre puntual
+  // o más de uno (periodoRomano vacío).
+  const periodo = String(row.periodoRomano ?? '').trim();
+  const motivo =
+    periodo === ''
+      ? `: Se ha verificado la existencia de la deuda tributaria de más de un trimestre del Impuesto predial ${row.anno ?? ''} NO cancelada dentro de los plazos establecidos.`
+      : `: Se ha verificado la existencia de la deuda tributaria del ${periodo} trimestre del Impuesto predial ${row.anno ?? ''} la misma que venció el ${row.fvencimiento ?? ''}.`;
+  parts.push(
+    // Label y frase en una sola caja: el label nunca se parte en dos líneas.
+    html(
+      px(6),
+      y + 104,
+      560,
+      `<b>Motivo Determinante</b>${esc(motivo)}`,
+      { height: 20 },
+    ),
+  );
+
+  // Tabla: línea superior, verticales y encabezados.
+  parts.push(hLine(px(6), y + 130, 565));
+  [
+    [343, 130, 21],
+    [70, 130, 21],
+    [44, 130, 21],
+    [214, 130, 21],
+    [119, 130, 21],
+    [182, 130, 21],
+    [257, 130, 21],
+    [293, 130, 21],
+    [433, 130, 21],
+    [480, 130, 21],
+    [389, 130, 21],
+    [5, 131, 20],
+    [570, 131, 20],
+    [525, 131, 20],
+  ].forEach(([x, top, h]) => parts.push(vLine(px(x), y + top, h)));
 
   const th = (left: number, top: number, width: number, label: string) =>
-    text(left, y + top, width, label, { size: 7, bold: true, align: 'center' });
+    text(px(left), y + top, width, label, {
+      size: 7,
+      bold: true,
+      align: 'center',
+    });
 
   parts.push(
-    th(6, 115, 37, 'TRIBUTO'),
-    // JRXML rpt_orpa: rótulo de la 2da columna en x=49, y=184 (banda).
-    th(49, 115, 24, 'AÑO'),
-    th(73, 112, 44, 'BASE'),
-    th(73, 122, 44, 'IMPONIBLE'),
-    th(122, 112, 55, 'TRAMO DE'),
-    th(122, 122, 55, 'AUTOVALUO'),
-    th(183, 112, 35, 'ALI-CUOTA'),
-    // th(183, 122, 35, 'CUOTA'),
-    th(218, 112, 38, 'INSOLUTO'),
-    th(258, 112, 35, 'IMP'),
-    th(258, 122, 35, 'ANUAL'),
-    th(296, 113, 47, 'TRIMESTRES'),
-    th(296, 123, 47, 'ADEUDADOS'),
-    th(348, 112, 38, 'INSOLUTO'),
-    th(390, 112, 43, 'FORMULARIO'),
-    th(438, 112, 40, 'REAJUSTE'),
-    th(437, 122, 40, '(1)'),
-    th(482, 113, 42, 'INTERESES'),
-    th(482, 122, 42, '(2)'),
-    th(529, 115, 34, 'TOTAL'),
+    th(6, 133, 37, 'TRIBUTO'),
+    th(46, 132, 24, 'AÑO'),
+    th(73, 130, 44, 'BASE'),
+    th(73, 140, 44, 'IMPONIBLE'),
+    th(122, 130, 55, 'TRAMO DE'),
+    th(122, 140, 55, 'AUTOVALUO'),
+    // "ALI-CUOTA" no entra en 32pt: se le da 38pt centrados para que no se
+    // parta en dos líneas y choque con "CUOTA".
+    text(px(182), y + 131, 32, 'ALI-CUOTA', {
+      size: 5.5,
+      bold: true,
+      align: 'center',
+      nowrap: true,
+    }),
+    th(182, 140, 35, 'CUOTA'),
+    th(218, 130, 38, 'INSOLUTO'),
+    th(258, 130, 35, 'IMP'),
+    th(258, 140, 35, 'ANUAL'),
+    th(296, 131, 47, periodo === '' ? 'TRIMESTRES' : 'TRIMESTRE'),
+    th(296, 141, 47, periodo === '' ? 'ADEUDADOS' : 'ADEUDADO'),
+    th(348, 130, 38, 'INSOLUTO'),
+    th(390, 130, 43, 'FORMULARIO'),
+    th(438, 130, 40, 'REAJUSTE'),
+    th(437, 140, 40, '(1)'),
+    th(482, 131, 42, 'INTERESES'),
+    th(482, 140, 42, '(2)'),
+    th(529, 133, 34, 'TOTAL'),
   );
 
-  return parts.join('\n');
-}
+  parts.push(hLine(px(5), y + 152, 566));
 
-/**
- * Nombre del tributo en la columna TRIBUTO del detalle.
- *
- * El JRXML original imprime "Impuesto / Predial" fijo, aunque la OP sea
- * vehicular. Acá se deriva de `id_valor`: '11' es la OP vehicular y cualquier
- * otro valor cae en predial, que es el default histórico del reporte.
- */
-function tributoLabel(row: OpImpresionRow): string {
-  return String(row.id_valor ?? '').trim() === '11' ? 'Vehicular' : 'Predial';
+  return parts.join('\n');
 }
 
 /**
@@ -231,33 +299,80 @@ function placaVehiculo(row: OpImpresionRow): string {
   return String(row.cod_pred ?? '').trim();
 }
 
+/** Una fila del detalle predial (banda de 35pt del JRXML). */
 function detailBandPredial(row: OpImpresionRow, y: number): string {
+  const px = (x: number) => P_MARGIN_X + x;
   const parts: string[] = [];
 
-  TABLE_X.forEach((x) => parts.push(vLine(x, y, 34)));
-  parts.push(hLine(6, y + 34, 565));
+  [
+    [70, 3, 34],
+    [389, 3, 34],
+    [343, 3, 34],
+    [293, 3, 34],
+    [570, 5, 34],
+    [5, 5, 34],
+    [44, 3, 34],
+    [257, 3, 34],
+    [182, 3, 34],
+    [214, 4, 33],
+    [525, 6, 33],
+    [433, 5, 34],
+    [119, 6, 31],
+    [480, 6, 32],
+  ].forEach(([x, top, h]) => parts.push(vLine(px(x), y + top, h)));
+  parts.push(hLine(px(6), y + 39, 565));
 
   parts.push(
-    text(6, y + 6, 30, 'Impuesto', { size: 6, align: 'center' }),
-    text(6, y + 14, 30, tributoLabel(row), { size: 6, align: 'center' }),
-    text(45, y + 7, 25, row.anno, { size: 7, align: 'center' }),
-    text(73, y + 7, 44, row.base_imponible1, { size: 6, align: 'right' }),
-    text(122, y + 1, 60, 'Hasta 15 UIT', { size: 6, align: 'center' }),
-    text(121, y + 11, 60, 'Mas de 15 a 60 UIT', { size: 6, align: 'center' }),
-    text(122, y + 21, 60, 'Mas de 60 UIT', { size: 6, align: 'center' }),
-    text(190, y + 1, 17, '0.2%', { size: 6, align: 'center' }),
-    text(190, y + 11, 17, '0.6%', { size: 6, align: 'center' }),
-    text(189, y + 21, 17, '1.0%', { size: 6, align: 'center' }),
-    text(218, y + 0, 37, numText(row.rtramo01), { size: 6, align: 'center' }),
-    text(218, y + 11, 37, numText(row.rtramo02), { size: 6, align: 'center' }),
-    text(218, y + 21, 37, numText(row.rtramo03), { size: 6, align: 'center' }),
-    text(259, y + 9, 34, row.imp_anual1, { size: 6, align: 'right' }),
-    text(297, y + 10, 43, row.cuotas, { size: 6, align: 'right' }),
-    text(344, y + 9, 43, row.imp_insoltexto, { size: 7, align: 'right' }),
-    text(392, y + 9, 37, numText(row.costo_emis), { size: 6, align: 'right' }),
-    text(440, y + 10, 37, numText(row.imp_reaj), { size: 6, align: 'right' }),
-    text(485, y + 10, 37, numText(row.mora), { size: 7, align: 'right' }),
-    text(527, y + 10, 42, row.imp_totaltexto, {
+    text(px(6), y + 11, 30, 'Impuesto ', { size: 6, align: 'center' }),
+    text(px(6), y + 19, 30, 'Predial', { size: 6, align: 'center' }),
+    text(px(45), y + 12, 25, row.anno, { size: 7, align: 'center' }),
+    text(px(73), y + 12, 44, row.base_imponible1, {
+      size: 6,
+      align: 'right',
+      height: 16,
+    }),
+    text(px(122), y + 6, 60, 'Hasta 15 UIT', { size: 6, align: 'center' }),
+    text(px(121), y + 16, 60, 'Mas de 15 a 60 UIT', {
+      size: 6,
+      align: 'center',
+    }),
+    text(px(122), y + 26, 60, 'Mas de 60 UIT', { size: 6, align: 'center' }),
+    text(px(190), y + 6, 17, '0.2%', { size: 6, align: 'center' }),
+    text(px(190), y + 16, 17, '0.6%', { size: 6, align: 'center' }),
+    text(px(189), y + 26, 17, '1.0%', { size: 6, align: 'center' }),
+    text(px(218), y + 5, 37, numText(row.rtramo01), {
+      size: 6,
+      align: 'center',
+    }),
+    text(px(218), y + 16, 37, numText(row.rtramo02), {
+      size: 6,
+      align: 'center',
+    }),
+    text(px(218), y + 26, 37, numText(row.rtramo03), {
+      size: 6,
+      align: 'center',
+    }),
+    text(px(259), y + 14, 34, row.imp_anual1, {
+      size: 6,
+      align: 'center',
+      height: 21,
+    }),
+    text(px(297), y + 15, 43, row.cuotas, { size: 6, align: 'center' }),
+    text(px(344), y + 14, 43, row.imp_insoltexto, {
+      size: 7,
+      align: 'right',
+      height: 21,
+    }),
+    text(px(392), y + 14, 37, numText(row.costo_emis), {
+      size: 6,
+      align: 'right',
+    }),
+    text(px(440), y + 15, 37, numText(row.imp_reaj), {
+      size: 6,
+      align: 'right',
+    }),
+    text(px(485), y + 15, 37, numText(row.mora), { size: 7, align: 'right' }),
+    text(px(527), y + 15, 42, row.imp_totaltexto, {
       size: 8,
       bold: true,
       align: 'right',
@@ -268,96 +383,92 @@ function detailBandPredial(row: OpImpresionRow, y: number): string {
 }
 
 function footerBandPredial(rows: OpImpresionRow[], selloDataUri?: string): string {
-  const y = DETAIL_Y + DETAIL_H * rows.length;
+  const y = P_DETAIL_Y + DETAIL_H * rows.length;
+  const px = (x: number) => P_MARGIN_X + x;
   const last = rows[rows.length - 1];
   const totalCosto = rows.reduce((acc, row) => acc + (row.costo_emis ?? 0), 0);
   const parts: string[] = [];
 
+  // Renglón de totales y su línea inferior.
+  parts.push(hLine(px(6), y + 18, 564));
+  [
+    [343, 3, 16],
+    [389, 2, 16],
+    [480, 4, 14],
+    [525, 5, 13],
+    [433, 4, 14],
+    [570, 5, 14],
+    [5, 5, 14],
+  ].forEach(([x, top, h]) => parts.push(vLine(px(x), y + top, h)));
+
   parts.push(
-    text(124, y + 0, 123, 'TOTAL DEUDA S/.', { bold: true, align: 'center' }),
-    text(344, y + 1, 43, last.imp_insoltexto, { size: 7, align: 'right' }),
-    text(439, y + 1, 37, numText(last.imp_reaj), { size: 6, align: 'right' }),
-    text(485, y + 1, 37, numText(last.mora), { size: 7, align: 'right' }),
-    text(529, y + 1, 40, last.imp_totaltexto, { size: 7, align: 'right' }),
-    text(394, y + 0, 37, totalCosto.toFixed(2), {
+    text(px(124), y + 5, 123, 'TOTAL DEUDA S/.', { bold: true, align: 'center' }),
+    text(px(394), y + 5, 37, totalCosto.toFixed(2), {
       size: 6,
       bold: true,
       align: 'right',
     }),
-    // El UIT va solo en su renglón; el párrafo (1) arranca debajo, a la altura
-    // del margen, y ya no comparte línea con el UIT.
-    html(6, y + 14, 226, `<strong>UIT</strong> ${esc(last.cadenaUIT)}`, {
-      size: 5,
-      nowrap: true,
+    text(px(344), y + 6, 43, last.imp_insoltexto, { size: 7, align: 'right' }),
+    text(px(439), y + 6, 37, numText(last.imp_reaj), {
+      size: 6,
+      align: 'right',
     }),
-    text(6, y + 21, 226, '(1) Factores de Reajuste: ' + (last.cuota_rej ?? ''), {
-      size: 5,
-    }),
-    text(6, y + 33, 226, '(2) TIM Aplicada: ' + (last.cuota_mor ?? ''), {
+    text(px(485), y + 6, 37, numText(last.mora), { size: 7, align: 'right' }),
+    text(px(529), y + 6, 40, last.imp_totaltexto, { size: 7, align: 'right' }),
+    html(px(6), y + 24, 222, `<strong>UIT </strong>${esc(last.cadenaUIT)}`, {
       size: 5,
     }),
-    text(4, y + 46, 68, 'Base Legal :', { bold: true, underline: true }),
+    text(px(6), y + 32, 223, '(1) Factores de Reajuste: ' + (last.cuota_rej ?? ''), {
+      size: 5,
+    }),
+    text(px(6), y + 42, 223, '(2) TIM Aplicada: ' + (last.cuota_mor ?? ''), {
+      size: 5,
+    }),
+    text(px(5), y + 50, 68, 'Base Legal :', { bold: true, underline: true }),
   );
 
-  const bullets: [number, string][] = [
-    [56, '- Art. 70 de la Ley Orgánica de Municipalidad Nº 27972'],
-    [68, '- Art. 8º al  20º  Ley de Tributación Municipal, Nº 776'],
-    [78, '- Art. 78º inc. 1 D. S. 133-2013 – EF TUO del Código Tributario'],
-    [87, '- TUO  de la Ley 26979 de Procedimiento de Ejecución Coactiva'],
-    [97, '- Plazo para presentar recurso de reclamacion: 03 dias habiles '],
-    [106, '   (desde el dia siguiente de notificado la presente)'],
+  // Base legal: el orden vertical es el del JRXML.
+  const bullets: [number, number, string][] = [
+    [6, 63, '- Art. 70 de la Ley Orgánica de Municipalidad Nº 27972'],
+    [6, 71, '- Art. 78° numeral 1 del TUO Código Tributario.'],
+    [5, 78, '- Art. 8º al  20º  Ley de Tributación Municipal, Nº 776'],
+    [5, 86, '- Art. 33 y Art. 78° inc. 1 D.S. 133-2013-EF TUO del Código Tributario'],
+    [
+      5,
+      93,
+      '- Art. 25° inc. 1° TUO de la Ley 26979 de Procedimiento de Ejecución Coactiva',
+    ],
+    [5, 101, '- Plazo para presentar recurso de reclamación: 20 días hábiles '],
   ];
-  bullets.forEach(([top, label]) =>
-    parts.push(text(4, y + top, 210, label, { size: 7 })),
+  bullets.forEach(([left, top, label]) =>
+    // Ancho amplio: las viñetas de base legal son de una sola línea, y con el
+    // ancho del JRXML (253pt) la de Ejecución Coactiva se partía encima de la
+    // línea siguiente.
+    parts.push(text(px(left), y + top, 470, label, { size: 7 })),
+  );
+  parts.push(
+    text(px(3), y + 110, 213, '   (desde el dia siguiente de notificado la presente)', {
+      size: 7,
+      italic: true,
+    }),
   );
 
   parts.push(
-    text(6, y + 118, 565, last.moratorio, { size: 6 }),
+    text(px(6), y + 105, 565, last.moratorio, { size: 6 }),
+    html(
+      px(6),
+      y + 132,
+      563,
+      `<strong>Lugar de Pago: Calle Luis Medina C-261 Urb. San Miguel - Ica<br />Horario de Atención: Lunes a Viernes de 8:00 a.m. a 5:00 p.m.</strong>`,
+      { size: 8, height: 34 },
+    ),
   );
 
   if (selloDataUri) {
     parts.push(
-      `<img src="${esc(selloDataUri)}" alt="sello" style="position:absolute;left:43pt;top:${y + 120}pt;width:147pt;height:54pt" />`,
+      `<img src="${esc(selloDataUri)}" alt="sello" style="position:absolute;left:${px(329)}pt;top:${y + 38}pt;width:147pt;height:54pt" />`,
     );
   }
-
-  // Recuadro de constancia de recepción.
-  parts.push(
-    `<div style="position:absolute;left:236pt;top:${y + 21}pt;width:334pt;height:130pt;border:1px solid #000"></div>`,
-    text(238, y + 25, 81, 'Fecha de Recepción  :', { size: 7 }),
-    text(321, y + 25, 17, 'ICA', { size: 7 }),
-    text(372, y + 25, 12, 'De', { size: 7 }),
-    text(514, y + 26, 47, 'Del ' + (last.ano_val ?? ''), { size: 8 }),
-    text(238, y + 41, 80, 'Apellidos y Nombres:', { size: 7 }),
-    hLine(322, y + 49, 174),
-    text(238, y + 57, 17, 'DNI :', { size: 7 }),
-    text(324, y + 57, 21, 'Hora :', { size: 7 }),
-    hLine(347, y + 64, 61),
-    text(238, y + 73, 37, 'Dirección :', { size: 7 }),
-    text(280, y + 71, 279, last.Dirfiscal, { size: 8 }),
-    hLine(279, y + 82, 280),
-    text(238, y + 89, 47, 'Parentesco :', { size: 7 }),
-    hLine(289, y + 97, 95),
-    text(387, y + 90, 63, 'Firma Recepción :', { size: 7 }),
-    text(238, y + 106, 51, 'Notificado Por:', { size: 7 }),
-    hLine(439, y + 113, 122),
-    text(387, y + 106, 48, 'Observación:', { size: 7 }),
-    hLine(393, y + 135, 174),
-    text(
-      26,
-      y + 153,
-      546,
-      'Si a la recepcion de esta, Ud. ya realizo el pago de tales conceptos, le rogamos haga caso omiso a la presente.',
-      { size: 7 },
-    ),
-    text(
-      26,
-      y + 165,
-      546,
-      'Lugar de Pago: Av. Matías Manzanilla N° 421 Urb. San Miguel - Ica Horario de Atencion: Lunes a Viernes de 8:00 am a 4:30 pm.',
-      { size: 7 },
-    ),
-  );
 
   return parts.join('\n');
 }
@@ -621,26 +732,35 @@ export function buildOpPdfHtml(
   const filas = rows.length > 0 ? rows : [];
   const vehicular = String(filas[0]?.id_valor ?? '').trim() === '11';
 
+  // Cada layout tiene su propio alto de título/cabecera, y por lo tanto su
+  // propia altura de contenido: el predial arranca en 5pt y usa bandas de
+  // 40/148/35/175.
+  const detailTop = vehicular ? DETAIL_Y : P_DETAIL_Y;
   const contentHeight =
-    DETAIL_Y + DETAIL_H * filas.length + (vehicular ? 192 : FOOTER_H);
+    detailTop + DETAIL_H * filas.length + (vehicular ? 192 : P_FOOTER_H);
 
   const detalle = filas
     .map((row, i) =>
       vehicular
-        ? detailBandVehicular(row, DETAIL_Y + DETAIL_H * i)
-        : detailBandPredial(row, DETAIL_Y + DETAIL_H * i),
+        ? detailBandVehicular(row, detailTop + DETAIL_H * i)
+        : detailBandPredial(row, detailTop + DETAIL_H * i),
     )
     .join('\n');
 
+  const filaBase = filas[0];
   const banda = [
-    titleBand(opts.logoDataUri),
-    filas.length > 0
+    filaBase
       ? vehicular
-        ? headerBandVehicular(filas[0])
-        : headerBandPredial(filas[0])
+        ? titleBandVehicular(filaBase, opts.logoDataUri)
+        : titleBandPredial(filaBase, opts.logoDataUri)
+      : '',
+    filaBase
+      ? vehicular
+        ? headerBandVehicular(filaBase)
+        : headerBandPredial(filaBase)
       : '',
     detalle,
-    filas.length > 0
+    filaBase
       ? vehicular
         ? footerBandVehicular(filas, opts.selloDataUri)
         : footerBandPredial(filas, opts.selloDataUri)

@@ -89,6 +89,38 @@ describe('buildOpPdfHtml', () => {
     expect(buildOpPdfHtml([opRow()])).not.toContain('AUTOVALUO');
   });
 
+  it('arma el predial con los márgenes 5/5 y las bandas del JRXML nuevo', () => {
+    const html = buildOpPdfHtml([
+      opRow({
+        id_valor: '01',
+        periodoRomano: 'PRIMER',
+        fvencimiento: '27/02/2017',
+      }),
+    ]);
+
+    // Título 40pt + cabecera 148pt, más el margen superior de 5pt: el detalle
+    // arranca en 193pt.
+    expect(html).toContain('left:11pt;top:204pt;width:30pt');
+    // El motivo cambia según la OP cubra uno o más trimestres.
+    expect(html).toContain(
+      'del PRIMER trimestre del Impuesto predial 2017 la misma que venció el 27/02/2017',
+    );
+    // El formato nuevo no tiene recuadro de constancia de recepción.
+    expect(html).not.toContain('Fecha de Recepción');
+    expect(html).toContain('Calle Luis Medina C-261');
+  });
+
+  it('usa el motivo de varios trimestres cuando periodoRomano viene vacío', () => {
+    const html = buildOpPdfHtml([
+      opRow({ id_valor: '01', periodoRomano: '' }),
+    ]);
+
+    expect(html).toContain(
+      'de más de un trimestre del Impuesto predial 2017 NO cancelada',
+    );
+    expect(html).toContain('TRIMESTRES');
+  });
+
   it('alinea el colon de Declaracion Jurada con el del motivo', () => {
     const html = buildOpPdfHtml([opRow()]);
 
@@ -123,16 +155,12 @@ describe('buildOpPdfHtml', () => {
     expect(predial).not.toContain('ADH172');
   });
 
-  it('alinea los dos últimos párrafos a la izquierda en ambos layouts', () => {
-    // Misma x (26) y misma distancia vertical que el predial en los dos
-    // reportes: con una fila, el pie arranca en 211pt.
-    for (const html of [
-      buildOpPdfHtml([opRow()]),
-      buildOpPdfHtml([opRow({ id_valor: '01' })]),
-    ]) {
-      expect(html).toContain('left:26pt;top:364pt;width:546pt');
-      expect(html).toContain('left:26pt;top:376pt;width:546pt');
-    }
+  it('alinea los dos últimos párrafos a la izquierda en el layout vehicular', () => {
+    // Misma x (26) y misma distancia vertical en el reporte vehicular: con una
+    // fila, el pie arranca en 211pt.
+    const html = buildOpPdfHtml([opRow()]);
+    expect(html).toContain('left:26pt;top:364pt;width:546pt');
+    expect(html).toContain('left:26pt;top:376pt;width:546pt');
   });
 
   it('pone el párrafo (1) debajo del UIT', () => {
@@ -147,17 +175,24 @@ describe('buildOpPdfHtml', () => {
   it('dibuja el logo SAT 2026 en la esquina y oculta el www en ambos layouts', () => {
     const logo = { logoDataUri: 'data:image/jpeg;base64,AAAA' };
 
-    for (const html of [
-      buildOpPdfHtml([opRow()], logo),
-      buildOpPdfHtml([opRow({ id_valor: '01' })], logo),
-    ]) {
+    // El vehicular no tiene márgenes; el predial arranca en 5/5.
+    const posiciones: [OpImpresionRow[], string][] = [
+      [[opRow()], 'left:6pt;top:2pt;width:52pt;height:38pt'],
+      [[opRow({ id_valor: '01' })], 'left:10pt;top:6pt;width:52pt;height:38pt'],
+    ];
+
+    for (const [rows, posicion] of posiciones) {
+      const html = buildOpPdfHtml(rows, logo);
       expect(html).toContain('src="data:image/jpeg;base64,AAAA"');
-      expect(html).toContain('left:6pt;top:2pt;width:52pt;height:38pt');
+      expect(html).toContain(posicion);
       expect(html).not.toContain('www.satica.gob.pe');
     }
 
     // Sin logo disponible se mantiene el pie histórico.
     expect(buildOpPdfHtml([opRow()])).toContain('www.satica.gob.pe');
+    expect(buildOpPdfHtml([opRow({ id_valor: '01' })])).toContain(
+      'www.satica.gob.pe',
+    );
   });
 
   it('imprime la misma OP dos veces por hoja con línea de corte', () => {
