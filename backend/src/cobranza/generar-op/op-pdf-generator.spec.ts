@@ -77,6 +77,18 @@ describe('buildOpPdfHtml', () => {
     expect(predial).not.toContain('>Vehicular<');
   });
 
+  it('alinea el colon de Declaracion Jurada con el del motivo', () => {
+    const html = buildOpPdfHtml([opRow()]);
+
+    // El texto del motivo arranca en 110pt (donde termina su label) y el de
+    // Declaracion Jurada se ancla en la misma x para que los dos puntos
+    // queden en columna.
+    expect(html).toContain('<b>Motivo de la Determinación</b>');
+    expect(html).toContain('left:110pt;top:142pt;width:110pt');
+    // El año corre a la derecha para no chocar con el texto desplazado.
+    expect(html).toContain('left:214pt;top:143pt;width:25pt');
+  });
+
   it('pone el motivo y su texto en una sola fila', () => {
     const html = buildOpPdfHtml([opRow()]);
 

@@ -162,9 +162,11 @@ function headerBand(row: OpImpresionRow): string {
       `<b>Motivo de la Determinaci\u00f3n</b>: Se ha verificado la existencia de una deuda tributaria no cancelado dentro de los plazos establecidos`,
       { nowrap: true },
     ),
-    text(6, y + 101, 74, 'Declaracion Jurada', { bold: true }),
-    text(89, y + 101, 117, ': Efectuada dentro del Periodo'),
-    text(203, y + 102, 25, row.anno, { size: 7, align: 'center' }),
+    text(6, y + 101, 83, 'Declaracion Jurada', { bold: true }),
+    // El colon arranca en 110pt, la misma x donde cae el colon del motivo
+    // (el label del motivo mide 99.07pt y su texto empieza en 110pt).
+    text(110, y + 101, 110, ': Efectuada dentro del Periodo'),
+    text(214, y + 102, 25, row.anno, { size: 7, align: 'center' }),
   );
 
   // Tabla: línea superior, verticales y encabezados de dos líneas.
@@ -181,7 +183,7 @@ function headerBand(row: OpImpresionRow): string {
     th(122, 112, 55, 'TRAMO DE'),
     th(122, 122, 55, 'AUTOVALUO'),
     th(183, 112, 35, 'ALI-CUOTA'),
-    th(182, 122, 35, 'CUOTA'),
+    // th(183, 122, 35, 'CUOTA'),
     th(218, 112, 38, 'INSOLUTO'),
     th(258, 112, 35, 'IMP'),
     th(258, 122, 35, 'ANUAL'),
