@@ -134,6 +134,16 @@ const ARBITRIOS: { label: string; value: string }[] = [
   { label: "Serenazgo.", value: "*11.04*" },
 ];
 
+// En modo soloMostrar los filtros de checkboxes no se muestran, así que la
+// selección de conceptos arranca completa (todos marcados) para que
+// "Mostrar" consulte la deuda de todos los conceptos. El resto de listas
+// (período, año, predios, vehículo, fraccionamiento) via vacío y el SP lo
+// interpreta como "sin filtro".
+const defaultConceptos = (soloMostrar: boolean): Record<string, boolean> =>
+  soloMostrar
+    ? Object.fromEntries(CONCEPTOS.map((c) => [c.label, true]))
+    : { Multas: true };
+
 // ─── Checkbox group sub-component ─────────────────────────
 
 // An option is either a plain string (label === value) or an object carrying
@@ -457,7 +467,7 @@ export default function EstadoCuentaModal({
     setVerDetalle(true);
     setAgruparConcepto(false);
     setSoloCoactivo(false);
-    setConceptos({ Multas: true });
+    setConceptos(defaultConceptos(soloMostrar));
     setPeriodos({});
     setArbitrios({});
     setAnios({});
@@ -487,7 +497,7 @@ export default function EstadoCuentaModal({
     setIsFraccionarOpen(false);
     setFraccionarData(null);
     setIsVerFraccOpen(false);
-  }, []);
+  }, [soloMostrar]);
 
   useEffect(() => {
     if (!isOpen) resetState();
@@ -993,7 +1003,7 @@ export default function EstadoCuentaModal({
     setVehiculoItems([]);
     setFraccionamientoItems([]);
     setLoadingFiltros(false);
-    setConceptos({ Multas: true });
+    setConceptos(defaultConceptos(soloMostrar));
     setPeriodos({});
     setArbitrios({});
     setAnios({});
@@ -1021,7 +1031,7 @@ export default function EstadoCuentaModal({
     return () => {
       cancelled = true;
     };
-  }, [isOpen, contribuyenteCodigo]);
+  }, [isOpen, contribuyenteCodigo, soloMostrar]);
 
   const handleToggle = useCallback(
     (setter: React.Dispatch<React.SetStateAction<Record<string, boolean>>>) =>
@@ -1151,7 +1161,8 @@ export default function EstadoCuentaModal({
               ))}
             </div>
 
-            {/* Option checkboxes row */}
+            {/* Option checkboxes row (ocultas en modo soloMostrar) */}
+            {!soloMostrar && (
             <div className="flex flex-wrap items-center gap-4">
               {[
                 { label: "Deuda Consolidado", val: consolidado, set: setConsolidado },
@@ -1174,9 +1185,11 @@ export default function EstadoCuentaModal({
                 </label>
               ))}
             </div>
+            )}
           </fieldset>
 
-          {/* ── 3. Filter groupboxes ── */}
+          {/* ── 3. Filter groupboxes (ocultos en modo soloMostrar) ── */}
+          {!soloMostrar && (
           <fieldset className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
             <div className="flex flex-wrap gap-2">
               <div className="w-27.5 shrink-0">
@@ -1244,6 +1257,7 @@ export default function EstadoCuentaModal({
               </div>
             </div>
           </fieldset>
+          )}
 
           {/* ── 4. Grid / Table ── */}
           <fieldset className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
