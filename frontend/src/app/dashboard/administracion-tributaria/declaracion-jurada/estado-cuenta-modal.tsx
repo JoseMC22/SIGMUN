@@ -1177,7 +1177,9 @@ export default function EstadoCuentaModal({
                   className="rounded border border-slate-200 px-2 py-1 text-[11px]"
                 />
               </div>
-              <div className="flex min-w-60 flex-1 flex-col gap-0.5">
+              {/* Doc. Sustento. ocupa la mitad del ancho que venía tomando
+                  (antes era flex-1 y estiraba todo el sobrante de la fila). */}
+              <div className="flex w-75 flex-col gap-0.5">
                 <label
                   htmlFor="ajuste-doc-sustento"
                   className="text-[10px] font-semibold text-slate-400 uppercase"
@@ -1207,7 +1209,7 @@ export default function EstadoCuentaModal({
                   value={tipoDocSustentoId}
                   onChange={(e) => setTipoDocSustentoId(e.target.value)}
                   disabled={tiposDocLoading}
-                  className="rounded border border-slate-200 bg-white px-2 py-1 text-[11px] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-[11px] text-slate-700 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {/* Placeholder legacy del combo #tipo_doc_sustento del PHP. */}
                   <option value="">[Seleccione]</option>
