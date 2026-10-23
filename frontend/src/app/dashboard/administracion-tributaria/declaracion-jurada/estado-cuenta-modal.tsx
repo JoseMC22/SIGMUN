@@ -18,7 +18,10 @@ import {
 } from "@/actions/administracion-tributaria/declaracion-jurada";
 import {
   getTiposDocSustentoAction,
+  imputarMontoAction,
   type TipoDocSustentoItem,
+  type ReciboCompensarItem,
+  type ImputarMontoPayload,
 } from "@/actions/cobranza/ajuste-cuenta-corriente";
 import { obtenerPlantillaReporteLiquidacionAction } from "@/actions/administracion-tributaria/reporte-liquidacion";
 import { construirHtmlReporteLiquidacion } from "./reportes/Liquidacion/reporte-liquidacion";
@@ -46,6 +49,55 @@ interface ContribuyenteBasico {
 
 /** Grid row = backend receipt row + local selection flag. */
 type GridRow = EstadoCuentaReciboRow & { selected: boolean };
+
+/**
+ * Fila de la grilla + los campos crudos que el backend agrega al row del
+ * Estado de Cuenta para la imputación del ajuste (estado, fec_venc, ...).
+ * El tipo del action de DJ no los declara, así que se puentean como
+ * opcionales: llegan en el JSON del backend, con '' cuando el SP no trae
+ * la columna.
+ */
+type ImputarGridRow = GridRow & {
+  estado?: string;
+  fecVenc?: string;
+  fecPago?: string;
+  numIngr?: string;
+  fechIngr?: string;
+  factReaj?: string;
+  factMora?: string;
+};
+
+/**
+ * Fila seleccionada → claves EXACTAS del legacy sp_Compensarrecibosjson
+ * (el array que el PHP mandaba como @dataxml). Los números van como
+ * números: la grilla ya es numérica, sin separadores de miles.
+ */
+function toReciboCompensar(r: ImputarGridRow): ReciboCompensarItem {
+  return {
+    idrecibo: r.idrecibo,
+    codigo: r.codigo,
+    anno: r.anno,
+    cod_pred: r.codPred,
+    anexo: r.anexo,
+    sub_anexo: r.subAnexo,
+    tipo: r.tipo,
+    tipo_rec: r.tipoRec,
+    periodo: r.periodo,
+    imp_insol: r.impInsol,
+    fact_reaj: r.factReaj ?? "",
+    imp_reaj: r.impReaj,
+    fact_mora: r.factMora ?? "",
+    imp_mora: r.interes,
+    costo_emis: r.costoEmision,
+    estado: r.estado ?? "",
+    ubica: r.ubica,
+    fec_venc: r.fecVenc ?? "",
+    fec_pago: r.fecPago ?? "",
+    num_ingr: r.numIngr ?? "",
+    fech_ing: r.fechIngr ?? "",
+    montotal: r.total,
+  };
+}
 
 interface EstadoCuentaModalProps {
   isOpen: boolean;
@@ -422,8 +474,9 @@ export default function EstadoCuentaModal({
   const [loadingFiltros, setLoadingFiltros] = useState(false);
 
   // ── Documento de Sustento (solo modo soloMostrar: ajuste de cuenta
-  // corriente). Los tres controles aún no disparan nada: solo guardan
-  // estado para la siguiente iteración del flujo de ajuste. ──
+  // corriente). Los tres controles alimentan la imputación de monto
+  // (nro/doc/tipo viajan al SP como @nro_doc_sustento/@doc_sustento/
+  // @tipo_doc_sustento). ──
   const [tiposDocSustento, setTiposDocSustento] = useState<
     TipoDocSustentoItem[]
   >([]);
@@ -433,10 +486,19 @@ export default function EstadoCuentaModal({
   const [docSustento, setDocSustento] = useState("");
 
   // ── Imputación de monto (solo modo soloMostrar): "Total a Ajustar" +
-  // botón "Imputar Monto". Aún no registra nada: valida los campos y la
-  // deuda seleccionada hasta que se defina el SP/modo de la imputación. ──
+  // botón "Imputar Monto". Tras validar, pide confirmación y registra la
+  // compensación contra Rentas.sp_Compensarrecibosjson. ──
   const [totalAjustar, setTotalAjustar] = useState("");
   const [imputarAviso, setImputarAviso] = useState<string | null>(null);
+  // Cargando el POST de la imputación (spinner + botón deshabilitado).
+  const [imputando, setImputando] = useState(false);
+  // Confirmación legacy antes de grabar (mensaje según pago a cuenta).
+  const [imputarConfirmOpen, setImputarConfirmOpen] = useState(false);
+  // Payload armado por handleImputarMonto a la espera del "Sí".
+  const [imputarPendiente, setImputarPendiente] =
+    useState<ImputarMontoPayload | null>(null);
+  // Banner verde de éxito; se limpia en la siguiente acción del flujo.
+  const [imputarExito, setImputarExito] = useState<string | null>(null);
 
   // ── Grid state ──
   const [rows, setRows] = useState<GridRow[]>([]);
@@ -511,6 +573,10 @@ export default function EstadoCuentaModal({
     setDocSustento("");
     setTotalAjustar("");
     setImputarAviso(null);
+    setImputando(false);
+    setImputarConfirmOpen(false);
+    setImputarPendiente(null);
+    setImputarExito(null);
     setRows([]);
     setCollapsedGroups({});
     setLastCriterio(null);
@@ -621,10 +687,13 @@ export default function EstadoCuentaModal({
   };
 
   // ── "Imputar Monto" (solo modo soloMostrar): valida los campos del
-  // documento de sustento y que haya deuda seleccionada en la tabla antes
-  // de procesar. El registro real de la imputación (SP) se conecta en la
-  // siguiente iteración del flujo. ──
+  // documento de sustento y que haya deuda seleccionada en la tabla, arma
+  // el payload legacy de sp_Compensarrecibosjson (las filas marcadas como
+  // @dataxml, el total a ajustar como @montoacuenta y el total de la
+  // selección como @monto) y pide confirmación antes de grabar. ──
   const handleImputarMonto = () => {
+    if (!soloMostrar) return;
+    setImputarExito(null);
     if (!nroDocSustento.trim()) {
       setImputarAviso("Ingrese el Nro. Doc. de sustento.");
       return;
@@ -646,10 +715,51 @@ export default function EstadoCuentaModal({
       return;
     }
     setImputarAviso(null);
-    // TODO: registrar la imputación del monto (SP pendiente) con
-    // nroDocSustento, docSustento, tipoDocSustentoId, totalAjustar y los
-    // recibos seleccionados.
+    // Misma selección que sumTotal: el total de las filas marcadas viaja
+    // como @monto (legacy txt_total) y el "Total a Ajustar" como
+    // @montoacuenta (legacy txtMontoajustar).
+    const montoTotal = sumTotal;
+    const montoAjustar = Number(totalAjustar);
+    setImputarPendiente({
+      codigo: contribuyente?.codigo ?? contribuyenteCodigo,
+      nroDocSustento,
+      docSustento,
+      tipoDocSustento: tipoDocSustentoId,
+      montoAjustar,
+      montoTotal,
+      operador: getStoredUser()?.username ?? "",
+      recibos: selected.map(toReciboCompensar),
+    });
+    setImputarConfirmOpen(true);
   };
+
+  /** Segunda mitad de handleImputarMonto: registra la imputación y al
+   *  éxito limpia el sustento, refresca la grilla con el mismo criterio
+   *  (igual que onSaved de GenerarDeudaModal) y muestra el banner verde. */
+  async function ejecutarImputacion(payload: ImputarMontoPayload) {
+    setImputando(true);
+    try {
+      const result = await imputarMontoAction(payload);
+      if (!result.success) {
+        setImputarAviso(result.error ?? "No se pudo registrar la imputación.");
+        return;
+      }
+      setImputarAviso(null);
+      setImputarExito("Imputación registrada correctamente.");
+      // Limpieza del documento de sustento y del total para la
+      // siguiente imputación.
+      setNroDocSustento("");
+      setDocSustento("");
+      setTipoDocSustentoId("");
+      setTotalAjustar("");
+      // Re-consulta de la grilla con el criterio vigente para reflejar
+      // la compensación de los recibos (legacy: mostrarRecContri()).
+      if (lastCriterio !== null) await handleMostrar(lastCriterio);
+    } finally {
+      setImputando(false);
+      setImputarPendiente(null);
+    }
+  }
 
   // ── "Generar Liquidación": collect selected receipts → POST → show report in modal ──
   const handleGenerarLiquidacion = async () => {
@@ -1206,9 +1316,9 @@ export default function EstadoCuentaModal({
           </fieldset>
 
           {/* ── 1b. Documento de Sustento (solo en modo soloMostrar: ajuste
-              de cuenta corriente; en DJ no existe). Los tres controles aún
-              no disparan nada: solo guardan estado para la siguiente
-              iteración del flujo de ajuste. ── */}
+              de cuenta corriente; en DJ no existe). Los tres controles
+              alimentan la imputación de monto (nro/doc/tipo viajan al SP
+              sp_Compensarrecibosjson). ── */}
           {soloMostrar && (
           <fieldset className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
             <legend className="px-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
@@ -1279,8 +1389,9 @@ export default function EstadoCuentaModal({
           )}
 
           {/* ── 1c. Imputación de monto (solo en modo soloMostrar: caja
-              "Total a Ajustar" + botón "Imputar Monto". El botón aún no
-              dispara nada; espera el SP/modo que registre la imputación). ── */}
+              "Total a Ajustar" + botón "Imputar Monto". Tras confirmar,
+              registra la compensación contra Rentas.sp_Compensarrecibosjson
+              con las filas seleccionadas). ── */}
           {soloMostrar && (
           <fieldset className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
             <legend className="px-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
@@ -1312,16 +1423,22 @@ export default function EstadoCuentaModal({
                 type="button"
                 aria-label="Imputar Monto"
                 title="Imputar Monto"
-                disabled={!totalAjustar.trim()}
+                disabled={!totalAjustar.trim() || imputando}
                 onClick={() => handleImputarMonto()}
                 className="inline-flex min-w-[110px] items-center justify-center gap-1.5 rounded px-2.5 py-1 text-[10px] font-medium text-white transition active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60 bg-sat-cyan hover:bg-cyan-600"
               >
+                {imputando && <Loader2 size={10} className="animate-spin" />}
                 Imputar Monto
               </button>
             </div>
             {imputarAviso && (
               <div className="mt-2 rounded border border-red-200 bg-red-50 px-3 py-1.5 text-[10px] text-red-700">
                 {imputarAviso}
+              </div>
+            )}
+            {imputarExito && (
+              <div className="mt-2 rounded border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[10px] text-emerald-700">
+                {imputarExito}
               </div>
             )}
           </fieldset>
@@ -1759,6 +1876,33 @@ export default function EstadoCuentaModal({
           if (pend) void continuarFraccionar(pend);
         }}
         onCancel={() => setFraccionarPendiente(null)}
+      />
+
+      {/* ══ Confirm: imputación de monto (solo modo soloMostrar). Mensajes
+          legacy del PHP: si el total a ajustar no cubre el total
+          seleccionado (pago a cuenta) avisa antes de cancelar. ══ */}
+      <ConfirmDialog
+        isOpen={imputarConfirmOpen}
+        title="Imputar Monto"
+        message={
+          imputarPendiente
+            ? imputarPendiente.montoTotal > imputarPendiente.montoAjustar &&
+                imputarPendiente.montoAjustar > 0
+              ? "Se realizara pago a cuenta, Seguro de Cancelar?"
+              : "Seguro de Cancelar?"
+            : ""
+        }
+        confirmLabel="Sí"
+        cancelLabel="No"
+        onConfirm={() => {
+          const payload = imputarPendiente;
+          setImputarConfirmOpen(false);
+          if (payload) void ejecutarImputacion(payload);
+        }}
+        onCancel={() => {
+          setImputarConfirmOpen(false);
+          setImputarPendiente(null);
+        }}
       />
 
       {/* Ver Fraccionamiento — listado de convenios del contribuyente con
