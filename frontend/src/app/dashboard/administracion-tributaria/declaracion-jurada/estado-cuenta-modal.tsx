@@ -451,7 +451,7 @@ export default function EstadoCuentaModal({
   // ── Full state reset — runs when the modal closes so reopening feels fresh ──
   const resetState = useCallback(() => {
     queryIdRef.current += 1; // invalidate any in-flight query
-    setFiltroEstado("pendiente");
+    setFiltroEstado(soloMostrar ? "todo" : "pendiente");
     setConsolidado(false);
     setVerResumen(true);
     setVerDetalle(true);
@@ -487,7 +487,7 @@ export default function EstadoCuentaModal({
     setIsFraccionarOpen(false);
     setFraccionarData(null);
     setIsVerFraccOpen(false);
-  }, []);
+  }, [soloMostrar]);
 
   useEffect(() => {
     if (!isOpen) resetState();
@@ -1107,7 +1107,9 @@ export default function EstadoCuentaModal({
             </div>
           </fieldset>
 
-          {/* ── 2. Filtros: Radio buttons + Legend + Options ── */}
+          {/* ── 2. Filtros: Radio buttons + Legend + Options
+              (oculto en modo soloMostrar; el estado arranca en "todo") ── */}
+          {!soloMostrar && (
           <fieldset className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
 
             {/* Radio buttons + Legend in the same row */}
@@ -1175,6 +1177,7 @@ export default function EstadoCuentaModal({
               ))}
             </div>
           </fieldset>
+          )}
 
           {/* ── 3. Filter groupboxes ── */}
           <fieldset className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
