@@ -138,6 +138,20 @@ const ARBITRIOS: { label: string; value: string }[] = [
   { label: "Serenazgo.", value: "*11.04*" },
 ];
 
+// Sanitiza "Total a Ajustar" (modo soloMostrar): solo dígitos y un punto,
+// con máximo dos decimales ("1234.5" ok; "1234.567" se corta a "1234.56";
+// "12.3.4" y letras se limpian).
+const sanitizeMontoAjuste = (raw: string): string => {
+  let value = raw.replace(/[^\d.]/g, "");
+  const punto = value.indexOf(".");
+  if (punto !== -1) {
+    value =
+      value.slice(0, punto + 1) + value.slice(punto + 1).replace(/\./g, "");
+  }
+  const [entera, decimales] = value.split(".");
+  return decimales !== undefined ? `${entera}.${decimales.slice(0, 2)}` : value;
+};
+
 // ─── Checkbox group sub-component ─────────────────────────
 
 // An option is either a plain string (label === value) or an object carrying
@@ -1253,7 +1267,11 @@ export default function EstadoCuentaModal({
                   inputMode="decimal"
                   placeholder="0.00"
                   value={totalAjustar}
-                  onChange={(e) => setTotalAjustar(e.target.value)}
+                  onChange={(e) => setTotalAjustar(sanitizeMontoAjuste(e.target.value))}
+                  onBlur={() =>
+                    // Punto colgante: "123." se normaliza a "123".
+                    setTotalAjustar((prev) => prev.replace(/\.$/, ""))
+                  }
                   className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-right text-[11px] text-slate-700"
                 />
               </div>
