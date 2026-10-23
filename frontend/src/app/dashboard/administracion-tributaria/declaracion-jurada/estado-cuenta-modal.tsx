@@ -47,6 +47,15 @@ interface EstadoCuentaModalProps {
   isOpen: boolean;
   onClose: () => void;
   contribuyente: ContribuyenteBasico | null;
+  /**
+   * Modo restringido: deja únicamente el botón "Mostrar" (consulta de la
+   * deuda) y oculta el resto de las acciones: la barra de Amnistía/Sin
+   * Multa/pagos/liquidación/fraccionamientos/coactivo/generar deuda y los
+   * stubs "Ver Detalle VT" / "Eliminar Acog." bajo la grilla. Lo usa la
+   * pantalla cobranza/ajuste-cuenta-corriente; DJ no lo pasa y mantiene
+   * todas las acciones.
+   */
+  soloMostrar?: boolean;
 }
 
 // ─── Legend items ──────────────────────────────────────────
@@ -356,6 +365,7 @@ export default function EstadoCuentaModal({
   isOpen,
   onClose,
   contribuyente,
+  soloMostrar = false,
 }: EstadoCuentaModalProps) {
   const backdropRef = useRef<HTMLDivElement>(null);
 
@@ -1336,7 +1346,8 @@ export default function EstadoCuentaModal({
 
             {/* Summary inputs + action buttons under grid */}
             <div className="mt-2 flex flex-wrap items-end gap-3">
-              {/* Action buttons left */}
+              {/* Action buttons left (ocultos en modo soloMostrar) */}
+              {!soloMostrar && (
               <div className="flex flex-wrap gap-1.5">
                 <button
                   type="button"
@@ -1357,6 +1368,7 @@ export default function EstadoCuentaModal({
                   Eliminar Acog.
                 </button>
               </div>
+              )}
 
               {/* Summary decimal inputs */}
               <div className="ml-auto flex gap-2">
@@ -1389,7 +1401,10 @@ export default function EstadoCuentaModal({
               the same min-width so the bar looks visually balanced. */}
           <div className="flex flex-wrap items-center justify-between gap-y-1.5 rounded-lg border border-slate-200 bg-slate-50/60 p-2.5">
             <div className="flex flex-wrap gap-1.5">
-              {ACTION_BUTTONS.filter((b) => b.label !== "Generar Liquidación").map((btn) => (
+              {(soloMostrar
+                ? ACTION_BUTTONS.filter((b) => b.label === "Mostrar")
+                : ACTION_BUTTONS.filter((b) => b.label !== "Generar Liquidación")
+              ).map((btn) => (
                 <button
                   key={btn.label}
                   type="button"
@@ -1432,7 +1447,7 @@ export default function EstadoCuentaModal({
             </div>
             {(() => {
               const generar = ACTION_BUTTONS.find((b) => b.label === "Generar Liquidación");
-              if (!generar) return null;
+              if (!generar || soloMostrar) return null;
               return (
                 <button
                   type="button"

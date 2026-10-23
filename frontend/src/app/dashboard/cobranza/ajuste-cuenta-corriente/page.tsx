@@ -902,10 +902,13 @@ export default function AjusteCuentaCorrientePage() {
       )}
 
       {/* Modal Estado de Cuenta (reutilizado de DJ): la acción "Ajuste Cta.
-          Corriente" abre el estado de cuenta del contribuyente de la fila. */}
+          Corriente" abre el estado de cuenta del contribuyente de la fila,
+          en modo soloMostrar (consulta de la deuda, sin el resto de
+          acciones que tiene DJ). */}
       <EstadoCuentaModal
         isOpen={!!ajusteItem}
         onClose={() => setAjusteItem(null)}
+        soloMostrar
         contribuyente={
           ajusteItem
             ? {
