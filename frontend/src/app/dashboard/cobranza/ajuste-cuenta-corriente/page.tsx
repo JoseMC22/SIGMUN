@@ -8,7 +8,8 @@
 // checkbox Infracción, skeleton, búsqueda automática al montar,
 // paginación y grilla con sus 3 layouts. Reutiliza el action de
 // búsqueda de DJ (sin backend nuevo). La única acción de fila es
-// "Ajuste Cta. Corriente", por ahora un stub "Por desarrollar".
+// "Ajuste Cta. Corriente", que abre el Estado de Cuenta del
+// contribuyente reutilizando el modal de DJ.
 // ─────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useCallback } from "react";
@@ -30,6 +31,7 @@ import type {
   ContribuyenteListItem,
   ContribuyentePlacaItem,
 } from "@/actions/administracion-tributaria/declaracion-jurada";
+import EstadoCuentaModal from "@/app/dashboard/administracion-tributaria/declaracion-jurada/estado-cuenta-modal";
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -117,6 +119,9 @@ export default function AjusteCuentaCorrientePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
+
+  // Fila cuyo Estado de Cuenta se abre con el botón "Ajuste Cta. Corriente".
+  const [ajusteItem, setAjusteItem] = useState<ContribuyenteAnyItem | null>(null);
 
   const executeSearch = useCallback(
     async (pageNum: number, overrideFilters?: typeof filters) => {
@@ -684,13 +689,13 @@ export default function AjusteCuentaCorrientePage() {
                 )}
                 <td className="px-2 py-2">
                   <div className="flex items-center justify-center gap-0.5">
-                    {/* Única acción de fila: ajuste de la cuenta corriente (stub) */}
+                    {/* Única acción de fila: ajuste de la cuenta corriente */}
                     <span className="group relative">
                       <button
                         type="button"
                         aria-label="Ajuste Cta. Corriente"
                         title="Ajuste Cta. Corriente"
-                        onClick={() => alert("Por desarrollar")}
+                        onClick={() => setAjusteItem(item)}
                         className="inline-flex items-center justify-center rounded p-1 text-amber-500 transition hover:bg-amber-50 active:scale-95"
                       >
                         <NotebookPen size={13} />
@@ -895,6 +900,31 @@ export default function AjusteCuentaCorrientePage() {
           {renderPagination()}
         </>
       )}
+
+      {/* Modal Estado de Cuenta (reutilizado de DJ): la acción "Ajuste Cta.
+          Corriente" abre el estado de cuenta del contribuyente de la fila. */}
+      <EstadoCuentaModal
+        isOpen={!!ajusteItem}
+        onClose={() => setAjusteItem(null)}
+        contribuyente={
+          ajusteItem
+            ? {
+                codigo: ajusteItem.codigo,
+                nombre:
+                  ("nombresCompletos" in ajusteItem
+                    ? ajusteItem.nombresCompletos
+                    : undefined) ??
+                  ("nombre" in ajusteItem ? ajusteItem.nombre : undefined) ??
+                  "",
+                documento: "numDoc" in ajusteItem ? ajusteItem.numDoc : "",
+                direccion:
+                  ("direFis" in ajusteItem ? ajusteItem.direFis : undefined) ??
+                  ("direccion" in ajusteItem ? ajusteItem.direccion : undefined) ??
+                  "",
+              }
+            : null
+        }
+      />
     </div>
   );
 }
