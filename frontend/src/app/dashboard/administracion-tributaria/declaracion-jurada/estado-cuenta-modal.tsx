@@ -433,9 +433,10 @@ export default function EstadoCuentaModal({
   const [docSustento, setDocSustento] = useState("");
 
   // ── Imputación de monto (solo modo soloMostrar): "Total a Ajustar" +
-  // botón "Imputar Monto". Aún no dispara nada: guarda estado hasta que
-  // se defina el SP/modo que registra la imputación. ──
+  // botón "Imputar Monto". Aún no registra nada: valida los campos y la
+  // deuda seleccionada hasta que se defina el SP/modo de la imputación. ──
   const [totalAjustar, setTotalAjustar] = useState("");
+  const [imputarAviso, setImputarAviso] = useState<string | null>(null);
 
   // ── Grid state ──
   const [rows, setRows] = useState<GridRow[]>([]);
@@ -509,6 +510,7 @@ export default function EstadoCuentaModal({
     setNroDocSustento("");
     setDocSustento("");
     setTotalAjustar("");
+    setImputarAviso(null);
     setRows([]);
     setCollapsedGroups({});
     setLastCriterio(null);
@@ -616,6 +618,37 @@ export default function EstadoCuentaModal({
     } finally {
       if (queryId === queryIdRef.current) setLoadingDeuda(false);
     }
+  };
+
+  // ── "Imputar Monto" (solo modo soloMostrar): valida los campos del
+  // documento de sustento y que haya deuda seleccionada en la tabla antes
+  // de procesar. El registro real de la imputación (SP) se conecta en la
+  // siguiente iteración del flujo. ──
+  const handleImputarMonto = () => {
+    if (!nroDocSustento.trim()) {
+      setImputarAviso("Ingrese el Nro. Doc. de sustento.");
+      return;
+    }
+    if (!docSustento.trim()) {
+      setImputarAviso("Ingrese el Doc. Sustento.");
+      return;
+    }
+    if (!tipoDocSustentoId) {
+      setImputarAviso("Seleccione el Tipo Doc.");
+      return;
+    }
+    if (!totalAjustar.trim()) {
+      setImputarAviso("Ingrese el Total a Ajustar.");
+      return;
+    }
+    if (!rows.some((r) => r.selected)) {
+      setImputarAviso("Seleccione al menos un recibo de la tabla de deuda.");
+      return;
+    }
+    setImputarAviso(null);
+    // TODO: registrar la imputación del monto (SP pendiente) con
+    // nroDocSustento, docSustento, tipoDocSustentoId, totalAjustar y los
+    // recibos seleccionados.
   };
 
   // ── "Generar Liquidación": collect selected receipts → POST → show report in modal ──
@@ -1280,14 +1313,17 @@ export default function EstadoCuentaModal({
                 aria-label="Imputar Monto"
                 title="Imputar Monto"
                 disabled={!totalAjustar.trim()}
-                onClick={() => {
-                  /* TODO: registrar la imputación del monto (SP pendiente). */
-                }}
+                onClick={() => handleImputarMonto()}
                 className="inline-flex min-w-[110px] items-center justify-center gap-1.5 rounded px-2.5 py-1 text-[10px] font-medium text-white transition active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60 bg-sat-cyan hover:bg-cyan-600"
               >
                 Imputar Monto
               </button>
             </div>
+            {imputarAviso && (
+              <div className="mt-2 rounded border border-red-200 bg-red-50 px-3 py-1.5 text-[10px] text-red-700">
+                {imputarAviso}
+              </div>
+            )}
           </fieldset>
           )}
 
