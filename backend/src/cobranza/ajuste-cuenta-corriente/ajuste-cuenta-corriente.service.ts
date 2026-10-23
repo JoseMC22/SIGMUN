@@ -91,12 +91,18 @@ export class AjusteCuentaCorrienteService {
       );
       return { success: true };
     } catch (error) {
+      const detalle =
+        error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `[AjusteCuentaCorriente] imputarMonto SP error: ${error instanceof Error ? error.message : String(error)}`,
+        `[AjusteCuentaCorriente] imputarMonto SP error: ${detalle}`,
       );
       return {
         success: false,
-        error: 'Error al registrar la imputación del monto',
+        // El SP legacy traga sus propios errores (los registra en
+        // Acceso.MDatosErrores y termina "bien"), así que cualquier texto
+        // que llegue acá es de conexión/parámetros: se muestra tal cual
+        // (acotado) para poder diagnosticar desde la pantalla.
+        error: `Error al registrar la imputación del monto: ${detalle.slice(0, 180)}`,
       };
     }
   }
