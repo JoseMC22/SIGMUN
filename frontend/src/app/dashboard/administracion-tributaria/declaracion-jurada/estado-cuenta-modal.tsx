@@ -418,6 +418,11 @@ export default function EstadoCuentaModal({
   const [nroDocSustento, setNroDocSustento] = useState("");
   const [docSustento, setDocSustento] = useState("");
 
+  // ── Imputación de monto (solo modo soloMostrar): "Total a Ajustar" +
+  // botón "Imputar Monto". Aún no dispara nada: guarda estado hasta que
+  // se defina el SP/modo que registra la imputación. ──
+  const [totalAjustar, setTotalAjustar] = useState("");
+
   // ── Grid state ──
   const [rows, setRows] = useState<GridRow[]>([]);
   const [loadingDeuda, setLoadingDeuda] = useState(false);
@@ -489,6 +494,7 @@ export default function EstadoCuentaModal({
     setTipoDocSustentoId("");
     setNroDocSustento("");
     setDocSustento("");
+    setTotalAjustar("");
     setRows([]);
     setCollapsedGroups({});
     setLastCriterio(null);
@@ -1221,6 +1227,48 @@ export default function EstadoCuentaModal({
                   ))}
                 </select>
               </div>
+            </div>
+          </fieldset>
+          )}
+
+          {/* ── 1c. Imputación de monto (solo en modo soloMostrar: caja
+              "Total a Ajustar" + botón "Imputar Monto". El botón aún no
+              dispara nada; espera el SP/modo que registre la imputación). ── */}
+          {soloMostrar && (
+          <fieldset className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+            <legend className="px-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+              Imputación de Monto
+            </legend>
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="flex w-40 flex-col gap-0.5">
+                <label
+                  htmlFor="ajuste-total"
+                  className="text-[10px] font-semibold text-slate-400 uppercase"
+                >
+                  Total a Ajustar
+                </label>
+                <input
+                  id="ajuste-total"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  value={totalAjustar}
+                  onChange={(e) => setTotalAjustar(e.target.value)}
+                  className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-right text-[11px] text-slate-700"
+                />
+              </div>
+              <button
+                type="button"
+                aria-label="Imputar Monto"
+                title="Imputar Monto"
+                disabled={!totalAjustar.trim()}
+                onClick={() => {
+                  /* TODO: registrar la imputación del monto (SP pendiente). */
+                }}
+                className="inline-flex min-w-[110px] items-center justify-center gap-1.5 rounded px-2.5 py-1 text-[10px] font-medium text-white transition active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60 bg-sat-cyan hover:bg-cyan-600"
+              >
+                Imputar Monto
+              </button>
             </div>
           </fieldset>
           )}
