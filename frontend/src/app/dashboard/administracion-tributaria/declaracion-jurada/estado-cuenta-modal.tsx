@@ -1337,7 +1337,7 @@ export default function EstadoCuentaModal({
                   type="text"
                   value={nroDocSustento}
                   onChange={(e) => setNroDocSustento(e.target.value)}
-                  className="rounded border border-slate-200 px-2 py-1 text-[11px]"
+                  className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-[11px] text-slate-700"
                 />
               </div>
               {/* Doc. Sustento. ocupa la mitad del ancho que venía tomando
@@ -1354,7 +1354,7 @@ export default function EstadoCuentaModal({
                   type="text"
                   value={docSustento}
                   onChange={(e) => setDocSustento(e.target.value)}
-                  className="w-full rounded border border-slate-200 px-2 py-1 text-[11px]"
+                  className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-[11px] text-slate-700"
                 />
               </div>
               {/* Combo Tipo Doc. ampliado un 50% (w-47.5 → w-71.25). */}
