@@ -16,6 +16,10 @@ import {
   type EstadoCuentaReciboRow,
   type FraccionarInicialData,
 } from "@/actions/administracion-tributaria/declaracion-jurada";
+import {
+  getTiposDocSustentoAction,
+  type TipoDocSustentoItem,
+} from "@/actions/cobranza/ajuste-cuenta-corriente";
 import { obtenerPlantillaReporteLiquidacionAction } from "@/actions/administracion-tributaria/reporte-liquidacion";
 import { construirHtmlReporteLiquidacion } from "./reportes/Liquidacion/reporte-liquidacion";
 import { obtenerPlantillaReporteVerPagosAction } from "@/actions/administracion-tributaria/reporte-ver-pagos";
@@ -403,6 +407,17 @@ export default function EstadoCuentaModal({
   );
   const [loadingFiltros, setLoadingFiltros] = useState(false);
 
+  // ── Documento de Sustento (solo modo soloMostrar: ajuste de cuenta
+  // corriente). Los tres controles aún no disparan nada: solo guardan
+  // estado para la siguiente iteración del flujo de ajuste. ──
+  const [tiposDocSustento, setTiposDocSustento] = useState<
+    TipoDocSustentoItem[]
+  >([]);
+  const [tiposDocLoading, setTiposDocLoading] = useState(false);
+  const [tipoDocSustentoId, setTipoDocSustentoId] = useState("");
+  const [nroDocSustento, setNroDocSustento] = useState("");
+  const [docSustento, setDocSustento] = useState("");
+
   // ── Grid state ──
   const [rows, setRows] = useState<GridRow[]>([]);
   const [loadingDeuda, setLoadingDeuda] = useState(false);
@@ -469,6 +484,11 @@ export default function EstadoCuentaModal({
     setPredioItems([]);
     setVehiculoItems([]);
     setFraccionamientoItems([]);
+    setTiposDocSustento([]);
+    setTiposDocLoading(false);
+    setTipoDocSustentoId("");
+    setNroDocSustento("");
+    setDocSustento("");
     setRows([]);
     setCollapsedGroups({});
     setLastCriterio(null);
@@ -1023,6 +1043,31 @@ export default function EstadoCuentaModal({
     };
   }, [isOpen, contribuyenteCodigo]);
 
+  // ── Documento de Sustento: combo de tipos (solo en modo soloMostrar) ──
+  // Se carga una vez al abrir el modal del ajuste; el combo es accesorio,
+  // así que un fallo solo se registra en consola y no bloquea el modal.
+  // Se difiere un tick para no llamar setState sincrónicamente dentro del
+  // efecto (mismo workaround que la búsqueda automática de cobranza).
+  useEffect(() => {
+    if (!isOpen || !soloMostrar || !contribuyenteCodigo) return;
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      setTiposDocLoading(true);
+      const result = await getTiposDocSustentoAction();
+      if (cancelled) return;
+      if (result.success) {
+        setTiposDocSustento(result.data);
+      } else {
+        console.error("[EstadoCuentaModal] tipos doc sustento:", result.error);
+      }
+      setTiposDocLoading(false);
+    }, 0);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [isOpen, soloMostrar, contribuyenteCodigo]);
+
   const handleToggle = useCallback(
     (setter: React.Dispatch<React.SetStateAction<Record<string, boolean>>>) =>
       (key: string, checked: boolean) =>
@@ -1106,6 +1151,76 @@ export default function EstadoCuentaModal({
               </div>
             </div>
           </fieldset>
+
+          {/* ── 1b. Documento de Sustento (solo en modo soloMostrar: ajuste
+              de cuenta corriente; en DJ no existe). Los tres controles aún
+              no disparan nada: solo guardan estado para la siguiente
+              iteración del flujo de ajuste. ── */}
+          {soloMostrar && (
+          <fieldset className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+            <legend className="px-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+              Documento de Sustento
+            </legend>
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="flex w-32 flex-col gap-0.5">
+                <label
+                  htmlFor="ajuste-nro-doc"
+                  className="text-[10px] font-semibold text-slate-400 uppercase"
+                >
+                  Nro. Doc.
+                </label>
+                <input
+                  id="ajuste-nro-doc"
+                  type="text"
+                  value={nroDocSustento}
+                  onChange={(e) => setNroDocSustento(e.target.value)}
+                  className="rounded border border-slate-200 px-2 py-1 text-[11px]"
+                />
+              </div>
+              <div className="flex min-w-60 flex-1 flex-col gap-0.5">
+                <label
+                  htmlFor="ajuste-doc-sustento"
+                  className="text-[10px] font-semibold text-slate-400 uppercase"
+                >
+                  Doc. Sustento.
+                </label>
+                <input
+                  id="ajuste-doc-sustento"
+                  type="text"
+                  value={docSustento}
+                  onChange={(e) => setDocSustento(e.target.value)}
+                  className="w-full rounded border border-slate-200 px-2 py-1 text-[11px]"
+                />
+              </div>
+              <div className="flex w-47.5 flex-col gap-0.5">
+                <label
+                  htmlFor="ajuste-tipo-doc"
+                  className="flex items-center gap-1 text-[10px] font-semibold text-slate-400 uppercase"
+                >
+                  {tiposDocLoading && (
+                    <Loader2 size={10} className="animate-spin" />
+                  )}
+                  Tipo Doc.
+                </label>
+                <select
+                  id="ajuste-tipo-doc"
+                  value={tipoDocSustentoId}
+                  onChange={(e) => setTipoDocSustentoId(e.target.value)}
+                  disabled={tiposDocLoading}
+                  className="rounded border border-slate-200 bg-white px-2 py-1 text-[11px] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {/* Placeholder legacy del combo #tipo_doc_sustento del PHP. */}
+                  <option value="">[Seleccione]</option>
+                  {tiposDocSustento.map((tipo) => (
+                    <option key={tipo.id} value={tipo.id}>
+                      {tipo.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </fieldset>
+          )}
 
           {/* ── 2. Filtros: Radio buttons + Legend + Options
               (oculto en modo soloMostrar; el estado arranca en "todo") ── */}
