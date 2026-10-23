@@ -1194,7 +1194,8 @@ export default function EstadoCuentaModal({
                   className="w-full rounded border border-slate-200 px-2 py-1 text-[11px]"
                 />
               </div>
-              <div className="flex w-47.5 flex-col gap-0.5">
+              {/* Combo Tipo Doc. ampliado un 50% (w-47.5 → w-71.25). */}
+              <div className="flex w-71.25 flex-col gap-0.5">
                 <label
                   htmlFor="ajuste-tipo-doc"
                   className="flex items-center gap-1 text-[10px] font-semibold text-slate-400 uppercase"
