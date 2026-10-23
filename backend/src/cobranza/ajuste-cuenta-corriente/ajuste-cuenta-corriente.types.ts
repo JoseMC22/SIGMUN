@@ -17,3 +17,13 @@ export interface AjusteTiposDocResult {
   data: TipoDocSustentoItem[];
   error?: string;
 }
+
+/**
+ * Resultado de la imputación de monto (Rentas.sp_Compensarrecibosjson).
+ * El legacy PHP no consumía el resultset del SP (solo lo corría), así que
+ * el contrato es solo éxito/error.
+ */
+export interface ImputarMontoResult {
+  success: boolean;
+  error?: string;
+}

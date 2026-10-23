@@ -1202,6 +1202,17 @@ export class DeclaracionJuradaService {
       benefic: num('descuento'),
       total: Number((impReaj + interes + costoEmision - totPagado).toFixed(2)),
       totPagado,
+      // Crudos sin transformar que la imputación de monto del ajuste de
+      // cuenta corriente necesita para armar el @dataxml legacy
+      // (sp_Compensarrecibosjson). Si el SP no trae la columna, str() ya
+      // da '' — inofensivo para el resto de la grilla.
+      estado: str('estado'),
+      fecVenc: str('fec_venc'),
+      fecPago: str('fec_pago'),
+      numIngr: str('num_ingr'),
+      fechIngr: str('fech_ing'),
+      factReaj: str('fact_reaj'),
+      factMora: str('fact_mora'),
     };
   }
 
