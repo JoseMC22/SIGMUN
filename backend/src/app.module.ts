@@ -24,6 +24,7 @@ import { ReporteFraccCuotasImpagasModule } from './cobranza/reporte-fracc-cuotas
 import { ConsultaValoresModule } from './cobranza/consulta-valores/consulta-valores.module';
 import { AnularValorModule } from './cobranza/anular-valor/anular-valor.module';
 import { GenerarOpModule } from './cobranza/generar-op/generar-op.module';
+import { AjusteCuentaCorrienteModule } from './cobranza/ajuste-cuenta-corriente/ajuste-cuenta-corriente.module';
 import { ReportesModule } from './reportes-gerenciales/reportes-gerenciales.module';
 import { MantenimientoUitModule } from './mantenimiento-tablas/mantenimiento-uit/mantenimiento-uit.module';
 import { ConvenioEstadoModule } from './mantenimiento-tablas/mantenimiento-estado-convenios/convenio-estado.module';
@@ -92,6 +93,8 @@ import { StorageModule } from './storage/storage.module';
     AnularValorModule,
     // Módulo de cobranza - generar orden de pago (proyección de estado de cuenta)
     GenerarOpModule,
+    // Módulo de cobranza - ajuste de cuenta corriente (tipos de doc de sustento)
+    AjusteCuentaCorrienteModule,
     // Módulo de reportes gerenciales
     ReportesModule,
     // Módulo de impuestos vehicular
