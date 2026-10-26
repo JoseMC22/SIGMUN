@@ -1410,10 +1410,12 @@ export default function EstadoCuentaModal({
               Imputación de Monto
             </legend>
             <div className="flex flex-wrap items-end gap-3">
-              <div className="flex w-40 flex-col gap-0.5">
+              {/* "Total a Ajustar" en la misma línea que su caja: label +
+                  input en fila (antes el label iba arriba). */}
+              <div className="flex items-center gap-2">
                 <label
                   htmlFor="ajuste-total"
-                  className="text-[10px] font-semibold text-slate-400 uppercase"
+                  className="whitespace-nowrap text-[10px] font-semibold text-slate-400 uppercase"
                 >
                   Total a Ajustar
                 </label>
@@ -1428,7 +1430,7 @@ export default function EstadoCuentaModal({
                     // Punto colgante: "123." se normaliza a "123".
                     setTotalAjustar((prev) => prev.replace(/\.$/, ""))
                   }
-                  className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-right text-[11px] text-slate-700"
+                  className="w-40 rounded border border-slate-300 bg-white px-2 py-1 text-right text-[11px] text-slate-700"
                 />
               </div>
               <button
