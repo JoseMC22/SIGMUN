@@ -16,13 +16,6 @@ import {
   type EstadoCuentaReciboRow,
   type FraccionarInicialData,
 } from "@/actions/administracion-tributaria/declaracion-jurada";
-import {
-  getTiposDocSustentoAction,
-  imputarMontoAction,
-  type TipoDocSustentoItem,
-  type ReciboCompensarItem,
-  type ImputarMontoPayload,
-} from "@/actions/cobranza/ajuste-cuenta-corriente";
 import { obtenerPlantillaReporteLiquidacionAction } from "@/actions/administracion-tributaria/reporte-liquidacion";
 import { construirHtmlReporteLiquidacion } from "./reportes/Liquidacion/reporte-liquidacion";
 import { obtenerPlantillaReporteVerPagosAction } from "@/actions/administracion-tributaria/reporte-ver-pagos";
@@ -50,68 +43,10 @@ interface ContribuyenteBasico {
 /** Grid row = backend receipt row + local selection flag. */
 type GridRow = EstadoCuentaReciboRow & { selected: boolean };
 
-/**
- * Fila de la grilla + los campos crudos que el backend agrega al row del
- * Estado de Cuenta para la imputación del ajuste (estado, fec_venc, ...).
- * El tipo del action de DJ no los declara, así que se puentean como
- * opcionales: llegan en el JSON del backend, con '' cuando el SP no trae
- * la columna.
- */
-type ImputarGridRow = GridRow & {
-  estado?: string;
-  fecVenc?: string;
-  fecPago?: string;
-  numIngr?: string;
-  fechIngr?: string;
-  factReaj?: string;
-  factMora?: string;
-};
-
-/**
- * Fila seleccionada → claves EXACTAS del legacy sp_Compensarrecibosjson
- * (el array que el PHP mandaba como @dataxml). Los números van como
- * números: la grilla ya es numérica, sin separadores de miles.
- */
-function toReciboCompensar(r: ImputarGridRow): ReciboCompensarItem {
-  return {
-    idrecibo: r.idrecibo,
-    codigo: r.codigo,
-    anno: r.anno,
-    cod_pred: r.codPred,
-    anexo: r.anexo,
-    sub_anexo: r.subAnexo,
-    tipo: r.tipo,
-    tipo_rec: r.tipoRec,
-    periodo: r.periodo,
-    imp_insol: r.impInsol,
-    fact_reaj: r.factReaj ?? "",
-    imp_reaj: r.impReaj,
-    fact_mora: r.factMora ?? "",
-    imp_mora: r.interes,
-    costo_emis: r.costoEmision,
-    estado: r.estado ?? "",
-    ubica: r.ubica,
-    fec_venc: r.fecVenc ?? "",
-    fec_pago: r.fecPago ?? "",
-    num_ingr: r.numIngr ?? "",
-    fech_ing: r.fechIngr ?? "",
-    montotal: r.total,
-  };
-}
-
 interface EstadoCuentaModalProps {
   isOpen: boolean;
   onClose: () => void;
   contribuyente: ContribuyenteBasico | null;
-  /**
-   * Modo restringido: deja únicamente el botón "Mostrar" (consulta de la
-   * deuda) y oculta el resto de las acciones: la barra de Amnistía/Sin
-   * Multa/pagos/liquidación/fraccionamientos/coactivo/generar deuda y los
-   * stubs "Ver Detalle VT" / "Eliminar Acog." bajo la grilla. Lo usa la
-   * pantalla cobranza/ajuste-cuenta-corriente; DJ no lo pasa y mantiene
-   * todas las acciones.
-   */
-  soloMostrar?: boolean;
 }
 
 // ─── Legend items ──────────────────────────────────────────
@@ -189,20 +124,6 @@ const ARBITRIOS: { label: string; value: string }[] = [
   { label: "Parq. Jard.", value: "*11.03*" },
   { label: "Serenazgo.", value: "*11.04*" },
 ];
-
-// Sanitiza "Total a Ajustar" (modo soloMostrar): solo dígitos y un punto,
-// con máximo dos decimales ("1234.5" ok; "1234.567" se corta a "1234.56";
-// "12.3.4" y letras se limpian).
-const sanitizeMontoAjuste = (raw: string): string => {
-  let value = raw.replace(/[^\d.]/g, "");
-  const punto = value.indexOf(".");
-  if (punto !== -1) {
-    value =
-      value.slice(0, punto + 1) + value.slice(punto + 1).replace(/\./g, "");
-  }
-  const [entera, decimales] = value.split(".");
-  return decimales !== undefined ? `${entera}.${decimales.slice(0, 2)}` : value;
-};
 
 // ─── Checkbox group sub-component ─────────────────────────
 
@@ -435,7 +356,6 @@ export default function EstadoCuentaModal({
   isOpen,
   onClose,
   contribuyente,
-  soloMostrar = false,
 }: EstadoCuentaModalProps) {
   const backdropRef = useRef<HTMLDivElement>(null);
 
@@ -472,33 +392,6 @@ export default function EstadoCuentaModal({
     [],
   );
   const [loadingFiltros, setLoadingFiltros] = useState(false);
-
-  // ── Documento de Sustento (solo modo soloMostrar: ajuste de cuenta
-  // corriente). Los tres controles alimentan la imputación de monto
-  // (nro/doc/tipo viajan al SP como @nro_doc_sustento/@doc_sustento/
-  // @tipo_doc_sustento). ──
-  const [tiposDocSustento, setTiposDocSustento] = useState<
-    TipoDocSustentoItem[]
-  >([]);
-  const [tiposDocLoading, setTiposDocLoading] = useState(false);
-  const [tipoDocSustentoId, setTipoDocSustentoId] = useState("");
-  const [nroDocSustento, setNroDocSustento] = useState("");
-  const [docSustento, setDocSustento] = useState("");
-
-  // ── Imputación de monto (solo modo soloMostrar): "Total a Ajustar" +
-  // botón "Imputar Monto". Tras validar, pide confirmación y registra la
-  // compensación contra Rentas.sp_Compensarrecibosjson. ──
-  const [totalAjustar, setTotalAjustar] = useState("");
-  const [imputarAviso, setImputarAviso] = useState<string | null>(null);
-  // Cargando el POST de la imputación (spinner + botón deshabilitado).
-  const [imputando, setImputando] = useState(false);
-  // Confirmación legacy antes de grabar (mensaje según pago a cuenta).
-  const [imputarConfirmOpen, setImputarConfirmOpen] = useState(false);
-  // Payload armado por handleImputarMonto a la espera del "Sí".
-  const [imputarPendiente, setImputarPendiente] =
-    useState<ImputarMontoPayload | null>(null);
-  // Banner verde de éxito; se limpia en la siguiente acción del flujo.
-  const [imputarExito, setImputarExito] = useState<string | null>(null);
 
   // ── Grid state ──
   const [rows, setRows] = useState<GridRow[]>([]);
@@ -548,7 +441,7 @@ export default function EstadoCuentaModal({
   // ── Full state reset — runs when the modal closes so reopening feels fresh ──
   const resetState = useCallback(() => {
     queryIdRef.current += 1; // invalidate any in-flight query
-    setFiltroEstado(soloMostrar ? "todo" : "pendiente");
+    setFiltroEstado("pendiente");
     setConsolidado(false);
     setVerResumen(true);
     setVerDetalle(true);
@@ -566,17 +459,6 @@ export default function EstadoCuentaModal({
     setPredioItems([]);
     setVehiculoItems([]);
     setFraccionamientoItems([]);
-    setTiposDocSustento([]);
-    setTiposDocLoading(false);
-    setTipoDocSustentoId("");
-    setNroDocSustento("");
-    setDocSustento("");
-    setTotalAjustar("");
-    setImputarAviso(null);
-    setImputando(false);
-    setImputarConfirmOpen(false);
-    setImputarPendiente(null);
-    setImputarExito(null);
     setRows([]);
     setCollapsedGroups({});
     setLastCriterio(null);
@@ -595,7 +477,7 @@ export default function EstadoCuentaModal({
     setIsFraccionarOpen(false);
     setFraccionarData(null);
     setIsVerFraccOpen(false);
-  }, [soloMostrar]);
+  }, []);
 
   useEffect(() => {
     if (!isOpen) resetState();
@@ -674,21 +556,7 @@ export default function EstadoCuentaModal({
       // Discard the result if the modal closed or a newer query started.
       if (queryId !== queryIdRef.current) return;
       if (result.success) {
-        // Modo Ajuste: la grilla de resultados solo muestra recibos
-        // pendientes (estado 0), con total mayor que cero y ubicación EM
-        // (emisión). Un recibo en cero no tiene deuda que imputar y
-        // cualquier otro estado/ubicación (cancelado, por compensar, VT,
-        // etc.) queda fuera. En DJ se mantiene el comportamiento original.
-        const visibleRows = soloMostrar
-          ? result.data.filter((r) => {
-              const estado = (r as ImputarGridRow).estado ?? "";
-              const ubica = (r.ubica ?? "").trim().toUpperCase();
-              return (
-                toNum(r.total) > 0 && estado.trim() === "0" && ubica === "EM"
-              );
-            })
-          : result.data;
-        setRows(visibleRows.map((r) => ({ ...r, selected: false })));
+        setRows(result.data.map((r) => ({ ...r, selected: false })));
         setCollapsedGroups({}); // fresh results start fully expanded
         setLastCriterio(criterio);
       } else {
@@ -699,91 +567,6 @@ export default function EstadoCuentaModal({
       if (queryId === queryIdRef.current) setLoadingDeuda(false);
     }
   };
-
-  // ── "Imputar Monto" (solo modo soloMostrar): valida los campos del
-  // documento de sustento y que haya deuda seleccionada en la tabla, arma
-  // el payload legacy de sp_Compensarrecibosjson (las filas marcadas como
-  // @dataxml, el total a ajustar como @montoacuenta y el total de la
-  // selección como @monto) y pide confirmación antes de grabar. ──
-  const handleImputarMonto = () => {
-    if (!soloMostrar) return;
-    setImputarExito(null);
-    if (!nroDocSustento.trim()) {
-      setImputarAviso("Ingrese el Nro. Doc. de sustento.");
-      return;
-    }
-    if (!docSustento.trim()) {
-      setImputarAviso("Ingrese el Doc. Sustento.");
-      return;
-    }
-    if (!tipoDocSustentoId) {
-      setImputarAviso("Seleccione el Tipo Doc.");
-      return;
-    }
-    if (!totalAjustar.trim()) {
-      setImputarAviso("Ingrese el Total a Ajustar.");
-      return;
-    }
-    if (!rows.some((r) => r.selected)) {
-      setImputarAviso("Seleccione al menos un recibo de la tabla de deuda.");
-      return;
-    }
-    setImputarAviso(null);
-    // Misma selección que sumTotal: el total de las filas marcadas viaja
-    // como @monto (legacy txt_total) y el "Total a Ajustar" como
-    // @montoacuenta (legacy txtMontoajustar).
-    const montoTotal = sumTotal;
-    const montoAjustar = Number(totalAjustar);
-    setImputarPendiente({
-      codigo: contribuyente?.codigo ?? contribuyenteCodigo,
-      nroDocSustento,
-      docSustento,
-      tipoDocSustento: tipoDocSustentoId,
-      montoAjustar,
-      montoTotal,
-      operador: getStoredUser()?.username ?? "",
-      recibos: selected.map(toReciboCompensar),
-    });
-    setImputarConfirmOpen(true);
-  };
-
-  /** Segunda mitad de handleImputarMonto: registra la imputación y al
-   *  éxito limpia el sustento, refresca la grilla con el mismo criterio
-   *  (igual que onSaved de GenerarDeudaModal) y muestra el banner verde. */
-  async function ejecutarImputacion(payload: ImputarMontoPayload) {
-    setImputando(true);
-    try {
-      const result = await imputarMontoAction(payload);
-      if (!result.success) {
-        setImputarAviso(result.error ?? "No se pudo registrar la imputación.");
-        return;
-      }
-      setImputarAviso(null);
-      setImputarExito("Imputación registrada correctamente.");
-      // Limpieza del documento de sustento y del total para la
-      // siguiente imputación.
-      setNroDocSustento("");
-      setDocSustento("");
-      setTipoDocSustentoId("");
-      setTotalAjustar("");
-      // Re-consulta de la grilla con el criterio vigente para reflejar
-      // la compensación de los recibos (legacy: mostrarRecContri()).
-      if (lastCriterio !== null) await handleMostrar(lastCriterio);
-    } catch (error) {
-      // La Server Action puede rechazar en el transporte (payload no
-      // serializable, error del server de Next, corte de red) antes de
-      // devolver el objeto { success }. Sin este catch el finally apagaba
-      // el spinner y el usuario no veía ningún mensaje.
-      setImputarAviso(
-        error instanceof Error && error.message
-          ? `Error al registrar la imputación: ${error.message}`
-          : "Error inesperado al registrar la imputación.",
-      );
-    } finally {
-      setImputando(false);
-      setImputarPendiente(null);
-    }
-  }
 
   // ── "Generar Liquidación": collect selected receipts → POST → show report in modal ──
   const handleGenerarLiquidacion = async () => {
@@ -1230,31 +1013,6 @@ export default function EstadoCuentaModal({
     };
   }, [isOpen, contribuyenteCodigo]);
 
-  // ── Documento de Sustento: combo de tipos (solo en modo soloMostrar) ──
-  // Se carga una vez al abrir el modal del ajuste; el combo es accesorio,
-  // así que un fallo solo se registra en consola y no bloquea el modal.
-  // Se difiere un tick para no llamar setState sincrónicamente dentro del
-  // efecto (mismo workaround que la búsqueda automática de cobranza).
-  useEffect(() => {
-    if (!isOpen || !soloMostrar || !contribuyenteCodigo) return;
-    let cancelled = false;
-    const t = setTimeout(async () => {
-      setTiposDocLoading(true);
-      const result = await getTiposDocSustentoAction();
-      if (cancelled) return;
-      if (result.success) {
-        setTiposDocSustento(result.data);
-      } else {
-        console.error("[EstadoCuentaModal] tipos doc sustento:", result.error);
-      }
-      setTiposDocLoading(false);
-    }, 0);
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-    };
-  }, [isOpen, soloMostrar, contribuyenteCodigo]);
-
   const handleToggle = useCallback(
     (setter: React.Dispatch<React.SetStateAction<Record<string, boolean>>>) =>
       (key: string, checked: boolean) =>
@@ -1313,13 +1071,7 @@ export default function EstadoCuentaModal({
 
         <div className="space-y-3 p-4">
           {/* ── 1. Contribuyente info ── */}
-          {/* Modo Ajuste: padding vertical reducido ~30% (12px → 8px) para
-              compactar el grupo; en DJ queda el p-3 original. */}
-          <fieldset
-            className={`rounded-lg border border-slate-200 bg-slate-50/60 px-3 ${
-              soloMostrar ? "py-2" : "py-3"
-            }`}
-          >
+          <fieldset className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
             <legend className="px-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
               Contribuyente
             </legend>
@@ -1345,142 +1097,7 @@ export default function EstadoCuentaModal({
             </div>
           </fieldset>
 
-          {/* ── 1b. Documento de Sustento (solo en modo soloMostrar: ajuste
-              de cuenta corriente; en DJ no existe). Los tres controles
-              alimentan la imputación de monto (nro/doc/tipo viajan al SP
-              sp_Compensarrecibosjson). ── */}
-          {soloMostrar && (
-          <fieldset className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2">
-            <legend className="px-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-              Documento de Sustento
-            </legend>
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="flex w-32 flex-col gap-0.5">
-                <label
-                  htmlFor="ajuste-nro-doc"
-                  className="text-[10px] font-semibold text-slate-400 uppercase"
-                >
-                  Nro. Doc.
-                </label>
-                <input
-                  id="ajuste-nro-doc"
-                  type="text"
-                  value={nroDocSustento}
-                  onChange={(e) => setNroDocSustento(e.target.value)}
-                  className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-[11px] text-slate-700"
-                />
-              </div>
-              {/* Doc. Sustento. ocupa la mitad del ancho que venía tomando
-                  (antes era flex-1 y estiraba todo el sobrante de la fila). */}
-              <div className="flex w-75 flex-col gap-0.5">
-                <label
-                  htmlFor="ajuste-doc-sustento"
-                  className="text-[10px] font-semibold text-slate-400 uppercase"
-                >
-                  Doc. Sustento.
-                </label>
-                <input
-                  id="ajuste-doc-sustento"
-                  type="text"
-                  value={docSustento}
-                  onChange={(e) => setDocSustento(e.target.value)}
-                  className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-[11px] text-slate-700"
-                />
-              </div>
-              {/* Combo Tipo Doc. ampliado un 50% (w-47.5 → w-71.25). */}
-              <div className="flex w-71.25 flex-col gap-0.5">
-                <label
-                  htmlFor="ajuste-tipo-doc"
-                  className="flex items-center gap-1 text-[10px] font-semibold text-slate-400 uppercase"
-                >
-                  {tiposDocLoading && (
-                    <Loader2 size={10} className="animate-spin" />
-                  )}
-                  Tipo Doc.
-                </label>
-                <select
-                  id="ajuste-tipo-doc"
-                  value={tipoDocSustentoId}
-                  onChange={(e) => setTipoDocSustentoId(e.target.value)}
-                  disabled={tiposDocLoading}
-                  className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-[11px] text-slate-700 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {/* Placeholder legacy del combo #tipo_doc_sustento del PHP. */}
-                  <option value="">[Seleccione]</option>
-                  {tiposDocSustento.map((tipo) => (
-                    <option key={tipo.id} value={tipo.id}>
-                      {tipo.nombre}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </fieldset>
-          )}
-
-          {/* ── 1c. Imputación de monto (solo en modo soloMostrar: caja
-              "Total a Ajustar" + botón "Imputar Monto". Tras confirmar,
-              registra la compensación contra Rentas.sp_Compensarrecibosjson
-              con las filas seleccionadas). ── */}
-          {soloMostrar && (
-          <fieldset className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2">
-            <legend className="px-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-              Imputación de Monto
-            </legend>
-            <div className="flex flex-wrap items-end gap-3">
-              {/* "Total a Ajustar" en la misma línea que su caja: label +
-                  input en fila (antes el label iba arriba). */}
-              <div className="flex items-center gap-2">
-                <label
-                  htmlFor="ajuste-total"
-                  className="whitespace-nowrap text-[10px] font-semibold text-slate-400 uppercase"
-                >
-                  Total a Ajustar
-                </label>
-                <input
-                  id="ajuste-total"
-                  type="text"
-                  inputMode="decimal"
-                  placeholder="0.00"
-                  value={totalAjustar}
-                  onChange={(e) => setTotalAjustar(sanitizeMontoAjuste(e.target.value))}
-                  onBlur={() =>
-                    // Punto colgante: "123." se normaliza a "123".
-                    setTotalAjustar((prev) => prev.replace(/\.$/, ""))
-                  }
-                  className="w-40 rounded border border-slate-300 bg-white px-2 py-1 text-right text-[11px] text-slate-700"
-                />
-              </div>
-              <button
-                type="button"
-                aria-label="Imputar Monto"
-                title="Imputar Monto"
-                disabled={!totalAjustar.trim() || imputando}
-                onClick={() => handleImputarMonto()}
-                className="inline-flex min-w-[110px] items-center justify-center gap-1.5 rounded px-2.5 py-1 text-[10px] font-medium text-white transition active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60 bg-sat-cyan hover:bg-cyan-600"
-              >
-                {imputando && <Loader2 size={10} className="animate-spin" />}
-                Imputar Monto
-              </button>
-              {/* Aviso/éxito en la MISMA línea que los controles: ocupan el
-                  sobrante de la fila y bajan solo si no hay ancho (wrap). */}
-              {imputarAviso && (
-                <div className="min-w-[180px] flex-1 rounded border border-red-200 bg-red-50 px-3 py-1.5 text-[10px] text-red-700">
-                  {imputarAviso}
-                </div>
-              )}
-              {imputarExito && (
-                <div className="min-w-[180px] flex-1 rounded border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[10px] text-emerald-700">
-                  {imputarExito}
-                </div>
-              )}
-            </div>
-          </fieldset>
-          )}
-
-          {/* ── 2. Filtros: Radio buttons + Legend + Options
-              (oculto en modo soloMostrar; el estado arranca en "todo") ── */}
-          {!soloMostrar && (
+          {/* ── 2. Filtros: Radio buttons + Legend + Options ── */}
           <fieldset className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
 
             {/* Radio buttons + Legend in the same row */}
@@ -1548,7 +1165,6 @@ export default function EstadoCuentaModal({
               ))}
             </div>
           </fieldset>
-          )}
 
           {/* ── 3. Filter groupboxes ── */}
           <fieldset className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
@@ -1624,21 +1240,14 @@ export default function EstadoCuentaModal({
             <legend className="px-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
               Detalle de Deuda
             </legend>
-            {/* Modo Ajuste: altura FIJA (no max-h) para que la ventana no
-                cambie de tamaño al mostrar resultados; el alto alcanza para
-                la cabecera de la tabla + una cabecera de grupo + 5
-                registros, y el resto se navega con scroll interno. En DJ se
-                mantiene el tope original. */}
+            {/* Capped height keeps the modal size stable regardless of how
+                many rows come back; the table scrolls inside. */}
             {deudaError ? (
               <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700">
                 {deudaError}
               </div>
             ) : (
-            <div
-              className={`overflow-auto rounded border border-slate-200 bg-white ${
-                soloMostrar ? "h-[184px] mb-[18px]" : "max-h-[420px]"
-              }`}
-            >
+            <div className="max-h-[420px] overflow-auto rounded border border-slate-200 bg-white">
               <table className="w-full border-separate border-spacing-0 text-[10px]">
                 <thead>
                   <tr>
@@ -1727,8 +1336,7 @@ export default function EstadoCuentaModal({
 
             {/* Summary inputs + action buttons under grid */}
             <div className="mt-2 flex flex-wrap items-end gap-3">
-              {/* Action buttons left (ocultos en modo soloMostrar) */}
-              {!soloMostrar && (
+              {/* Action buttons left */}
               <div className="flex flex-wrap gap-1.5">
                 <button
                   type="button"
@@ -1749,7 +1357,6 @@ export default function EstadoCuentaModal({
                   Eliminar Acog.
                 </button>
               </div>
-              )}
 
               {/* Summary decimal inputs */}
               <div className="ml-auto flex gap-2">
@@ -1782,10 +1389,7 @@ export default function EstadoCuentaModal({
               the same min-width so the bar looks visually balanced. */}
           <div className="flex flex-wrap items-center justify-between gap-y-1.5 rounded-lg border border-slate-200 bg-slate-50/60 p-2.5">
             <div className="flex flex-wrap gap-1.5">
-              {(soloMostrar
-                ? ACTION_BUTTONS.filter((b) => b.label === "Mostrar")
-                : ACTION_BUTTONS.filter((b) => b.label !== "Generar Liquidación")
-              ).map((btn) => (
+              {ACTION_BUTTONS.filter((b) => b.label !== "Generar Liquidación").map((btn) => (
                 <button
                   key={btn.label}
                   type="button"
@@ -1828,7 +1432,7 @@ export default function EstadoCuentaModal({
             </div>
             {(() => {
               const generar = ACTION_BUTTONS.find((b) => b.label === "Generar Liquidación");
-              if (!generar || soloMostrar) return null;
+              if (!generar) return null;
               return (
                 <button
                   type="button"
@@ -1917,41 +1521,6 @@ export default function EstadoCuentaModal({
           if (pend) void continuarFraccionar(pend);
         }}
         onCancel={() => setFraccionarPendiente(null)}
-      />
-
-      {/* ══ Confirm: imputación de monto (solo modo soloMostrar). Mensajes
-          legacy del PHP: si el total a ajustar no cubre el total
-          seleccionado (pago a cuenta) avisa antes de cancelar. ══ */}
-      <ConfirmDialog
-        isOpen={imputarConfirmOpen}
-        title="Imputar Monto"
-        message={
-          imputarPendiente
-            ? imputarPendiente.montoTotal > imputarPendiente.montoAjustar &&
-                imputarPendiente.montoAjustar > 0
-              ? "Se realizara pago a cuenta, Seguro de Cancelar?"
-              : "Seguro de Cancelar?"
-            : ""
-        }
-        confirmLabel="Sí"
-        cancelLabel="No"
-        onConfirm={() => {
-          const payload = imputarPendiente;
-          setImputarConfirmOpen(false);
-          if (!payload) {
-            // Sin payload no hay nada que enviar: avisar en vez de
-            // cerrar el diálogo en silencio.
-            setImputarAviso(
-              "No se pudo preparar la imputación. Verifique los datos e intente nuevamente.",
-            );
-            return;
-          }
-          void ejecutarImputacion(payload);
-        }}
-        onCancel={() => {
-          setImputarConfirmOpen(false);
-          setImputarPendiente(null);
-        }}
       />
 
       {/* Ver Fraccionamiento — listado de convenios del contribuyente con

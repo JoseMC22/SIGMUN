@@ -31,7 +31,7 @@ import type {
   ContribuyenteListItem,
   ContribuyentePlacaItem,
 } from "@/actions/administracion-tributaria/declaracion-jurada";
-import EstadoCuentaModal from "@/app/dashboard/administracion-tributaria/declaracion-jurada/estado-cuenta-modal";
+import EstadoCuentaAjusteModal from "@/app/dashboard/cobranza/ajuste-cuenta-corriente/components/estado-cuenta-ajuste-modal";
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -901,14 +901,12 @@ export default function AjusteCuentaCorrientePage() {
         </>
       )}
 
-      {/* Modal Estado de Cuenta (reutilizado de DJ): la acción "Ajuste Cta.
-          Corriente" abre el estado de cuenta del contribuyente de la fila,
-          en modo soloMostrar (consulta de la deuda, sin el resto de
-          acciones que tiene DJ). */}
-      <EstadoCuentaModal
+      {/* Modal Estado de Cuenta del ajuste: la acción "Ajuste Cta.
+          Corriente" abre el estado de cuenta del contribuyente de la fila
+          (consulta de la deuda, sin el resto de acciones que tiene DJ). */}
+      <EstadoCuentaAjusteModal
         isOpen={!!ajusteItem}
         onClose={() => setAjusteItem(null)}
-        soloMostrar
         contribuyente={
           ajusteItem
             ? {
