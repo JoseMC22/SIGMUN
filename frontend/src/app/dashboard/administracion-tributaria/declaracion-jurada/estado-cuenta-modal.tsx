@@ -1618,7 +1618,7 @@ export default function EstadoCuentaModal({
             ) : (
             <div
               className={`overflow-auto rounded border border-slate-200 bg-white ${
-                soloMostrar ? "h-[184px]" : "max-h-[420px]"
+                soloMostrar ? "h-[184px] mb-[18px]" : "max-h-[420px]"
               }`}
             >
               <table className="w-full border-separate border-spacing-0 text-[10px]">
