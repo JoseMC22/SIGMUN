@@ -1332,7 +1332,7 @@ export default function EstadoCuentaModal({
               alimentan la imputación de monto (nro/doc/tipo viajan al SP
               sp_Compensarrecibosjson). ── */}
           {soloMostrar && (
-          <fieldset className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+          <fieldset className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2">
             <legend className="px-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
               Documento de Sustento
             </legend>
@@ -1405,7 +1405,7 @@ export default function EstadoCuentaModal({
               registra la compensación contra Rentas.sp_Compensarrecibosjson
               con las filas seleccionadas). ── */}
           {soloMostrar && (
-          <fieldset className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+          <fieldset className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2">
             <legend className="px-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
               Imputación de Monto
             </legend>
