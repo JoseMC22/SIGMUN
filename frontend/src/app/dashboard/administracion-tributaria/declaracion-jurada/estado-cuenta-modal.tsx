@@ -1596,14 +1596,21 @@ export default function EstadoCuentaModal({
             <legend className="px-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
               Detalle de Deuda
             </legend>
-            {/* Capped height keeps the modal size stable regardless of how
-                many rows come back; the table scrolls inside. */}
+            {/* Modo Ajuste: altura FIJA (no max-h) para que la ventana no
+                cambie de tamaño al mostrar resultados; el alto alcanza para
+                la cabecera de la tabla + una cabecera de grupo + 5
+                registros, y el resto se navega con scroll interno. En DJ se
+                mantiene el tope original. */}
             {deudaError ? (
               <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700">
                 {deudaError}
               </div>
             ) : (
-            <div className="max-h-[420px] overflow-auto rounded border border-slate-200 bg-white">
+            <div
+              className={`overflow-auto rounded border border-slate-200 bg-white ${
+                soloMostrar ? "h-[184px]" : "max-h-[420px]"
+              }`}
+            >
               <table className="w-full border-separate border-spacing-0 text-[10px]">
                 <thead>
                   <tr>
