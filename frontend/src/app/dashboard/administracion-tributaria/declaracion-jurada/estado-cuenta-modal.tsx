@@ -769,6 +769,16 @@ export default function EstadoCuentaModal({
       // Re-consulta de la grilla con el criterio vigente para reflejar
       // la compensación de los recibos (legacy: mostrarRecContri()).
       if (lastCriterio !== null) await handleMostrar(lastCriterio);
+    } catch (error) {
+      // La Server Action puede rechazar en el transporte (payload no
+      // serializable, error del server de Next, corte de red) antes de
+      // devolver el objeto { success }. Sin este catch el finally apagaba
+      // el spinner y el usuario no veía ningún mensaje.
+      setImputarAviso(
+        error instanceof Error && error.message
+          ? `Error al registrar la imputación: ${error.message}`
+          : "Error inesperado al registrar la imputación.",
+      );
     } finally {
       setImputando(false);
       setImputarPendiente(null);
@@ -1928,7 +1938,15 @@ export default function EstadoCuentaModal({
         onConfirm={() => {
           const payload = imputarPendiente;
           setImputarConfirmOpen(false);
-          if (payload) void ejecutarImputacion(payload);
+          if (!payload) {
+            // Sin payload no hay nada que enviar: avisar en vez de
+            // cerrar el diálogo en silencio.
+            setImputarAviso(
+              "No se pudo preparar la imputación. Verifique los datos e intente nuevamente.",
+            );
+            return;
+          }
+          void ejecutarImputacion(payload);
         }}
         onCancel={() => {
           setImputarConfirmOpen(false);
