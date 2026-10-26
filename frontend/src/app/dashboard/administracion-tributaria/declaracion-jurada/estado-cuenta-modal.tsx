@@ -1295,7 +1295,13 @@ export default function EstadoCuentaModal({
 
         <div className="space-y-3 p-4">
           {/* ── 1. Contribuyente info ── */}
-          <fieldset className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+          {/* Modo Ajuste: padding vertical reducido ~30% (12px → 8px) para
+              compactar el grupo; en DJ queda el p-3 original. */}
+          <fieldset
+            className={`rounded-lg border border-slate-200 bg-slate-50/60 px-3 ${
+              soloMostrar ? "py-2" : "py-3"
+            }`}
+          >
             <legend className="px-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
               Contribuyente
             </legend>
