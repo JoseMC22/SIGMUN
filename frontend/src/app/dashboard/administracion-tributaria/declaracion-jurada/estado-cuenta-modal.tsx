@@ -1442,17 +1442,19 @@ export default function EstadoCuentaModal({
                 {imputando && <Loader2 size={10} className="animate-spin" />}
                 Imputar Monto
               </button>
+              {/* Aviso/éxito en la MISMA línea que los controles: ocupan el
+                  sobrante de la fila y bajan solo si no hay ancho (wrap). */}
+              {imputarAviso && (
+                <div className="min-w-[180px] flex-1 rounded border border-red-200 bg-red-50 px-3 py-1.5 text-[10px] text-red-700">
+                  {imputarAviso}
+                </div>
+              )}
+              {imputarExito && (
+                <div className="min-w-[180px] flex-1 rounded border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[10px] text-emerald-700">
+                  {imputarExito}
+                </div>
+              )}
             </div>
-            {imputarAviso && (
-              <div className="mt-2 rounded border border-red-200 bg-red-50 px-3 py-1.5 text-[10px] text-red-700">
-                {imputarAviso}
-              </div>
-            )}
-            {imputarExito && (
-              <div className="mt-2 rounded border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[10px] text-emerald-700">
-                {imputarExito}
-              </div>
-            )}
           </fieldset>
           )}
 
