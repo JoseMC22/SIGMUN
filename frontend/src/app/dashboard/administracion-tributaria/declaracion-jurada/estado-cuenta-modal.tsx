@@ -674,11 +674,16 @@ export default function EstadoCuentaModal({
       // Discard the result if the modal closed or a newer query started.
       if (queryId !== queryIdRef.current) return;
       if (result.success) {
-        // Modo Ajuste: la grilla de resultados solo muestra recibos con
-        // total mayor que cero (un recibo en cero no tiene deuda que
-        // imputar). En DJ se mantiene el comportamiento original.
+        // Modo Ajuste: la grilla de resultados solo muestra recibos
+        // pendientes (estado 0) con total mayor que cero. Un recibo en
+        // cero no tiene deuda que imputar y cualquier otro estado
+        // (cancelado, por compensar, etc.) queda fuera. En DJ se mantiene
+        // el comportamiento original.
         const visibleRows = soloMostrar
-          ? result.data.filter((r) => toNum(r.total) > 0)
+          ? result.data.filter((r) => {
+              const estado = (r as ImputarGridRow).estado ?? "";
+              return toNum(r.total) > 0 && estado.trim() === "0";
+            })
           : result.data;
         setRows(visibleRows.map((r) => ({ ...r, selected: false })));
         setCollapsedGroups({}); // fresh results start fully expanded
