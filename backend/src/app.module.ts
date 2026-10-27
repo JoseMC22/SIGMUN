@@ -17,6 +17,10 @@ import { MantenimientoViasModule } from './administracion-tributaria/mantenimien
 import { DeclaracionJuradaModule } from './administracion-tributaria/declaracion-jurada/declaracion-jurada.module';
 import { MaestroContribuyentesModule } from './administracion-tributaria/maestro-contribuyentes/maestro-contribuyentes.module';
 import { PrediosContribuyentesModule } from './administracion-tributaria/predios-contribuyentes/predios-contribuyentes.module';
+import { ReporteDeudaUsoModule } from './administracion-tributaria/reporte-deuda-uso/reporte-deuda-uso.module';
+import { ReporteInafectosModule } from './administracion-tributaria/reporte-inafectos/reporte-inafectos.module';
+import { ReporteIngresosCajeroModule } from './administracion-tributaria/reporte-ingresos-cajero/reporte-ingresos-cajero.module';
+import { ReporteIngresosGerenciaModule } from './administracion-tributaria/reporte-ingresos-gerencia/reporte-ingresos-gerencia.module';
 import { ContribuyentesSinValoresModule } from './cobranza/contribuyentes-sin-valores/contribuyentes-sin-valores.module';
 import { ReporteConstanciaNoAdeudoModule } from './cobranza/reporte-constancia-no-adeudo/reporte-constancia-no-adeudo.module';
 import { ReporteFraccCuotasImpagasModule } from './cobranza/reporte-fracc-cuotas-impagas/reporte-fracc-cuotas-impagas.module';
@@ -73,6 +77,14 @@ import { StorageModule } from './storage/storage.module';
     MaestroContribuyentesModule,
     // Módulo de administración tributaria - predios por contribuyente
     PrediosContribuyentesModule,
+    // Módulo de administración tributaria - reporte de deuda por uso
+    ReporteDeudaUsoModule,
+    // Módulo de administración tributaria - reporte de inafectos
+    ReporteInafectosModule,
+    // Módulo de administración tributaria - reporte de ingresos por cajero
+    ReporteIngresosCajeroModule,
+    // Módulo de administración tributaria - reporte de ingresos por gerencia
+    ReporteIngresosGerenciaModule,
     // Módulo de cobranza - contribuyentes sin valores tributarios
     ContribuyentesSinValoresModule,
     // Módulo de cobranza - reporte de constancias de no adeudo
