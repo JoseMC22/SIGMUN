@@ -359,7 +359,7 @@ body { margin-left: 0px; margin-right: 0px; }
 .copia { z-index: 1; position: absolute; left: 65%; bottom: 90%; }
 body,td,th { font-family: "Courier New", Courier, monospace; }
 </style>
-<script language="javascript">window.print(); window.close();</script>
+
 </head>
 <body>
 <table width="100%" style="border: 0px solid" id="muni">
@@ -508,7 +508,7 @@ body { margin-left: 0px; margin-right: 0px; }
 .copia { z-index: 1; position: absolute; left: 65%; bottom: 89.7%; }
 body,td,th { font-family: "Courier New", Courier, monospace; }
 </style>
-<script language="javascript">window.print(); window.close();</script>
+
 </head>
 <body>
 <table width="100%" border="0" cellspacing="0" cellpadding="0">

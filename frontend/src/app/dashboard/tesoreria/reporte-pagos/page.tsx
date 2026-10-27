@@ -53,6 +53,21 @@ async function handlePrint(row: ReportePagoRow) {
     w.document.open();
     w.document.write(html);
     w.document.close();
+    w.focus();
+    setTimeout(() => {
+      try {
+        w.print();
+      } catch {
+        // ignore
+      }
+    }, 300);
+    w.onafterprint = () => {
+      try {
+        w.close();
+      } catch {
+        // ignore
+      }
+    };
   } catch (err) {
     w.document.open();
     w.document.write("<p>Error al obtener el recibo.</p>");
