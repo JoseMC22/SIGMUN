@@ -3,8 +3,9 @@ import { z } from 'zod';
 /**
  * Search criteria for "Reporte Pagos" (`Caja.sp_rptTesoreria` @buscar=9).
  *
- * Dates arrive from the UI as ISO `YYYY-MM-DD` and are forwarded to the SP
- * as `DD/MM/YYYY`, because the SP runs `set dateformat dmy`.
+ * Dates arrive from the UI as ISO `YYYY-MM-DD` and are forwarded to the query
+ * as `DD/MM/YYYY` with explicit `00:00:00` / `23:59:59` bounds (the SP does
+ * the same, so the whole last day is included).
  */
 export const SearchReportePagosSchema = z
   .object({
@@ -27,6 +28,8 @@ export const SearchReportePagosSchema = z
     papeleta: z.string().trim().max(15).optional(),
     talonario: z.string().trim().max(2).optional(),
     anio: z.string().trim().max(4).optional(),
+    page: z.coerce.number().int().min(1).default(1),
+    page_size: z.coerce.number().int().min(1).max(200).default(100),
   })
   .refine((dto) => dto.fecha_inicio <= dto.fecha_fin, {
     message: 'La fecha de inicio no puede ser mayor que la fecha de fin',

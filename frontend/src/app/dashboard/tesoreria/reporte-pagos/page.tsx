@@ -9,6 +9,8 @@ import {
   FolderSearch,
   Wallet,
   Eraser,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import {
   searchReportePagosAction,
@@ -112,68 +114,88 @@ export default function ReportePagosPage() {
   const [data, setData] = useState<ReportePagoRow[]>([]);
   const [total, setTotal] = useState(0);
   const [montoTotal, setMontoTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(100);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // ── Construir filtros actuales ───────────────────────────
 
-  const buildFilters = useCallback((): ReportePagosFilters => {
-    return {
-      fecha_inicio: fechaInicio,
-      fecha_fin: fechaFin,
-      recibo: recibo.trim() || undefined,
-      codigo: codigo.trim() || undefined,
-      contribuyente: contribuyente.trim() || undefined,
-      placa: placa.trim() || undefined,
-      papeleta: papeleta.trim() || undefined,
-      talonario: talonario.trim() || "01",
-      anio: anio.trim() || String(CURRENT_YEAR),
-    };
-  }, [
-    fechaInicio,
-    fechaFin,
-    recibo,
-    codigo,
-    contribuyente,
-    placa,
-    papeleta,
-    talonario,
-    anio,
-  ]);
+  const buildFilters = useCallback(
+    (targetPage: number, targetSize: number): ReportePagosFilters => {
+      return {
+        fecha_inicio: fechaInicio,
+        fecha_fin: fechaFin,
+        recibo: recibo.trim() || undefined,
+        codigo: codigo.trim() || undefined,
+        contribuyente: contribuyente.trim() || undefined,
+        placa: placa.trim() || undefined,
+        papeleta: papeleta.trim() || undefined,
+        talonario: talonario.trim() || "01",
+        anio: anio.trim() || String(CURRENT_YEAR),
+        page: targetPage,
+        page_size: targetSize,
+      };
+    },
+    [
+      fechaInicio,
+      fechaFin,
+      recibo,
+      codigo,
+      contribuyente,
+      placa,
+      papeleta,
+      talonario,
+      anio,
+    ],
+  );
 
   // ── executeSearch ────────────────────────────────────────
 
-  const executeSearch = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await searchReportePagosAction(buildFilters());
-      if (result.success) {
-        setData(result.data);
-        setTotal(result.total);
-        setMontoTotal(result.monto_total);
-      } else {
-        setError(result.error ?? "Error al consultar el reporte de pagos");
+  const executeSearch = useCallback(
+    async (targetPage?: number, targetSize?: number) => {
+      const nextPage = targetPage ?? page;
+      const nextSize = targetSize ?? pageSize;
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await searchReportePagosAction(
+          buildFilters(nextPage, nextSize),
+        );
+        if (result.success) {
+          setData(result.data);
+          setTotal(result.total);
+          setMontoTotal(result.monto_total);
+          setPage(result.page);
+          setPageSize(result.page_size);
+          setTotalPages(result.total_pages);
+        } else {
+          setError(result.error ?? "Error al consultar el reporte de pagos");
+          setData([]);
+          setTotal(0);
+          setMontoTotal(0);
+          setTotalPages(1);
+        }
+      } catch {
+        setError("Error de conexión");
         setData([]);
         setTotal(0);
         setMontoTotal(0);
+        setTotalPages(1);
+      } finally {
+        setLoading(false);
+        setInitialLoading(false);
       }
-    } catch {
-      setError("Error de conexión");
-      setData([]);
-      setTotal(0);
-      setMontoTotal(0);
-    } finally {
-      setLoading(false);
-      setInitialLoading(false);
-    }
-  }, [buildFilters]);
+    },
+    [buildFilters, page, pageSize],
+  );
 
   // ── Carga inicial (el legacy autoload con fecha de hoy) ──
 
   useEffect(() => {
-    const t = setTimeout(() => executeSearch(), 0);
+    const t = setTimeout(() => executeSearch(1, 100), 0);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -181,7 +203,7 @@ export default function ReportePagosPage() {
   // ── Handlers ─────────────────────────────────────────────
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") executeSearch();
+    if (e.key === "Enter") executeSearch(1, pageSize);
   };
 
   const handleLimpiar = () => {
@@ -198,6 +220,8 @@ export default function ReportePagosPage() {
     setData([]);
     setTotal(0);
     setMontoTotal(0);
+    setPage(1);
+    setTotalPages(1);
   };
 
   // ── Search Form ──────────────────────────────────────────
@@ -365,7 +389,7 @@ export default function ReportePagosPage() {
           <div className="md:col-span-3 flex items-center gap-2">
             <button
               type="button"
-              onClick={executeSearch}
+              onClick={() => executeSearch(1, pageSize)}
               disabled={loading}
               className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-3.5 py-1.5 text-[11px] font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
             >
@@ -462,7 +486,7 @@ export default function ReportePagosPage() {
                 colSpan={6}
                 className="px-2 py-2 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-500"
               >
-                Total
+                Total ({total} {total === 1 ? "pago" : "pagos"})
               </td>
               <td className="px-2 py-2 text-right text-[11px] font-bold font-mono text-sat-navy">
                 {formatMonto(montoTotal)}
@@ -483,6 +507,55 @@ export default function ReportePagosPage() {
         <span className="font-semibold text-slate-700">{total}</span>{" "}
         {total === 1 ? "pago" : "pagos"}
       </span>
+    </div>
+  );
+
+  // ── Paginación ───────────────────────────────────────────
+
+  const renderPagination = () => (
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 animate-fade-in">
+      <div className="text-[11px] text-slate-500">
+        Página <span className="font-semibold text-slate-700">{page}</span> de{" "}
+        <span className="font-semibold text-slate-700">{totalPages}</span>
+        <span className="text-slate-400"> · {total} pagos</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <label
+          htmlFor="pageSize"
+          className="text-[9px] font-semibold uppercase tracking-wider text-slate-400"
+        >
+          Filas
+        </label>
+        <select
+          id="pageSize"
+          value={pageSize}
+          onChange={(e) => executeSearch(1, Number(e.target.value))}
+          disabled={loading}
+          className="rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] text-slate-700 focus:outline-none focus:ring-2 focus:ring-sat-cyan/20 disabled:opacity-50"
+        >
+          <option value={50}>50</option>
+          <option value={100}>100</option>
+          <option value={200}>200</option>
+        </select>
+        <button
+          type="button"
+          onClick={() => executeSearch(page - 1, pageSize)}
+          disabled={loading || page <= 1}
+          className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 hover:text-sat-navy focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <ChevronLeft size={13} />
+          Anterior
+        </button>
+        <button
+          type="button"
+          onClick={() => executeSearch(page + 1, pageSize)}
+          disabled={loading || page >= totalPages}
+          className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 hover:text-sat-navy focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          Siguiente
+          <ChevronRight size={13} />
+        </button>
+      </div>
     </div>
   );
 
@@ -512,7 +585,7 @@ export default function ReportePagosPage() {
       <p className="text-sm font-medium text-red-600">{error}</p>
       <button
         type="button"
-        onClick={executeSearch}
+        onClick={() => executeSearch()}
         className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-red-600 px-4 py-1.5 text-xs font-medium text-white transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400/40"
       >
         <RotateCcw size={13} />
@@ -571,6 +644,9 @@ export default function ReportePagosPage() {
           </div>
         </div>
       )}
+
+      {/* Paginación */}
+      {!loading && !error && data.length > 0 && renderPagination()}
 
       {/* Loading state */}
       {loading && initialLoading && <TableSkeleton />}

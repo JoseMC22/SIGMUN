@@ -21,10 +21,14 @@ export interface ReportePagoRow {
 /** Envelope devuelto por el endpoint de búsqueda. */
 export interface ReportePagosResult {
   success: boolean;
+  /** Solo la página pedida. */
   data: ReportePagoRow[];
-  /** Cantidad de filas devueltas. */
+  /** Cantidad total de filas del filtro (todas las páginas). */
   total: number;
-  /** Suma de `monto` redondeada a 2 decimales (total al pie del legacy). */
+  /** Suma de `monto` de todo el filtro, redondeada a 2 decimales. */
   monto_total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
   error?: string;
 }

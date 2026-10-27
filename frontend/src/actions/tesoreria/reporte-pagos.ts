@@ -39,10 +39,15 @@ export interface ReportePagoRow {
 
 export interface ReportePagosResult {
   success: boolean;
+  /** Solo la página pedida. */
   data: ReportePagoRow[];
+  /** Cantidad total de filas del filtro (todas las páginas). */
   total: number;
-  /** Suma de `monto` redondeada a 2 decimales. */
+  /** Suma de `monto` de todo el filtro, redondeada a 2 decimales. */
   monto_total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
   error?: string;
 }
 
@@ -56,6 +61,8 @@ export interface ReportePagosFilters {
   papeleta?: string;
   talonario?: string;
   anio?: string;
+  page?: number;
+  page_size?: number;
 }
 
 // ── Server Action ─────────────────────────────────────────
@@ -81,6 +88,9 @@ export async function searchReportePagosAction(
         data: [],
         total: 0,
         monto_total: 0,
+        page: filters.page ?? 1,
+        page_size: filters.page_size ?? 100,
+        total_pages: 1,
         error: Array.isArray(error) ? error.join(", ") : String(error),
       };
     }
@@ -92,6 +102,9 @@ export async function searchReportePagosAction(
         data: [],
         total: 0,
         monto_total: 0,
+        page: filters.page ?? 1,
+        page_size: filters.page_size ?? 100,
+        total_pages: 1,
         error: json.error ?? "Error al consultar el reporte de pagos",
       };
     }
@@ -101,6 +114,9 @@ export async function searchReportePagosAction(
       data: json.data ?? [],
       total: json.total ?? 0,
       monto_total: json.monto_total ?? 0,
+      page: json.page ?? filters.page ?? 1,
+      page_size: json.page_size ?? filters.page_size ?? 100,
+      total_pages: json.total_pages ?? 1,
     };
   } catch {
     return {
@@ -108,6 +124,9 @@ export async function searchReportePagosAction(
       data: [],
       total: 0,
       monto_total: 0,
+      page: filters.page ?? 1,
+      page_size: filters.page_size ?? 100,
+      total_pages: 1,
       error: "Error de conexión con el servidor",
     };
   }
