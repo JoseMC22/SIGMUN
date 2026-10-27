@@ -11,6 +11,7 @@ import {
   Eraser,
   ChevronLeft,
   ChevronRight,
+  Printer,
 } from "lucide-react";
 import {
   searchReportePagosAction,
@@ -23,6 +24,41 @@ import type {
 // ── Helpers ───────────────────────────────────────────────
 
 const CURRENT_YEAR = new Date().getFullYear();
+
+/**
+ * Base del sistema legacy (PHP) donde viven los endpoints de reimpresión de
+ * recibos. Configurable por env; por defecto el host donde corre el legacy.
+ */
+const LEGACY_BASE_URL = (
+  process.env.NEXT_PUBLIC_LEGACY_URL ?? "http://192.168.3.203:8086/"
+).replace(/\/?$/, "/");
+
+/** Devuelve la URL de reimpresión del recibo según su tipo, o null si no aplica. */
+function getPrintUrl(row: ReportePagoRow): string | null {
+  const tipo = (row.tipo_operacion ?? "").trim();
+  const codigo = row.codigo ?? "";
+  const recibo = row.recibo;
+  if (tipo === "1" && codigo.charAt(0) !== "P") {
+    return `${LEGACY_BASE_URL}tesoprepago/imprimirrecibopagos?nrorecibo=${recibo}&reimp=1`;
+  }
+  if (tipo === "2") {
+    return `${LEGACY_BASE_URL}tesopagostupa/imprimirrecibopagostupa?nrorecibo=${recibo}&reimp=1`;
+  }
+  if (tipo === "1" && codigo.charAt(0) === "P") {
+    return `${LEGACY_BASE_URL}tesoprepago/imprimirrecibopagospape?nrorecibo=${recibo}&reimp=1`;
+  }
+  return null;
+}
+
+function handlePrint(row: ReportePagoRow) {
+  const url = getPrintUrl(row);
+  if (!url) return;
+  window.open(
+    url,
+    "_blank",
+    "width=570,height=500,scrollbars=no,menubar=no,location=no,resizable=no,status=no,directories=no",
+  );
+}
 
 function todayISO(): string {
   const d = new Date();
@@ -70,7 +106,7 @@ function TableSkeleton() {
     >
       <div className="animate-pulse">
         <div className="bg-slate-100 border-b border-slate-200 px-3 py-2.5">
-          <div className="grid grid-cols-9 gap-4">
+          <div className="grid grid-cols-10 gap-4">
             {[...Array(9)].map((_, i) => (
               <div key={i} className="h-3 bg-slate-200 rounded w-3/4" />
             ))}
@@ -78,7 +114,7 @@ function TableSkeleton() {
         </div>
         {[...Array(6)].map((_, i) => (
           <div key={i} className="px-3 py-3 border-b border-slate-100">
-            <div className="grid grid-cols-9 gap-4">
+            <div className="grid grid-cols-10 gap-4">
               {[...Array(9)].map((_, j) => (
                 <div
                   key={j}
@@ -445,6 +481,12 @@ export default function ReportePagosPage() {
                   {column.label}
                 </th>
               ))}
+              <th
+                scope="col"
+                className="text-[9px] font-semibold text-white/90 uppercase px-2 py-2 border-b border-white/5 text-center whitespace-nowrap w-12"
+              >
+                Imprimir
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -477,6 +519,20 @@ export default function ReportePagosPage() {
                     </td>
                   );
                 })}
+                <td className="px-2 py-1.5 text-center">
+                  {getPrintUrl(row) ? (
+                    <button
+                      type="button"
+                      onClick={() => handlePrint(row)}
+                      title="Detalle del Recibo"
+                      className="inline-flex items-center justify-center rounded-md p-1 text-slate-500 transition hover:bg-slate-100 hover:text-sat-navy focus:outline-none focus:ring-2 focus:ring-sat-cyan/40"
+                    >
+                      <Printer size={13} />
+                    </button>
+                  ) : (
+                    <span className="text-slate-300">—</span>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -491,7 +547,7 @@ export default function ReportePagosPage() {
               <td className="px-2 py-2 text-right text-[11px] font-bold font-mono text-sat-navy">
                 {formatMonto(montoTotal)}
               </td>
-              <td colSpan={2} />
+              <td colSpan={3} />
             </tr>
           </tfoot>
         </table>
