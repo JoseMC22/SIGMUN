@@ -36,18 +36,27 @@ function getPrintTipo(row: ReportePagoRow): string | null {
 async function handlePrint(row: ReportePagoRow) {
   const tipo = getPrintTipo(row);
   if (!tipo) return;
+  // Abrir la ventana sincronicamente (dentro del gesto del usuario) para
+  // evitar que el bloqueador de popups la cierre.
+  const w = window.open(
+    "",
+    "_blank",
+    "width=570,height=500,scrollbars=no,menubar=no,location=no,resizable=no,status=no,directories=no",
+  );
+  if (!w) {
+    alert("El navegador bloqueo la ventana de impresion. Permitila para este sitio.");
+    return;
+  }
+  w.document.write("<p>Cargando recibo...</p>");
   try {
     const html = await fetchReciboHtml(row.recibo, tipo, true);
-    const w = window.open(
-      "",
-      "_blank",
-      "width=570,height=500,scrollbars=no,menubar=no,location=no,resizable=no,status=no,directories=no",
-    );
-    if (!w) return;
     w.document.open();
     w.document.write(html);
     w.document.close();
   } catch (err) {
+    w.document.open();
+    w.document.write("<p>Error al obtener el recibo.</p>");
+    w.document.close();
     console.error("Error al obtener el recibo:", err);
   }
 }
