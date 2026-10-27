@@ -272,7 +272,7 @@ export class ReportePagosService {
   private async getReciboSismuniHtml(numIngr: string, reimp: boolean): Promise<string> {
     const result = await this.db.executeProcedure<any>(
       'Caja.sp_Recibos_emitidos_sat',
-      { buscar: 5, num_ingr: numIngr },
+      { buscar: 5, codigo: '', num_ingr: numIngr, cod_pred: '', anexo: '', sub_anexo: '', tipo: '', anno: '' },
     );
     const rows: any[] = result.recordset ?? [];
     if (rows.length === 0) {
@@ -451,7 +451,7 @@ body,td,th { font-family: "Courier New", Courier, monospace; }
   private async getReciboTupaHtml(numIngr: string, reimp: boolean): Promise<string> {
     const result = await this.db.executeProcedure<any>(
       'Caja.sp_Recibos_emitidos_ndiseno',
-      { buscar: 6, num_ingr: numIngr },
+      { buscar: 6, codigo: '', num_ingr: numIngr, cod_pred: '', anexo: '', sub_anexo: '', tipo: '' },
     );
     const rows: any[] = result.recordset ?? [];
     if (rows.length === 0) {
