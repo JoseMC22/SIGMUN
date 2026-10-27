@@ -33,6 +33,7 @@ import { PapeletaTransitoModule } from './papeleta-transito/papeleta-transito.mo
 import { AsesoriaLegalModule } from './asesoria-legal/asesoria-legal.module';
 import { MantenimientoIngresosModule } from './tesoreria/mantenimiento-ingresos/mantenimiento-ingresos.module';
 import { CuadreCajaModule } from './tesoreria/cuadre-caja/cuadre-caja.module';
+import { ReportePagosModule } from './tesoreria/reporte-pagos/reporte-pagos.module';
 import { StorageModule } from './storage/storage.module';
 
 @Module({
@@ -121,6 +122,8 @@ import { StorageModule } from './storage/storage.module';
     MantenimientoIngresosModule,
     // Módulo de tesorería - cuadre de caja
     CuadreCajaModule,
+    // Módulo de tesorería - reporte de pagos (parte diario)
+    ReportePagosModule,
     // Módulo de Almacenamiento (NAS / Archivos)
     StorageModule,
   ],
