@@ -52,6 +52,11 @@ function asNumber(value: any): number {
 export class ReportePagosService {
   private readonly logger = new Logger(ReportePagosService.name);
 
+  // Cache en memoria del HTML del recibo (TTL 5 min) para que las
+  // reimpresiones del mismo recibo sean instantaneas.
+  private readonly reciboCache = new Map<string, { html: string; ts: number }>();
+  private readonly RECIBO_CACHE_TTL = 5 * 60 * 1000;
+
   constructor(private readonly db: DatabaseService) {}
 
   async search(dto: SearchReportePagosDto): Promise<ReportePagosResult> {
@@ -263,10 +268,24 @@ export class ReportePagosService {
   }
 
   async getReciboHtml(numIngr: string, tipo: string, reimp: boolean): Promise<string> {
-    if (tipo === '2') {
-      return this.getReciboTupaHtml(numIngr, reimp);
+    const key = numIngr + '|' + tipo + '|' + (reimp ? 1 : 0);
+    const cached = this.reciboCache.get(key);
+    if (cached && Date.now() - cached.ts < this.RECIBO_CACHE_TTL) {
+      this.logger.log('[ReportePagos] recibo ' + numIngr + ' desde cache');
+      return cached.html;
     }
-    return this.getReciboSismuniHtml(numIngr, reimp);
+    const html =
+      tipo === '2'
+        ? await this.getReciboTupaHtml(numIngr, reimp)
+        : await this.getReciboSismuniHtml(numIngr, reimp);
+    this.reciboCache.set(key, { html, ts: Date.now() });
+    if (this.reciboCache.size > 200) {
+      const now = Date.now();
+      for (const [k, v] of this.reciboCache) {
+        if (now - v.ts > this.RECIBO_CACHE_TTL) this.reciboCache.delete(k);
+      }
+    }
+    return html;
   }
 
   private async getReciboSismuniHtml(numIngr: string, reimp: boolean): Promise<string> {
