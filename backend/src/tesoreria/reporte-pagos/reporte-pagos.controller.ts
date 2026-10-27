@@ -1,11 +1,15 @@
 import {
   Controller,
   Post,
+  Get,
   Body,
+  Param,
+  Query,
   UseGuards,
   BadRequestException,
   HttpCode,
   HttpStatus,
+  Header,
 } from '@nestjs/common';
 import { ZodError } from 'zod';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -41,5 +45,21 @@ export class ReportePagosController {
       });
     }
     return this.service.search(parsed);
+  }
+
+  /** Reimpresión interna del recibo (replica los templates legacy). */
+  @Get('recibo/:numIngr')
+  @Header('Content-Type', 'text/html; charset=utf-8')
+  async recibo(
+    @Param('numIngr') numIngr: string,
+    @Query('tipo') tipo?: string,
+    @Query('reimp') reimp?: string,
+  ) {
+    const html = await this.service.getReciboHtml(
+      numIngr,
+      tipo ?? '1',
+      reimp === '1' || reimp === 'true',
+    );
+    return html;
   }
 }

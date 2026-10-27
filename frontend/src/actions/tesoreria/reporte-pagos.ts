@@ -131,3 +131,23 @@ export async function searchReportePagosAction(
     };
   }
 }
+
+/** Obtiene el HTML del recibo (reimpresión interna) para abrirlo en una ventana nueva. */
+export async function fetchReciboHtml(
+  numIngr: string,
+  tipo: string,
+  reimp: boolean = true,
+): Promise<string> {
+  const cookieStore = await cookies();
+  const authCookie = cookieStore.get(AUTH_COOKIE_NAME);
+  const headers: Record<string, string> = {};
+  if (authCookie) {
+    headers["Cookie"] = `${AUTH_COOKIE_NAME}=${authCookie.value}`;
+  }
+  const url = `${API_BASE}/tesoreria/reporte-pagos/recibo/${encodeURIComponent(numIngr)}?tipo=${encodeURIComponent(tipo)}&reimp=${reimp ? "1" : "0"}`;
+  const response = await fetch(url, { headers });
+  if (!response.ok) {
+    throw new Error(`Error al obtener el recibo (${response.status})`);
+  }
+  return response.text();
+}

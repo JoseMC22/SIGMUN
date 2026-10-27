@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import {
   searchReportePagosAction,
+  fetchReciboHtml,
 } from "@/actions/tesoreria/reporte-pagos";
 import type {
   ReportePagoRow,
@@ -25,39 +26,30 @@ import type {
 
 const CURRENT_YEAR = new Date().getFullYear();
 
-/**
- * Base del sistema legacy (PHP) donde viven los endpoints de reimpresión de
- * recibos. Configurable por env; por defecto el host donde corre el legacy.
- */
-const LEGACY_BASE_URL = (
-  process.env.NEXT_PUBLIC_LEGACY_URL ?? "http://192.168.3.203:8086/"
-).replace(/\/?$/, "/");
-
-/** Devuelve la URL de reimpresión del recibo según su tipo, o null si no aplica. */
-function getPrintUrl(row: ReportePagoRow): string | null {
+/** Devuelve el tipo a enviar al endpoint de reimpresion, o null si no aplica. */
+function getPrintTipo(row: ReportePagoRow): string | null {
   const tipo = (row.tipo_operacion ?? "").trim();
-  const codigo = row.codigo ?? "";
-  const recibo = row.recibo;
-  if (tipo === "1" && codigo.charAt(0) !== "P") {
-    return `${LEGACY_BASE_URL}tesoprepago/imprimirrecibopagos?nrorecibo=${recibo}&reimp=1`;
-  }
-  if (tipo === "2") {
-    return `${LEGACY_BASE_URL}tesopagostupa/imprimirrecibopagostupa?nrorecibo=${recibo}&reimp=1`;
-  }
-  if (tipo === "1" && codigo.charAt(0) === "P") {
-    return `${LEGACY_BASE_URL}tesoprepago/imprimirrecibopagospape?nrorecibo=${recibo}&reimp=1`;
-  }
+  if (tipo === "1" || tipo === "2") return tipo;
   return null;
 }
 
-function handlePrint(row: ReportePagoRow) {
-  const url = getPrintUrl(row);
-  if (!url) return;
-  window.open(
-    url,
-    "_blank",
-    "width=570,height=500,scrollbars=no,menubar=no,location=no,resizable=no,status=no,directories=no",
-  );
+async function handlePrint(row: ReportePagoRow) {
+  const tipo = getPrintTipo(row);
+  if (!tipo) return;
+  try {
+    const html = await fetchReciboHtml(row.recibo, tipo, true);
+    const w = window.open(
+      "",
+      "_blank",
+      "width=570,height=500,scrollbars=no,menubar=no,location=no,resizable=no,status=no,directories=no",
+    );
+    if (!w) return;
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+  } catch (err) {
+    console.error("Error al obtener el recibo:", err);
+  }
 }
 
 function todayISO(): string {
@@ -520,7 +512,7 @@ export default function ReportePagosPage() {
                   );
                 })}
                 <td className="px-2 py-1.5 text-center">
-                  {getPrintUrl(row) ? (
+                  {getPrintTipo(row) ? (
                     <button
                       type="button"
                       onClick={() => handlePrint(row)}
