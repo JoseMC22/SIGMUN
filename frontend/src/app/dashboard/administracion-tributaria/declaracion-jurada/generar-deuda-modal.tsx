@@ -7,6 +7,7 @@ import {
   getGenerarDeudaConceptoAction,
   guardarGenerarDeudaAction,
   type GenerarDeudaConcepto,
+  type GenerarDeudaEstado,
 } from "@/actions/administracion-tributaria/declaracion-jurada";
 import { getAnioOptions } from "@/lib/forms/anios";
 import { useModalStack, isTopModal } from "@/hooks/use-modal-topmost";
@@ -77,8 +78,8 @@ export default function GenerarDeudaModal({
   const [errorConceptos, setErrorConceptos] = useState<string | null>(null);
   const [loadingGuardar, setLoadingGuardar] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  /** Id devuelto por el SP cuando se genera la multa (mostramos "ok"). */
-  const [successId, setSuccessId] = useState<string | null>(null);
+  /** Estado del SP al guardar — gobierna TODO el feedback del modal. */
+  const [estado, setEstado] = useState<GenerarDeudaEstado | null>(null);
   /** Hostname de la PC del cliente (resuelto al abrir el modal). */
   const [estacion, setEstacion] = useState<string>("");
 
@@ -131,7 +132,7 @@ export default function GenerarDeudaModal({
     setErrorConceptos(null);
     setLoadingGuardar(false);
     setError(null);
-    setSuccessId(null);
+    setEstado(null);
     setEstacion("");
   }, []);
 
@@ -191,6 +192,11 @@ export default function GenerarDeudaModal({
     montoNum <= 0 ||
     anioRangeInvalid;
 
+  // Estación resuelta UNA sola vez en el cuerpo del componente: es el MISMO
+  // valor que se muestra al usuario y el que se envía al SP. Lo visible debe
+  // ser exactamente lo que se graba (caja.mrecibos.estacion).
+  const estacionResolved = estacion || getPcName();
+
   const handleGuardar = async () => {
     if (formInvalid) {
       setError(
@@ -202,10 +208,9 @@ export default function GenerarDeudaModal({
     }
     const user = getStoredUser();
     const operador = user?.username ?? "";
-    // Try the state first (populated on open by fetchPcName). Fall back to
-    // the synchronous localStorage read in case the user clicked Guardar
-    // before the async fetch resolved.
-    const estacionResolved = estacion || getPcName();
+    // `estacionResolved` se calcula una sola vez en el cuerpo del componente
+    // (estado poblado al abrir por fetchPcName, o fallback síncrono a
+    // localStorage) para que lo mostrado y lo enviado sean el mismo valor.
     if (!operador) {
       setError("No se pudo obtener el usuario actual. Inicie sesión nuevamente.");
       return;
@@ -218,7 +223,7 @@ export default function GenerarDeudaModal({
     }
     setLoadingGuardar(true);
     setError(null);
-    setSuccessId(null);
+    setEstado(null);
     try {
       const result = await guardarGenerarDeudaAction({
         codigo: codigoContribuyente ?? '',
@@ -235,10 +240,22 @@ export default function GenerarDeudaModal({
         setError(result.error);
         return;
       }
-      setSuccessId(result.data.idMulta);
-      onSaved?.(result.data.idMulta);
-      // No cerrar automáticamente: se muestra "Se generó correctamente"
-      // y el usuario cierra con la X, ESC o el botón Salir.
+      // El feedback se gatea por `estado`, NO por `idMulta`: el SP no
+      // devuelve el id (siempre viene null), así que usarlo como condición
+      // dejaba al modal sin mostrar nada.
+      const estadoGuardado = result.data.estado;
+      setEstado(estadoGuardado);
+      if (estadoGuardado === 'error') {
+        setError(
+          "No se pudo generar la deuda. Revisá los datos e intentá de nuevo.",
+        );
+        return;
+      }
+      if (estadoGuardado === 'ok') {
+        onSaved?.(result.data.idMulta);
+      }
+      // No cerrar automáticamente: se muestra el resultado y el usuario
+      // cierra con la X, ESC o el botón correspondiente.
     } catch {
       setError("Error al guardar la deuda. Intente nuevamente.");
     } finally {
@@ -421,9 +438,14 @@ export default function GenerarDeudaModal({
               {error && (
                 <p className="text-[10px] text-red-600">{error}</p>
               )}
-              {successId !== null && (
+              {estado === 'ok' && (
                 <p className="text-[10px] text-emerald-700">
                   Se generó correctamente.
+                </p>
+              )}
+              {estado === 'sin_cambios' && (
+                <p className="text-[10px] text-slate-600">
+                  El proceso no generó ninguna deuda nueva.
                 </p>
               )}
             </div>
@@ -434,8 +456,21 @@ export default function GenerarDeudaModal({
             <legend className="px-1 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
               Acciones
             </legend>
+            {/* Estación que se grabará en caja.mrecibos.estacion: es el mismo
+                valor que viaja en el payload de guardado. */}
+            <p className="px-1 pt-1 text-[10px]">
+              {estacionResolved ? (
+                <span className="text-slate-500">
+                  {`Estación: ${estacionResolved}`}
+                </span>
+              ) : (
+                <span className="text-red-600">
+                  No se pudo identificar la estación de esta PC.
+                </span>
+              )}
+            </p>
             <div className="flex justify-end gap-2 px-1 py-1">
-              {successId !== null ? (
+              {estado === 'ok' ? (
                 <button
                   type="button"
                   onClick={onClose}
