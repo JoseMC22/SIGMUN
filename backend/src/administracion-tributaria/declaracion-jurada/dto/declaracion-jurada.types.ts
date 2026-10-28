@@ -406,6 +406,16 @@ export interface EstadoCuentaReciboRow {
   benefic: number;
   total: number;
   totPagado: number;
+  /** Crudos del SP que la imputación de monto del ajuste de cuenta
+   *  corriente necesita para armar el @dataxml legacy
+   *  (sp_Compensarrecibosjson): sin transformación, str() del row. */
+  estado: string;
+  fecVenc: string;
+  fecPago: string;
+  numIngr: string;
+  fechIngr: string;
+  factReaj: string;
+  factMora: string;
 }
 
 // ── Generar Liquidación DJ ───────────────────────────────

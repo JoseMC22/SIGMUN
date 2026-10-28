@@ -21,16 +21,23 @@ import { ReporteDeudaUsoModule } from './administracion-tributaria/reporte-deuda
 import { ReporteInafectosModule } from './administracion-tributaria/reporte-inafectos/reporte-inafectos.module';
 import { ReporteIngresosCajeroModule } from './administracion-tributaria/reporte-ingresos-cajero/reporte-ingresos-cajero.module';
 import { ReporteIngresosGerenciaModule } from './administracion-tributaria/reporte-ingresos-gerencia/reporte-ingresos-gerencia.module';
+import { ComparaLiquidacionModule } from './administracion-tributaria/compara-liquidacion/compara-liquidacion.module';
 import { ContribuyentesSinValoresModule } from './cobranza/contribuyentes-sin-valores/contribuyentes-sin-valores.module';
 import { ReporteConstanciaNoAdeudoModule } from './cobranza/reporte-constancia-no-adeudo/reporte-constancia-no-adeudo.module';
 import { ReporteFraccCuotasImpagasModule } from './cobranza/reporte-fracc-cuotas-impagas/reporte-fracc-cuotas-impagas.module';
 import { ConsultaValoresModule } from './cobranza/consulta-valores/consulta-valores.module';
 import { AnularValorModule } from './cobranza/anular-valor/anular-valor.module';
+import { GenerarOpModule } from './cobranza/generar-op/generar-op.module';
+import { AjusteCuentaCorrienteModule } from './cobranza/ajuste-cuenta-corriente/ajuste-cuenta-corriente.module';
 import { ReportesModule } from './reportes-gerenciales/reportes-gerenciales.module';
 import { MantenimientoUitModule } from './mantenimiento-tablas/mantenimiento-uit/mantenimiento-uit.module';
 import { ConvenioEstadoModule } from './mantenimiento-tablas/mantenimiento-estado-convenios/convenio-estado.module';
+import { OrdenanzasModule } from './mantenimiento-tablas/ordenanzas/ordenanzas.module';
 import { PapeletaTransitoModule } from './papeleta-transito/papeleta-transito.module';
 import { AsesoriaLegalModule } from './asesoria-legal/asesoria-legal.module';
+import { MantenimientoIngresosModule } from './tesoreria/mantenimiento-ingresos/mantenimiento-ingresos.module';
+import { CuadreCajaModule } from './tesoreria/cuadre-caja/cuadre-caja.module';
+import { ReportePagosModule } from './tesoreria/reporte-pagos/reporte-pagos.module';
 import { StorageModule } from './storage/storage.module';
 
 @Module({
@@ -85,6 +92,8 @@ import { StorageModule } from './storage/storage.module';
     ReporteIngresosCajeroModule,
     // Módulo de administración tributaria - reporte de ingresos por gerencia
     ReporteIngresosGerenciaModule,
+    // Módulo de administración tributaria - comparativo de liquidaciones
+    ComparaLiquidacionModule,
     // Módulo de cobranza - contribuyentes sin valores tributarios
     ContribuyentesSinValoresModule,
     // Módulo de cobranza - reporte de constancias de no adeudo
@@ -95,6 +104,10 @@ import { StorageModule } from './storage/storage.module';
     ConsultaValoresModule,
     // Módulo de cobranza - anular valor (fase 1: solo listado)
     AnularValorModule,
+    // Módulo de cobranza - generar orden de pago (proyección de estado de cuenta)
+    GenerarOpModule,
+    // Módulo de cobranza - ajuste de cuenta corriente (tipos de doc de sustento)
+    AjusteCuentaCorrienteModule,
     // Módulo de reportes gerenciales
     ReportesModule,
     // Módulo de impuestos vehicular
@@ -111,10 +124,18 @@ import { StorageModule } from './storage/storage.module';
     MantenimientoUitModule,
     // Módulo de mantenimiento - estados de convenio
     ConvenioEstadoModule,
+    // Módulo de mantenimiento de tablas - ordenanzas de caja (listado)
+    OrdenanzasModule,
     // Módulo de papeleta tránsito
     PapeletaTransitoModule,
     // Módulo de Asesoría Legal
     AsesoriaLegalModule,
+    // Módulo de tesorería - mantenimiento de ingresos (clasificador)
+    MantenimientoIngresosModule,
+    // Módulo de tesorería - cuadre de caja
+    CuadreCajaModule,
+    // Módulo de tesorería - reporte de pagos (parte diario)
+    ReportePagosModule,
     // Módulo de Almacenamiento (NAS / Archivos)
     StorageModule,
   ],

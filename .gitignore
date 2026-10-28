@@ -38,6 +38,10 @@ pnpm-debug.log*
 .atl/
 openspec/
 
+# ODD: documentos de tareas son locales, no se versionan (los historicos ya
+# trackeados permanecen)
+odd/tasks/
+
 # Test coverage
 coverage/
 
@@ -70,11 +74,21 @@ coverage/
 # Excepcion: los specs de anular-valor SI se versionan (fase 1: listado).
 !backend/src/cobranza/anular-valor/**/*.spec.ts
 
+# Excepcion: los specs de ajuste-cuenta-corriente SI se versionan. El SP
+# (sp_cuentacorriente @msquery=11) se lee POR POSICION (columna 0 = id,
+# columna 1 = nombre) porque el legacy PHP hacia RegistrosCombo($rows, 0, 1):
+# estos tests son la unica red si alguien toca el mapeo posicional.
+!backend/src/cobranza/ajuste-cuenta-corriente/**/*.spec.ts
+
 # Excepcion: los tests frontend de anular-valor (fase 2: anulacion con motivo)
 # SI se versionan: cubren el contrato de anularValorAction (POST /anular) y la
 # validacion del motivo (min 20 / max 250), la red si alguien toca ese flujo.
 !frontend/src/actions/cobranza/anular-valor.test.ts
 !frontend/src/app/dashboard/cobranza/anular-valor/*.test.ts
+
+# Excepcion: el test del modulo op-pdf SI se versiona. Es la unica red del
+# decode base64->Blob que comparten consulta-valores e imprimir la OP.
+!frontend/src/lib/op-pdf.test.ts
 
 # Auto-generated / workspace
 pnpm-lock.yaml

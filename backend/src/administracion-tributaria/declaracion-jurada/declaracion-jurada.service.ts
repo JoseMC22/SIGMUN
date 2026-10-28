@@ -82,6 +82,12 @@ import type {
 } from './dto/determinacion.dto';
 import { toIsoDateParam } from '../../common/utils/date-utils';
 
+/**
+ * Resultado lógico de `Rentas.sp_generardeuda @busc=12`, derivado de los
+ * mensajes de estado que el SP emite (nunca devuelve el id del recibo).
+ */
+export type GenerarDeudaEstado = 'ok' | 'sin_cambios' | 'error';
+
 @Injectable()
 export class DeclaracionJuradaService {
   private readonly SP_MCONTRIBUYENTE = 'Rentas.sp_Mcontribuyente';
@@ -1202,6 +1208,17 @@ export class DeclaracionJuradaService {
       benefic: num('descuento'),
       total: Number((impReaj + interes + costoEmision - totPagado).toFixed(2)),
       totPagado,
+      // Crudos sin transformar que la imputación de monto del ajuste de
+      // cuenta corriente necesita para armar el @dataxml legacy
+      // (sp_Compensarrecibosjson). Si el SP no trae la columna, str() ya
+      // da '' — inofensivo para el resto de la grilla.
+      estado: str('estado'),
+      fecVenc: str('fec_venc'),
+      fecPago: str('fec_pago'),
+      numIngr: str('num_ingr'),
+      fechIngr: str('fech_ing'),
+      factReaj: str('fact_reaj'),
+      factMora: str('fact_mora'),
     };
   }
 
@@ -1639,12 +1656,23 @@ export class DeclaracionJuradaService {
 
   async guardarGenerarDeuda(
     dto: GenerarDeudaGuardarDto,
-  ): Promise<{ idMulta: string | null }> {
+  ): Promise<{
+    idMulta: string | null;
+    estado: GenerarDeudaEstado;
+  }> {
     const str = (v: unknown): string => String(v ?? '').trim();
+    const esIdNumerico = (v: string): boolean => /^\d+$/.test(v);
 
-    // Normalize fecha_multa to dd/MM/yyyy so SQL Server (language=Spanish,
-    // datetime column) parses it unambiguously via CONVERT(datetime, ..., 103).
-    // Accepts both ISO (YYYY-MM-DD from <input type="date">) and dd/MM/yyyy.
+    // Normalize fecha_multa to the language-neutral YYYYMMDD. The SP inserts
+    // @fecha_multa straight into the `fec_venc` datetime column of
+    // caja.mrecibos, so the value is implicitly converted using the session
+    // language — and this connection runs with LANGUAGE = us_english (NOT
+    // Spanish, despite the login's default; verify with `SELECT @@LANGUAGE`
+    // through the app's driver, an ad-hoc sqlcmd/SSMS session will lie).
+    // Under us_english `dd/MM/yyyy` raises error 242 ("out-of-range").
+    // YYYYMMDD is the only format that parses under both us_english and
+    // Español. Accepts ISO (YYYY-MM-DD from <input type="date">) and
+    // dd/MM/yyyy.
     const fechaMultaNorm = this.normalizeFechaMulta(dto.fecha_multa);
 
     const result = await this.db.executeProcedure<Record<string, unknown>>(
@@ -1668,9 +1696,10 @@ export class DeclaracionJuradaService {
         desde: mssql.VarChar(4),
         codigo_infraccion: mssql.VarChar(10),
         monto_multa: mssql.Decimal(12, 2),
-        // VarChar(10) — fecha en formato dd/MM/yyyy. El SP hace
-        // CONVERT(datetime, @fecha_multa, 103). No usar mssql.Date porque
-        // el driver interpreta según timezone del servidor y rompe el insert.
+        // La fecha se envía como YYYYMMDD (ver normalizeFechaMulta): es el
+        // único formato que SQL Server interpreta igual bajo us_english y
+        // Español. No usar mssql.Date porque el driver interpreta según
+        // timezone del servidor y rompe el insert.
         fecha_multa: mssql.VarChar(10),
         operador: mssql.VarChar(50),
         estacion: mssql.VarChar(50),
@@ -1683,14 +1712,27 @@ export class DeclaracionJuradaService {
               // el error rápido a esperar 2 minutos.
     );
 
-    // El SP emite múltiples recordsets:
+    // El SP emite múltiples recordsets, cada fila de UNA sola columna sin
+    // nombre (la clave del objeto JS es `""`) cuyo valor es un mensaje de
+    // estado. Nunca devuelve el id del recibo:
     //   • 'Actualizado correctamente.. '  (vuelta exitosa del WHILE)
-    //   • 'NIMI'                         (cuando no insertó)
+    //   • 'NIMI'                         (cuando no insertó nada)
     //   • 'fallla'                       (cuando falló el INSERT)
-    // Buscamos el id real barriendo todos los recordsets. Un id válido es
-    // numérico (no es ninguno de los mensajes de estado).
+    //   • 'Falta Codigo Infraccion'      (falta el código de infracción)
+    // Barremos TODOS los recordsets buscando tanto el id real (numérico) como
+    // cada mensaje de estado, para derivar un `estado` fiable.
+    //
+    // Prioridad: error > ok > sin_cambios > error (default). En un rango
+    // multi-año (WHILE por año) un error parcial se reporta como 'error' a
+    // PROPÓSITO (fail-closed): preferimos que el usuario revise antes que
+    // afirmar un éxito que pudo ser incompleto. El rango por defecto de la UI
+    // es de un solo año, donde el estado es inequívoco.
     const allRecordSets = result.recordsets ?? [];
     let idMulta: string | null = null;
+    let sawError = false;
+    let sawSuccess = false;
+    let sawSinCambios = false;
+
     for (const rs of allRecordSets) {
       for (const row of rs ?? []) {
         const candidate =
@@ -1698,31 +1740,61 @@ export class DeclaracionJuradaService {
           str((row as any).id_multa) ||
           str((row as any).id) ||
           str(Object.values(row as object)[0]);
-        // Mensajes de estado del SP — los ignoramos
-        if (
-          candidate &&
-          candidate !== 'Actualizado correctamente.. ' &&
-          candidate !== 'Actualizado correctamente.' &&
-          candidate !== 'NIMI' &&
-          candidate !== 'fallla' &&
-          candidate !== 'Falta Codigo Infraccion'
-        ) {
-          idMulta = candidate;
-          break;
+        if (!candidate) continue;
+
+        if (candidate === 'fallla' || candidate === 'Falta Codigo Infraccion') {
+          sawError = true;
+          continue;
         }
+        if (candidate === 'NIMI') {
+          sawSinCambios = true;
+          continue;
+        }
+        // str() ya aplica trim(), así que el espacio final del mensaje de
+        // éxito no está presente aquí.
+        if (
+          candidate === 'Actualizado correctamente..' ||
+          candidate === 'Actualizado correctamente.'
+        ) {
+          sawSuccess = true;
+          continue;
+        }
+        // Candidato numérico → id real del recibo (primero gana).
+        if (esIdNumerico(candidate)) {
+          if (idMulta === null) idMulta = candidate;
+          continue;
+        }
+        // Cualquier otro valor no se reconoce y no altera el estado final.
       }
-      if (idMulta) break;
     }
 
-    return { idMulta };
+    let estado: GenerarDeudaEstado;
+    if (sawError) {
+      estado = 'error';
+    } else if (sawSuccess || idMulta !== null) {
+      estado = 'ok';
+    } else if (sawSinCambios) {
+      estado = 'sin_cambios';
+    } else {
+      // Fail-closed: sin evidencia reconocible no afirmamos éxito.
+      estado = 'error';
+    }
+
+    return { idMulta, estado };
   }
 
   /**
-   * Normaliza la fecha_multa a formato `dd/MM/yyyy` para que SQL Server
-   * (idioma Spanish, columna datetime) la parsee sin ambigüedad.
+   * Normaliza la fecha_multa a `YYYYMMDD`, el único formato que SQL Server
+   * interpreta igual bajo cualquier LANGUAGE configurado en la sesión.
    *
-   *   "2026-08-31"  -> "31/08/2026"
-   *   "31/08/2026"  -> "31/08/2026"
+   * La conexión de este backend corre con LANGUAGE = us_english, así que
+   * `dd/MM/yyyy` (lo que antes se enviaba) provoca el error 242
+   * "conversion of a varchar data type to a datetime data type resulted in
+   * an out-of-range value" al insertarse en la columna datetime `fec_venc`
+   * de caja.mrecibos. Ver `declaracion-jurada.service.spec.ts`.
+   *
+   *   "2026-08-31"  -> "20260831"
+   *   "31/08/2026"  -> "20260831"
    *   "" o null     -> ""  (deja que el SP valide el faltante)
    */
   private normalizeFechaMulta(raw: string | null | undefined): string {
@@ -1730,15 +1802,16 @@ export class DeclaracionJuradaService {
     const s = String(raw).trim();
     if (!s) return '';
 
-    // YYYY-MM-DD -> dd/MM/yyyy
+    // YYYY-MM-DD -> YYYYMMDD
     const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
-    if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+    if (iso) return `${iso[1]}${iso[2]}${iso[3]}`;
 
-    // Already dd/MM/yyyy — validate shape to catch typos early.
-    if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
+    // dd/MM/yyyy -> YYYYMMDD
+    const dmy = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s);
+    if (dmy) return `${dmy[3]}${dmy[2]}${dmy[1]}`;
 
-    // Last resort: try Date.parse but DO NOT trust timezone. Return as-is
-    // and let the SP raise a clear conversion error if it's truly bad.
+    // Last resort: return as-is and let the SP raise a clear conversion
+    // error if it is truly bad.
     return s;
   }
 
