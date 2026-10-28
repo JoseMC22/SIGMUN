@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { Scale, Search, Loader2, PlusCircle, CheckCircle2, Clock, Send, Eye, X, FileText, FileSpreadsheet, Pencil, Save, AlertTriangle, History } from "lucide-react";
+import { Scale, Search, Loader2, PlusCircle, CheckCircle2, Clock, Send, Eye, X, FileText, FileSpreadsheet, Pencil, Save, AlertTriangle, History, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   fetchTramitesBomberos,
   crearSolicitudLegal,
@@ -63,6 +63,10 @@ export default function SolicitudInformacionPage() {
   const [tramites, setTramites] = useState<TramiteBomberosRow[]>([]);
   const [loadingTramites, setLoadingTramites] = useState(false);
   const [selectedTramite, setSelectedTramite] = useState<TramiteBomberosRow | null>(null);
+
+  // Paginación
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
 
   // Formulario Solicitud
   const [observacionLegal, setObservacionLegal] = useState("");
@@ -195,6 +199,7 @@ export default function SolicitudInformacionPage() {
 
   const loadData = useCallback(async () => {
     setLoadingTramites(true);
+    setPage(1);
     try {
       const [tramitesData, estadosData] = await Promise.all([
         fetchTramitesBomberos(filterDesde, filterHasta, filterCodigo, filterCodificacion, filterEstadoLegal),
@@ -264,6 +269,7 @@ export default function SolicitudInformacionPage() {
     setFilterCodigo("");
     setFilterCodificacion("");
     setFilterEstadoLegal("");
+    setPage(1);
     setTimeout(loadData, 50);
   };
 
@@ -638,7 +644,12 @@ export default function SolicitudInformacionPage() {
                     </td>
                   </tr>
                 ) : (
-                  tramites.map((t, idx) => {
+                  (() => {
+                    const totalItems = tramites.length;
+                    const startIndex = (page - 1) * pageSize;
+                    const paginatedTramites = tramites.slice(startIndex, startIndex + pageSize);
+
+                    return paginatedTramites.map((t, idx) => {
                     const infoAgrupada = tramitesAgrupadosMap[t.cCodificacion];
                     const fecRegObj = t.fFecRegistro ? new Date(t.fFecRegistro) : null;
                     const fechaRegStr = fecRegObj
@@ -768,10 +779,72 @@ export default function SolicitudInformacionPage() {
                         </td>
                       </tr>
                     );
-                  })
+                  });
+                  })()
                 )}
               </tbody>
             </table>
+
+            {/* Paginación */}
+            {tramites.length > 0 && (() => {
+              const totalItems = tramites.length;
+              const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+              const startIndex = (page - 1) * pageSize;
+              const endIndex = Math.min(startIndex + pageSize, totalItems);
+
+              return (
+                <div className="flex flex-wrap items-center justify-between border-t border-slate-200 bg-white px-3.5 py-2 text-xs gap-2">
+                  <div className="flex items-center gap-2 text-slate-500">
+                    <span>
+                      Mostrando <strong className="text-slate-700">{startIndex + 1}</strong> a{" "}
+                      <strong className="text-slate-700">{endIndex}</strong> de{" "}
+                      <strong className="text-slate-700">{totalItems.toLocaleString()}</strong> trámites
+                    </span>
+                    <span className="text-slate-300">|</span>
+                    <label className="flex items-center gap-1 text-slate-500">
+                      <span className="text-[11px]">Filas:</span>
+                      <select
+                        value={pageSize}
+                        onChange={(e) => {
+                          setPageSize(Number(e.target.value));
+                          setPage(1);
+                        }}
+                        className="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-sat-cyan cursor-pointer"
+                      >
+                        <option value={10}>10</option>
+                        <option value={15}>15</option>
+                        <option value={25}>25</option>
+                        <option value={50}>50</option>
+                        <option value={100}>100</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-slate-500 mr-1.5 text-[11px]">
+                      Pág. <strong className="text-slate-700">{page}</strong> de{" "}
+                      <strong className="text-slate-700">{totalPages}</strong>
+                    </span>
+                    <button
+                      type="button"
+                      disabled={page <= 1}
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      className="inline-flex items-center gap-1 rounded border border-slate-200 px-2.5 py-1 font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition cursor-pointer disabled:cursor-not-allowed"
+                    >
+                      <ChevronLeft size={13} /> Anterior
+                    </button>
+                    <button
+                      type="button"
+                      disabled={page >= totalPages}
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      className="inline-flex items-center gap-1 rounded border border-slate-200 px-2.5 py-1 font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition cursor-pointer disabled:cursor-not-allowed"
+                    >
+                      Siguiente <ChevronRight size={13} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
 

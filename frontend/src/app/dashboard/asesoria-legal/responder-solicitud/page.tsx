@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { Send, CheckCircle2, Search, Loader2, MessageSquare, Building, Inbox, Clock, Eye, X, FileSpreadsheet, AlertTriangle } from "lucide-react";
+import { Send, CheckCircle2, Search, Loader2, MessageSquare, Building, Inbox, Clock, Eye, X, FileSpreadsheet, AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
 import { fetchEstadoSolicitudes, responderSolicitudLegal, EstadoSolicitudRow } from "@/actions/asesoria-legal";
 import { checkSessionAction } from "@/actions/auth/auth";
 import { FileUploaderNAS } from "@/presentation/components/file-uploader-nas";
@@ -22,6 +22,8 @@ const ALL_OFICINAS = [
 export default function ResponderSolicitudesPage() {
   const [solicitudes, setSolicitudes] = useState<EstadoSolicitudRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
   const [filterDesde, setFilterDesde] = useState("");
   const [filterHasta, setFilterHasta] = useState("");
   const [filterCodificacion, setFilterCodificacion] = useState("");
@@ -407,7 +409,12 @@ export default function ResponderSolicitudesPage() {
                     </td>
                   </tr>
                 ) : (
-                  solicitudesFiltradas.map((s, idx) => (
+                  (() => {
+                    const totalItems = solicitudesFiltradas.length;
+                    const startIndex = (page - 1) * pageSize;
+                    const paginatedSolicitudes = solicitudesFiltradas.slice(startIndex, startIndex + pageSize);
+
+                    return paginatedSolicitudes.map((s, idx) => (
                     <tr
                       key={s.iCodSolicitudOficina}
                       className={`transition hover:bg-slate-50 ${selectedSolicitud?.iCodSolicitudOficina === s.iCodSolicitudOficina
@@ -513,10 +520,71 @@ export default function ResponderSolicitudesPage() {
                         )}
                       </td>
                     </tr>
-                  ))
+                  ));
+                  })()
                 )}
               </tbody>
             </table>
+
+            {/* Paginación */}
+            {solicitudesFiltradas.length > 0 && (() => {
+              const totalItems = solicitudesFiltradas.length;
+              const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+              const startIndex = (page - 1) * pageSize;
+              const endIndex = Math.min(startIndex + pageSize, totalItems);
+
+              return (
+                <div className="flex flex-wrap items-center justify-between border-t border-slate-200 bg-white px-3.5 py-2 text-xs gap-2">
+                  <div className="flex items-center gap-2 text-slate-500">
+                    <span>
+                      Mostrando <strong className="text-slate-700">{startIndex + 1}</strong> a{" "}
+                      <strong className="text-slate-700">{endIndex}</strong> de{" "}
+                      <strong className="text-slate-700">{totalItems.toLocaleString()}</strong> requerimientos
+                    </span>
+                    <span className="text-slate-300">|</span>
+                    <label className="flex items-center gap-1 text-slate-500">
+                      <span className="text-[11px]">Filas:</span>
+                      <select
+                        value={pageSize}
+                        onChange={(e) => {
+                          setPageSize(Number(e.target.value));
+                          setPage(1);
+                        }}
+                        className="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-sat-cyan cursor-pointer"
+                      >
+                        <option value={10}>10</option>
+                        <option value={15}>15</option>
+                        <option value={25}>25</option>
+                        <option value={50}>50</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-slate-500 mr-1.5 text-[11px]">
+                      Pág. <strong className="text-slate-700">{page}</strong> de{" "}
+                      <strong className="text-slate-700">{totalPages}</strong>
+                    </span>
+                    <button
+                      type="button"
+                      disabled={page <= 1}
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      className="inline-flex items-center gap-1 rounded border border-slate-200 px-2.5 py-1 font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition cursor-pointer disabled:cursor-not-allowed"
+                    >
+                      <ChevronLeft size={13} /> Anterior
+                    </button>
+                    <button
+                      type="button"
+                      disabled={page >= totalPages}
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      className="inline-flex items-center gap-1 rounded border border-slate-200 px-2.5 py-1 font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition cursor-pointer disabled:cursor-not-allowed"
+                    >
+                      Siguiente <ChevronRight size={13} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
 
