@@ -38,7 +38,34 @@ interface MultaDraft {
   descripcion: string;
 }
 
-const ANIO_ACTUAL = new Date().getFullYear();
+const HOY = new Date();
+const ANIO_ACTUAL = HOY.getFullYear();
+const MES_ACTUAL = HOY.getMonth();
+
+/**
+ * Ultimo dia habil (lunes a viernes) de un mes.
+ * `mes` es 0-based (0 = enero). Devuelve ISO `YYYY-MM-DD`.
+ * Se calcula en UTC para que el resultado no dependa del timezone del runtime.
+ */
+function ultimoDiaHabil(anio: number, mes: number): string {
+  const d = new Date(Date.UTC(anio, mes + 1, 0));
+  while (d.getUTCDay() === 0 || d.getUTCDay() === 6) {
+    d.setUTCDate(d.getUTCDate() - 1);
+  }
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  return `${d.getUTCFullYear()}-${mm}-${dd}`;
+}
+
+/** ISO `YYYY-MM-DD` a `dd/mm/yyyy` para mostrar. */
+function isoADmy(iso: string): string {
+  if (!iso) return "";
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
+}
+
+const VENCIMIENTO_DEFAULT = ultimoDiaHabil(ANIO_ACTUAL, MES_ACTUAL);
+
 const ANIOS: number[] = [];
 for (let y = ANIO_ACTUAL; y >= 1992; y--) ANIOS.push(y);
 
@@ -73,7 +100,7 @@ export default function GenerarMultaModal({
   const [importe, setImporte] = useState("");
   const [emision, setEmision] = useState("0");
   const [fechaVencimiento, setFechaVencimiento] = useState(
-    `${ANIO_ACTUAL}-03-01`,
+    VENCIMIENTO_DEFAULT,
   );
   const [fechaEmision, setFechaEmision] = useState("");
   const [observacion, setObservacion] = useState("");
@@ -121,7 +148,7 @@ export default function GenerarMultaModal({
           setPredios(prediosRes.data);
           if (!esEdicion) {
             if (valor !== null) setImporte(String(valor));
-            setFechaVencimiento(`${anno}-03-01`);
+            setFechaVencimiento(ultimoDiaHabil(Number(anno), MES_ACTUAL));
             setSelected(null);
           }
           setLoadingPredios(false);
@@ -479,7 +506,7 @@ export default function GenerarMultaModal({
                     <input
                       id="fechaEmision"
                       readOnly
-                      value={fechaEmision}
+                      value={isoADmy(fechaEmision)}
                       className={`${inputCls} bg-slate-50`}
                     />
                   </div>
@@ -647,7 +674,7 @@ export default function GenerarMultaModal({
                               {money(m.subtotal)}
                             </td>
                             <td className="px-2 py-1 whitespace-nowrap">
-                              {m.fechaVencimiento}
+                              {isoADmy(m.fechaVencimiento)}
                             </td>
                             {!esEdicion && (
                               <td className="px-2 py-1">
