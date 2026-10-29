@@ -1,22 +1,21 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, AlertCircle, Loader2, Plus, Trash2, Save, MapPin } from "lucide-react";
+import { X, AlertCircle, Loader2, Plus, Trash2, Save } from "lucide-react";
 import {
   getContribuyenteAction,
   getDetalleMultaAction,
   getFechaAction,
   getInfraccionAction,
-  getPrediosAction,
   getTributosAction,
   getUitAction,
   grabarMultaAction,
   type ContribuyenteHeader,
   type GrabarMultaItem,
   type MultaDetalle,
-  type PredioRow,
   type TributoRow,
 } from "@/actions/cobranza/multa-tributaria";
+import { getStoredUser, getPcName, fetchPcName } from "@/lib/api";
 
 interface Props {
   codigo: string;
@@ -66,6 +65,10 @@ function isoADmy(iso: string): string {
 
 const VENCIMIENTO_DEFAULT = ultimoDiaHabil(ANIO_ACTUAL, MES_ACTUAL);
 
+/** Glosa sugerida para una multa nueva; el usuario puede editarla. */
+const OBSERVACION_DEFAULT =
+  'ART. 176 NUM. 02 - TUO DEL CODIGO TRIBUTARIO APROBADO MEDIANTE D.D. NRO. 133-2013-EF " NO PRESENTAR OTRAS DECLARACIONES O COMUNICACIONES DENTRO DE LOS PLAZOS ESTABLECIDOS"';
+
 const ANIOS: number[] = [];
 for (let y = ANIO_ACTUAL; y >= 1992; y--) ANIOS.push(y);
 
@@ -103,12 +106,11 @@ export default function GenerarMultaModal({
     VENCIMIENTO_DEFAULT,
   );
   const [fechaEmision, setFechaEmision] = useState("");
-  const [observacion, setObservacion] = useState("");
+  const [observacion, setObservacion] = useState(
+    esEdicion ? "" : OBSERVACION_DEFAULT,
+  );
+  const [estacion, setEstacion] = useState("");
   const [periodo, setPeriodo] = useState("01");
-
-  const [predios, setPredios] = useState<PredioRow[]>([]);
-  const [selected, setSelected] = useState<PredioRow | null>(null);
-  const [loadingPredios, setLoadingPredios] = useState(true);
 
   const [detalle, setDetalle] = useState<MultaDetalle | null>(null);
   const [multas, setMultas] = useState<MultaDraft[]>([]);
@@ -133,33 +135,39 @@ export default function GenerarMultaModal({
     });
   }, [codigo]);
 
-  // UIT + predios por anio. En alta, el anio manda el importe sugerido y la
-  // fecha de vencimiento (01/03), igual que el legacy.
+  // El backend resuelve el hostname real de esta maquina; se pide al abrir para
+  // tenerlo listo antes de grabar (auditoria en caja.mrecibos.estacion).
+  useEffect(() => {
+    let cancelled = false;
+    void fetchPcName().then((name) => {
+      if (!cancelled) setEstacion(name || "");
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // UIT por anio. En alta, el anio manda el importe sugerido y la fecha de
+  // vencimiento (ultimo dia habil), igual que el legacy.
   useEffect(() => {
     if (!anno || (esEdicion && !detalle)) return;
     let cancel = false;
     const t = setTimeout(() => {
-      setLoadingPredios(true);
-      void Promise.all([getUitAction(anno), getPrediosAction(codigo, anno)]).then(
-        ([uitRes, prediosRes]) => {
-          if (cancel) return;
-          const valor = uitRes.data?.valorUit ?? null;
-          setUit(valor);
-          setPredios(prediosRes.data);
-          if (!esEdicion) {
-            if (valor !== null) setImporte(String(valor));
-            setFechaVencimiento(ultimoDiaHabil(Number(anno), MES_ACTUAL));
-            setSelected(null);
-          }
-          setLoadingPredios(false);
-        },
-      );
+      void getUitAction(anno).then((uitRes) => {
+        if (cancel) return;
+        const valor = uitRes.data?.valorUit ?? null;
+        setUit(valor);
+        if (!esEdicion) {
+          if (valor !== null) setImporte(String(valor));
+          setFechaVencimiento(ultimoDiaHabil(Number(anno), MES_ACTUAL));
+        }
+      });
     }, 0);
     return () => {
       cancel = true;
       clearTimeout(t);
     };
-  }, [anno, codigo, esEdicion, detalle]);
+  }, [anno, esEdicion, detalle]);
 
   // Carga del detalle en edicion.
   useEffect(() => {
@@ -210,24 +218,8 @@ export default function GenerarMultaModal({
     };
   }, [idMulta, codigo]);
 
-  // En edicion, preseleccionar el predio exacto de la multa.
-  useEffect(() => {
-    if (!detalle || predios.length === 0) return;
-    const t = setTimeout(() => {
-      const match = predios.find(
-        (p) =>
-          p.codPred.trim() === detalle.codPred.trim() &&
-          p.anexo.trim() === detalle.anexo.trim() &&
-          p.subAnexo.trim() === detalle.subAnexo.trim(),
-      );
-      if (match) setSelected(match);
-    }, 0);
-    return () => clearTimeout(t);
-  }, [detalle, predios]);
-
   const handleAnnoChange = (nuevo: string) => {
     setAnno(nuevo);
-    if (!esEdicion) setSelected(null);
   };
 
   const handleTributoChange = (nuevo: string) => {
@@ -238,7 +230,6 @@ export default function GenerarMultaModal({
   const validateForm = (): string | null => {
     if (!anno) return "Seleccione el año";
     if (!tributoId) return "Seleccione el tributo";
-    if (!selected) return "Seleccione un predio";
     const imp = Number(importe);
     if (!Number.isFinite(imp) || imp <= 0)
       return "El importe debe ser mayor a 0";
@@ -263,7 +254,7 @@ export default function GenerarMultaModal({
     setMultas((prev) => [
       ...prev,
       {
-        key: `${selected?.codPred ?? ""}-${periodo}-${Date.now()}`,
+        key: `${periodo}-${Date.now()}`,
         periodo,
         importe: imp,
         emision: emi,
@@ -282,10 +273,6 @@ export default function GenerarMultaModal({
 
   const handleGrabar = async () => {
     setError(null);
-    if (!selected) {
-      setError("Seleccione un predio");
-      return;
-    }
 
     let items: GrabarMultaItem[];
 
@@ -329,14 +316,28 @@ export default function GenerarMultaModal({
       }));
     }
 
+    // Lo que se graba es lo mismo que se muestra: usuario de la sesion y la
+    // estacion resuelta al abrir el modal (o el fallback sincrono del cache).
+    const operador = getStoredUser()?.username ?? "";
+    const estacionResolved = estacion || getPcName();
+    if (!operador) {
+      setError("No se pudo obtener el usuario actual. Inicie sesión nuevamente.");
+      return;
+    }
+    if (!estacionResolved) {
+      setError(
+        "No se pudo identificar la estación (hostname). Configure el nombre de la PC.",
+      );
+      return;
+    }
+
     setSaving(true);
     const result = await grabarMultaAction({
       idMulta,
       codigo,
-      codPred: selected.codPred,
-      anexo: selected.anexo || "0000",
-      subAnexo: selected.subAnexo || "0000",
       anno,
+      operador,
+      estacion: estacionResolved,
       multas: items,
     });
     setSaving(false);
@@ -525,101 +526,6 @@ export default function GenerarMultaModal({
                     />
                   </div>
                 </div>
-              </fieldset>
-
-              {/* Predios */}
-              <fieldset className="rounded-md border border-slate-200 p-3">
-                <legend className="flex items-center gap-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                  <MapPin size={11} /> Predios del contribuyente ({anno})
-                </legend>
-                {loadingPredios ? (
-                  <div className="flex items-center justify-center py-8 text-slate-400">
-                    <Loader2 size={16} className="animate-spin" />
-                  </div>
-                ) : predios.length === 0 ? (
-                  <p className="py-6 text-center text-[11px] text-slate-400">
-                    El contribuyente no tiene predios registrados para {anno}.
-                  </p>
-                ) : (
-                  <div className="max-h-52 overflow-auto rounded border border-slate-200">
-                    <table className="w-full border-collapse min-w-[820px]">
-                      <thead className="sticky top-0 bg-slate-100">
-                        <tr>
-                          {[
-                            "Cod. Predio",
-                            "Anexos",
-                            "Dirección",
-                            "Área",
-                            "% Prop.",
-                            "Autoavalúo",
-                            "Tipo",
-                            "",
-                          ].map((h) => (
-                            <th
-                              key={h}
-                              className="text-left text-[9px] font-semibold uppercase tracking-wider text-slate-500 px-2 py-1.5 whitespace-nowrap"
-                            >
-                              {h}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {predios.map((p) => {
-                          const isSelected =
-                            selected?.codPred === p.codPred &&
-                            selected?.anexo === p.anexo &&
-                            selected?.subAnexo === p.subAnexo;
-                          return (
-                            <tr
-                              key={`${p.codPred}-${p.anexo}-${p.subAnexo}`}
-                              onClick={() => {
-                                setSelected(p);
-                                setError(null);
-                              }}
-                              className={`cursor-pointer text-[10px] transition ${
-                                isSelected
-                                  ? "bg-cyan-50 text-slate-800"
-                                  : "hover:bg-slate-50 text-slate-600"
-                              }`}
-                            >
-                              <td className="px-2 py-1 whitespace-nowrap">
-                                {p.codPred}
-                              </td>
-                              <td className="px-2 py-1 whitespace-nowrap">
-                                {p.anexos}
-                              </td>
-                              <td className="px-2 py-1">{p.direccion}</td>
-                              <td className="px-2 py-1 text-right whitespace-nowrap">
-                                {money(p.areaTerreno)}
-                              </td>
-                              <td className="px-2 py-1 text-right whitespace-nowrap">
-                                {money(p.porcenPropiedad)}
-                              </td>
-                              <td className="px-2 py-1 text-right whitespace-nowrap">
-                                {money(p.totalAutoavaluo)}
-                              </td>
-                              <td className="px-2 py-1">{p.tipo}</td>
-                              <td className="px-2 py-1 whitespace-nowrap">
-                                {p.flagPredio === "1" && (
-                                  <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-medium text-amber-700">
-                                    Con multa
-                                  </span>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-                {selected && (
-                  <p className="mt-2 text-[10px] text-slate-500">
-                    Predio seleccionado: <strong>{selected.codPred}</strong> —
-                    Anexos {selected.anexos}
-                  </p>
-                )}
               </fieldset>
 
               {/* Grilla de multas */}

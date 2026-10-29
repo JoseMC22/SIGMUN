@@ -229,7 +229,11 @@ export class MultaTributariaService {
              WHEN c.estado = '2' THEN 'ANULADO'
            END,
            frac = CASE WHEN c.ubica LIKE '%FR%' THEN '1' ELSE '0' END,
-           t.id_multa
+           t.id_multa,
+           t.motivo_eliminacion,
+           t.operador_act,
+           t.estacion_act,
+           fecha_act = CONVERT(varchar(19), t.fecha_act, 120)
          ${baseFrom}
          ORDER BY t.id_multa DESC
          OFFSET @offset ROWS FETCH NEXT @take ROWS ONLY`,
@@ -250,6 +254,10 @@ export class MultaTributariaService {
           obligacion: str(row.obligacion),
           frac: str(row.frac),
           idMulta: str(row.id_multa),
+          motivoEliminacion: str(row.motivo_eliminacion),
+          operadorAct: str(row.operador_act),
+          estacionAct: str(row.estacion_act),
+          fechaAct: str(row.fecha_act),
         };
       });
 
@@ -642,10 +650,7 @@ export class MultaTributariaService {
         BEGIN TRANSACTION;
 
         UPDATE Rentas.Multas_Tributarias
-        SET cod_pred = @codPred,
-            anexo = @anexo,
-            sub_anexo = @subAnexo,
-            anno = @anno,
+        SET anno = @anno,
             tributo = @tipo,
             sub_tributo = @tipoRec,
             fecha_vencimiento = @fechaVencimiento,
@@ -663,10 +668,7 @@ export class MultaTributariaService {
           THROW 50001, 'La multa no existe', 1;
 
         UPDATE Caja.MRecibos
-        SET cod_pred = @codPred,
-            anexo = @anexo,
-            sub_anexo = @subAnexo,
-            anno = @anno,
+        SET anno = @anno,
             imp_insol = @insoluto,
             costo_emis = @derechoEmision,
             observacion = @glosa,
@@ -688,9 +690,6 @@ export class MultaTributariaService {
     const result = await this.db.queryWithParams<SpRow>(script, {
       codigo: dto.codigo,
       idMulta,
-      codPred: dto.codPred,
-      anexo: dto.anexo,
-      subAnexo: dto.subAnexo,
       anno: dto.anno,
       tipo: item.tipo,
       tipoRec: item.tipoRec,
@@ -748,7 +747,12 @@ export class MultaTributariaService {
             WHERE codigo = @codigo AND tipo = '30.82' AND tipo_rec = '30.82'
               AND num_docu = @idMulta;
 
-            UPDATE Rentas.Multas_Tributarias SET estado_id = '0'
+            UPDATE Rentas.Multas_Tributarias
+            SET estado_id = '0',
+                motivo_eliminacion = @motivo,
+                operador_act = @operador,
+                estacion_act = @estacion,
+                fecha_act = GETDATE()
             WHERE codigo = @codigo AND id_multa = @idMulta;
 
             COMMIT TRANSACTION;
@@ -764,6 +768,9 @@ export class MultaTributariaService {
       const result = await this.db.queryWithParams<SpRow>(script, {
         codigo: dto.codigo,
         idMulta: dto.idMulta,
+        motivo: dto.motivo,
+        operador: dto.operador,
+        estacion: dto.estacion,
       });
       const first = result.recordset?.[0] as SpRow | undefined;
       if (!first || str(first.resultado) !== '1') {

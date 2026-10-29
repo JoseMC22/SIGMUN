@@ -6,8 +6,7 @@ const IsoDate = z
   .regex(/^\d{4}-\d{2}-\d{2}$/, 'La fecha debe estar en formato YYYY-MM-DD');
 
 /**
- * Una multa a generar. La grilla del formulario legacy permite varias filas
- * (una por periodo) para el predio seleccionado.
+ * Una multa a generar. La grilla permite varias filas (una por periodo).
  */
 export const MultaItemSchema = z.object({
   tipo: z.string().trim().min(1).max(5),
@@ -37,9 +36,14 @@ export const GrabarMultaSchema = z
       .optional()
       .transform((v) => (v && v.length > 0 ? v : undefined)),
     codigo: z.string().trim().min(1).max(7),
-    codPred: z.string().trim().min(1).max(9),
-    anexo: z.string().trim().max(4).optional().default('0000'),
-    subAnexo: z.string().trim().max(4).optional().default('0000'),
+    /**
+     * La multa tributaria no se asocia a un predio: el formulario no pide
+     * seleccionarlo. Se mantiene opcional por compatibilidad (filas legacy
+     * conservan su cod_pred, pero el alta nueva lo deja vacio).
+     */
+    codPred: z.string().trim().max(9).optional().default(''),
+    anexo: z.string().trim().max(4).optional().default(''),
+    subAnexo: z.string().trim().max(4).optional().default(''),
     anno: z.string().trim().regex(/^\d{4}$/, 'El anio debe tener 4 digitos'),
     operador: z.string().trim().max(50).optional().default(''),
     estacion: z.string().trim().max(50).optional().default(''),
@@ -57,10 +61,13 @@ export const GrabarMultaSchema = z
 
 export type GrabarMultaDto = z.infer<typeof GrabarMultaSchema>;
 
-/** Eliminacion logica de una multa. */
+/** Eliminacion logica de una multa. El motivo es obligatorio (auditoria). */
 export const EliminarMultaSchema = z.object({
   codigo: z.string().trim().min(1).max(7),
   idMulta: z.string().trim().min(1).max(20),
+  motivo: z.string().trim().min(1, 'El motivo es obligatorio').max(250),
+  operador: z.string().trim().max(50).optional().default(''),
+  estacion: z.string().trim().max(50).optional().default(''),
 });
 
 export type EliminarMultaDto = z.infer<typeof EliminarMultaSchema>;
