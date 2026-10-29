@@ -71,6 +71,11 @@ export interface MultaRow {
   obligacion: string;
   frac: string;
   idMulta: string;
+  // Auditoría de eliminación
+  motivoEliminacion?: string;
+  operadorAct?: string;
+  estacionAct?: string;
+  fechaAct?: string;
 }
 
 export interface MultasResult {
@@ -375,9 +380,10 @@ export interface GrabarMultaItem {
 export interface GrabarMultaInput {
   idMulta?: string;
   codigo: string;
-  codPred: string;
-  anexo: string;
-  subAnexo: string;
+  /** La multa tributaria no se asocia a un predio; opcional solo por compatibilidad. */
+  codPred?: string;
+  anexo?: string;
+  subAnexo?: string;
   anno: string;
   operador?: string;
   estacion?: string;
@@ -403,9 +409,18 @@ export async function grabarMultaAction(
 export async function eliminarMultaAction(
   codigo: string,
   idMulta: string,
+  motivo: string,
+  operador: string,
+  estacion: string,
 ): Promise<WriteResult> {
   try {
-    const json = await postJson<unknown>("/eliminar", { codigo, idMulta });
+    const json = await postJson<unknown>("/eliminar", {
+      codigo,
+      idMulta,
+      motivo,
+      operador,
+      estacion,
+    });
     return {
       success: json.success ?? false,
       message: json.message,

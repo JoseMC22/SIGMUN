@@ -19,6 +19,7 @@ import {
   type ContribuyenteHeader,
   type MultaRow,
 } from "@/actions/cobranza/multa-tributaria";
+import { getStoredUser, getPcName, fetchPcName } from "@/lib/api";
 import GenerarMultaModal from "./generar-multa-modal";
 
 const PAGE_SIZE = 10;
@@ -41,6 +42,20 @@ function formatearFecha(iso: string): string {
   const [y, m, d] = iso.split("-");
   if (!y || !m || !d) return iso;
   return `${d}/${m}/${y}`;
+}
+
+function formatearFechaHora(value: string): string {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleString("es-PE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 }
 
 /**
@@ -67,6 +82,11 @@ export default function MultasModal({ codigo, nombre, onClose }: Props) {
 
   const [form, setForm] = useState<{ idMulta?: string } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<MultaRow | null>(null);
+  const [auditInfo, setAuditInfo] = useState<{ open: boolean; data: MultaRow | null }>({
+    open: false,
+    data: null,
+  });
+  const [deleteMotivo, setDeleteMotivo] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -103,12 +123,39 @@ export default function MultasModal({ codigo, nombre, onClose }: Props) {
 
   const handleDelete = async () => {
     if (!confirmDelete) return;
+    const motivo = deleteMotivo.trim();
+    if (!motivo) {
+      setDeleteError("Ingrese el motivo de la eliminación");
+      return;
+    }
+    // Auditoria de quien anulo: mismo criterio que en generar-multa-modal.
+    const operador = getStoredUser()?.username ?? "";
+    const estacion = (await fetchPcName()) || getPcName();
+    if (!operador) {
+      setDeleteError(
+        "No se pudo obtener el usuario actual. Inicie sesión nuevamente.",
+      );
+      return;
+    }
+    if (!estacion) {
+      setDeleteError(
+        "No se pudo identificar la estación (hostname). Configure el nombre de la PC.",
+      );
+      return;
+    }
     setDeleting(true);
     setDeleteError(null);
-    const result = await eliminarMultaAction(codigo, confirmDelete.idMulta);
+    const result = await eliminarMultaAction(
+      codigo,
+      confirmDelete.idMulta,
+      motivo,
+      operador,
+      estacion,
+    );
     setDeleting(false);
     if (result.success) {
       setConfirmDelete(null);
+      setDeleteMotivo("");
       setNotice(result.message ?? "Multa eliminada");
       void load(page);
     } else {
@@ -283,6 +330,7 @@ export default function MultasModal({ codigo, nombre, onClose }: Props) {
                               disabled={!editable}
                               onClick={() => {
                                 setDeleteError(null);
+                                setDeleteMotivo("");
                                 setConfirmDelete(row);
                               }}
                               className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-white px-2 py-1 text-[10px] font-medium text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
@@ -291,6 +339,17 @@ export default function MultasModal({ codigo, nombre, onClose }: Props) {
                               <Trash2 size={10} />
                               Eliminar
                             </button>
+                            {row.estadoMulta === "0" && (
+                              <button
+                                type="button"
+                                onClick={() => setAuditInfo({ open: true, data: row })}
+                                className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-medium text-slate-600 transition hover:bg-slate-100"
+                                title="Ver datos de la eliminación"
+                              >
+                                <AlertCircle size={10} />
+                                Auditoría
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -360,6 +419,23 @@ export default function MultasModal({ codigo, nombre, onClose }: Props) {
                 Esta acción es lógica: el recibo queda ANULADO y la multa deja de
                 estar vigente.
               </p>
+              <div className="mt-3">
+                <label
+                  htmlFor="motivoEliminacion"
+                  className="block text-[9px] font-semibold uppercase tracking-wider text-slate-400 mb-0.5 leading-none"
+                >
+                  Motivo de la eliminación *
+                </label>
+                <textarea
+                  id="motivoEliminacion"
+                  rows={2}
+                  maxLength={250}
+                  value={deleteMotivo}
+                  onChange={(e) => setDeleteMotivo(e.target.value)}
+                  placeholder="Indique el motivo por el que se anula la multa"
+                  className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] text-slate-700 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none"
+                />
+              </div>
               {deleteError && (
                 <p className="mt-3 rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-red-600">
                   {deleteError}
@@ -369,7 +445,10 @@ export default function MultasModal({ codigo, nombre, onClose }: Props) {
             <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">
               <button
                 type="button"
-                onClick={() => setConfirmDelete(null)}
+                onClick={() => {
+                  setConfirmDelete(null);
+                  setDeleteMotivo("");
+                }}
                 disabled={deleting}
                 className="rounded-md border border-slate-200 px-3 py-1.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
               >
@@ -378,11 +457,69 @@ export default function MultasModal({ codigo, nombre, onClose }: Props) {
               <button
                 type="button"
                 onClick={() => void handleDelete()}
-                disabled={deleting}
+                disabled={deleting || !deleteMotivo.trim()}
                 className="inline-flex items-center gap-1.5 rounded-md bg-red-600 px-3 py-1.5 text-[11px] font-medium text-white transition hover:bg-red-700 disabled:opacity-50"
               >
                 {deleting && <Loader2 size={12} className="animate-spin" />}
                 Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {auditInfo.open && auditInfo.data && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-sm animate-fade-in rounded-lg bg-white shadow-xl">
+            <div className="flex items-center gap-2 border-b border-slate-200 px-4 py-3">
+              <AlertCircle size={15} className="text-slate-500" />
+              <h3 className="text-sm font-semibold text-slate-800">
+                Datos de eliminación — multa {auditInfo.data.nroMulta}
+              </h3>
+            </div>
+            <div className="space-y-3 px-4 py-4 text-xs">
+              <div>
+                <p className="mb-0.5 text-[9px] font-semibold uppercase leading-none tracking-wider text-slate-400">
+                  Motivo de la eliminación
+                </p>
+                <p className="min-h-[40px] whitespace-pre-wrap rounded-md border border-slate-100 bg-slate-50 p-2 text-slate-700">
+                  {auditInfo.data.motivoEliminacion || "Sin motivo registrado"}
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="mb-0.5 text-[9px] font-semibold uppercase leading-none tracking-wider text-slate-400">
+                    Operador
+                  </p>
+                  <p className="font-medium text-slate-700">
+                    {auditInfo.data.operadorAct || "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="mb-0.5 text-[9px] font-semibold uppercase leading-none tracking-wider text-slate-400">
+                    Estación
+                  </p>
+                  <p className="font-medium text-slate-700">
+                    {auditInfo.data.estacionAct || "—"}
+                  </p>
+                </div>
+              </div>
+              <div>
+                <p className="mb-0.5 text-[9px] font-semibold uppercase leading-none tracking-wider text-slate-400">
+                  Fecha de anulación
+                </p>
+                <p className="font-medium text-slate-700">
+                  {formatearFechaHora(auditInfo.data.fechaAct ?? "")}
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end border-t border-slate-200 px-4 py-3">
+              <button
+                type="button"
+                onClick={() => setAuditInfo({ open: false, data: null })}
+                className="rounded-md bg-slate-100 px-3 py-1.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-200"
+              >
+                Cerrar
               </button>
             </div>
           </div>
