@@ -8,6 +8,7 @@ import {
   ContribuyenteHeader,
   ContribuyenteRow,
   DetalleRow,
+  GenerarCertificadoResult,
   ItemResponse,
   SearchContribuyenteResult,
   TipoDeudaRow,
@@ -17,6 +18,7 @@ import {
   CertificadosDto,
   ContribuyenteDto,
   DetalleCertificadoDto,
+  GenerarCertificadoDto,
   PrediosDto,
 } from './dto/certificado.dto';
 import { SearchContribuyenteDto } from './dto/search-contribuyente.dto';
@@ -75,6 +77,34 @@ function toIsoDateTime(value: unknown): string {
   if (hour > 23 || minute > 59 || second > 59) return '';
 
   return `${date}T${match[4]}:${match[5]}:${match[6]}`;
+}
+
+/** Escapa valores para usarlos como atributos XML. */
+function escapeXml(value: unknown): string {
+  const ampersand = String.fromCharCode(38);
+  return str(value)
+    .replace(/&/g, `${ampersand}amp;`)
+    .replace(/</g, `${ampersand}lt;`)
+    .replace(/>/g, `${ampersand}gt;`)
+    .replace(/"/g, `${ampersand}quot;`)
+    .replace(/'/g, `${ampersand}apos;`);
+}
+
+function buildCertificadosXml(
+  detalles: GenerarCertificadoDto['detalles'],
+): string {
+  const rows = detalles
+    .map(
+      (detalle) =>
+        `<row codigo="${escapeXml(detalle.codigo)}" ` +
+        `anno="${escapeXml(detalle.anio)}" ` +
+        `cod_pred="${escapeXml(detalle.codPred)}" ` +
+        `anexo="${escapeXml(detalle.anexo)}" ` +
+        `sub_anexo="${escapeXml(detalle.subAnexo)}" />`,
+    )
+    .join('');
+
+  return `<certificados>${rows}</certificados>`;
 }
 
 function mapContribuyente(row: SpRow): ContribuyenteRow {
@@ -469,6 +499,115 @@ export class CertificadoNoAdeudoService {
       return {
         success: false,
         error: 'Error al consultar los predios del contribuyente',
+      };
+    }
+  }
+
+  /** Registra o actualiza un certificado de no adeudo. */
+  async generar(
+    dto: GenerarCertificadoDto,
+    usuario: string,
+    estacion: string,
+  ): Promise<GenerarCertificadoResult> {
+    let montoDeuda: number;
+    try {
+      const deudaResult = await this.db.executeProcedure(
+        'Rentas.sp_CertificadoNoAdeudo',
+        { busc: 4, codigo: dto.codigo, tipo_deuda: dto.tipoDeuda },
+        { codigo: mssql.VarChar(7), tipo_deuda: mssql.VarChar(5) },
+      );
+      const deudaRow = deudaResult.recordset?.[0] as SpRow | undefined;
+      montoDeuda = num(deudaRow ? Object.values(deudaRow)[0] : 0);
+    } catch (error) {
+      this.logger.error(
+        `[CertificadoNoAdeudo] verificar deuda error: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return {
+        success: false,
+        error: 'Error al verificar la deuda pendiente',
+      };
+    }
+
+    if (montoDeuda > 0) {
+      return {
+        success: false,
+        code: 'DEUDA',
+        message:
+          'El contribuyente tiene deuda pendiente por el tipo de deuda seleccionado',
+        montoDeuda,
+      };
+    }
+
+    try {
+      const result = await this.db.executeProcedure(
+        'Certificado.sp_Genera_Certificado',
+        {
+          codigo: dto.codigo,
+          tipo_deuda: dto.tipoDeuda,
+          tipo_periodo: dto.tipoPeriodo,
+          observacion: dto.observacion,
+          anios_deuda: dto.aniosDeuda,
+          dataxml: buildCertificadosXml(dto.detalles),
+          usu_reg: usuario,
+          estacion_reg: estacion,
+          certnro: dto.certNro ?? 0,
+          certanio: dto.certAnio ?? '',
+        },
+        {
+          codigo: mssql.Char(7),
+          tipo_deuda: mssql.VarChar(5),
+          tipo_periodo: mssql.Int,
+          observacion: mssql.VarChar(250),
+          anios_deuda: mssql.Char(4),
+          dataxml: mssql.Xml,
+          usu_reg: mssql.VarChar(20),
+          estacion_reg: mssql.VarChar(20),
+          certnro: mssql.Int,
+          certanio: mssql.Char(4),
+        },
+      );
+
+      const row = result.recordset?.[0] as SpRow | undefined;
+      if (!row) {
+        this.logger.error(
+          '[CertificadoNoAdeudo] sp_Genera_Certificado no devolvio un resultado; revisar Acceso.MDatosErrores',
+        );
+        return {
+          success: false,
+          error: 'No se pudo registrar el certificado',
+        };
+      }
+
+      const estado = str(Object.values(row)[0]);
+      if (estado === '1x') {
+        return {
+          success: true,
+          message: 'Se registro correctamente',
+          estado: 'REGISTRADO',
+        };
+      }
+      if (estado === '2x') {
+        return {
+          success: false,
+          code: 'DEUDA',
+          message: 'Tiene Deudas y NO se Registro el Certificado',
+        };
+      }
+
+      this.logger.error(
+        `[CertificadoNoAdeudo] sp_Genera_Certificado devolvio un estado inesperado: ${estado}`,
+      );
+      return {
+        success: false,
+        error: 'No se pudo registrar el certificado',
+      };
+    } catch (error) {
+      this.logger.error(
+        `[CertificadoNoAdeudo] generar error: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return {
+        success: false,
+        error: 'Error al registrar el certificado',
       };
     }
   }

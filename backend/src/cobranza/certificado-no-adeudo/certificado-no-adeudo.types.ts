@@ -114,3 +114,28 @@ export interface DetalleRow {
   totalAutoavaluo: number;
   chekeado: string;
 }
+
+export interface CertificadoGeneradoResult {
+  success: true;
+  message: string;
+  estado: 'REGISTRADO';
+}
+
+export interface DeudaPendienteResult {
+  success: false;
+  code: 'DEUDA';
+  message: string;
+  montoDeuda: number;
+}
+
+export interface DeudaDetectadaPorSpResult {
+  success: false;
+  code: 'DEUDA';
+  message: string;
+}
+
+export type GenerarCertificadoResult =
+  | CertificadoGeneradoResult
+  | DeudaPendienteResult
+  | DeudaDetectadaPorSpResult
+  | ErrorResult;

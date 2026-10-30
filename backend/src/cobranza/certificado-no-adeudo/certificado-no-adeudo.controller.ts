@@ -5,8 +5,10 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Request,
   UseGuards,
 } from '@nestjs/common';
+import * as os from 'os';
 import { z } from 'zod';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CertificadoNoAdeudoService } from './certificado-no-adeudo.service';
@@ -15,6 +17,7 @@ import {
   ContribuyenteSchema,
   DetalleCertificadoSchema,
   EmptyBodySchema,
+  GenerarCertificadoSchema,
   PrediosSchema,
 } from './dto/certificado.dto';
 import { SearchContribuyenteSchema } from './dto/search-contribuyente.dto';
@@ -84,5 +87,20 @@ export class CertificadoNoAdeudoController {
   @HttpCode(HttpStatus.OK)
   predios(@Body() body: unknown) {
     return this.service.getPredios(parse(PrediosSchema, body));
+  }
+
+  @Post('generar')
+  @HttpCode(HttpStatus.OK)
+  generar(
+    @Body() body: unknown,
+    @Request() req: Request & { user?: { username?: string } },
+  ) {
+    const usuario = req.user?.username ?? '';
+    const estacion = os.hostname().toUpperCase() || 'SISTEMA';
+    return this.service.generar(
+      parse(GenerarCertificadoSchema, body),
+      usuario,
+      estacion,
+    );
   }
 }
