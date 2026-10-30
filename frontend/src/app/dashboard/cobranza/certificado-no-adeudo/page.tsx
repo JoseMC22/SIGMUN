@@ -7,6 +7,7 @@ import {
   AlertCircle,
   RotateCcw,
   FolderSearch,
+  FileText,
   LayoutGrid,
   ChevronLeft,
   ChevronRight,
@@ -16,15 +17,26 @@ import {
   type ContribuyenteRow,
   type TipoBusqueda,
 } from "@/actions/cobranza/certificado-no-adeudo";
+import CertificadosModal from "@/app/dashboard/cobranza/certificado-no-adeudo/certificados-modal";
 
 // Registros por página de la grilla de contribuyentes.
 const PAGE_SIZE = 15;
 
-const COLUMNAS: {
+type ColumnaDatos = {
   header: string;
   key: keyof ContribuyenteRow;
   render?: (row: ContribuyenteRow) => string;
-}[] = [
+};
+
+type ColumnaAccion = {
+  header: string;
+  key: "accion";
+  render: (row: ContribuyenteRow) => React.ReactNode;
+};
+
+type Columna = ColumnaDatos | ColumnaAccion;
+
+const COLUMNAS: ColumnaDatos[] = [
   { header: "Código", key: "codigo" },
   { header: "Tipo Documento", key: "documento" },
   { header: "Nro Documento", key: "numDoc" },
@@ -38,7 +50,7 @@ const COLUMNAS: {
 ];
 
 const NUM_COLS = COLUMNAS.length;
-const GRID_COLS = NUM_COLS;
+const GRID_COLS = NUM_COLS + 1;
 
 const TIPOS: { value: TipoBusqueda; label: string }[] = [
   { value: "C", label: "Código" },
@@ -116,6 +128,35 @@ export default function CertificadoNoAdeudoPage() {
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [contribuyenteSeleccionado, setContribuyenteSeleccionado] =
+    useState<ContribuyenteRow | null>(null);
+  const [modalCertificadosAbierto, setModalCertificadosAbierto] =
+    useState(false);
+
+  // La columna de accion se distingue por su discriminante para no romper el
+  // tipo `keyof ContribuyenteRow` de las columnas de datos.
+  const columnas: Columna[] = [
+    ...COLUMNAS,
+    {
+      header: "Acción",
+      key: "accion",
+      render: (row) => (
+        <button
+          type="button"
+          onClick={() => {
+            setContribuyenteSeleccionado(row);
+            setModalCertificadosAbierto(true);
+          }}
+          className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-1.5 py-1 text-slate-500 transition hover:bg-slate-100 hover:text-sat-cyan focus:outline-none focus:ring-2 focus:ring-sat-cyan/30"
+          title="Certificados"
+          aria-label={`Certificados del contribuyente ${row.codigo}`}
+        >
+          <FileText size={12} />
+        </button>
+      ),
+    },
+  ];
 
   const buildFilters = useCallback(
     () => ({
@@ -458,7 +499,7 @@ export default function CertificadoNoAdeudoPage() {
         >
           <thead className="bg-gradient-to-r from-sat-navy to-[#1e3050]">
             <tr>
-              {COLUMNAS.map((col) => (
+              {columnas.map((col) => (
                 <th
                   key={col.key}
                   className="text-left text-[9px] font-semibold text-white/90 uppercase px-2 py-2 border-b border-white/5 whitespace-nowrap"
@@ -476,12 +517,18 @@ export default function CertificadoNoAdeudoPage() {
                   idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"
                 }`}
               >
-                {COLUMNAS.map((col) => (
+                {columnas.map((col) => (
                   <td
                     key={col.key}
-                    className="px-2 py-1 text-[10px] truncate text-slate-600"
+                    className={`px-2 py-1 text-[10px] text-slate-600 ${
+                      col.key === "accion" ? "" : "truncate"
+                    }`}
                   >
-                    {col.render ? col.render(row) : String(row[col.key] ?? "")}
+                    {col.key === "accion"
+                      ? col.render(row)
+                      : col.render
+                        ? col.render(row)
+                        : String(row[col.key] ?? "")}
                   </td>
                 ))}
               </tr>
@@ -579,6 +626,13 @@ export default function CertificadoNoAdeudoPage() {
           {renderGrid()}
           {renderPagination()}
         </>
+      )}
+
+      {modalCertificadosAbierto && contribuyenteSeleccionado && (
+        <CertificadosModal
+          contribuyente={contribuyenteSeleccionado}
+          onClose={() => setModalCertificadosAbierto(false)}
+        />
       )}
     </div>
   );
