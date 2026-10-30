@@ -10,6 +10,12 @@ import {
 import { z } from 'zod';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CertificadoNoAdeudoService } from './certificado-no-adeudo.service';
+import {
+  CertificadosSchema,
+  ContribuyenteSchema,
+  DetalleCertificadoSchema,
+  EmptyBodySchema,
+} from './dto/certificado.dto';
 import { SearchContribuyenteSchema } from './dto/search-contribuyente.dto';
 
 function parse<S extends z.ZodTypeAny>(schema: S, value: unknown): z.infer<S> {
@@ -32,5 +38,44 @@ export class CertificadoNoAdeudoController {
   @HttpCode(HttpStatus.OK)
   search(@Body() body: unknown) {
     return this.service.search(parse(SearchContribuyenteSchema, body));
+  }
+
+  @Post('certificados')
+  @HttpCode(HttpStatus.OK)
+  certificados(@Body() body: unknown) {
+    return this.service.getCertificados(parse(CertificadosSchema, body));
+  }
+
+  @Post('detalle')
+  @HttpCode(HttpStatus.OK)
+  detalle(@Body() body: unknown) {
+    return this.service.getDetalle(parse(DetalleCertificadoSchema, body));
+  }
+
+  @Post('contribuyente')
+  @HttpCode(HttpStatus.OK)
+  contribuyente(@Body() body: unknown) {
+    return this.service.getContribuyente(parse(ContribuyenteSchema, body));
+  }
+
+  @Post('tipos-deuda')
+  @HttpCode(HttpStatus.OK)
+  tiposDeuda(@Body() body: unknown) {
+    parse(EmptyBodySchema, body ?? {});
+    return this.service.getTiposDeuda();
+  }
+
+  @Post('tipos-periodo')
+  @HttpCode(HttpStatus.OK)
+  tiposPeriodo(@Body() body: unknown) {
+    parse(EmptyBodySchema, body ?? {});
+    return this.service.getTiposPeriodo();
+  }
+
+  @Post('anios-deuda')
+  @HttpCode(HttpStatus.OK)
+  aniosDeuda(@Body() body: unknown) {
+    parse(EmptyBodySchema, body ?? {});
+    return { success: true, data: this.service.getAniosDeuda() };
   }
 }

@@ -26,3 +26,75 @@ export interface SearchContribuyenteResult {
   totalPages: number;
   error?: string;
 }
+
+export interface CollectionResult<T> {
+  success: true;
+  data: T[];
+  total: number;
+}
+
+export interface ItemResult<T> {
+  success: true;
+  data: T;
+}
+
+export interface ErrorResult {
+  success: false;
+  error: string;
+}
+
+export type CollectionResponse<T> = CollectionResult<T> | ErrorResult;
+export type ItemResponse<T> = ItemResult<T> | ErrorResult;
+
+export interface CertificadoRow {
+  idTbl: string;
+  idRecibo: string;
+  codigo: string;
+  certNro: string;
+  certAnio: string;
+  tipoDeuda: string;
+  tipoDeudaDescripcion: string;
+  tipoPeriodo: string;
+  tipoPeriodoDescripcion: string;
+  observacion: string;
+  cantImpresion: string;
+  impresion: string;
+  fechaImpresion: string;
+  estado: string;
+  estImprime: string;
+  numCertif: string;
+}
+
+export interface CertificadoDetalle {
+  idTbl: string;
+  idRecibo: string;
+  codigo: string;
+  certNro: string;
+  certAnio: string;
+  tipoDeuda: string;
+  tipoPeriodo: string;
+  observacion: string;
+  cantImpresion: string;
+  impresion: string;
+  fechaImpresion: string;
+  estado: string;
+  anioDeuda: string;
+  numCertif: string;
+}
+
+export interface ContribuyenteHeader {
+  codigo: string;
+  nombres: string;
+  numDoc: string;
+  direccion: string;
+}
+
+export interface TipoDeudaRow {
+  tipo: string;
+  detalle: string;
+}
+
+export interface TipoPeriodoRow {
+  idTbl: number;
+  detalle: string;
+}
