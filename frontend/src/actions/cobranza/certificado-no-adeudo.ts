@@ -59,8 +59,20 @@ interface Envelope<T> {
   page?: number;
   pageSize?: number;
   totalPages?: number;
+  message?: string;
+  error?: string;
+  code?: "DEUDA";
+  montoDeuda?: number;
+  estado?: "REGISTRADO";
+}
+
+interface AccionEnvelope<T> {
+  success: boolean;
+  data?: T;
   error?: string;
 }
+
+const ERROR_CONEXION = "Error de conexion con el servidor";
 
 async function postJson<T>(
   path: string,
@@ -111,5 +123,154 @@ export async function searchContribuyentesAction(
       totalPages: 0,
       error: "Error de conexión con el servidor",
     };
+  }
+}
+
+export interface CertificadoRow {
+  idTbl: string;
+  idRecibo: string;
+  codigo: string;
+  certNro: string;
+  certAnio: string;
+  tipoDeuda: string;
+  tipoDeudaDescripcion: string;
+  tipoPeriodo: string;
+  tipoPeriodoDescripcion: string;
+  observacion: string;
+  cantImpresion: string;
+  impresion: string;
+  fechaImpresion: string;
+  estado: string;
+  estImprime: string;
+  numCertif: string;
+}
+
+export interface CertificadoDetalle {
+  idTbl: string;
+  idRecibo: string;
+  codigo: string;
+  certNro: string;
+  certAnio: string;
+  tipoDeuda: string;
+  tipoPeriodo: string;
+  observacion: string;
+  cantImpresion: string;
+  impresion: string;
+  fechaImpresion: string;
+  estado: string;
+  anioDeuda: string;
+  numCertif: string;
+}
+
+export interface ContribuyenteHeader {
+  codigo: string;
+  nombres: string;
+  numDoc: string;
+  direccion: string;
+}
+
+export interface TipoDeudaRow {
+  tipo: string;
+  detalle: string;
+}
+
+export interface TipoPeriodoRow {
+  idTbl: number;
+  detalle: string;
+}
+
+export interface DetalleRow {
+  codigo: string;
+  anio: string;
+  codPred: string;
+  anexo: string;
+  subAnexo: string;
+  anexos: string;
+  direccion: string;
+  detalles: string;
+  tipo: string;
+  areaTerreno: number;
+  porcenPropiedad: number;
+  totalAutoavaluo: number;
+  chekeado: string;
+}
+
+function toAccionEnvelope<T>(json: Envelope<T>): AccionEnvelope<T> {
+  const success = json.success ?? false;
+  const result: AccionEnvelope<T> = { success };
+  if (success && json.data !== undefined) result.data = json.data;
+  if (json.error) result.error = json.error;
+  return result;
+}
+
+export async function getCertificadosAction(
+  codigo: string,
+): Promise<AccionEnvelope<CertificadoRow[]>> {
+  try {
+    const json = await postJson<CertificadoRow[]>("/certificados", { codigo });
+    return toAccionEnvelope(json);
+  } catch {
+    return { success: false, error: ERROR_CONEXION };
+  }
+}
+
+export async function getDetalleCertificadoAction(
+  certNro: string | number,
+  certAnio: string,
+): Promise<AccionEnvelope<CertificadoDetalle>> {
+  try {
+    const json = await postJson<CertificadoDetalle>("/detalle", {
+      certNro: Number(certNro),
+      certAnio,
+    });
+    return toAccionEnvelope(json);
+  } catch {
+    return { success: false, error: ERROR_CONEXION };
+  }
+}
+
+export async function getContribuyenteAction(
+  codigo: string,
+): Promise<AccionEnvelope<ContribuyenteHeader>> {
+  try {
+    const json = await postJson<ContribuyenteHeader>("/contribuyente", {
+      codigo,
+    });
+    return toAccionEnvelope(json);
+  } catch {
+    return { success: false, error: ERROR_CONEXION };
+  }
+}
+
+export async function getTiposDeudaAction(): Promise<
+  AccionEnvelope<TipoDeudaRow[]>
+> {
+  try {
+    const json = await postJson<TipoDeudaRow[]>("/tipos-deuda", {});
+    return toAccionEnvelope(json);
+  } catch {
+    return { success: false, error: ERROR_CONEXION };
+  }
+}
+
+export async function getTiposPeriodoAction(): Promise<
+  AccionEnvelope<TipoPeriodoRow[]>
+> {
+  try {
+    const json = await postJson<TipoPeriodoRow[]>("/tipos-periodo", {});
+    return toAccionEnvelope(json);
+  } catch {
+    return { success: false, error: ERROR_CONEXION };
+  }
+}
+
+export async function getAniosDeudaAction(): Promise<
+  AccionEnvelope<string[]>
+> {
+  try {
+    const json = await postJson<string[]>("/anios-deuda", {});
+    return toAccionEnvelope(json);
+  } catch {
+    return { success: false, error: ERROR_CONEXION };
   }
 }
