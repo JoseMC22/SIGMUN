@@ -98,3 +98,19 @@ export interface TipoPeriodoRow {
   idTbl: number;
   detalle: string;
 }
+
+export interface DetalleRow {
+  codigo: string;
+  anio: string;
+  codPred: string;
+  anexo: string;
+  subAnexo: string;
+  anexos: string;
+  direccion: string;
+  detalles: string;
+  tipo: string;
+  areaTerreno: number;
+  porcenPropiedad: number;
+  totalAutoavaluo: number;
+  chekeado: string;
+}

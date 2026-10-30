@@ -31,6 +31,16 @@ export const ContribuyenteSchema = z.object({
 
 export type ContribuyenteDto = z.infer<typeof ContribuyenteSchema>;
 
+/** Predios o vehiculos que pueden incorporarse al certificado. */
+export const PrediosSchema = z.object({
+  codigo: CodigoSchema,
+  anio: AnioSchema,
+  tipoDeuda: z.string().trim().min(1).max(5),
+  idTbl: z.number().int().nonnegative().optional(),
+});
+
+export type PrediosDto = z.infer<typeof PrediosSchema>;
+
 /** Body vacio para catalogos sin parametros. */
 export const EmptyBodySchema = z.object({});
 
