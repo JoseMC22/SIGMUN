@@ -7,6 +7,7 @@ import {
   CollectionResponse,
   ContribuyenteHeader,
   ContribuyenteRow,
+  DetalleRow,
   ItemResponse,
   SearchContribuyenteResult,
   TipoDeudaRow,
@@ -16,6 +17,7 @@ import {
   CertificadosDto,
   ContribuyenteDto,
   DetalleCertificadoDto,
+  PrediosDto,
 } from './dto/certificado.dto';
 import { SearchContribuyenteDto } from './dto/search-contribuyente.dto';
 
@@ -147,6 +149,46 @@ function mapTipoPeriodo(row: SpRow): TipoPeriodoRow {
   return {
     idTbl: num(row.id_tbl),
     detalle: str(row.detalle),
+  };
+}
+
+function mapDetalle(row: SpRow, esVehiculo: boolean): DetalleRow {
+  if (esVehiculo) {
+    return {
+      codigo: str(row.codigo),
+      anio: str(row.Anio),
+      codPred: str(row.num_placa),
+      anexo: str(row.anexo),
+      subAnexo: str(row.subanexo),
+      anexos: '',
+      direccion: '',
+      detalles: [
+        str(row.nombre_categoria),
+        str(row.nombre_marca),
+        str(row.nombre_modelo),
+      ].join(' | '),
+      tipo: '',
+      areaTerreno: 0,
+      porcenPropiedad: 0,
+      totalAutoavaluo: 0,
+      chekeado: 'chekeado' in row ? str(row.chekeado) : '0',
+    };
+  }
+
+  return {
+    codigo: str(row.codigo),
+    anio: str(row.anno),
+    codPred: str(row.cod_pred),
+    anexo: str(row.anexo),
+    subAnexo: str(row.sub_anexo),
+    anexos: str(row.anexos),
+    direccion: str(row.direccion),
+    detalles: '',
+    tipo: str(row.tipo),
+    areaTerreno: num(row.area_terreno),
+    porcenPropiedad: num(row.porcen_propiedad),
+    totalAutoavaluo: num(row.total_autoavaluo),
+    chekeado: 'chekeado' in row ? str(row.chekeado) : '0',
   };
 }
 
@@ -382,5 +424,52 @@ export class CertificadoNoAdeudoService {
       anios.push(String(anio));
     }
     return anios;
+  }
+
+  /** Predios o vehiculos disponibles para el contribuyente y anio. */
+  async getPredios(dto: PrediosDto): Promise<CollectionResponse<DetalleRow>> {
+    const esVehiculo = dto.tipoDeuda === '00.30';
+    const esEdicion = dto.idTbl !== undefined;
+
+    try {
+      const result = esEdicion
+        ? await this.db.executeProcedure(
+            'Certificado.sp_Certificado',
+            {
+              busc: esVehiculo ? 4 : 3,
+              codigo: dto.codigo,
+              anno: dto.anio,
+              id_tbl: dto.idTbl,
+            },
+            {
+              codigo: mssql.VarChar(7),
+              anno: mssql.Char(4),
+              id_tbl: mssql.Int,
+            },
+          )
+        : await this.db.executeProcedure(
+            'Rentas.sp_Multatributaria',
+            {
+              busc: esVehiculo ? 5 : 2,
+              codigo: dto.codigo,
+              anno: dto.anio,
+            },
+            { codigo: mssql.VarChar(7), anno: mssql.Char(4) },
+          );
+
+      const data = (result.recordset ?? []).map((row) =>
+        mapDetalle(row as SpRow, esVehiculo),
+      );
+
+      return { success: true, data, total: data.length };
+    } catch (error) {
+      this.logger.error(
+        `[CertificadoNoAdeudo] getPredios error: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return {
+        success: false,
+        error: 'Error al consultar los predios del contribuyente',
+      };
+    }
   }
 }

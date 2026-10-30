@@ -15,6 +15,7 @@ import {
   ContribuyenteSchema,
   DetalleCertificadoSchema,
   EmptyBodySchema,
+  PrediosSchema,
 } from './dto/certificado.dto';
 import { SearchContribuyenteSchema } from './dto/search-contribuyente.dto';
 
@@ -77,5 +78,11 @@ export class CertificadoNoAdeudoController {
   aniosDeuda(@Body() body: unknown) {
     parse(EmptyBodySchema, body ?? {});
     return { success: true, data: this.service.getAniosDeuda() };
+  }
+
+  @Post('predios')
+  @HttpCode(HttpStatus.OK)
+  predios(@Body() body: unknown) {
+    return this.service.getPredios(parse(PrediosSchema, body));
   }
 }
