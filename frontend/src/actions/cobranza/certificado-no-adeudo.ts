@@ -195,6 +195,41 @@ export interface DetalleRow {
   chekeado: string;
 }
 
+export interface DetalleCertificadoItem {
+  codigo: string;
+  anio: string;
+  codPred: string;
+  anexo: string;
+  subAnexo: string;
+}
+
+export interface GenerarCertificadoInput {
+  codigo: string;
+  tipoDeuda: string;
+  tipoPeriodo: number;
+  observacion: string;
+  aniosDeuda: string;
+  detalles: DetalleCertificadoItem[];
+  certNro?: number;
+  certAnio?: string;
+}
+
+export interface GenerarCertificadoResultado {
+  success: boolean;
+  message?: string;
+  code?: "DEUDA";
+  montoDeuda?: number;
+  estado?: "REGISTRADO";
+  error?: string;
+}
+
+export interface GetPrediosInput {
+  codigo: string;
+  anio: string;
+  tipoDeuda: string;
+  idTbl?: string | number;
+}
+
 function toAccionEnvelope<T>(json: Envelope<T>): AccionEnvelope<T> {
   const success = json.success ?? false;
   const result: AccionEnvelope<T> = { success };
@@ -270,6 +305,47 @@ export async function getAniosDeudaAction(): Promise<
   try {
     const json = await postJson<string[]>("/anios-deuda", {});
     return toAccionEnvelope(json);
+  } catch {
+    return { success: false, error: ERROR_CONEXION };
+  }
+}
+
+export async function getPrediosAction(
+  input: GetPrediosInput,
+): Promise<AccionEnvelope<DetalleRow[]>> {
+  try {
+    const body: {
+      codigo: string;
+      anio: string;
+      tipoDeuda: string;
+      idTbl?: number;
+    } = {
+      codigo: input.codigo,
+      anio: input.anio,
+      tipoDeuda: input.tipoDeuda,
+    };
+    if (input.idTbl !== undefined) body.idTbl = Number(input.idTbl);
+    const json = await postJson<DetalleRow[]>("/predios", body);
+    return toAccionEnvelope(json);
+  } catch {
+    return { success: false, error: ERROR_CONEXION };
+  }
+}
+
+export async function generarCertificadoAction(
+  input: GenerarCertificadoInput,
+): Promise<GenerarCertificadoResultado> {
+  try {
+    const json = await postJson<never>("/generar", input);
+    const result: GenerarCertificadoResultado = {
+      success: json.success ?? false,
+    };
+    if (json.message) result.message = json.message;
+    if (json.code) result.code = json.code;
+    if (json.montoDeuda !== undefined) result.montoDeuda = json.montoDeuda;
+    if (json.estado) result.estado = json.estado;
+    if (json.error) result.error = json.error;
+    return result;
   } catch {
     return { success: false, error: ERROR_CONEXION };
   }
