@@ -6,6 +6,8 @@ import {
   getTiposDeudaAction,
   getTiposPeriodoAction,
   getAniosDeudaAction,
+  getPrediosAction,
+  generarCertificadoAction,
 } from "./certificado-no-adeudo";
 
 vi.mock("next/headers", () => ({
@@ -144,6 +146,142 @@ describe("acciones de cobranza/certificado-no-adeudo", () => {
 
     expectPost(fetchMock, "/anios-deuda", {});
     expect(result).toEqual({ success: true, data });
+  });
+
+  it("consulta predios sin idTbl en alta", async () => {
+    const data = [
+      {
+        codigo: "0123456",
+        anio: "2026",
+        codPred: "P-001",
+        anexo: "0002",
+        subAnexo: "0001",
+        anexos: "0002-0001",
+        direccion: "Av. Predial 456",
+        detalles: "",
+        tipo: "1",
+        areaTerreno: 120.5,
+        porcenPropiedad: 100,
+        totalAutoavaluo: 90000,
+        chekeado: "0",
+      },
+    ];
+    const fetchMock = mockJsonResponse({ success: true, data });
+
+    const result = await getPrediosAction({
+      codigo: "0123456",
+      anio: "2026",
+      tipoDeuda: "00.10",
+    });
+
+    expectPost(fetchMock, "/predios", {
+      codigo: "0123456",
+      anio: "2026",
+      tipoDeuda: "00.10",
+    });
+    expect(result).toEqual({ success: true, data });
+  });
+
+  it("consulta predios con idTbl en edicion", async () => {
+    const fetchMock = mockJsonResponse({ success: true, data: [] });
+
+    await getPrediosAction({
+      codigo: "0123456",
+      anio: "2026",
+      tipoDeuda: "00.30",
+      idTbl: "10",
+    });
+
+    expectPost(fetchMock, "/predios", {
+      codigo: "0123456",
+      anio: "2026",
+      tipoDeuda: "00.30",
+      idTbl: 10,
+    });
+  });
+
+  it("genera un certificado con el payload del backend", async () => {
+    const fetchMock = mockJsonResponse({
+      success: true,
+      message: "Se registro correctamente",
+      estado: "REGISTRADO",
+    });
+    const input = {
+      codigo: "0123456",
+      tipoDeuda: "00.30",
+      tipoPeriodo: 1,
+      observacion: "Sin deuda pendiente",
+      aniosDeuda: "2026",
+      detalles: [
+        {
+          codigo: "0123456",
+          anio: "2026",
+          codPred: "ABC-123",
+          anexo: "0002",
+          subAnexo: "0001",
+        },
+      ],
+    };
+
+    const result = await generarCertificadoAction(input);
+
+    expectPost(fetchMock, "/generar", input);
+    expect(result).toEqual({
+      success: true,
+      message: "Se registro correctamente",
+      estado: "REGISTRADO",
+    });
+  });
+
+  it("propaga el codigo DEUDA y el monto pendiente", async () => {
+    mockJsonResponse({
+      success: false,
+      code: "DEUDA",
+      message: "El contribuyente tiene deuda pendiente",
+      montoDeuda: 125.5,
+    });
+
+    const result = await generarCertificadoAction({
+      codigo: "0123456",
+      tipoDeuda: "00.30",
+      tipoPeriodo: 1,
+      observacion: "Sin deuda pendiente",
+      aniosDeuda: "2026",
+      detalles: [],
+    });
+
+    expect(result).toEqual({
+      success: false,
+      code: "DEUDA",
+      message: "El contribuyente tiene deuda pendiente",
+      montoDeuda: 125.5,
+    });
+  });
+
+  it("envia certNro y certAnio al editar", async () => {
+    const fetchMock = mockJsonResponse({ success: true, estado: "REGISTRADO" });
+
+    await generarCertificadoAction({
+      codigo: "0123456",
+      tipoDeuda: "00.30",
+      tipoPeriodo: 1,
+      observacion: "Edicion",
+      aniosDeuda: "2026",
+      detalles: [],
+      certNro: 3,
+      certAnio: "2026",
+    });
+
+    expectPost(fetchMock, "/generar", {
+      codigo: "0123456",
+      tipoDeuda: "00.30",
+      tipoPeriodo: 1,
+      observacion: "Edicion",
+      aniosDeuda: "2026",
+      detalles: [],
+      certNro: 3,
+      certAnio: "2026",
+    });
   });
 
   it("devuelve error de conexion si fetch falla", async () => {
