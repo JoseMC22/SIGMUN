@@ -18,6 +18,8 @@ import { CertificadoImpresionRow } from './certificado-no-adeudo.types';
 export interface CertificadoPdfOptions {
   logoDataUri: string | null;
   escudoDataUri: string | null;
+  /** SVG inline del QR de verificacion; `null` deja el certificado sin QR. */
+  qrSvg: string | null;
 }
 
 /**
@@ -56,7 +58,7 @@ function buildStyles(): string {
       color: #000;
     }
     .doc {
-      min-height: 250mm;
+      min-height: 272mm;
       display: flex;
       flex-direction: column;
     }
@@ -65,80 +67,93 @@ function buildStyles(): string {
       align-items: flex-start;
       justify-content: space-between;
     }
-    .logo { height: 60px; }
-    .escudo { height: 70px; }
+    .logo { height: 60pt; }
+    .escudo { height: 70pt; }
     .municipalidad {
       font-size: 9pt;
       text-align: center;
-      margin-top: 4px;
-      max-width: 100px;
+      margin-top: 4pt;
+      max-width: 100pt;
     }
     h1 {
-      margin: 8px 0 0;
+      margin: 8pt 0 0;
       font-size: 20pt;
       font-weight: bold;
       text-align: center;
     }
     .numero {
-      margin: 6px 0 0;
+      margin: 6pt 0 0;
       font-size: 12pt;
       font-weight: bold;
       text-decoration: underline;
       text-align: center;
     }
     .fecha {
-      margin: 10px 0 0;
+      margin: 10pt 0 0;
       text-align: right;
       font-weight: bold;
     }
     .cuerpo {
-      margin: 16px 0 0;
+      margin: 16pt 0 0;
       text-align: justify;
       line-height: 1.45;
     }
     .predios {
       width: 100%;
-      margin-top: 14px;
+      margin-top: 14pt;
       border-collapse: collapse;
     }
     .predios td {
       border-top: 1px solid #000;
       border-bottom: 1px solid #000;
-      padding: 3px 2px;
+      padding: 3pt 2pt;
       font-size: 10pt;
       text-align: center;
     }
     .recibo {
-      margin: 8px 0 0;
+      margin: 8pt 0 0;
       text-align: center;
       font-weight: bold;
       text-decoration: underline;
     }
     .solicitud {
-      margin: 22px 0 0;
+      margin: 22pt 0 0;
       font-size: 10pt;
     }
     .firma {
-      margin-top: 18px;
-      width: 240px;
+      margin-top: 18pt;
+      width: 240pt;
     }
     .firma .linea {
       border-top: 1px solid #000;
       height: 1px;
     }
     .firma .nombre {
-      margin: 4px 0 0;
+      margin: 4pt 0 0;
       text-align: center;
       font-weight: bold;
     }
     .firma .conyuge {
-      margin: 2px 0 0;
+      margin: 2pt 0 0;
       text-align: center;
       font-size: 10pt;
     }
+    .firma-fila {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    .firma-fila .firma {
+      margin-top: 0;
+    }
+    .qr svg {
+      width: 140pt;
+      height: 140pt;
+      display: block;
+    }
     .pie {
       margin-top: auto;
-      padding-top: 10px;
+      padding-top: 10pt;
       display: flex;
       justify-content: space-between;
       font-size: 7pt;
@@ -184,6 +199,7 @@ export function buildCertificadoPdfHtml(
   const conyuge = cab.conyuge.trim()
     ? `<p class="conyuge">Conyuge ${esc(cab.conyuge)}</p>`
     : '';
+  const qr = opts.qrSvg ? `<div class="qr">${opts.qrSvg}</div>` : '';
 
   return `<!DOCTYPE html>
 <html lang="es">
@@ -212,10 +228,13 @@ export function buildCertificadoPdfHtml(
     ${tablaPredios}
     ${recibo}
     <p class="solicitud">Se extiende el presente certificado a solicitud del contribuyente.</p>
-    <div class="firma">
-      <div class="linea"></div>
-      <p class="nombre">${esc(cab.nombre)}</p>
-      ${conyuge}
+    <div class="firma-fila">
+      <div class="firma">
+        <div class="linea"></div>
+        <p class="nombre">${esc(cab.nombre)}</p>
+        ${conyuge}
+      </div>
+      ${qr}
     </div>
     <div class="pie">
       <span>${esc(cab.usuReg)}</span>

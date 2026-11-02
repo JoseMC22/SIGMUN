@@ -39,7 +39,11 @@ describe('certificado-pdf-generator', () => {
     ...overrides,
   });
 
-  const sinImagenes = { logoDataUri: null, escudoDataUri: null };
+  const sinImagenes = {
+    logoDataUri: null,
+    escudoDataUri: null,
+    qrSvg: null,
+  };
 
   beforeEach(() => {
     mockGeneratePdf.mockReset();
@@ -141,11 +145,32 @@ describe('certificado-pdf-generator', () => {
         buildCertificadoPdfHtml([fila()], {
           logoDataUri: 'data:image/png;base64,AAA',
           escudoDataUri: null,
+          qrSvg: null,
         }),
       ).toContain('<img class="logo"');
 
       expect(buildCertificadoPdfHtml([fila()], sinImagenes)).not.toContain(
         '<img class="logo"',
+      );
+    });
+
+    it('embebe el QR cuando el generador lo resolvio', () => {
+      const html = buildCertificadoPdfHtml([fila()], {
+        ...sinImagenes,
+        qrSvg: '<svg xmlns="http://www.w3.org/2000/svg"></svg>',
+      });
+
+      expect(html).toContain('<div class="qr">');
+      expect(html).toContain('<svg xmlns="http://www.w3.org/2000/svg">');
+      // El QR va al lado de la firma, no debajo del pie.
+      expect(html.indexOf('class="qr"')).toBeLessThan(
+        html.indexOf('class="pie"'),
+      );
+    });
+
+    it('sin QR no deja el contenedor vacio', () => {
+      expect(buildCertificadoPdfHtml([fila()], sinImagenes)).not.toContain(
+        'class="qr"',
       );
     });
 

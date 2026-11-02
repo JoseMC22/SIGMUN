@@ -37,6 +37,7 @@
     "mssql": "^12.5.4",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
+    "qrcode": "^1.5.4",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "zod": "^3.25.76"
@@ -53,6 +54,7 @@
     "@types/mssql": "^12.3.0",
     "@types/node": "^22.10.7",
     "@types/passport-jwt": "^4.0.1",
+    "@types/qrcode": "^1.5.6",
     "@types/supertest": "^6.0.2",
     "cross-env": "^7.0.3",
     "eslint": "^9.18.0",

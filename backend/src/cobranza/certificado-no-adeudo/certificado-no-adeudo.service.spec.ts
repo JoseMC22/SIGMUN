@@ -6,6 +6,7 @@ import {
   generateCertificadoPdf,
   resolveCertificadoImagenes,
 } from './certificado-pdf-generator';
+import { resolveCertificadoQr } from './certificado-qr';
 import { GenerarCertificadoDto } from './dto/certificado.dto';
 import { SearchContribuyenteDto } from './dto/search-contribuyente.dto';
 
@@ -14,6 +15,10 @@ import { SearchContribuyenteDto } from './dto/search-contribuyente.dto';
 jest.mock('./certificado-pdf-generator', () => ({
   generateCertificadoPdf: jest.fn(),
   resolveCertificadoImagenes: jest.fn(),
+}));
+
+jest.mock('./certificado-qr', () => ({
+  resolveCertificadoQr: jest.fn(),
 }));
 
 /**
@@ -1045,6 +1050,9 @@ describe('CertificadoNoAdeudoService', () => {
       resolveCertificadoImagenes as jest.MockedFunction<
         typeof resolveCertificadoImagenes
       >;
+    const resolveQrMock = resolveCertificadoQr as jest.MockedFunction<
+      typeof resolveCertificadoQr
+    >;
 
     const impresionDto = {
       codigo: '0200182',
@@ -1116,10 +1124,12 @@ describe('CertificadoNoAdeudoService', () => {
     beforeEach(() => {
       generatePdfMock.mockReset();
       resolveImagenesMock.mockReset();
+      resolveQrMock.mockReset();
       resolveImagenesMock.mockResolvedValue({
         logoDataUri: null,
         escudoDataUri: null,
       });
+      resolveQrMock.mockResolvedValue(null);
       generatePdfMock.mockResolvedValue(Buffer.from('fake-pdf'));
     });
 
@@ -1175,6 +1185,25 @@ describe('CertificadoNoAdeudoService', () => {
           filename: 'certificado_0200182_170_2025.pdf',
         },
       });
+    });
+
+    it('resuelve el QR con la identidad pedida y lo pasa al generador', async () => {
+      executeProcedure
+        .mockResolvedValueOnce(result([cabecera(1)]))
+        .mockResolvedValueOnce(result([filaReporte('JR. LIMA 100')]));
+      resolveQrMock.mockResolvedValue('<svg></svg>');
+
+      await service.getImpresion(impresionDto);
+
+      expect(resolveQrMock).toHaveBeenCalledWith({
+        codigo: '0200182',
+        certNro: 170,
+        certAnio: '2025',
+      });
+      expect(generatePdfMock).toHaveBeenCalledWith(
+        expect.any(Array),
+        expect.objectContaining({ qrSvg: '<svg></svg>' }),
+      );
     });
 
     it('mapea una fila por predio, con los valores del SP normalizados', async () => {

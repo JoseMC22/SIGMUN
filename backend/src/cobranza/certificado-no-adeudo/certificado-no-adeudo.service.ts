@@ -29,6 +29,7 @@ import {
   generateCertificadoPdf,
   resolveCertificadoImagenes,
 } from './certificado-pdf-generator';
+import { resolveCertificadoQr } from './certificado-qr';
 
 type SpRow = Record<string, any>;
 
@@ -470,8 +471,18 @@ export class CertificadoNoAdeudoService {
     }
 
     try {
-      const imagenes = await resolveCertificadoImagenes();
-      const buffer = await generateCertificadoPdf(rows, imagenes);
+      const [imagenes, qrSvg] = await Promise.all([
+        resolveCertificadoImagenes(),
+        resolveCertificadoQr({
+          codigo: dto.codigo,
+          certNro: dto.certNro,
+          certAnio: dto.certAnio,
+        }),
+      ]);
+      const buffer = await generateCertificadoPdf(rows, {
+        ...imagenes,
+        qrSvg,
+      });
       return {
         success: true,
         data: {
