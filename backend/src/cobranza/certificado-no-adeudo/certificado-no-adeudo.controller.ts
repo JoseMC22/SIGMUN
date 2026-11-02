@@ -2,12 +2,16 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Post,
+  Query,
   Request,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import { Response } from 'express';
 import * as os from 'os';
 import { z } from 'zod';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -18,6 +22,7 @@ import {
   DetalleCertificadoSchema,
   EmptyBodySchema,
   GenerarCertificadoSchema,
+  ImpresionCertificadoSchema,
   PrediosSchema,
 } from './dto/certificado.dto';
 import { SearchContribuyenteSchema } from './dto/search-contribuyente.dto';
@@ -54,6 +59,49 @@ export class CertificadoNoAdeudoController {
   @HttpCode(HttpStatus.OK)
   detalle(@Body() body: unknown) {
     return this.service.getDetalle(parse(DetalleCertificadoSchema, body));
+  }
+
+  /**
+   * PDF del certificado. Responde `inline` para que el navegador lo abra.
+   *
+   * Solo se genera si el recibo de emision esta cancelado (`est_imprime='1'`);
+   * si no, 409 `RECIBO_NO_CANCELADO`. Certificado inexistente: 404.
+   */
+  @Get('pdf')
+  async pdf(
+    @Query('codigo') codigo: string | undefined,
+    @Query('certNro') certNro: string | undefined,
+    @Query('certAnio') certAnio: string | undefined,
+    @Res() res: Response,
+  ) {
+    const dto = parse(ImpresionCertificadoSchema, {
+      codigo,
+      certNro,
+      certAnio,
+    });
+    const result = await this.service.getImpresion(dto);
+
+    if (!result.success) {
+      const status =
+        result.code === 'NO_ENCONTRADO'
+          ? HttpStatus.NOT_FOUND
+          : result.code === 'RECIBO_NO_CANCELADO'
+            ? HttpStatus.CONFLICT
+            : HttpStatus.INTERNAL_SERVER_ERROR;
+      res.status(status).json({
+        success: false,
+        code: result.code,
+        error: result.error,
+      });
+      return;
+    }
+
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `inline; filename="${result.data.filename}"`,
+      'Content-Length': result.data.buffer.length,
+    });
+    res.end(result.data.buffer);
   }
 
   @Post('contribuyente')

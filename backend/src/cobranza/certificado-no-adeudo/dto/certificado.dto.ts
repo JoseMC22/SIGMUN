@@ -95,3 +95,18 @@ export type GenerarCertificadoDto = z.infer<typeof GenerarCertificadoSchema>;
 export const EmptyBodySchema = z.object({});
 
 export type EmptyBodyDto = z.infer<typeof EmptyBodySchema>;
+
+/**
+ * Parametros de impresion de un certificado (`GET /pdf`).
+ * Llegan como query string, por eso `certNro` se coacciona a numero: el SP lo
+ * recibe como `int`.
+ */
+export const ImpresionCertificadoSchema = z.object({
+  codigo: CodigoSchema,
+  certNro: z.coerce.number().int().positive(),
+  certAnio: AnioSchema,
+});
+
+export type ImpresionCertificadoDto = z.infer<
+  typeof ImpresionCertificadoSchema
+>;

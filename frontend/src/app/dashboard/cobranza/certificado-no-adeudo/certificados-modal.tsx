@@ -3,17 +3,21 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   AlertCircle,
+  Loader2,
   Pencil,
   Plus,
+  Printer,
   RotateCcw,
   SearchX,
   X,
 } from "lucide-react";
 import {
   getCertificadosAction,
+  getCertificadoPdfAction,
   type CertificadoRow,
   type ContribuyenteRow,
 } from "@/actions/cobranza/certificado-no-adeudo";
+import { abrirPdfBase64 } from "@/lib/op-pdf";
 import CertificadoFormModal, {
   type CertificadoFormTarget,
 } from "./certificado-form-modal";
@@ -33,6 +37,11 @@ function formatearFecha(iso: string): string {
 
 function nombreContribuyente(row: ContribuyenteRow): string {
   return [row.paterno, row.materno, row.nombres].filter(Boolean).join(" ").trim();
+}
+
+/** Clave estable de una fila, para el estado de "imprimiendo". */
+function claveFila(row: CertificadoRow): string {
+  return `${row.idTbl}-${row.certNro}-${row.certAnio}`;
 }
 
 function GridSkeleton() {
@@ -63,6 +72,8 @@ export default function CertificadosModal({ contribuyente, onClose }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+  const [imprimiendo, setImprimiendo] = useState<string | null>(null);
   const [form, setForm] = useState<{
     certificado?: CertificadoFormTarget;
   } | null>(null);
@@ -91,6 +102,37 @@ export default function CertificadosModal({ contribuyente, onClose }: Props) {
     setForm(null);
     setNotice("Operación realizada correctamente");
     void load();
+  };
+
+  /**
+   * Pide el PDF del certificado y lo abre en una pestaña nueva.
+   *
+   * El backend es el que hace cumplir la regla (recibo cancelado): si el
+   * certificado ya no cumple, responde 409 y el mensaje se muestra arriba.
+   */
+  const imprimir = async (row: CertificadoRow) => {
+    const clave = claveFila(row);
+    setImprimiendo(clave);
+    setPdfError(null);
+    setNotice(null);
+    try {
+      const result = await getCertificadoPdfAction(
+        row.codigo,
+        row.certNro,
+        row.certAnio,
+      );
+      if (!result.success || !result.base64) {
+        setPdfError(
+          result.error ?? "No se pudo generar el PDF del certificado",
+        );
+        return;
+      }
+      abrirPdfBase64(result.base64);
+    } catch {
+      setPdfError("No se pudo generar el PDF del certificado");
+    } finally {
+      setImprimiendo(null);
+    }
   };
 
   return (
@@ -145,6 +187,16 @@ export default function CertificadosModal({ contribuyente, onClose }: Props) {
         {notice && (
           <div className="mx-4 mt-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-700">
             {notice}
+          </div>
+        )}
+
+        {pdfError && (
+          <div
+            className="mx-4 mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700"
+            role="alert"
+            data-testid="certificado-pdf-error"
+          >
+            {pdfError}
           </div>
         )}
 
@@ -234,25 +286,44 @@ export default function CertificadosModal({ contribuyente, onClose }: Props) {
                         {formatearFecha(row.fechaImpresion)}
                       </td>
                       <td className="whitespace-nowrap px-2 py-1">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setNotice(null);
-                            setError(null);
-                            setForm({
-                              certificado: {
-                                certNro: row.certNro,
-                                certAnio: row.certAnio,
-                                idTbl: row.idTbl,
-                              },
-                            });
-                          }}
-                          className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-800"
-                          title="Editar Certificado"
-                          aria-label="Editar Certificado"
-                        >
-                          <Pencil size={10} />
-                        </button>
+                        <div className="flex items-center gap-1">
+                          {row.estImprime === "1" && (
+                            <button
+                              type="button"
+                              onClick={() => void imprimir(row)}
+                              disabled={imprimiendo === claveFila(row)}
+                              className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                              title="Imprimir Certificado"
+                              aria-label="Imprimir Certificado"
+                            >
+                              {imprimiendo === claveFila(row) ? (
+                                <Loader2 size={10} className="animate-spin" />
+                              ) : (
+                                <Printer size={10} />
+                              )}
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNotice(null);
+                              setError(null);
+                              setPdfError(null);
+                              setForm({
+                                certificado: {
+                                  certNro: row.certNro,
+                                  certAnio: row.certAnio,
+                                  idTbl: row.idTbl,
+                                },
+                              });
+                            }}
+                            className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-800"
+                            title="Editar Certificado"
+                            aria-label="Editar Certificado"
+                          >
+                            <Pencil size={10} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

@@ -139,3 +139,46 @@ export type GenerarCertificadoResult =
   | DeudaPendienteResult
   | DeudaDetectadaPorSpResult
   | ErrorResult;
+
+/**
+ * Fila de `Certificado.sp_Imprime_Certificado @busc=2`.
+ *
+ * El SP devuelve UNA fila por predio del certificado (`LEFT JOIN
+ * Certificado.Detalle`), repitiendo la cabecera en cada una. El campo
+ * `numIngr` llega vacio cuando el recibo no esta cancelado: es la misma regla
+ * de negocio que `est_imprime`, aplicada por el propio SP.
+ */
+export interface CertificadoImpresionRow {
+  codigo: string;
+  nombre: string;
+  certNro: string;
+  certAnio: string;
+  concepto: string;
+  periodo: string;
+  observacion: string;
+  predios: string;
+  fecha: string;
+  numIngr: string;
+  usuReg: string;
+  estacionReg: string;
+  anioHr: string;
+  horaCer: string;
+  documento: string;
+  tipoDoc: string;
+  conyuge: string;
+}
+
+export interface CertificadoPdfData {
+  buffer: Buffer;
+  filename: string;
+}
+
+export interface CertificadoPdfError {
+  success: false;
+  code: 'NO_ENCONTRADO' | 'RECIBO_NO_CANCELADO' | 'PDF_ERROR';
+  error: string;
+}
+
+export type CertificadoPdfResponse =
+  | { success: true; data: CertificadoPdfData }
+  | CertificadoPdfError;

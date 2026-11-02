@@ -350,3 +350,54 @@ export async function generarCertificadoAction(
     return { success: false, error: ERROR_CONEXION };
   }
 }
+
+export interface CertificadoPdfResultado {
+  success: boolean;
+  base64?: string;
+  code?: "NO_ENCONTRADO" | "RECIBO_NO_CANCELADO" | "PDF_ERROR";
+  error?: string;
+}
+
+/**
+ * PDF del certificado como base64.
+ *
+ * El backend solo lo genera si el recibo de emision esta cancelado (regla del
+ * legacy); si no, responde 409 `RECIBO_NO_CANCELADO` y el mensaje se propaga.
+ */
+export async function getCertificadoPdfAction(
+  codigo: string,
+  certNro: string | number,
+  certAnio: string,
+): Promise<CertificadoPdfResultado> {
+  try {
+    const params = new URLSearchParams({
+      codigo,
+      certNro: String(certNro),
+      certAnio,
+    });
+    const response = await authFetch(`${BASE}/pdf?${params.toString()}`, {
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      let error = "No se pudo generar el PDF del certificado";
+      let code: CertificadoPdfResultado["code"];
+      try {
+        const json = (await response.json()) as {
+          error?: string;
+          code?: CertificadoPdfResultado["code"];
+        };
+        if (json.error) error = json.error;
+        code = json.code;
+      } catch {
+        // El backend no devolvio JSON: queda el mensaje por defecto.
+      }
+      return { success: false, error, code };
+    }
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    return { success: true, base64: buffer.toString("base64") };
+  } catch {
+    return { success: false, error: ERROR_CONEXION };
+  }
+}

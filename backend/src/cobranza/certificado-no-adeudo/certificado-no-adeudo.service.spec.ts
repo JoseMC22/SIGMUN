@@ -2,8 +2,19 @@ import { Test, TestingModule } from '@nestjs/testing';
 import * as mssql from 'mssql';
 import { DatabaseService } from '../../database/database.service';
 import { CertificadoNoAdeudoService } from './certificado-no-adeudo.service';
+import {
+  generateCertificadoPdf,
+  resolveCertificadoImagenes,
+} from './certificado-pdf-generator';
 import { GenerarCertificadoDto } from './dto/certificado.dto';
 import { SearchContribuyenteDto } from './dto/search-contribuyente.dto';
+
+// El PDF real usa puppeteer: en el spec se blinda el contrato del generador,
+// nunca se compila un PDF.
+jest.mock('./certificado-pdf-generator', () => ({
+  generateCertificadoPdf: jest.fn(),
+  resolveCertificadoImagenes: jest.fn(),
+}));
 
 /**
  * Blindan el contrato del modulo contra la DB real (nunca se toca):
@@ -1019,6 +1030,249 @@ describe('CertificadoNoAdeudoService', () => {
       expect(res).toEqual({
         success: false,
         error: 'Error al verificar la deuda pendiente',
+      });
+    });
+  });
+
+  // ── getImpresion (regla: recibo cancelado) ──
+
+  describe('getImpresion', () => {
+    // Los mismos exports que reemplaza `jest.mock` arriba, tipados como mocks.
+    const generatePdfMock = generateCertificadoPdf as jest.MockedFunction<
+      typeof generateCertificadoPdf
+    >;
+    const resolveImagenesMock =
+      resolveCertificadoImagenes as jest.MockedFunction<
+        typeof resolveCertificadoImagenes
+      >;
+
+    const impresionDto = {
+      codigo: '0200182',
+      certNro: 170,
+      certAnio: '2025',
+    };
+
+    const cabecera = (estImprime: number, overrides: object = {}) => ({
+      ID_TBL: '7792',
+      IDRECIBO: '78138653',
+      CODIGO: '0200182',
+      // Tal como lo devuelve el SP: con ceros a la izquierda.
+      CERT_NRO: '0170',
+      CERT_ANIO: '2025',
+      TIPO_DEUDA: '02.01',
+      des_tipo_deuda: 'IMPUESTO PREDIAL',
+      TIPO_PERIODO: '1',
+      des_tipo_periodo: 'HASTA EL EJERCICIO FISCAL',
+      OBSERVACION: 'Y ARBITRIOS MUNICIPALES HASTA EL AÑO  2024',
+      CANT_IMPRESION: '0',
+      IMPRESION: ' ',
+      FEC_IMPRESION: '31/01/2025 12:29:45',
+      ESTADO: '1',
+      est_imprime: estImprime,
+      numcertif: '167',
+      ...overrides,
+    });
+
+    const filaReporte = (predio: string) => ({
+      CODIGO: '0200182',
+      NOMBRE: 'ACASIETE UCHUYA GLORIA LAULILA',
+      CERT_NRO: '0167',
+      CERT_ANIO: '2025',
+      concepto: 'IMPUESTO PREDIAL',
+      periodo: 'HASTA EL EJERCICIO FISCAL',
+      OBSERVACION: 'Y ARBITRIOS MUNICIPALES HASTA EL AÑO  2024',
+      predios: predio,
+      FECHA: '31 de ENERO de 2025',
+      num_ingr: '004220053',
+      USU_REG: 'AGABRIEL',
+      ESTACION_REG: 'COBRANZA-Lap01',
+      ANIO_HR: '2025',
+      hora_cer: '12:29:45 PM',
+      documento: '21487124',
+      tipodoc: 'DNI                      ',
+      conyuge: null,
+    });
+
+    const filaMapeada = {
+      codigo: '0200182',
+      nombre: 'ACASIETE UCHUYA GLORIA LAULILA',
+      certNro: '0167',
+      certAnio: '2025',
+      concepto: 'IMPUESTO PREDIAL',
+      periodo: 'HASTA EL EJERCICIO FISCAL',
+      observacion: 'Y ARBITRIOS MUNICIPALES HASTA EL AÑO  2024',
+      predios: '',
+      fecha: '31 de ENERO de 2025',
+      numIngr: '004220053',
+      usuReg: 'AGABRIEL',
+      estacionReg: 'COBRANZA-Lap01',
+      anioHr: '2025',
+      horaCer: '12:29:45 PM',
+      documento: '21487124',
+      tipoDoc: 'DNI',
+      conyuge: '',
+    };
+
+    beforeEach(() => {
+      generatePdfMock.mockReset();
+      resolveImagenesMock.mockReset();
+      resolveImagenesMock.mockResolvedValue({
+        logoDataUri: null,
+        escudoDataUri: null,
+      });
+      generatePdfMock.mockResolvedValue(Buffer.from('fake-pdf'));
+    });
+
+    it('NO genera el PDF si el recibo no esta cancelado (est_imprime = 0)', async () => {
+      executeProcedure.mockResolvedValueOnce(result([cabecera(0)]));
+
+      const res = await service.getImpresion(impresionDto);
+
+      expect(res).toEqual({
+        success: false,
+        code: 'RECIBO_NO_CANCELADO',
+        error:
+          'El recibo de emision del certificado no esta cancelado; no se puede imprimir',
+      });
+      expect(executeProcedure).toHaveBeenCalledTimes(1);
+      expect(executeProcedure).toHaveBeenCalledWith(
+        'Certificado.sp_Certificado',
+        { busc: 1, codigo: '0200182' },
+        { codigo: mssql.Char(7) },
+      );
+      expect(generatePdfMock).not.toHaveBeenCalled();
+    });
+
+    it('con el recibo cancelado (est_imprime = 1) pide el reporte y genera el PDF', async () => {
+      executeProcedure
+        .mockResolvedValueOnce(result([cabecera(1)]))
+        .mockResolvedValueOnce(result([filaReporte('JR. LIMA 100')]));
+
+      const res = await service.getImpresion(impresionDto);
+
+      expect(executeProcedure).toHaveBeenCalledTimes(2);
+      expect(executeProcedure).toHaveBeenNthCalledWith(
+        1,
+        'Certificado.sp_Certificado',
+        { busc: 1, codigo: '0200182' },
+        { codigo: mssql.Char(7) },
+      );
+      expect(executeProcedure).toHaveBeenNthCalledWith(
+        2,
+        'Certificado.sp_Imprime_Certificado',
+        { busc: 2, codigo: '0200182', certnro: 170, certanio: '2025' },
+        {
+          codigo: mssql.Char(7),
+          certnro: mssql.Int,
+          certanio: mssql.Char(4),
+        },
+      );
+      expect(generatePdfMock).toHaveBeenCalledTimes(1);
+      expect(res).toEqual({
+        success: true,
+        data: {
+          buffer: Buffer.from('fake-pdf'),
+          filename: 'certificado_0200182_170_2025.pdf',
+        },
+      });
+    });
+
+    it('mapea una fila por predio, con los valores del SP normalizados', async () => {
+      executeProcedure
+        .mockResolvedValueOnce(result([cabecera(1)]))
+        .mockResolvedValueOnce(
+          result([filaReporte('JR. LIMA 100'), filaReporte('JR. ICA 200')]),
+        );
+
+      await service.getImpresion(impresionDto);
+
+      expect(generatePdfMock).toHaveBeenCalledWith(
+        [
+          { ...filaMapeada, predios: 'JR. LIMA 100' },
+          { ...filaMapeada, predios: 'JR. ICA 200' },
+        ],
+        expect.anything(),
+      );
+    });
+
+    it('acepta el CERT_NRO con ceros a la izquierda que devuelve el SP', async () => {
+      executeProcedure
+        .mockResolvedValueOnce(result([cabecera(1)]))
+        .mockResolvedValueOnce(result([filaReporte('JR. LIMA 100')]));
+
+      const res = await service.getImpresion(impresionDto);
+
+      expect(res.success).toBe(true);
+      expect(generatePdfMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('un certificado que no figura en el listado del contribuyente es NO_ENCONTRADO', async () => {
+      executeProcedure.mockResolvedValueOnce(
+        result([cabecera(1, { CERT_NRO: '0999' })]),
+      );
+
+      const res = await service.getImpresion(impresionDto);
+
+      expect(res).toEqual({
+        success: false,
+        code: 'NO_ENCONTRADO',
+        error: 'Certificado no encontrado',
+      });
+      expect(generatePdfMock).not.toHaveBeenCalled();
+    });
+
+    it('si el SP del reporte no devuelve filas es NO_ENCONTRADO', async () => {
+      executeProcedure
+        .mockResolvedValueOnce(result([cabecera(1)]))
+        .mockResolvedValueOnce(result([]));
+
+      const res = await service.getImpresion(impresionDto);
+
+      expect(res).toEqual({
+        success: false,
+        code: 'NO_ENCONTRADO',
+        error: 'Certificado no encontrado',
+      });
+    });
+
+    it('envuelve el error del SP de la cabecera en PDF_ERROR', async () => {
+      executeProcedure.mockRejectedValueOnce(new Error('boom'));
+
+      const res = await service.getImpresion(impresionDto);
+
+      expect(res).toEqual({
+        success: false,
+        code: 'PDF_ERROR',
+        error: 'Error al consultar el certificado',
+      });
+    });
+
+    it('envuelve el error del SP del reporte en PDF_ERROR', async () => {
+      executeProcedure
+        .mockResolvedValueOnce(result([cabecera(1)]))
+        .mockRejectedValueOnce(new Error('boom'));
+
+      const res = await service.getImpresion(impresionDto);
+
+      expect(res).toEqual({
+        success: false,
+        code: 'PDF_ERROR',
+        error: 'Error al consultar los datos del certificado',
+      });
+    });
+
+    it('envuelve el error del generador de PDF en PDF_ERROR', async () => {
+      executeProcedure
+        .mockResolvedValueOnce(result([cabecera(1)]))
+        .mockResolvedValueOnce(result([filaReporte('JR. LIMA 100')]));
+      generatePdfMock.mockRejectedValueOnce(new Error('boom'));
+
+      const res = await service.getImpresion(impresionDto);
+
+      expect(res).toEqual({
+        success: false,
+        code: 'PDF_ERROR',
+        error: 'No se pudo generar el PDF del certificado',
       });
     });
   });

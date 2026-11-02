@@ -3,6 +3,8 @@ import * as mssql from 'mssql';
 import { DatabaseService } from '../../database/database.service';
 import {
   CertificadoDetalle,
+  CertificadoImpresionRow,
+  CertificadoPdfResponse,
   CertificadoRow,
   CollectionResponse,
   ContribuyenteHeader,
@@ -19,11 +21,15 @@ import {
   ContribuyenteDto,
   DetalleCertificadoDto,
   GenerarCertificadoDto,
+  ImpresionCertificadoDto,
   PrediosDto,
 } from './dto/certificado.dto';
 import { SearchContribuyenteDto } from './dto/search-contribuyente.dto';
+import {
+  generateCertificadoPdf,
+  resolveCertificadoImagenes,
+} from './certificado-pdf-generator';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SpRow = Record<string, any>;
 
 /** Normaliza valores del SP a texto; ignora valores no serializables. */
@@ -179,6 +185,28 @@ function mapTipoPeriodo(row: SpRow): TipoPeriodoRow {
   return {
     idTbl: num(row.id_tbl),
     detalle: str(row.detalle),
+  };
+}
+
+function mapImpresionRow(row: SpRow): CertificadoImpresionRow {
+  return {
+    codigo: str(row.CODIGO),
+    nombre: str(row.NOMBRE),
+    certNro: str(row.CERT_NRO),
+    certAnio: str(row.CERT_ANIO),
+    concepto: str(row.concepto),
+    periodo: str(row.periodo),
+    observacion: str(row.OBSERVACION),
+    predios: str(row.predios),
+    fecha: str(row.FECHA),
+    numIngr: str(row.num_ingr),
+    usuReg: str(row.USU_REG),
+    estacionReg: str(row.ESTACION_REG),
+    anioHr: str(row.ANIO_HR),
+    horaCer: str(row.hora_cer),
+    documento: str(row.documento),
+    tipoDoc: str(row.tipoDoc) || str(row.tipodoc),
+    conyuge: str(row.conyuge),
   };
 }
 
@@ -342,6 +370,123 @@ export class CertificadoNoAdeudoService {
       return {
         success: false,
         error: 'Error al consultar los certificados',
+      };
+    }
+  }
+
+  /**
+   * PDF del certificado, con la regla de negocio del legacy
+   * (`js_Certificado_listado.js`): solo se imprime cuando el recibo de emision
+   * del certificado esta cancelado en caja.
+   *
+   * Esa condicion es exactamente `est_imprime = '1'` en
+   * `Certificado.sp_Certificado @busc=1`, que sale del
+   * `LEFT JOIN Caja.Mrecibos m ... AND m.ESTADO = 1` (estado `1` = Cancelado,
+   * con `fec_pago`). Si no se cumple, se corta aca y no se genera nada.
+   */
+  async getImpresion(
+    dto: ImpresionCertificadoDto,
+  ): Promise<CertificadoPdfResponse> {
+    let cabecera: SpRow | undefined;
+
+    try {
+      const listaResult = await this.db.executeProcedure(
+        'Certificado.sp_Certificado',
+        { busc: 1, codigo: dto.codigo },
+        { codigo: mssql.Char(7) },
+      );
+      const filas = (listaResult.recordset ?? []) as SpRow[];
+      // El SP devuelve CERT_NRO con ceros a la izquierda ("0170") y est_imprime
+      // como entero. Se compara numericamente contra el `certnro int` del SP.
+      cabecera = filas.find(
+        (row) =>
+          num(row.CERT_NRO) === dto.certNro &&
+          str(row.CERT_ANIO) === dto.certAnio,
+      );
+    } catch (error) {
+      this.logger.error(
+        `[CertificadoNoAdeudo] getImpresion (cabecera) error: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return {
+        success: false,
+        code: 'PDF_ERROR',
+        error: 'Error al consultar el certificado',
+      };
+    }
+
+    if (!cabecera) {
+      return {
+        success: false,
+        code: 'NO_ENCONTRADO',
+        error: 'Certificado no encontrado',
+      };
+    }
+
+    if (str(cabecera.est_imprime) !== '1') {
+      return {
+        success: false,
+        code: 'RECIBO_NO_CANCELADO',
+        error:
+          'El recibo de emision del certificado no esta cancelado; no se puede imprimir',
+      };
+    }
+
+    let rows: CertificadoImpresionRow[];
+    try {
+      const reporteResult = await this.db.executeProcedure(
+        'Certificado.sp_Imprime_Certificado',
+        {
+          busc: 2,
+          codigo: dto.codigo,
+          certnro: dto.certNro,
+          certanio: dto.certAnio,
+        },
+        {
+          codigo: mssql.Char(7),
+          certnro: mssql.Int,
+          certanio: mssql.Char(4),
+        },
+      );
+      rows = ((reporteResult.recordset ?? []) as SpRow[]).map((row) =>
+        mapImpresionRow(row),
+      );
+    } catch (error) {
+      this.logger.error(
+        `[CertificadoNoAdeudo] getImpresion (reporte) error: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return {
+        success: false,
+        code: 'PDF_ERROR',
+        error: 'Error al consultar los datos del certificado',
+      };
+    }
+
+    if (rows.length === 0) {
+      return {
+        success: false,
+        code: 'NO_ENCONTRADO',
+        error: 'Certificado no encontrado',
+      };
+    }
+
+    try {
+      const imagenes = await resolveCertificadoImagenes();
+      const buffer = await generateCertificadoPdf(rows, imagenes);
+      return {
+        success: true,
+        data: {
+          buffer,
+          filename: `certificado_${dto.codigo}_${dto.certNro}_${dto.certAnio}.pdf`,
+        },
+      };
+    } catch (error) {
+      this.logger.error(
+        `[CertificadoNoAdeudo] getImpresion (pdf) error: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return {
+        success: false,
+        code: 'PDF_ERROR',
+        error: 'No se pudo generar el PDF del certificado',
       };
     }
   }

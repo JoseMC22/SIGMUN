@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   getCertificadosAction,
+  getCertificadoPdfAction,
   getDetalleCertificadoAction,
   getContribuyenteAction,
   getTiposDeudaAction,
@@ -292,6 +293,86 @@ describe("acciones de cobranza/certificado-no-adeudo", () => {
     expect(result).toEqual({
       success: false,
       error: "Error de conexion con el servidor",
+    });
+  });
+
+  describe("getCertificadoPdfAction", () => {
+    function mockPdfResponse(bytes: Uint8Array) {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        arrayBuffer: () => Promise.resolve(bytes.buffer),
+      });
+      global.fetch = fetchMock;
+      return fetchMock;
+    }
+
+    it("pide el PDF por GET con la cookie de sesion y lo devuelve en base64", async () => {
+      const fetchMock = mockPdfResponse(
+        new Uint8Array([0x25, 0x50, 0x44, 0x46]),
+      );
+
+      const result = await getCertificadoPdfAction("0200182", "170", "2025");
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const url = fetchMock.mock.calls[0][0] as string;
+      expect(url).toContain("/cobranza/certificado-no-adeudo/pdf?");
+      expect(url).toContain("codigo=0200182");
+      expect(url).toContain("certNro=170");
+      expect(url).toContain("certAnio=2025");
+      const options = fetchMock.mock.calls[0][1] as RequestInit;
+      expect(options.cache).toBe("no-store");
+      expect(options.headers).toMatchObject({
+        Cookie: "SIGMUN_AUTH=test-auth-token",
+      });
+      expect(result).toEqual({ success: true, base64: "JVBERg==" });
+    });
+
+    it("propaga el 409 RECIBO_NO_CANCELADO del backend", async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 409,
+        json: () =>
+          Promise.resolve({
+            success: false,
+            code: "RECIBO_NO_CANCELADO",
+            error: "El recibo de emision del certificado no esta cancelado",
+          }),
+      });
+
+      const result = await getCertificadoPdfAction("0200040", "1036", "2026");
+
+      expect(result).toEqual({
+        success: false,
+        code: "RECIBO_NO_CANCELADO",
+        error: "El recibo de emision del certificado no esta cancelado",
+      });
+    });
+
+    it("si el backend no devuelve JSON deja un mensaje por defecto", async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        json: () => Promise.reject(new Error("no json")),
+      });
+
+      const result = await getCertificadoPdfAction("0200182", "170", "2025");
+
+      expect(result).toEqual({
+        success: false,
+        error: "No se pudo generar el PDF del certificado",
+      });
+    });
+
+    it("devuelve error de conexion si fetch falla", async () => {
+      global.fetch = vi.fn().mockRejectedValue(new Error("network"));
+
+      const result = await getCertificadoPdfAction("0200182", "170", "2025");
+
+      expect(result).toEqual({
+        success: false,
+        error: "Error de conexion con el servidor",
+      });
     });
   });
 });
