@@ -7,9 +7,10 @@ import { CertificadoImpresionRow } from './certificado-no-adeudo.types';
  * Generador del PDF del Certificado de No Adeudo.
  *
  * Reproduce `Z:\public\reportes\rpt_CertificadoNoAdeudo-qr.jrxml` (JasperReports
- * A4, 595x842 pt, margenes 60/60/20/20 pt) sin el QR: el codigo del QR exige
- * portar `encriptar.TextoEncryptor` (clase Java con la clave `S4T1C4CN0`), que
- * queda fuera del alcance de esta tarea.
+ * A4, 595x842 pt, margenes 60/60/20/20 pt). El codigo del QR legacy exigia
+ * portar `encriptar.TextoEncryptor` (clase Java con una clave embebida que no
+ * esta en el repositorio y no se transcribe aca), que queda fuera del alcance
+ * de esta tarea.
  *
  * El SP `Certificado.sp_Imprime_Certificado @busc=2` devuelve una fila por
  * predio, repitiendo la cabecera: la primera fila da el encabezado y todas

@@ -6,7 +6,7 @@ import {
   generateCertificadoPdf,
   resolveCertificadoImagenes,
 } from './certificado-pdf-generator';
-import { resolveCertificadoQr } from './certificado-qr';
+import { buildCertificadoQrToken, resolveCertificadoQr } from './certificado-qr';
 import { GenerarCertificadoDto } from './dto/certificado.dto';
 import { SearchContribuyenteDto } from './dto/search-contribuyente.dto';
 
@@ -18,6 +18,9 @@ jest.mock('./certificado-pdf-generator', () => ({
 }));
 
 jest.mock('./certificado-qr', () => ({
+  // La generacion del QR se blinda; la verificacion del token es pura y se
+  // ejercita de verdad (es el corazon de la ruta publica).
+  ...jest.requireActual('./certificado-qr'),
   resolveCertificadoQr: jest.fn(),
 }));
 
@@ -1303,6 +1306,157 @@ describe('CertificadoNoAdeudoService', () => {
         code: 'PDF_ERROR',
         error: 'No se pudo generar el PDF del certificado',
       });
+    });
+  });
+
+  // ── getImpresionPorToken (ruta publica del QR, sin sesion) ──
+
+  describe('getImpresionPorToken', () => {
+    const generatePdfMock = generateCertificadoPdf as jest.MockedFunction<
+      typeof generateCertificadoPdf
+    >;
+    const resolveImagenesMock =
+      resolveCertificadoImagenes as jest.MockedFunction<
+        typeof resolveCertificadoImagenes
+      >;
+
+    // La configuracion exige un secreto de al menos 32 caracteres.
+    const secret = 's'.repeat(32);
+    const payload = { codigo: '0200182', certNro: 170, certAnio: '2025' };
+    const originalSecret = process.env.CERTIFICADO_QR_SECRET;
+
+    const cabeceraImprimible = {
+      CERT_NRO: '0170',
+      CERT_ANIO: '2025',
+      est_imprime: 1,
+    };
+    const filaReporte = { NOMBRE: 'ACASIETE UCHUYA GLORIA LAULILA' };
+
+    beforeEach(() => {
+      process.env.CERTIFICADO_QR_SECRET = secret;
+      generatePdfMock.mockReset();
+      resolveImagenesMock.mockReset();
+      resolveImagenesMock.mockResolvedValue({
+        logoDataUri: null,
+        escudoDataUri: null,
+      });
+      generatePdfMock.mockResolvedValue(Buffer.from('fake-pdf'));
+    });
+
+    afterEach(() => {
+      if (originalSecret === undefined) {
+        delete process.env.CERTIFICADO_QR_SECRET;
+      } else {
+        process.env.CERTIFICADO_QR_SECRET = originalSecret;
+      }
+    });
+
+    it('con un token valido genera el PDF del certificado', async () => {
+      executeProcedure
+        .mockResolvedValueOnce(result([cabeceraImprimible]))
+        .mockResolvedValueOnce(result([filaReporte]));
+
+      const res = await service.getImpresionPorToken(
+        buildCertificadoQrToken(payload, secret),
+      );
+
+      expect(res).toEqual({
+        success: true,
+        data: {
+          buffer: Buffer.from('fake-pdf'),
+          filename: 'certificado_0200182_170_2025.pdf',
+        },
+      });
+      expect(executeProcedure).toHaveBeenNthCalledWith(
+        1,
+        'Certificado.sp_Certificado',
+        { busc: 1, codigo: '0200182' },
+        { codigo: mssql.Char(7) },
+      );
+      expect(executeProcedure).toHaveBeenNthCalledWith(
+        2,
+        'Certificado.sp_Imprime_Certificado',
+        { busc: 2, codigo: '0200182', certnro: 170, certanio: '2025' },
+        {
+          codigo: mssql.Char(7),
+          certnro: mssql.Int,
+          certanio: mssql.Char(4),
+        },
+      );
+    });
+
+    it('con un token alterado responde TOKEN_INVALIDO sin tocar la base', async () => {
+      const token = buildCertificadoQrToken(payload, secret);
+      const alterado = `${token.slice(0, -1)}${token.endsWith('A') ? 'B' : 'A'}`;
+
+      const res = await service.getImpresionPorToken(alterado);
+
+      expect(res).toEqual({
+        success: false,
+        code: 'TOKEN_INVALIDO',
+        error: 'Token de verificacion invalido',
+      });
+      expect(executeProcedure).not.toHaveBeenCalled();
+    });
+
+    it('con un token firmado con otro secreto responde TOKEN_INVALIDO', async () => {
+      const res = await service.getImpresionPorToken(
+        buildCertificadoQrToken(payload, 'otro-secreto'),
+      );
+
+      expect(res).toEqual({
+        success: false,
+        code: 'TOKEN_INVALIDO',
+        error: 'Token de verificacion invalido',
+      });
+      expect(executeProcedure).not.toHaveBeenCalled();
+    });
+
+    it('sin CERTIFICADO_QR_SECRET responde PDF_ERROR (configuracion, no portador)', async () => {
+      delete process.env.CERTIFICADO_QR_SECRET;
+
+      const res = await service.getImpresionPorToken(
+        buildCertificadoQrToken(payload, secret),
+      );
+
+      expect(res).toEqual({
+        success: false,
+        code: 'PDF_ERROR',
+        error: 'No se pudo generar el PDF del certificado',
+      });
+      expect(executeProcedure).not.toHaveBeenCalled();
+    });
+
+    it('propaga NO_ENCONTRADO cuando el certificado ya no existe', async () => {
+      executeProcedure.mockResolvedValueOnce(result([]));
+
+      const res = await service.getImpresionPorToken(
+        buildCertificadoQrToken(payload, secret),
+      );
+
+      expect(res).toEqual({
+        success: false,
+        code: 'NO_ENCONTRADO',
+        error: 'Certificado no encontrado',
+      });
+    });
+
+    it('propaga RECIBO_NO_CANCELADO sin generar el PDF', async () => {
+      executeProcedure.mockResolvedValueOnce(
+        result([{ ...cabeceraImprimible, est_imprime: 0 }]),
+      );
+
+      const res = await service.getImpresionPorToken(
+        buildCertificadoQrToken(payload, secret),
+      );
+
+      expect(res).toEqual({
+        success: false,
+        code: 'RECIBO_NO_CANCELADO',
+        error:
+          'El recibo de emision del certificado no esta cancelado; no se puede imprimir',
+      });
+      expect(generatePdfMock).not.toHaveBeenCalled();
     });
   });
 });

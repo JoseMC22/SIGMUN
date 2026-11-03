@@ -90,6 +90,12 @@ coverage/
 # decode base64->Blob que comparten consulta-valores e imprimir la OP.
 !frontend/src/lib/op-pdf.test.ts
 
+# Excepcion: los specs de cobranza/certificado-no-adeudo SI se versionan. La
+# ruta publica del QR (`/api/publico/certificado-no-adeudo/pdf`) es la unica sin
+# sesion del repo: su contrato (firma HMAC, 404 que no filtra, no-store) tiene
+# que quedar cubierto en el PR.
+!backend/src/cobranza/certificado-no-adeudo/**/*.spec.ts
+
 # Auto-generated / workspace
 pnpm-lock.yaml
 frontend/pnpm-lock.yaml

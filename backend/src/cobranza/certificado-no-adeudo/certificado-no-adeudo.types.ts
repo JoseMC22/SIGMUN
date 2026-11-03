@@ -175,7 +175,7 @@ export interface CertificadoPdfData {
 
 export interface CertificadoPdfError {
   success: false;
-  code: 'NO_ENCONTRADO' | 'RECIBO_NO_CANCELADO' | 'PDF_ERROR';
+  code: 'NO_ENCONTRADO' | 'RECIBO_NO_CANCELADO' | 'PDF_ERROR' | 'TOKEN_INVALIDO';
   error: string;
 }
 
