@@ -1,22 +1,118 @@
 import { Injectable, Logger } from '@nestjs/common';
+import * as mssql from 'mssql';
 import { DatabaseService } from '../../database/database.service';
 import {
+  CertificadoDetalle,
+  CertificadoImpresionRow,
+  CertificadoPdfResponse,
+  CertificadoRow,
+  CollectionResponse,
+  ContribuyenteHeader,
   ContribuyenteRow,
+  DetalleRow,
+  GenerarCertificadoResult,
+  ItemResponse,
   SearchContribuyenteResult,
+  TipoDeudaRow,
+  TipoPeriodoRow,
 } from './certificado-no-adeudo.types';
+import {
+  CertificadosDto,
+  ContribuyenteDto,
+  DetalleCertificadoDto,
+  GenerarCertificadoDto,
+  ImpresionCertificadoDto,
+  PrediosDto,
+} from './dto/certificado.dto';
 import { SearchContribuyenteDto } from './dto/search-contribuyente.dto';
+import {
+  generateCertificadoPdf,
+  resolveCertificadoImagenes,
+} from './certificado-pdf-generator';
+import { resolveCertificadoQr } from './certificado-qr';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type SpRow = Record<string, any>;
+type SpRow = Record<string, unknown>;
 
 /** Normaliza valores del SP a texto; ignora valores no serializables. */
-const str = (v: unknown): string => {
-  if (v === null || v === undefined) return '';
-  if (typeof v === 'string') return v.trim();
-  if (typeof v === 'number' || typeof v === 'boolean') return String(v).trim();
-  if (v instanceof Date) return v.toISOString();
+const str = (value: unknown): string => {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value).trim();
+  }
+  if (value instanceof Date) return value.toISOString();
   return '';
 };
+
+const num = (value: unknown): number => {
+  if (value === null || value === undefined) return 0;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+/**
+ * Convierte las fechas de los SP a ISO. Acepta `dd/mm/yyyy` y
+ * `dd/mm/yyyy hh:mm:ss`; devuelve una cadena vacia si el valor no es valido.
+ */
+function toIsoDateTime(value: unknown): string {
+  if (typeof value !== 'string') return '';
+
+  const match = value
+    .trim()
+    .match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}):(\d{2}))?$/);
+  if (!match) return '';
+
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+  const parsedDate = new Date(Date.UTC(year, month - 1, day));
+
+  if (
+    parsedDate.getUTCFullYear() !== year ||
+    parsedDate.getUTCMonth() !== month - 1 ||
+    parsedDate.getUTCDate() !== day
+  ) {
+    return '';
+  }
+
+  const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  if (match[4] === undefined) return date;
+
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = Number(match[6]);
+  if (hour > 23 || minute > 59 || second > 59) return '';
+
+  return `${date}T${match[4]}:${match[5]}:${match[6]}`;
+}
+
+/** Escapa valores para usarlos como atributos XML. */
+function escapeXml(value: unknown): string {
+  const ampersand = String.fromCharCode(38);
+  return str(value)
+    .replace(/&/g, `${ampersand}amp;`)
+    .replace(/</g, `${ampersand}lt;`)
+    .replace(/>/g, `${ampersand}gt;`)
+    .replace(/"/g, `${ampersand}quot;`)
+    .replace(/'/g, `${ampersand}apos;`);
+}
+
+function buildCertificadosXml(
+  detalles: GenerarCertificadoDto['detalles'],
+): string {
+  const rows = detalles
+    .map(
+      (detalle) =>
+        `<row codigo="${escapeXml(detalle.codigo)}" ` +
+        `anno="${escapeXml(detalle.anio)}" ` +
+        `cod_pred="${escapeXml(detalle.codPred)}" ` +
+        `anexo="${escapeXml(detalle.anexo)}" ` +
+        `sub_anexo="${escapeXml(detalle.subAnexo)}" />`,
+    )
+    .join('');
+
+  return `<certificados>${rows}</certificados>`;
+}
 
 function mapContribuyente(row: SpRow): ContribuyenteRow {
   return {
@@ -27,6 +123,131 @@ function mapContribuyente(row: SpRow): ContribuyenteRow {
     documento: str(row.documento),
     numDoc: str(row.num_doc),
     direccion: str(row.DireFis),
+  };
+}
+
+function mapCertificado(row: SpRow): CertificadoRow {
+  return {
+    idTbl: str(row.ID_TBL),
+    idRecibo: str(row.IDRECIBO),
+    codigo: str(row.CODIGO),
+    certNro: str(row.CERT_NRO),
+    certAnio: str(row.CERT_ANIO),
+    tipoDeuda: str(row.TIPO_DEUDA),
+    tipoDeudaDescripcion: str(row.des_tipo_deuda),
+    tipoPeriodo: str(row.TIPO_PERIODO),
+    tipoPeriodoDescripcion: str(row.des_tipo_periodo),
+    observacion: str(row.OBSERVACION),
+    cantImpresion: str(row.CANT_IMPRESION),
+    impresion: str(row.IMPRESION),
+    fechaImpresion: toIsoDateTime(row.FEC_IMPRESION),
+    estado: str(row.ESTADO),
+    estImprime: str(row.est_imprime),
+    numCertif: str(row.numcertif),
+  };
+}
+
+function mapCertificadoDetalle(row: SpRow): CertificadoDetalle {
+  return {
+    idTbl: str(row.ID_TBL),
+    idRecibo: str(row.IDRECIBO),
+    codigo: str(row.CODIGO),
+    certNro: str(row.CERT_NRO),
+    certAnio: str(row.CERT_ANIO),
+    tipoDeuda: str(row.TIPO_DEUDA),
+    tipoPeriodo: str(row.TIPO_PERIODO),
+    observacion: str(row.OBSERVACION),
+    cantImpresion: str(row.CANT_IMPRESION),
+    impresion: str(row.IMPRESION),
+    fechaImpresion: toIsoDateTime(row.FEC_IMPRESION),
+    estado: str(row.ESTADO),
+    anioDeuda: str(row.anio_deuda),
+    numCertif: str(row.numcertif),
+  };
+}
+
+function mapContribuyenteHeader(row: SpRow): ContribuyenteHeader {
+  return {
+    codigo: str(row.codigo),
+    nombres: str(row.nombres),
+    numDoc: str(row.num_doc),
+    direccion: str(row.direccion),
+  };
+}
+
+function mapTipoDeuda(row: SpRow): TipoDeudaRow {
+  return {
+    tipo: str(row.tipo),
+    detalle: str(row.detalle),
+  };
+}
+
+function mapTipoPeriodo(row: SpRow): TipoPeriodoRow {
+  return {
+    idTbl: num(row.id_tbl),
+    detalle: str(row.detalle),
+  };
+}
+
+function mapImpresionRow(row: SpRow): CertificadoImpresionRow {
+  return {
+    codigo: str(row.CODIGO),
+    nombre: str(row.NOMBRE),
+    certNro: str(row.CERT_NRO),
+    certAnio: str(row.CERT_ANIO),
+    concepto: str(row.concepto),
+    periodo: str(row.periodo),
+    observacion: str(row.OBSERVACION),
+    predios: str(row.predios),
+    fecha: str(row.FECHA),
+    numIngr: str(row.num_ingr),
+    usuReg: str(row.USU_REG),
+    estacionReg: str(row.ESTACION_REG),
+    anioHr: str(row.ANIO_HR),
+    horaCer: str(row.hora_cer),
+    documento: str(row.documento),
+    tipoDoc: str(row.tipoDoc) || str(row.tipodoc),
+    conyuge: str(row.conyuge),
+  };
+}
+
+function mapDetalle(row: SpRow, esVehiculo: boolean): DetalleRow {
+  if (esVehiculo) {
+    return {
+      codigo: str(row.codigo),
+      anio: str(row.Anio),
+      codPred: str(row.num_placa),
+      anexo: str(row.anexo),
+      subAnexo: str(row.subanexo),
+      anexos: '',
+      direccion: '',
+      detalles: [
+        str(row.nombre_categoria),
+        str(row.nombre_marca),
+        str(row.nombre_modelo),
+      ].join(' | '),
+      tipo: '',
+      areaTerreno: 0,
+      porcenPropiedad: 0,
+      totalAutoavaluo: 0,
+      chekeado: 'chekeado' in row ? str(row.chekeado) : '0',
+    };
+  }
+
+  return {
+    codigo: str(row.codigo),
+    anio: str(row.anno),
+    codPred: str(row.cod_pred),
+    anexo: str(row.anexo),
+    subAnexo: str(row.sub_anexo),
+    anexos: str(row.anexos),
+    direccion: str(row.direccion),
+    detalles: '',
+    tipo: str(row.tipo),
+    areaTerreno: num(row.area_terreno),
+    porcenPropiedad: num(row.porcen_propiedad),
+    totalAutoavaluo: num(row.total_autoavaluo),
+    chekeado: 'chekeado' in row ? str(row.chekeado) : '0',
   };
 }
 
@@ -76,8 +297,8 @@ export class CertificadoNoAdeudoService {
           'Rentas.sp_Mcontribuyente',
           { ...baseParams, busc: 5, inicio: String(1), final: String(total) },
         );
-        const data = (exportResult.recordset ?? []).map((r) =>
-          mapContribuyente(r as SpRow),
+        const data = (exportResult.recordset ?? []).map((row) =>
+          mapContribuyente(row as SpRow),
         );
         return {
           success: true,
@@ -100,8 +321,8 @@ export class CertificadoNoAdeudoService {
           final: String(final),
         },
       );
-      const data = (rowsResult.recordset ?? []).map((r) =>
-        mapContribuyente(r as SpRow),
+      const data = (rowsResult.recordset ?? []).map((row) =>
+        mapContribuyente(row as SpRow),
       );
 
       return {
@@ -124,6 +345,425 @@ export class CertificadoNoAdeudoService {
         pageSize: dto.pageSize,
         totalPages: 0,
         error: 'Error al consultar los contribuyentes',
+      };
+    }
+  }
+
+  /** Certificados registrados del contribuyente. */
+  async getCertificados(
+    dto: CertificadosDto,
+  ): Promise<CollectionResponse<CertificadoRow>> {
+    try {
+      const result = await this.db.executeProcedure(
+        'Certificado.sp_Certificado',
+        { busc: 1, codigo: dto.codigo },
+        { codigo: mssql.Char(7) },
+      );
+      const data = (result.recordset ?? []).map((row) =>
+        mapCertificado(row as SpRow),
+      );
+
+      return { success: true, data, total: data.length };
+    } catch (error) {
+      this.logger.error(
+        `[CertificadoNoAdeudo] getCertificados error: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return {
+        success: false,
+        error: 'Error al consultar los certificados',
+      };
+    }
+  }
+
+  /**
+   * PDF del certificado, con la regla de negocio del legacy
+   * (`js_Certificado_listado.js`): solo se imprime cuando el recibo de emision
+   * del certificado esta cancelado en caja.
+   *
+   * Esa condicion es exactamente `est_imprime = '1'` en
+   * `Certificado.sp_Certificado @busc=1`, que sale del
+   * `LEFT JOIN Caja.Mrecibos m ... AND m.ESTADO = 1` (estado `1` = Cancelado,
+   * con `fec_pago`). Si no se cumple, se corta aca y no se genera nada.
+   */
+  async getImpresion(
+    dto: ImpresionCertificadoDto,
+  ): Promise<CertificadoPdfResponse> {
+    let cabecera: SpRow | undefined;
+
+    try {
+      const listaResult = await this.db.executeProcedure(
+        'Certificado.sp_Certificado',
+        { busc: 1, codigo: dto.codigo },
+        { codigo: mssql.Char(7) },
+      );
+      const filas = (listaResult.recordset ?? []) as SpRow[];
+      // El SP devuelve CERT_NRO con ceros a la izquierda ("0170") y est_imprime
+      // como entero. Se compara numericamente contra el `certnro int` del SP.
+      cabecera = filas.find(
+        (row) =>
+          num(row.CERT_NRO) === dto.certNro &&
+          str(row.CERT_ANIO) === dto.certAnio,
+      );
+    } catch (error) {
+      this.logger.error(
+        `[CertificadoNoAdeudo] getImpresion (cabecera) error: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return {
+        success: false,
+        code: 'PDF_ERROR',
+        error: 'Error al consultar el certificado',
+      };
+    }
+
+    if (!cabecera) {
+      return {
+        success: false,
+        code: 'NO_ENCONTRADO',
+        error: 'Certificado no encontrado',
+      };
+    }
+
+    if (str(cabecera.est_imprime) !== '1') {
+      return {
+        success: false,
+        code: 'RECIBO_NO_CANCELADO',
+        error:
+          'El recibo de emision del certificado no esta cancelado; no se puede imprimir',
+      };
+    }
+
+    let rows: CertificadoImpresionRow[];
+    try {
+      const reporteResult = await this.db.executeProcedure(
+        'Certificado.sp_Imprime_Certificado',
+        {
+          busc: 2,
+          codigo: dto.codigo,
+          certnro: dto.certNro,
+          certanio: dto.certAnio,
+        },
+        {
+          codigo: mssql.Char(7),
+          certnro: mssql.Int,
+          certanio: mssql.Char(4),
+        },
+      );
+      rows = ((reporteResult.recordset ?? []) as SpRow[]).map((row) =>
+        mapImpresionRow(row),
+      );
+    } catch (error) {
+      this.logger.error(
+        `[CertificadoNoAdeudo] getImpresion (reporte) error: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return {
+        success: false,
+        code: 'PDF_ERROR',
+        error: 'Error al consultar los datos del certificado',
+      };
+    }
+
+    if (rows.length === 0) {
+      return {
+        success: false,
+        code: 'NO_ENCONTRADO',
+        error: 'Certificado no encontrado',
+      };
+    }
+
+    try {
+      const [imagenes, qrSvg] = await Promise.all([
+        resolveCertificadoImagenes(),
+        resolveCertificadoQr({
+          codigo: dto.codigo,
+          certNro: dto.certNro,
+          certAnio: dto.certAnio,
+        }),
+      ]);
+      const buffer = await generateCertificadoPdf(rows, {
+        ...imagenes,
+        qrSvg,
+      });
+      return {
+        success: true,
+        data: {
+          buffer,
+          filename: `certificado_${dto.codigo}_${dto.certNro}_${dto.certAnio}.pdf`,
+        },
+      };
+    } catch (error) {
+      this.logger.error(
+        `[CertificadoNoAdeudo] getImpresion (pdf) error: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return {
+        success: false,
+        code: 'PDF_ERROR',
+        error: 'No se pudo generar el PDF del certificado',
+      };
+    }
+  }
+
+  /** Detalle de un certificado por numero y anio. */
+  async getDetalle(
+    dto: DetalleCertificadoDto,
+  ): Promise<ItemResponse<CertificadoDetalle>> {
+    try {
+      const result = await this.db.executeProcedure(
+        'Certificado.sp_Certificado',
+        { busc: 2, cert_nro: dto.certNro, cert_anio: dto.certAnio },
+        { cert_anio: mssql.Char(4) },
+      );
+      const row = result.recordset?.[0] as SpRow | undefined;
+      if (!row) {
+        return { success: false, error: 'Certificado no encontrado' };
+      }
+
+      return { success: true, data: mapCertificadoDetalle(row) };
+    } catch (error) {
+      this.logger.error(
+        `[CertificadoNoAdeudo] getDetalle error: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return {
+        success: false,
+        error: 'Error al consultar el detalle del certificado',
+      };
+    }
+  }
+
+  /** Cabecera del contribuyente (store_caja_framework @msquery=17). */
+  async getContribuyente(
+    dto: ContribuyenteDto,
+  ): Promise<ItemResponse<ContribuyenteHeader>> {
+    try {
+      const result = await this.db.executeProcedure(
+        'dbo.store_caja_framework',
+        { msquery: 17, codigo: dto.codigo },
+        { codigo: mssql.VarChar(7) },
+      );
+      const row = result.recordset?.[0] as SpRow | undefined;
+      if (!row) {
+        return { success: false, error: 'Contribuyente no encontrado' };
+      }
+
+      return { success: true, data: mapContribuyenteHeader(row) };
+    } catch (error) {
+      this.logger.error(
+        `[CertificadoNoAdeudo] getContribuyente error: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return {
+        success: false,
+        error: 'Error al consultar el contribuyente',
+      };
+    }
+  }
+
+  /** Tipos de deuda habilitados para el certificado. */
+  async getTiposDeuda(): Promise<CollectionResponse<TipoDeudaRow>> {
+    try {
+      const result = await this.db.executeProcedure(
+        'Rentas.sp_CertificadoNoAdeudo',
+        { busc: 1 },
+      );
+      const data = (result.recordset ?? []).map((row) =>
+        mapTipoDeuda(row as SpRow),
+      );
+
+      return { success: true, data, total: data.length };
+    } catch (error) {
+      this.logger.error(
+        `[CertificadoNoAdeudo] getTiposDeuda error: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return {
+        success: false,
+        error: 'Error al consultar los tipos de deuda',
+      };
+    }
+  }
+
+  /** Periodos habilitados para el certificado. */
+  async getTiposPeriodo(): Promise<CollectionResponse<TipoPeriodoRow>> {
+    try {
+      const result = await this.db.executeProcedure(
+        'Rentas.sp_CertificadoNoAdeudo',
+        { busc: 2 },
+      );
+      const data = (result.recordset ?? []).map((row) =>
+        mapTipoPeriodo(row as SpRow),
+      );
+
+      return { success: true, data, total: data.length };
+    } catch (error) {
+      this.logger.error(
+        `[CertificadoNoAdeudo] getTiposPeriodo error: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return {
+        success: false,
+        error: 'Error al consultar los tipos de periodo',
+      };
+    }
+  }
+
+  /** Anios tributarios disponibles, desde el anio actual hasta 1992. */
+  getAniosDeuda(): string[] {
+    const anioActual = new Date().getFullYear();
+    const anios: string[] = [];
+    for (let anio = anioActual; anio >= 1992; anio -= 1) {
+      anios.push(String(anio));
+    }
+    return anios;
+  }
+
+  /** Predios o vehiculos disponibles para el contribuyente y anio. */
+  async getPredios(dto: PrediosDto): Promise<CollectionResponse<DetalleRow>> {
+    const esVehiculo = dto.tipoDeuda === '00.30';
+    const esEdicion = dto.idTbl !== undefined;
+
+    try {
+      const result = esEdicion
+        ? await this.db.executeProcedure(
+            'Certificado.sp_Certificado',
+            {
+              busc: esVehiculo ? 4 : 3,
+              codigo: dto.codigo,
+              anno: dto.anio,
+              id_tbl: dto.idTbl,
+            },
+            {
+              codigo: mssql.VarChar(7),
+              anno: mssql.Char(4),
+              id_tbl: mssql.Int,
+            },
+          )
+        : await this.db.executeProcedure(
+            'Rentas.sp_Multatributaria',
+            {
+              busc: esVehiculo ? 5 : 2,
+              codigo: dto.codigo,
+              anno: dto.anio,
+            },
+            { codigo: mssql.VarChar(7), anno: mssql.Char(4) },
+          );
+
+      const data = (result.recordset ?? []).map((row) =>
+        mapDetalle(row as SpRow, esVehiculo),
+      );
+
+      return { success: true, data, total: data.length };
+    } catch (error) {
+      this.logger.error(
+        `[CertificadoNoAdeudo] getPredios error: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return {
+        success: false,
+        error: 'Error al consultar los predios del contribuyente',
+      };
+    }
+  }
+
+  /** Registra o actualiza un certificado de no adeudo. */
+  async generar(
+    dto: GenerarCertificadoDto,
+    usuario: string,
+    estacion: string,
+  ): Promise<GenerarCertificadoResult> {
+    let montoDeuda: number;
+    try {
+      const deudaResult = await this.db.executeProcedure(
+        'Rentas.sp_CertificadoNoAdeudo',
+        { busc: 4, codigo: dto.codigo, tipo_deuda: dto.tipoDeuda },
+        { codigo: mssql.VarChar(7), tipo_deuda: mssql.VarChar(5) },
+      );
+      const deudaRow = deudaResult.recordset?.[0] as SpRow | undefined;
+      montoDeuda = num(deudaRow ? Object.values(deudaRow)[0] : 0);
+    } catch (error) {
+      this.logger.error(
+        `[CertificadoNoAdeudo] verificar deuda error: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return {
+        success: false,
+        error: 'Error al verificar la deuda pendiente',
+      };
+    }
+
+    if (montoDeuda > 0) {
+      return {
+        success: false,
+        code: 'DEUDA',
+        message:
+          'El contribuyente tiene deuda pendiente por el tipo de deuda seleccionado',
+        montoDeuda,
+      };
+    }
+
+    try {
+      const result = await this.db.executeProcedure(
+        'Certificado.sp_Genera_Certificado',
+        {
+          codigo: dto.codigo,
+          tipo_deuda: dto.tipoDeuda,
+          tipo_periodo: dto.tipoPeriodo,
+          observacion: dto.observacion,
+          anios_deuda: dto.aniosDeuda,
+          dataxml: buildCertificadosXml(dto.detalles),
+          usu_reg: usuario,
+          estacion_reg: estacion,
+          certnro: dto.certNro ?? 0,
+          certanio: dto.certAnio ?? '',
+        },
+        {
+          codigo: mssql.Char(7),
+          tipo_deuda: mssql.VarChar(5),
+          tipo_periodo: mssql.Int,
+          observacion: mssql.VarChar(250),
+          anios_deuda: mssql.Char(4),
+          dataxml: mssql.Xml,
+          usu_reg: mssql.VarChar(20),
+          estacion_reg: mssql.VarChar(20),
+          certnro: mssql.Int,
+          certanio: mssql.Char(4),
+        },
+      );
+
+      const row = result.recordset?.[0] as SpRow | undefined;
+      if (!row) {
+        this.logger.error(
+          '[CertificadoNoAdeudo] sp_Genera_Certificado no devolvio un resultado; revisar Acceso.MDatosErrores',
+        );
+        return {
+          success: false,
+          error: 'No se pudo registrar el certificado',
+        };
+      }
+
+      const estado = str(Object.values(row)[0]);
+      if (estado === '1x') {
+        return {
+          success: true,
+          message: 'Se registro correctamente',
+          estado: 'REGISTRADO',
+        };
+      }
+      if (estado === '2x') {
+        return {
+          success: false,
+          code: 'DEUDA',
+          message: 'Tiene Deudas y NO se Registro el Certificado',
+        };
+      }
+
+      this.logger.error(
+        `[CertificadoNoAdeudo] sp_Genera_Certificado devolvio un estado inesperado: ${estado}`,
+      );
+      return {
+        success: false,
+        error: 'No se pudo registrar el certificado',
+      };
+    } catch (error) {
+      this.logger.error(
+        `[CertificadoNoAdeudo] generar error: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return {
+        success: false,
+        error: 'Error al registrar el certificado',
       };
     }
   }
