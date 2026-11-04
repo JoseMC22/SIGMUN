@@ -30,6 +30,7 @@ import { AnularValorModule } from './cobranza/anular-valor/anular-valor.module';
 import { GenerarOpModule } from './cobranza/generar-op/generar-op.module';
 import { AjusteCuentaCorrienteModule } from './cobranza/ajuste-cuenta-corriente/ajuste-cuenta-corriente.module';
 import { MultaTributariaModule } from './cobranza/multa-tributaria/multa-tributaria.module';
+import { CertificadoNoAdeudoModule } from './cobranza/certificado-no-adeudo/certificado-no-adeudo.module';
 import { ReportesModule } from './reportes-gerenciales/reportes-gerenciales.module';
 import { MantenimientoUitModule } from './mantenimiento-tablas/mantenimiento-uit/mantenimiento-uit.module';
 import { ConvenioEstadoModule } from './mantenimiento-tablas/mantenimiento-estado-convenios/convenio-estado.module';
@@ -111,6 +112,8 @@ import { StorageModule } from './storage/storage.module';
     AjusteCuentaCorrienteModule,
     // Módulo de cobranza - multas tributarias (busqueda, alta, edicion, baja)
     MultaTributariaModule,
+    // Módulo de cobranza - certificado de no adeudo (fase 1: busqueda de contribuyentes)
+    CertificadoNoAdeudoModule,
     // Módulo de reportes gerenciales
     ReportesModule,
     // Módulo de impuestos vehicular
