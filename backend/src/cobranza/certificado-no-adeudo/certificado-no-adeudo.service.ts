@@ -29,11 +29,7 @@ import {
   generateCertificadoPdf,
   resolveCertificadoImagenes,
 } from './certificado-pdf-generator';
-import {
-  resolveCertificadoQr,
-  verifyCertificadoQrToken,
-} from './certificado-qr';
-import { resolveCertificadoQrSecret } from './certificado-qr.config';
+import { resolveCertificadoQr } from './certificado-qr';
 
 type SpRow = Record<string, unknown>;
 
@@ -504,43 +500,6 @@ export class CertificadoNoAdeudoService {
         error: 'No se pudo generar el PDF del certificado',
       };
     }
-  }
-
-  /**
-   * PDF a partir del token del QR (`?codigo=<token>`), sin sesion.
-   *
-   * El token viene del mundo exterior: se valida la firma HMAC antes de tocar
-   * la base. Un token invalido y un certificado inexistente comparten el mismo
-   * 404 para no dar un oraculo de que codigos existen.
-   */
-  async getImpresionPorToken(token: string): Promise<CertificadoPdfResponse> {
-    const resolved = resolveCertificadoQrSecret();
-    if (!resolved.ok) {
-      // Es configuracion del servidor, no del portador: 500, no 404.
-      this.logger.error(
-        `[CertificadoNoAdeudo] getImpresionPorToken: ${resolved.error}`,
-      );
-      return {
-        success: false,
-        code: 'PDF_ERROR',
-        error: 'No se pudo generar el PDF del certificado',
-      };
-    }
-
-    const payload = verifyCertificadoQrToken(token, resolved.secret);
-    if (!payload) {
-      return {
-        success: false,
-        code: 'TOKEN_INVALIDO',
-        error: 'Token de verificacion invalido',
-      };
-    }
-
-    return this.getImpresion({
-      codigo: payload.codigo,
-      certNro: Number(payload.certNro),
-      certAnio: payload.certAnio,
-    });
   }
 
   /** Detalle de un certificado por numero y anio. */
