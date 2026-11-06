@@ -95,6 +95,12 @@ coverage/
 # y la estructura de la URL del QR solo quedan cubiertos por estos tests.
 !backend/src/cobranza/certificado-no-adeudo/**/*.spec.ts
 
+# Excepcion: los specs de reporte-fracc-detallado SI se versionan. El SP
+# (@BUSC=40) tiene semantica de filtros medida —CODIGO con LIKE contiene y sin
+# padding, ANNO e id_mes exactos y obligatorios, id_mes sin ceros a la
+# izquierda— y estos tests son la unica red que la mantiene bajo control.
+!backend/src/cobranza/reporte-fracc-detallado/**/*.spec.ts
+
 # Auto-generated / workspace
 pnpm-lock.yaml
 frontend/pnpm-lock.yaml

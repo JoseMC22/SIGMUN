@@ -119,7 +119,7 @@ están libres; dos agentes en el mismo submenú exigen worktree aislado (§0.5).
 | Submenú | Feature | Archivos propios | Owner |
 |---|---|---|---|
 | (ej.) alcabala | (ej.) liquidación | `alcabala/liquidacion/**`, `dto/liquidacion.dto.ts` | (nombre del agente) |
-| | | | |
+| cobranza | reporte-fracc-detallado | `backend/src/cobranza/reporte-fracc-detallado/**`, `frontend/src/app/dashboard/cobranza/reporte-fracc-detallado/**`, `frontend/src/actions/cobranza/reporte-fracc-detallado.*` | agente writer |
 
 ---
 
