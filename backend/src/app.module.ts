@@ -31,6 +31,7 @@ import { GenerarOpModule } from './cobranza/generar-op/generar-op.module';
 import { AjusteCuentaCorrienteModule } from './cobranza/ajuste-cuenta-corriente/ajuste-cuenta-corriente.module';
 import { MultaTributariaModule } from './cobranza/multa-tributaria/multa-tributaria.module';
 import { CertificadoNoAdeudoModule } from './cobranza/certificado-no-adeudo/certificado-no-adeudo.module';
+import { ReporteFraccDetalladoModule } from './cobranza/reporte-fracc-detallado/reporte-fracc-detallado.module';
 import { ReportesModule } from './reportes-gerenciales/reportes-gerenciales.module';
 import { MantenimientoUitModule } from './mantenimiento-tablas/mantenimiento-uit/mantenimiento-uit.module';
 import { ConvenioEstadoModule } from './mantenimiento-tablas/mantenimiento-estado-convenios/convenio-estado.module';
@@ -102,6 +103,8 @@ import { StorageModule } from './storage/storage.module';
     ReporteConstanciaNoAdeudoModule,
     // Módulo de cobranza - reporte de fraccionamientos con cuotas impagadas
     ReporteFraccCuotasImpagasModule,
+    // Módulo de cobranza - reporte de fraccionamientos detallado (legacy fraccionamientos/index)
+    ReporteFraccDetalladoModule,
     // Módulo de cobranza - consulta de valores
     ConsultaValoresModule,
     // Módulo de cobranza - anular valor (fase 1: solo listado)
