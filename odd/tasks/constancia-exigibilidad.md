@@ -150,6 +150,18 @@ usa `reporte-constancia-exigibilidad` con `@opcion=5`), con `@opcion` **1/2/3/4*
   feature; justificacion: S10, mensajes verbatim y contrato S8 solo los cubren estos
   tests). Incidencia de tooling: `pnpm` y `gga` no estan en el PATH del shell; vitest
   corre via `frontend/node_modules/.bin/vitest`.
+- **L7** (2026-11-09): el usuario reporto "no me levanta la constancia de exigibilidad".
+  Diagnostico verificado en disco: la ruta no tiene `page.tsx` (Next.js sin ruta), no hay
+  action ni modulo backend y no hay fila de menu. No es un bug: el feature no estaba
+  construido; el writer de backend de L6 se perdio sin dejar archivos. Se agregan T14 (menu)
+  y T15 (verificacion funcional) para que "levantar" quede cubierto de punta a punta.
+  El usuario aporto el designer + code-behind completos del legacy: conciliacion en
+  `design.md` D5 (5 bugs que no se portan, `@operador`/`@estacion` en web, `observacion`
+  fija, default del combo por primer item). Correccion propia: lo que en L-pre se leyo como
+  "contradiccion" entre `openspec/tasks.md` y `design.md` era el reflejo del legacy
+  (`ActualizarEstadoValores(...,1)`) frente a la simplificacion de D1; queda como riesgo
+  abierto de semantica de `Estado`, no como error de redaccion. `openspec/tasks.md`
+  actualizado (T01/T02/T03/T12 marcadas, T06 corregida a 2/3/4, T14/T15 nuevas).
 - **L8** (2026-11-10): T10 (acción frontend + 8/8 tests) y T11 (página + 8/8 tests) hechas.
   `page.tsx` reescrita de cero (el archivo previo estaba roto: import duplicado de
   `export-utils`, referencia a un módulo inexistente `PlantillaConstanciaExigibilidadHtml`,
@@ -164,15 +176,13 @@ usa `reporte-constancia-exigibilidad` con `@opcion=5`), con `@opcion` **1/2/3/4*
   export-utils 5 + page 8); eslint limpio en los archivos del feature. El `tsc` completo del
   frontend no se corrió (proyecto grande, sin script; corre como parte de `next build`).
   Pendiente: T14 (menú en accesos) y T15 (verificación funcional con BD real).
-- **L7** (2026-11-09): el usuario reporto "no me levanta la constancia de exigibilidad".
-  Diagnostico verificado en disco: la ruta no tiene `page.tsx` (Next.js sin ruta), no hay
-  action ni modulo backend y no hay fila de menu. No es un bug: el feature no estaba
-  construido; el writer de backend de L6 se perdio sin dejar archivos. Se agregan T14 (menu)
-  y T15 (verificacion funcional) para que "levantar" quede cubierto de punta a punta.
-  El usuario aporto el designer + code-behind completos del legacy: conciliacion en
-  `design.md` D5 (5 bugs que no se portan, `@operador`/`@estacion` en web, `observacion`
-  fija, default del combo por primer item). Correccion propia: lo que en L-pre se leyo como
-  "contradiccion" entre `openspec/tasks.md` y `design.md` era el reflejo del legacy
-  (`ActualizarEstadoValores(...,1)`) frente a la simplificacion de D1; queda como riesgo
-  abierto de semantica de `Estado`, no como error de redaccion. `openspec/tasks.md`
-  actualizado (T01/T02/T03/T12 marcadas, T06 corregida a 2/3/4, T14/T15 nuevas).
+- **L9** (2026-11-10): verificación del backend a pedido del usuario. El `jest` del módulo da
+  25/25 verdes, pero el `tsc --noEmit` global encontró un defecto real que L6/L8 dejaron pasar
+  (tsc se había leído con un filtro roto en PowerShell, `$_` no propaga dentro de una
+  comilla doble y devolvía 0): `da709cc` commiteó los DTOs con `ValorIdentitySchema` duplicado
+  (el validador lo declara dos veces → TS2451; el emisor importa desde el validador y además
+  lo redeclara → TS2395/TS2440). Los tests no lo detectan porque corren con transpilación
+  sin type-check. Fix: esquema compartido en `dto/valor-identity.schema.ts`; ambos DTOs lo
+  importan (validar lo re-exporta por compatibilidad). Re-verificación: `tsc` 0 diagnósticos
+  en el módulo (los 25 TS2554 preexistentes en `mantenimiento-notificadores` siguen intactos,
+  ajenos al feature) y 25/25 jest verdes. T11/T13 se mantienen; el gap quedó catalogado.
