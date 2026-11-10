@@ -107,6 +107,15 @@ coverage/
 # izquierda— y estos tests son la unica red que la mantiene bajo control.
 !backend/src/cobranza/reporte-fracc-detallado/**/*.spec.ts
 
+# Excepcion: los specs/tests de constancia-exigibilidad SI se versionan. La
+# regla de emision (>= 7 dias habiles desde FNotifica, S10), los mensajes
+# verbatim de validacion (S2/S3/S4/S6/S8) y el contrato de placeholders del
+# PDF sin QR solo quedan cubiertos por estos tests.
+!backend/src/notificaciones/constancia-exigibilidad/**/*.spec.ts
+!frontend/src/actions/notificaciones/constancia-exigibilidad.test.ts
+!frontend/src/app/dashboard/notificaciones/constancia-exigibilidad/*.test.ts
+!frontend/src/app/dashboard/notificaciones/constancia-exigibilidad/*.test.tsx
+
 # Auto-generated / workspace
 pnpm-lock.yaml
 frontend/pnpm-lock.yaml

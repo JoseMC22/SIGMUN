@@ -53,6 +53,36 @@ Campos: `nombre`, `nroconstancia`, `valor_completo`, `fnotifica`, `nrocargo`, `d
 DTOs con **Zod** en el boundary del controller; el service recibe dominio tipado
 (sin `any`). Respuestas con el envelope canónico de la familia `notificaciones`.
 
+### D5 — Conciliación con el legacy (designer + code-behind, 2026-11-09)
+
+**Paridad exacta (se mantiene):**
+- Combo TipoValor: `SELECT id_valor, nomb_val FROM Contenedor.TblTipo_valor WHERE estado='1' AND anno_gen=YEAR(GETDATE()) ORDER BY 2`.
+- Salida del campo Número: trim → si es numérico `D7`; si no, se limpia el campo.
+- Mensajes verbatim de S2/S3/S4/S6/S8 (no se reescriben).
+- `@opcion=3`: `lote='0'` y `observacion='Constancia de Exigibilidad Generada desde el Sistema de Notificaciones'` fija. El `TxtObservacion` del legacy es editable pero el code-behind **lo ignora** → no se porta como campo editable.
+- `anoexig` = año en curso. `numexig` lo devuelve el SP y se muestra en Nro. Exigibilidad.
+- Imprimir: `@opcion=4` con `numexig` = Nro. Exigibilidad y `anoexig` = año en curso.
+
+**Bugs del legacy que NO se portan:**
+1. `Convert.ToDateTime(fila["FExigibilidad"])` sin guard revienta cuando el valor aún no
+   tiene constancia (`NroExigibilidad='0'`). Backend expone `fExigibilidad: string | null`
+   (y lo mismo para `fecVal`/`fNotifica`); el frontend muestra vacío ante null.
+2. El check `Cargo == "0"` ocurre después de esa conversión, así que un valor sin cargo
+   podía romper antes del mensaje. Orden en SIGMUN: existe → estado cancelado → sin cargo
+   → datos + acciones.
+3. `BtnCancelar` limpiaba TextBox pero dejaba Grabar/Imprimir habilitados. Cancelar resetea
+   también las acciones y devuelve `anio`/`anoexig` al año en curso.
+4. En Imprimir, `fnotifica` estaba guardado por `Columns.Contains("valor")` (copy-paste).
+   Se lee siempre la columna `fnotifica`.
+5. `CmbTipoValor.SelectedIndex = 3` es un default por posición, frágil ante cambios del
+   combo. Default en SIGMUN: primer ítem. Si se quiere replicar el 4º ítem, es decisión de
+   producto y se hace por `id_valor`, no por índice.
+
+**Identidad en web (antes `Environment.MachineName` + usuario Windows):**
+- `@operador` = usuario autenticado (JWT). Nunca un input del cliente.
+- `@estacion` = `'WEB'`: en web `MachineName` sería el del servidor y no identifica al
+  operador. Un solo punto del service concentra el valor por si se prefiere IP/host.
+
 ## Data model
 
 `ConstanciaExigibilidadRow` (types) refleja las columnas de `@opcion=2` y `@opcion=4`.
@@ -64,3 +94,9 @@ DTOs con **Zod** en el boundary del controller; el service recibe dominio tipado
 - **Contrato del SP sin confirmar** hasta la sonda T02 → mitigación: sonda antes del code.
 - **Cálculo de días hábiles** con/sin feriados → supuesto Lun-Vie a confirmar.
 - **Dato personal** (`codigo`, `nombre` del administrado): no loguear (regla AGENTS.md).
+- **Semántica de `Estado` en `@opcion=2` (D5)**: el legacy obtenía el estado con
+  `oLogica.ActualizarEstadoValores(oEntidad, 1)`, un método distinto de
+  `ValidarConstanciasExigibilidad(...,2)`; no hay evidencia de que ambos llamen al mismo SP.
+  Hay que verificar con un valor cancelado real (estados 9 y 2) que la columna `Estado` de
+  `@opcion=2` bloquea igual. Si difiere, se agrega la llamada equivalente. No bloquea el código,
+  sí bloquea dar S3 por verificada.

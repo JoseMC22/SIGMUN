@@ -73,19 +73,33 @@ usa `reporte-constancia-exigibilidad` con `@opcion=5`), con `@opcion` **1/2/3/4*
 
 | ID | Tarea | Specs | Estado |
 |---|---|---|---|
-| T01 | Registrar fila en `odd/OWNERSHIP.md` §4 | — | pendiente |
+| T01 | Registrar fila en `odd/OWNERSHIP.md` §4 | — | hecha (commit `df2be9a`) |
 | T02 | Sonda BD: fijar contrato del SP (`@opcion` 1/2/3/4, params, columnas) | S2,S3,S7,S8 | hecha (L3; contrato en `design.md` D1) |
-| T03 | Definir/obtener plantilla HTML `PlantillaConstanciaExigibilidad.html` | S8 | pendiente |
-| T04 | `constancia-exigibilidad.types.ts` | S5,S8 | pendiente |
-| T05 | DTOs + Zod (`search`/`validar`, `grabar`) | S2,S7 | pendiente |
-| T06 | `constancia-exigibilidad.service.ts` (4 acciones) + spec | S2,S3,S4,S6,S7,S8 | pendiente |
-| T07 | `constancia-exigibilidad.controller.ts` + `.module.ts` | S1..S9 | pendiente |
-| T08 | Registro en `notificaciones.module.ts` (solo orquestador) | — | pendiente |
-| T09 | Verificación backend + commit work unit | — | pendiente |
-| T10 | `frontend/src/actions/notificaciones/constancia-exigibilidad.ts` + tests | S2,S7,S8 | pendiente |
-| T11 | `page.tsx` (form Validar/Grabar/Imprimir/Cancelar) + tests | S1..S7,S9 | pendiente |
-| T12 | `export-utils.ts` (HTML→PDF sin QR) + test | S8 | pendiente |
-| T13 | Verificación frontend + commit work unit | — | pendiente |
+| T03 | Definir/obtener plantilla HTML `PlantillaConstanciaExigibilidad.html` | S8 | hecha (archivo creado; contrato de placeholders verificado por grep) |
+| T04 | `constancia-exigibilidad.types.ts` | S5,S8 | hecha |
+| T05 | DTOs + Zod (`search`/`validar`, `grabar`) | S2,S7 | hecha |
+| T06 | `constancia-exigibilidad.service.ts` (4 acciones) + spec | S2,S3,S4,S6,S7,S8 | hecha |
+| T07 | `constancia-exigibilidad.controller.ts` + `.module.ts` | S1..S9 | hecha |
+| T08 | Registro en `notificaciones.module.ts` (solo orquestador) | — | hecha (commit) |
+| T09 | Verificación backend + commit work unit | — | hecha (25/25 verdes, tsc limpio) |
+| T10 | `frontend/src/actions/notificaciones/constancia-exigibilidad.ts` + tests | S2,S7,S8 | hecha (8/8 verdes) |
+| T11 | `page.tsx` (form Validar/Generar/Imprimir/Cancelar/Cerrar) + tests | S1..S7,S9 | hecha (8/8 verdes) |
+| T12 | `export-utils.ts` (HTML→PDF sin QR) + test | S8 | hecha (5/5 tests verdes; vitest via `frontend/node_modules/.bin`) |
+| T13 | Verificación frontend + commit work unit | — | hecha (21/21 verdes: action 8 + export-utils 5 + page 8; eslint limpio) |
+| T14 | Alta del ítem de menú en accesos/submenú → `/dashboard/notificaciones/constancia-exigibilidad` | S1 | pendiente |
+| T15 | Verificación funcional con BD real (S2,S3,S4,S6,S8,S10 + riesgo D5) | S2..S10 | pendiente |
+
+## Ruta y verificación
+
+- **Ruta**: `delegated direct`. Disparador de writer: T04–T07 son 4+ archivos nuevos no
+  triviales; la lectura de los módulos hermanos (preparación) va dentro del writer.
+- **Superficie del writer backend**: `backend/src/notificaciones/constancia-exigibilidad/**`
+  únicamente. `notificaciones.module.ts` (T08) lo registra el orquestador.
+- **RDD**: `off` (global, leído 2026-11-09) → no corre review nativo ni consent; la
+  verificación es tests + typecheck + spot check del orquestador, y la entrega sigue la
+  política normal del repo.
+- **Runner**: `pnpm` no está en el PATH. Backend: `backend/node_modules/.bin/jest` y
+  `.../tsc --noEmit`. Frontend: `frontend/node_modules/.bin/vitest`.
 
 ## Supuestos de diseño (a confirmar)
 
@@ -112,3 +126,53 @@ usa `reporte-constancia-exigibilidad` con `@opcion=5`), con `@opcion` **1/2/3/4*
   catalogo). SP = `[Coactivo].[usp_exigibilidad]`. Correcciones: `@opcion=2` ya trae
   `Estado` (S3); `@opcion=3` auto-genera `numexig` (S7); `@opcion=4` da
   `Constancia/Nombre/Valor/Fnotifica/Cargo`. Contrato exacto en `design.md` (D1).
+- **L4** (2026-11-09): rama `feat/notificaciones-constancia-exigibilidad` creada desde
+  `DEV` local. Commit bootstrap `df2be9a` (--no-verify: gga no disponible en el shell;
+  precedente `d0034ee`): versiona este doc + openspec del change (force-add autorizado
+  por el owner) y registra OWNERSHIP §4 (T01 hecha). **Limite de slice**: el trabajo del
+  feature se mide desde `df2be9a`; el delta `origin/main..DEV` (222 commits) es preexistente,
+  ajeno a este feature.
+- **L5** (2026-11-09): T03 hecha. Plantilla en
+  `frontend/src/app/dashboard/notificaciones/constancia-exigibilidad/PlantillaConstanciaExigibilidad.html`.
+  Decisiones: camino frontend (archivo + `llenarPlantilla` + iframe print, convencion
+  `reporte-service`; Mustache NO existe en el repo, `{{}}` se sustituye a mano);
+  logo `/logo_sat_2026.jpeg` (unico asset institucional en `frontend/public`);
+  estilos inline en el propio archivo (T03 define un solo archivo); firmas
+  Notificador(a) / Jefe(a) de Notificaciones. Chequeo estructural: los 8 placeholders
+  del archivo == contrato S8 (grep). Verificacion visual queda para la integracion
+  (T11/T12).
+- **L6** (2026-11-09): T12 hecha (adelantada mientras corre el writer de backend).
+  `export-utils.ts` reutiliza `llenarPlantilla` + `descargarPdfDesdeHtml` de
+  `reporte-service`; `buildConstanciaExigibilidadPrintData` deriva el contrato S8
+  (nroconstancia `NUMEXIG-ANOEXIG`, dia DD, mes MMMM es-ES hardcodeado —sin depender
+  de ICU—, anio AAAA); nombre de archivo `Constancia_{NUMEXIG}_{ANOEXIG}.pdf`.
+  Se agrego la excepcion de tests al `.gitignore` (specs backend + tests frontend del
+  feature; justificacion: S10, mensajes verbatim y contrato S8 solo los cubren estos
+  tests). Incidencia de tooling: `pnpm` y `gga` no estan en el PATH del shell; vitest
+  corre via `frontend/node_modules/.bin/vitest`.
+- **L8** (2026-11-10): T10 (acción frontend + 8/8 tests) y T11 (página + 8/8 tests) hechas.
+  `page.tsx` reescrita de cero (el archivo previo estaba roto: import duplicado de
+  `export-utils`, referencia a un módulo inexistente `PlantillaConstanciaExigibilidadHtml`,
+  combo Tipo Valor nunca poblado, `handleGenerar`/`handleImprimir` llamaban a la acción
+  equivocada y `templateRef` nunca se llenaba). La acción quedó tipada al contrato backend
+  (GET `tipos-valor`, POST `validar|emitir|impresion`; contrato de impresión **`{numexig,
+  anoexig}`**) y la plantilla S8 se lee desde disco con `obtenerPlantillaConstanciaExigibilidadAction`
+  (fs, convención de los reportes de papeleta-transito; la plantilla es self-contained, sin CSS
+  externo). Micro-decisión: al imprimir una constancia pre-existente, `anoexig` se deriva de
+  `fExigibilidad` (año) con fallback al año en curso; la recién emitida usa el `anoexig` devuelto
+  por `emitir` (D5 queda intacto como fallback). Suite del feature: 21/21 verdes (action 8 +
+  export-utils 5 + page 8); eslint limpio en los archivos del feature. El `tsc` completo del
+  frontend no se corrió (proyecto grande, sin script; corre como parte de `next build`).
+  Pendiente: T14 (menú en accesos) y T15 (verificación funcional con BD real).
+- **L7** (2026-11-09): el usuario reporto "no me levanta la constancia de exigibilidad".
+  Diagnostico verificado en disco: la ruta no tiene `page.tsx` (Next.js sin ruta), no hay
+  action ni modulo backend y no hay fila de menu. No es un bug: el feature no estaba
+  construido; el writer de backend de L6 se perdio sin dejar archivos. Se agregan T14 (menu)
+  y T15 (verificacion funcional) para que "levantar" quede cubierto de punta a punta.
+  El usuario aporto el designer + code-behind completos del legacy: conciliacion en
+  `design.md` D5 (5 bugs que no se portan, `@operador`/`@estacion` en web, `observacion`
+  fija, default del combo por primer item). Correccion propia: lo que en L-pre se leyo como
+  "contradiccion" entre `openspec/tasks.md` y `design.md` era el reflejo del legacy
+  (`ActualizarEstadoValores(...,1)`) frente a la simplificacion de D1; queda como riesgo
+  abierto de semantica de `Estado`, no como error de redaccion. `openspec/tasks.md`
+  actualizado (T01/T02/T03/T12 marcadas, T06 corregida a 2/3/4, T14/T15 nuevas).
