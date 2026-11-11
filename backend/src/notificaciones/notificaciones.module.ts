@@ -3,6 +3,7 @@ import { MantenimientoNotificadoresModule } from './mantenimiento-notificadores/
 import { ReporteCargosModule } from './reporte-cargos/reporte-cargos.module';
 import { ReporteConstanciaExigibilidadModule } from './reporte-constancia-exigibilidad/reporte-constancia-exigibilidad.module';
 import { CargosNotificacionesModule } from './cargos-notificaciones/cargos-notificaciones.module';
+import { ConstanciaExigibilidadModule } from './constancia-exigibilidad/constancia-exigibilidad.module';
 
 @Module({
   imports: [
@@ -10,6 +11,7 @@ import { CargosNotificacionesModule } from './cargos-notificaciones/cargos-notif
     ReporteCargosModule,
     ReporteConstanciaExigibilidadModule,
     CargosNotificacionesModule,
+    ConstanciaExigibilidadModule,
   ],
 })
 export class NotificacionesModule {}

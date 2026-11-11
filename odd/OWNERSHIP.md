@@ -120,6 +120,7 @@ están libres; dos agentes en el mismo submenú exigen worktree aislado (§0.5).
 |---|---|---|---|
 | (ej.) alcabala | (ej.) liquidación | `alcabala/liquidacion/**`, `dto/liquidacion.dto.ts` | (nombre del agente) |
 | cobranza | reporte-fracc-detallado | `backend/src/cobranza/reporte-fracc-detallado/**`, `frontend/src/app/dashboard/cobranza/reporte-fracc-detallado/**`, `frontend/src/actions/cobranza/reporte-fracc-detallado.*` | agente writer |
+| notificaciones | constancia-exigibilidad | `backend/src/notificaciones/constancia-exigibilidad/**`, `frontend/src/actions/notificaciones/constancia-exigibilidad.ts`, `frontend/src/app/dashboard/notificaciones/constancia-exigibilidad/**` | agente writer |
 
 ---
 
