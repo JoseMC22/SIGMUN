@@ -94,9 +94,8 @@ DTOs con **Zod** en el boundary del controller; el service recibe dominio tipado
 - **Contrato del SP sin confirmar** hasta la sonda T02 → mitigación: sonda antes del code.
 - **Cálculo de días hábiles** con/sin feriados → supuesto Lun-Vie a confirmar.
 - **Dato personal** (`codigo`, `nombre` del administrado): no loguear (regla AGENTS.md).
-- **Semántica de `Estado` en `@opcion=2` (D5)**: el legacy obtenía el estado con
-  `oLogica.ActualizarEstadoValores(oEntidad, 1)`, un método distinto de
-  `ValidarConstanciasExigibilidad(...,2)`; no hay evidencia de que ambos llamen al mismo SP.
-  Hay que verificar con un valor cancelado real (estados 9 y 2) que la columna `Estado` de
-  `@opcion=2` bloquea igual. Si difiere, se agrega la llamada equivalente. No bloquea el código,
-  sí bloquea dar S3 por verificada.
+- **Semántica de `Estado` en `@opcion=2` (D5)** — **CERRADO (2026-11-12)**: la columna
+  `Estado` es `RENTAS.MVALORES.nestado`. Verificado con datos reales: `01/0005159/2026`
+  devuelve `Estado=9` y `01/0005258/2026` devuelve `Estado=2`, así que el bloqueo de S3
+  funciona con la sola llamada a `@opcion=2` y no hace falta replicar
+  `ActualizarEstadoValores`. Evidencia completa en `odd/tasks/constancia-exigibilidad.md` L11.

@@ -86,8 +86,8 @@ usa `reporte-constancia-exigibilidad` con `@opcion=5`), con `@opcion` **1/2/3/4*
 | T11 | `page.tsx` (form Validar/Generar/Imprimir/Cancelar/Cerrar) + tests | S1..S7,S9 | hecha (8/8 verdes) |
 | T12 | `export-utils.ts` (HTML→PDF sin QR) + test | S8 | hecha (5/5 tests verdes; vitest via `frontend/node_modules/.bin`) |
 | T13 | Verificación frontend + commit work unit | — | hecha (21/21 verdes: action 8 + export-utils 5 + page 8; eslint limpio) |
-| T14 | Alta del ítem de menú en accesos/submenú → `/dashboard/notificaciones/constancia-exigibilidad` | S1 | pendiente |
-| T15 | Verificación funcional con BD real (S2,S3,S4,S6,S8,S10 + riesgo D5) | S2..S10 | pendiente |
+| T14 | Alta del ítem de menú en accesos/submenú → `/dashboard/notificaciones/constancia-exigibilidad` | S1 | hecha (ya existía en BD: `Acceso.MAcceso` `23.04.00` + 6 perfiles; verificada con `sp_LogOut @buscar=8`) |
+| T15 | Verificación funcional con BD real (S2,S3,S4,S6,S8,S10 + riesgo D5) | S2..S10 | hecha (sonda 2026-11-12 contra `192.168.3.205/Base_sigmun`; D5 cerrado; 2 hallazgos nuevos, ver H1/H2) |
 
 ## Ruta y verificación
 
@@ -104,11 +104,34 @@ usa `reporte-constancia-exigibilidad` con `@opcion=5`), con `@opcion` **1/2/3/4*
 ## Supuestos de diseño (a confirmar)
 
 - **`dias habiles`** = Lun-Vie. Si existe tabla de feriados, incorporarla.
+  **Verificado 2026-11-12**: no existe ninguna tabla de feriados/holidays en
+  `Base_sigmun`, así que Lun-Vie queda como la regla definitiva.
 - **Validacion de los 7 dias habiles** en la capa de dominio (service), antes de `@opcion=3`.
 - **Plantilla PDF**: institucional SAT ICA (encabezado, cuerpo, firmas), sin QR, campos
   de S8. La disenia el agente (confirmado por el usuario).
 - **Contrato del SP**: nombres de params del legacy (`NUM_VAL`, `ID_VALOR`, `ANO_VAL`,
   `NUMEXIG`, `ANOEXIG`); `@opcion=3` = emision. Ajustar con sonda BD si difiere.
+
+## Hallazgos de la verificación funcional (T15)
+
+- **H1 — `nroconstancia` del PDF no usa el número canónico del SP.** `@opcion=4`
+  devuelve `Constancia = '0000837-2026'` (7 dígitos con ceros, formato del propio SP),
+  pero `export-utils.ts` arma `nroconstancia` como `${numexig}-${anoexig}` y `numexig`
+  llega sin padding desde `@opcion=2` (int). Resultado: el documento imprime
+  `N° 837-2026` en lugar de `N° 0000837-2026`. `page.tsx` ya recibe `imp.constancia`
+  y lo descarta. Decisión pendiente del owner: usar `imp.constancia` (recomendado) o
+  paddear a 7 en el cliente.
+- **H2 — rama muerta en la validación de `FNotifica`.** `@opcion=2` devuelve
+  `isnull(cargo.F_NOTIFICA,'')` sobre una columna `date`, así que un valor sin
+  notificación llega como `1900-01-01`, no `null`. El chequeo
+  `'La fecha de notificación es inválida.'` del service nunca se dispara; hoy no hay
+  casos reales (0 valores 2026 con `cargo>0` y `F_NOTIFICA NULL`), porque S4 bloquea
+  antes con `Cargo = 0`.
+- **Acceso por perfil**: `23.04.00` está concedido a ADMINISTRADOR, COBRANZAS - GENERAL,
+  JEFE DE COBRANZAS, DEPURADOR y ENCARGADO DE NOTIFICACIONES (+ perfil `0000007`, sin
+  fila en `TblPerfil`). `GESTOR COBRANZA (0000055, 11 usuarios)` **no** lo tiene — igual
+  que `Mantenimiento de Notificadores (23.03.00)`, a diferencia de `Reporte Cargo
+  (23.02.00)` que sí. Consistente con "no emite constancias"; no se modificó.
 
 ## Log
 
@@ -186,3 +209,29 @@ usa `reporte-constancia-exigibilidad` con `@opcion=5`), con `@opcion` **1/2/3/4*
   importan (validar lo re-exporta por compatibilidad). Re-verificación: `tsc` 0 diagnósticos
   en el módulo (los 25 TS2554 preexistentes en `mantenimiento-notificadores` siguen intactos,
   ajenos al feature) y 25/25 jest verdes. T11/T13 se mantienen; el gap quedó catalogado.
+- **L10** (2026-11-12): T14 cerrada **sin cambios**: la fila ya existía en la BD. Evidencia:
+  `Acceso.MAcceso` `23.04.00` "Constancia de Exigibilidad", `doform2 =
+  notificaciones/constancia-exigibilidad`, `Formulario = FrmConstanciaExigibilidad`,
+  `fech_ing = 2026-01-29 07:59:25` (pre-registrada, antes de que el feature existiera);
+  grants en `Acceso.MPerfil_acceso` para 6 perfiles. Verificado end-to-end con
+  `EXEC [Acceso].[sp_LogOut] @buscar=8, @parametro='23.00.00', @password='RMEJIA'` →
+  devuelve `23.04.00|Constancia de Exigibilidad|notificaciones/constancia-exigibilidad`.
+  Conclusión: el "no me levanta" de L7 era la `page.tsx` faltante, nunca el menú.
+  `GESTOR COBRANZA` queda sin acceso (ver hallazgos).
+- **L11** (2026-11-12): T15 cerrada con sonda directa al SP (`192.168.3.205/Base_sigmun`,
+  `Coactivo.usp_exigibilidad`), replicando los params exactos del service. Resultados:
+  S1 combo 2026 devuelve 10 tipos; S2 `01/9999999/2026` → 0 filas; S3 `01/0005159/2026`
+  → `Estado=9` y `01/0005258/2026` → `Estado=2` (**D5 cerrado**: `Estado` es
+  `RENTAS.MVALORES.nestado` y bloquea igual que el legacy); S4 `01/0005259/2026` →
+  `Cargo=0` (columna `int`, `isnull(num_cargo,'')` convierte `''` a `0`, por eso el
+  chequeo `=== '0'` funciona); S6 `01/0003435/2026` → `NroExigibilidad=683`,
+  `Cargo=3435`; S8 `@opcion=4 683/2026` → `0000683-2026` con nombre, valor, `Fnotifica`
+  y cargo correctos. S10+S7 end-to-end: emisión real sobre `01/0005256/2026`
+  (FNotifica 2026-05-23, 173 días hábiles) → `numexig=837` auto-generado, fila persistida
+  con `fec_gen=2026-11-12`, operador `SIGMUN_T15` (marcador de prueba), y `@opcion=2`
+  posterior ya devuelve `NroExigibilidad=837` (el guard de duplicado del service aplica).
+  Caso negativo de S10 (< 7 días hábiles) no tiene datos reales: la notificación pendiente
+  más reciente es 2026-05-23; queda cubierto por los unit tests (six business days,
+  weekend, future date). Suite re-verificada: backend 25/25, frontend 21/21.
+  Hallazgos H1/H2 arriba; `H1` requiere decisión del owner.
+
