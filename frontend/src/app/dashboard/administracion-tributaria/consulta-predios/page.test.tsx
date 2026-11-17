@@ -115,12 +115,15 @@ describe("ConsultaPrediosPage", () => {
     expect(screen.getByText(/presione buscar para consultar/i)).toBeInTheDocument();
   });
 
-  it("pasa a mayúsculas, rellena el código con ceros al salir y busca con Enter", async () => {
+  it("rechaza letras en el código, rellena con ceros al salir y busca con Enter", async () => {
     render(<ConsultaPrediosPage />);
     const codigo = screen.getByLabelText(/^código$/i);
 
     fireEvent.change(codigo, { target: { value: "ab" } });
-    expect(codigo).toHaveValue("AB");
+    expect(codigo).toHaveValue("");
+
+    fireEvent.change(codigo, { target: { value: "12a3" } });
+    expect(codigo).toHaveValue("123");
 
     fireEvent.change(codigo, { target: { value: "123" } });
     fireEvent.blur(codigo);
@@ -136,6 +139,54 @@ describe("ConsultaPrediosPage", () => {
         20,
       ),
     );
+  });
+
+  it("admite solo dígitos en el código de predio", () => {
+    render(<ConsultaPrediosPage />);
+    const codPred = screen.getByLabelText(/código de predio/i);
+
+    fireEvent.change(codPred, { target: { value: "ab-12 c3" } });
+
+    expect(codPred).toHaveValue("123");
+  });
+
+  it("pasa a mayúsculas los filtros de texto mientras se escriben", () => {
+    render(<ConsultaPrediosPage />);
+    const cases = [
+      [/^vía$/i, "av central"],
+      [/urbanización/i, "lima sur"],
+      [/^dpto\.$/i, "lima"],
+      [/^mza\.$/i, "a1"],
+      [/^lte\.$/i, "b2"],
+      [/sublote/i, "c3"],
+    ] as const;
+
+    for (const [label, typed] of cases) {
+      const input = screen.getByLabelText(label);
+      fireEvent.change(input, { target: { value: typed } });
+      expect(input).toHaveValue(typed.toUpperCase());
+    }
+  });
+
+  it("expone atributos numéricos en los códigos y clase uppercase en los filtros de texto", () => {
+    render(<ConsultaPrediosPage />);
+    const codigo = screen.getByLabelText(/^código$/i);
+    const codPred = screen.getByLabelText(/código de predio/i);
+
+    for (const input of [codigo, codPred]) {
+      expect(input).toHaveAttribute("inputmode", "numeric");
+      expect(input).toHaveAttribute("pattern", "[0-9]*");
+    }
+    for (const label of [
+      /^vía$/i,
+      /urbanización/i,
+      /^dpto\.$/i,
+      /^mza\.$/i,
+      /^lte\.$/i,
+      /sublote/i,
+    ]) {
+      expect(screen.getByLabelText(label)).toHaveClass("uppercase");
+    }
   });
 
   it("renderiza las 15 columnas de datos mas la numeracion UI-only tras una busqueda exitosa", async () => {

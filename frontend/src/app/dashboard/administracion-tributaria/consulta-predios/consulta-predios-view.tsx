@@ -78,6 +78,8 @@ interface FilterFieldProps {
   maxLength?: number;
   onBlur?: () => void;
   onKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void;
+  uppercase?: boolean;
+  numeric?: boolean;
 }
 
 function FilterField({
@@ -88,6 +90,8 @@ function FilterField({
   maxLength,
   onBlur,
   onKeyDown,
+  uppercase = false,
+  numeric = false,
 }: FilterFieldProps) {
   return (
     <div className="flex min-w-0 flex-col gap-1">
@@ -103,10 +107,12 @@ function FilterField({
         type="text"
         value={value}
         maxLength={maxLength}
+        inputMode={numeric ? "numeric" : undefined}
+        pattern={numeric ? "[0-9]*" : undefined}
         onChange={(event) => onChange(event.target.value)}
         onBlur={onBlur}
         onKeyDown={onKeyDown}
-        className={INPUT_CLASS}
+        className={`${INPUT_CLASS}${uppercase ? " uppercase" : ""}`}
       />
     </div>
   );
@@ -176,6 +182,7 @@ export default function ConsultaPrediosView({
             label="Código"
             value={filters.codigo}
             maxLength={7}
+            numeric
             onBlur={onCodigoBlur}
             onKeyDown={handleCodigoKeyDown}
             onChange={(value) => onFilterChange("codigo", value)}
@@ -184,6 +191,7 @@ export default function ConsultaPrediosView({
             id="codPred"
             label="Código de predio"
             value={filters.codPred}
+            numeric
             onChange={(value) => onFilterChange("codPred", value)}
           />
           <div className="flex min-w-0 flex-col gap-1">
@@ -211,12 +219,14 @@ export default function ConsultaPrediosView({
             id="codVia"
             label="Vía"
             value={filters.codVia}
+            uppercase
             onChange={(value) => onFilterChange("codVia", value)}
           />
           <FilterField
             id="urbBus"
             label="Urbanización"
             value={filters.urbBus}
+            uppercase
             onChange={(value) => onFilterChange("urbBus", value)}
           />
           <FilterField
@@ -229,24 +239,28 @@ export default function ConsultaPrediosView({
             id="dpto"
             label="Dpto."
             value={filters.dpto}
+            uppercase
             onChange={(value) => onFilterChange("dpto", value)}
           />
           <FilterField
             id="mza"
             label="Mza."
             value={filters.mza}
+            uppercase
             onChange={(value) => onFilterChange("mza", value)}
           />
           <FilterField
             id="lte"
             label="Lte."
             value={filters.lte}
+            uppercase
             onChange={(value) => onFilterChange("lte", value)}
           />
           <FilterField
             id="sublote"
             label="Sublote"
             value={filters.sublote}
+            uppercase
             onChange={(value) => onFilterChange("sublote", value)}
           />
         </div>

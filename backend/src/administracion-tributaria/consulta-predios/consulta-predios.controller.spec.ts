@@ -22,6 +22,23 @@ describe('ConsultaPrediosController', () => {
     totalPages: 0,
   };
 
+  async function expectCanonicalValidationError(
+    action: () => Promise<unknown>,
+    path: string,
+  ): Promise<void> {
+    const error = await action().catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(BadRequestException);
+    const exception = error as BadRequestException;
+    expect(exception.getStatus()).toBe(400);
+    expect(exception.getResponse()).toEqual({
+      code: 'validation_error',
+      message: 'Validation failed',
+      details: {
+        errors: [expect.objectContaining({ path, message: expect.any(String) })],
+      },
+    });
+  }
+
   beforeEach(async () => {
     jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
@@ -71,32 +88,47 @@ describe('ConsultaPrediosController', () => {
         anno: 2026,
         page: '3',
         pageSize: '20',
+        codVia: 'av central',
+        urbBus: 'lima sur',
+        dpto: 'lima',
+        mza: 'a1',
+        lte: 'b2',
+        sublote: 'c3',
       });
 
       expect(search).toHaveBeenCalledWith({
         codigo: '0000123',
         codPred: '',
         anno: '2026',
-        codVia: '',
-        urbBus: '',
+        codVia: 'AV CENTRAL',
+        urbBus: 'LIMA SUR',
         nro: '',
-        dpto: '',
-        mza: '',
-        lte: '',
-        sublote: '',
+        dpto: 'LIMA',
+        mza: 'A1',
+        lte: 'B2',
+        sublote: 'C3',
         page: 3,
         pageSize: 20,
       });
     });
 
-    it('leaves a non-numeric codigo without padding', async () => {
-      search.mockResolvedValue(emptyPage);
+    it.each(['codigo', 'codPred', 'anno'])(
+      'rejects non-numeric %s with the canonical validation envelope',
+      async (field) => {
+        await expectCanonicalValidationError(
+          () => controller.search({ [field]: 'ABC' }),
+          field,
+        );
+        expect(search).not.toHaveBeenCalled();
+      },
+    );
 
-      await controller.search({ codigo: 'ABC' });
-
-      expect(search).toHaveBeenCalledWith(
-        expect.objectContaining({ codigo: 'ABC' }),
+    it('rejects an SQL-shaped anno before it reaches the SP', async () => {
+      await expectCanonicalValidationError(
+        () => controller.search({ anno: '2026); DROP TABLE Rentas.Mco;--' }),
+        'anno',
       );
+      expect(search).not.toHaveBeenCalled();
     });
 
     it('responds with the canonical envelope and HTTP 400 on invalid input', async () => {
@@ -129,18 +161,31 @@ describe('ConsultaPrediosController', () => {
       rows: [],
     };
 
+    const uppercaseFilters = {
+      codVia: 'AV CENTRAL',
+      urbBus: 'LIMA SUR',
+      dpto: 'LIMA',
+      mza: 'A1',
+      lte: 'B2',
+      sublote: 'C3',
+    };
+
     const expectedExportDto = {
       codigo: '0000123',
       codPred: '',
       anno: '2026',
-      codVia: '',
-      urbBus: '',
+      ...uppercaseFilters,
       nro: '',
-      dpto: '',
-      mza: '',
-      lte: '',
-      sublote: '',
       mostrarPisos: false,
+    };
+
+    const typedFilters = {
+      codVia: 'av central',
+      urbBus: 'lima sur',
+      dpto: 'lima',
+      mza: 'a1',
+      lte: 'b2',
+      sublote: 'c3',
     };
 
     it('returns the export data and defaults mostrarPisos to false', async () => {
@@ -149,6 +194,7 @@ describe('ConsultaPrediosController', () => {
       const result = await controller.export({
         codigo: ' 123 ',
         anno: 2026,
+        ...typedFilters,
       });
 
       expect(result).toEqual(emptyExport);
@@ -158,7 +204,7 @@ describe('ConsultaPrediosController', () => {
     it('forwards mostrarPisos true to the service', async () => {
       exportPredios.mockResolvedValue(emptyExport);
 
-      await controller.export({ mostrarPisos: true });
+      await controller.export({ mostrarPisos: true, ...typedFilters });
 
       expect(exportPredios).toHaveBeenCalledWith({
         ...expectedExportDto,
@@ -167,6 +213,17 @@ describe('ConsultaPrediosController', () => {
         mostrarPisos: true,
       });
     });
+
+    it.each(['codigo', 'codPred'])(
+      'rejects non-numeric %s with the canonical validation envelope',
+      async (field) => {
+        await expectCanonicalValidationError(
+          () => controller.export({ [field]: '12-A' }),
+          field,
+        );
+        expect(exportPredios).not.toHaveBeenCalled();
+      },
+    );
 
     it('responds with the canonical envelope and HTTP 400 on invalid input', async () => {
       const error = await controller
