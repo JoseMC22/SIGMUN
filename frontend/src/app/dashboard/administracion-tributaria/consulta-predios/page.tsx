@@ -2,11 +2,13 @@
 
 import { useCallback, useState } from "react";
 import {
+  exportarPredios,
   searchConsultaPrediosAction,
   type ConsultaPrediosFilters,
   type ConsultaPrediosRow,
 } from "@/actions/administracion-tributaria/consulta-predios";
 import ConsultaPrediosView from "./consulta-predios-view";
+import { downloadPrediosWorkbook } from "./export-utils";
 
 const PAGE_SIZE = 20;
 const CODIGO_LENGTH = 7;
@@ -40,6 +42,8 @@ export default function ConsultaPrediosPage() {
   const [rows, setRows] = useState<ConsultaPrediosRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -107,6 +111,31 @@ export default function ConsultaPrediosPage() {
     [executeSearch, totalPages],
   );
 
+  const executeExport = useCallback(async () => {
+    if (loading || exporting || rows.length === 0) return;
+    setExporting(true);
+    setExportError(null);
+    try {
+      const result = await exportarPredios(
+        { ...filters, codigo: padCodigo(filters.codigo) },
+        mostrarPisos,
+      );
+      if (result.success) {
+        downloadPrediosWorkbook(result);
+      } else {
+        setExportError(result.message);
+      }
+    } catch {
+      setExportError("Error de conexión al exportar");
+    } finally {
+      setExporting(false);
+    }
+  }, [exporting, filters, loading, mostrarPisos, rows.length]);
+
+  const handleExport = useCallback(() => {
+    void executeExport();
+  }, [executeExport]);
+
   return (
     <ConsultaPrediosView
       filters={filters}
@@ -118,6 +147,9 @@ export default function ConsultaPrediosPage() {
       rows={rows}
       loading={loading}
       error={error}
+      onExport={handleExport}
+      exporting={exporting}
+      exportError={exportError}
       hasSearched={hasSearched}
       page={page}
       pageSize={PAGE_SIZE}

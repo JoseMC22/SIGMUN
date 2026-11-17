@@ -5,6 +5,7 @@ import {
   AlertCircle,
   ChevronLeft,
   ChevronRight,
+  FileDown,
   Loader2,
   RotateCcw,
   Search,
@@ -25,6 +26,9 @@ export interface ConsultaPrediosViewProps {
   rows: ConsultaPrediosRow[];
   loading: boolean;
   error: string | null;
+  onExport: () => void;
+  exporting: boolean;
+  exportError: string | null;
   hasSearched: boolean;
   page: number;
   pageSize: number;
@@ -122,6 +126,9 @@ export default function ConsultaPrediosView({
   rows,
   loading,
   error,
+  onExport,
+  exporting,
+  exportError,
   hasSearched,
   page,
   pageSize,
@@ -132,6 +139,7 @@ export default function ConsultaPrediosView({
   const currentYear = new Date().getFullYear();
   const years: number[] = [];
   for (let year = 1998; year <= currentYear; year += 1) years.push(year);
+  const canExport = hasSearched && rows.length > 0 && !loading && !exporting;
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -258,23 +266,44 @@ export default function ConsultaPrediosView({
             />
             Mostrar Pisos
           </label>
-          <button
-            type="submit"
-            disabled={loading}
-            className="inline-flex min-h-10 items-center gap-1.5 rounded-md bg-sat-cyan px-4 py-2 text-xs font-semibold text-sat-navy shadow-sm transition hover:bg-sat-cyan/90 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {loading ? (
-              <>
-                <Loader2 size={14} className="animate-spin" aria-hidden="true" />
-                Buscando...
-              </>
-            ) : (
-              <>
-                <Search size={14} aria-hidden="true" />
-                Buscar
-              </>
-            )}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={onExport}
+              disabled={!canExport}
+              aria-label="Exportar reporte de predios a XLS"
+              className="inline-flex min-h-10 items-center gap-1.5 rounded-md border border-sat-navy/20 bg-clean-white px-4 py-2 text-xs font-semibold text-sat-navy shadow-sm transition hover:bg-sat-navy/5 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {exporting ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+                  Exportando...
+                </>
+              ) : (
+                <>
+                  <FileDown size={14} aria-hidden="true" />
+                  Exportar
+                </>
+              )}
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="inline-flex min-h-10 items-center gap-1.5 rounded-md bg-sat-cyan px-4 py-2 text-xs font-semibold text-sat-navy shadow-sm transition hover:bg-sat-cyan/90 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {loading ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+                  Buscando...
+                </>
+              ) : (
+                <>
+                  <Search size={14} aria-hidden="true" />
+                  Buscar
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </form>
     </section>
@@ -493,6 +522,16 @@ export default function ConsultaPrediosView({
       </header>
 
       {renderCriterios()}
+
+      {exportError && (
+        <div
+          role="alert"
+          className="flex items-start gap-2 rounded-lg border border-sat-amber/40 bg-sat-amber/10 px-4 py-3 text-xs text-sat-navy"
+        >
+          <AlertCircle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+          <span>{exportError}</span>
+        </div>
+      )}
 
       <section
         className="rounded-lg border border-sat-navy/15 bg-clean-white p-2.5 shadow-sm"

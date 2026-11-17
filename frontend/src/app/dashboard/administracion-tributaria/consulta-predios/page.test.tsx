@@ -8,16 +8,27 @@ import {
 } from "@testing-library/react";
 
 import ConsultaPrediosPage from "./page";
-import { searchConsultaPrediosAction } from "@/actions/administracion-tributaria/consulta-predios";
+import {
+  exportarPredios,
+  searchConsultaPrediosAction,
+} from "@/actions/administracion-tributaria/consulta-predios";
 import type { ConsultaPrediosRow } from "@/actions/administracion-tributaria/consulta-predios";
+import { downloadPrediosWorkbook } from "./export-utils";
 
 // El page consume la server action; se mockea para no depender de next/headers
 // (cookies) ni de red real en jsdom.
 vi.mock("@/actions/administracion-tributaria/consulta-predios", () => ({
   searchConsultaPrediosAction: vi.fn(),
+  exportarPredios: vi.fn(),
+}));
+vi.mock("./export-utils", () => ({
+  downloadPrediosWorkbook: vi.fn(),
+  EXPORT_FILENAME: "Reporte de predios.xls",
 }));
 
 const mockSearch = vi.mocked(searchConsultaPrediosAction);
+const mockExport = vi.mocked(exportarPredios);
+const mockDownload = vi.mocked(downloadPrediosWorkbook);
 
 const predio: ConsultaPrediosRow = {
   codigo: "0000123",
@@ -58,12 +69,32 @@ function okResult(overrides: Partial<OkResult> = {}): OkResult {
   };
 }
 
+type OkExportResult = {
+  success: true;
+  title: string;
+  mostrarPisos: boolean;
+  columns: { key: string; label: string; sourceIndex: number }[];
+  rows: string[][];
+};
+
+function okExportResult(overrides: Partial<OkExportResult> = {}): OkExportResult {
+  return {
+    success: true,
+    title: "TITULO DEL SP",
+    mostrarPisos: false,
+    columns: [{ key: "n", label: "N", sourceIndex: -1 }],
+    rows: [["1"]],
+    ...overrides,
+  };
+}
+
 describe("ConsultaPrediosPage", () => {
   const currentYear = new Date().getFullYear();
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockSearch.mockResolvedValue(okResult({ data: [], total: 0, totalPages: 0 }));
+    mockExport.mockResolvedValue(okExportResult());
   });
 
   it("renderiza los nueve filtros de texto, el combo Año y el checkbox Mostrar Pisos", () => {
@@ -172,5 +203,65 @@ describe("ConsultaPrediosPage", () => {
     fireEvent.click(checkbox);
 
     expect(checkbox).toBeChecked();
+  });
+
+  it("habilita Exportar solo despues de una busqueda con filas", async () => {
+    render(<ConsultaPrediosPage />);
+    const exportButton = screen.getByRole("button", { name: /exportar/i });
+    expect(exportButton).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: /^buscar$/i }));
+    expect(await screen.findByText("No se encontraron predios")).toBeInTheDocument();
+    expect(exportButton).toBeDisabled();
+
+    mockSearch.mockResolvedValueOnce(okResult());
+    fireEvent.click(screen.getByRole("button", { name: /^buscar$/i }));
+    await screen.findByRole("grid", { name: /resultados de consulta de predios/i });
+
+    expect(exportButton).toBeEnabled();
+  });
+
+  it("envia mostrarPisos desde el estado al exportar y descarga el libro", async () => {
+    render(<ConsultaPrediosPage />);
+    fireEvent.click(screen.getByRole("checkbox", { name: /mostrar pisos/i }));
+
+    mockSearch.mockResolvedValueOnce(okResult());
+    fireEvent.click(screen.getByRole("button", { name: /^buscar$/i }));
+    await screen.findByRole("grid", { name: /resultados de consulta de predios/i });
+
+    const exportResult = okExportResult({ mostrarPisos: true });
+    mockExport.mockResolvedValueOnce(exportResult);
+    fireEvent.click(screen.getByRole("button", { name: /exportar/i }));
+
+    await waitFor(() =>
+      expect(mockExport).toHaveBeenCalledWith(
+        expect.objectContaining({
+          codigo: "",
+          anno: String(currentYear),
+        }),
+        true,
+      ),
+    );
+    await waitFor(() => expect(mockDownload).toHaveBeenCalledWith(exportResult));
+  });
+
+  it("muestra el error de export en un alert separado sin borrar la grilla", async () => {
+    mockSearch.mockResolvedValueOnce(okResult());
+    render(<ConsultaPrediosPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: /^buscar$/i }));
+    await screen.findByRole("grid", { name: /resultados de consulta de predios/i });
+
+    mockExport.mockResolvedValueOnce({
+      success: false,
+      code: "export_failed",
+      message: "No se pudo generar el XLS",
+    });
+    fireEvent.click(screen.getByRole("button", { name: /exportar/i }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("No se pudo generar el XLS");
+    expect(screen.getByRole("grid")).toBeInTheDocument();
+    expect(mockDownload).not.toHaveBeenCalled();
   });
 });
