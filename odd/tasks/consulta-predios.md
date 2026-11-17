@@ -102,6 +102,7 @@ El sistema nuevo no tiene una consulta genérica de predios por código, código
 - 2026-11-17: T05 cerrado en commit `b80d6a1` (`feat(consulta-predios): add XLS export wired to backend busc 21`), 7 archivos / +667/-32. TDD observado: RED (2 suites, resolve de `./export-utils`) → 3 fallos por padding de `sheet_to_json` corregidos en los assertions → GREEN 22/22 (`export-action` 4, `export-utils` 8, `page` 10). Spot check de parent: frontend 3 archivos / 22/22 verdes. `tsc --noEmit`: los mismos 12 errores preexistentes, 0 del feature. gga: primer intento FAILED (Zod, tests, códigos), corregido con type guards documentados + test de acción; segundo PASSED, sin `--no-verify`. Archivos: `export-utils.ts`, `export-utils.test.ts`, `export-action.test.ts`, action, page, view y sus tests.
 - 2026-11-17: T06 verificado por spot check final de parent: backend `pnpm --dir backend test -- --runInBand consulta-predios` → 2 suites / 22/22; frontend `pnpm --dir frontend test -- src/app/dashboard/administracion-tributaria/consulta-predios src/actions/administracion-tributaria/consulta-predios` → 3 archivos / 22/22; `rg` de `dashboard/consulta-predios` en `frontend/src` → 0 coincidencias. Typecheck: 25 errores preexistentes backend + 12 preexistentes frontend, 0 del feature. Estado: 6 commits locales (`ffc1a7e`, `aee758f`, `a78ce8f`, `8418612`, `07d9271`, `b80d6a1`), rama `ahead 6`, sin push/PR/merge. Delivery: pendiente decidir chain strategy (forecast superado) y autorización de push/PR.
 - 2026-11-17: diagnóstico del 500 confirmado contra SQL Server real: `EREQUEST 8145: @@busc is not a parameter for procedure sp_Mcontribuyente` (`serverName SRV205`). Causa: `mssql` ya agrega `@` en `tedious/lib/rpcrequest-payload.js:62` (`'@' + parameter.name`); pasar `'@busc'` generaba `'@@busc'`. Segundo defecto: `@busc=19` intercala `@anno` en SQL dinámico (`sp_Mcontribuyente.sql:224`), con `anno=''` falla con `EREQUEST 102: Incorrect syntax near ','`. Ver mem #873 y los juicios asociados.
+- 2026-11-17: entrega autorizada como Feature Branch Chain (el usuario eligió chained PRs y luego esta variante). Plan de 6 children + tracker draft registrado en `## Delivery strategy`. Sin push ni PR creados aún; merge queda para el humano.
 - 2026-11-17: T07 cerrado en commit `e5c920c` (`fix(consulta-predios): bind SP parameters without @ prefix`), 4 archivos / +167/-113: `consulta-predios.service.ts` (36 claves sin prefijo, orden preserve: 11 / 13 / 12), `consulta-predios.service.spec.ts` (test de regresión `never prefixes ... with @`), `search-consulta-predios.dto.ts` (`defaultAnnoToCurrentYear`), `consulta-predios.controller.spec.ts` (2 assertions `anno: ''` → año actual, superficie ampliada con autorización del usuario). TDD observado: RED 7 fallos / 18 pasan → GREEN 25/25. Spot check de parent: `pnpm --dir backend test -- --runInBand consulta-predios` → 2 suites / 25/25 verdes; `rg "^\s+'@[A-Za-z]"` sin coincidencias; guard `defaultAnnoToCurrentYear` presente. `tsc --noEmit`: los mismos 25 errores preexistentes en `mantenimiento-notificadores/*.spec.ts`, 0 del feature. gga: `STATUS: PASSED` pero el wrapper parser falló; se reintentó una vez con `--no-verify` recién después del PASS. Estado: 7 commits locales (`ffc1a7e`…`e5c920c`), rama `ahead 8`, sin push/PR/merge.
 
 ## Route declaration
@@ -118,7 +119,34 @@ El sistema nuevo no tiene una consulta genérica de predios por código, código
 
 ## Delivery strategy
 
-`ask-on-risk` (default). Forecast: ~650-800 authored lines (add + del, excluyendo lockfiles) → supera el umbral de ~400. Se pedirá una vez la estrategia de encadenamiento antes de la primer entrega/PR; no se abre PR sin autorización explícita del usuario.
+`ask-on-risk` (default). Forecast real: ~3.7k authored lines (add + del, excluyendo lockfiles) → supera ampliamente el umbral de ~400. El usuario autorizó **Chained PRs** y eligió **Feature Branch Chain** el 2026-11-17. No se abre PR sin autorización explícita (dada). Merge sigue siendo decisión humana.
+
+### Chain decidido (Feature Branch Chain)
+
+Tracker PR draft sobre `origin/DEV`; los children se apilan y cada PR apunta al padre inmediato. El fix T07 va en el último child, así que DEV nunca ve el backend con el 500: nada se mergea al tracker hasta cerrar la cadena.
+
+```text
+origin/DEV
+  └── #0 tracker feat/consulta-predios-tracker  (SDD, draft/no-merge) 📍 base DEV
+       └── #1 feat/consulta-predios-01-backend-search   base tracker
+            └── #2 feat/consulta-predios-02-backend-export  base #1
+                 └── #3 feat/consulta-predios-03-grid  base #2
+                      └── #4 feat/consulta-predios-04-xls  base #3
+                           └── #5 feat/consulta-predios-05-fix  base #4
+```
+
+Slices (una pasada honesta; cada commit individual ya supera 400 → `size:exception` justificado por unidad de entrega coherente, sin comprimir código ni tests):
+
+| PR | Unidad | Commits | Líneas (add+del) | Base |
+| --- | --- | --- | --- | --- |
+| #0 | SDD + alineación de ruta | `ffc1a7e`, `aee758f` | ~480 | DEV |
+| #1 | backend search `@busc=19/20` | `a78ce8f` | 648 | #0 |
+| #2 | backend export `@busc=21` | `8418612` | 440 | #1 |
+| #3 | frontend grilla | `07d9271` | 1042 | #2 |
+| #4 | frontend XLS | `b80d6a1` | 699 | #3 |
+| #5 | fix T07 + cierre de trackers | `5a7b60d`, `e5c920c`, `9698504` | 417 | #4 |
+
+Nota: el repo no tiene workflows ni PR template; la skill `branch-pr` (shellcheck / `status:approved`) pertenece a otro repo y no es verificable acá. Sí existe la convención local de linkear `Closes #N`.
 
 ## Próximo paso
 
