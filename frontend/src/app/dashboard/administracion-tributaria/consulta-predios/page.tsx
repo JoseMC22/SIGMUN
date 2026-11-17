@@ -12,6 +12,18 @@ import { downloadPrediosWorkbook } from "./export-utils";
 
 const PAGE_SIZE = 20;
 const CODIGO_LENGTH = 7;
+const UPPERCASE_FILTERS: ReadonlySet<keyof ConsultaPrediosFilters> = new Set([
+  "codVia",
+  "urbBus",
+  "mza",
+  "lte",
+  "sublote",
+  "dpto",
+]);
+const DIGITS_ONLY_FILTERS: ReadonlySet<keyof ConsultaPrediosFilters> = new Set([
+  "codigo",
+  "codPred",
+]);
 
 /** Porta js_consultapred.js L39-52: padding a 7 cifras solo si es numérico. */
 function padCodigo(value: string): string {
@@ -51,10 +63,15 @@ export default function ConsultaPrediosPage() {
 
   const handleFilterChange = useCallback(
     (field: keyof ConsultaPrediosFilters, value: string) => {
-      setFilters((previous) => ({
-        ...previous,
-        [field]: field === "codigo" ? value.toUpperCase() : value,
-      }));
+      setFilters((previous) => {
+        let normalized = value;
+        if (DIGITS_ONLY_FILTERS.has(field)) {
+          normalized = value.replace(/\D/g, "");
+        } else if (UPPERCASE_FILTERS.has(field)) {
+          normalized = value.toUpperCase();
+        }
+        return { ...previous, [field]: normalized };
+      });
     },
     [],
   );
