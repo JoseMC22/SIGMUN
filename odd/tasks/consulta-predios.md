@@ -88,6 +88,7 @@ El sistema nuevo no tiene una consulta genérica de predios por código, código
 - [x] **T05 — Frontend export**: `export-utils.ts` con generación XLS client-side 16/33 columnas y tests Vitest; cablear botón Exportar. Checks: Vitest + `tsc --noEmit`.
 - [x] **T06 — Cierre**: actualizar `openspec/.../tasks.md` y este tracker con evidencia de commits y checks; verificación final completa. Checks: suite completa del feature + typecheck + git status limpio.
 - [x] **T07 — Fix runtime 500 (autorizado por el usuario 2026-11-17)**: (a) quitar el prefijo `@` de las claves en las 3 llamadas a `executeProcedure` en `consulta-predios.service.ts`, manteniendo el orden exacto; (b) corregir los assertions de `Object.keys(params)` en el spec; (c) blindar `anno` vacío en el boundary con default del año actual. Checks: Jest del módulo + `tsc --noEmit` + verificación en vivo del SP con claves sin prefijo.
+- [x] **T08 — Child #186: fix recordset mapping by name**: el usuario reportó que la búsqueda no muestra los campos del legacy. `mssql` devuelve `recordset` como objetos con claves por columna/alias, pero el service los lee como arrays posicionales (`cells[0]`, `recordset[0][0]`, `spRows[0][15]`), así que en vivo todo sale vacío y el total da 0. (a) `SpConsultaPrediosRow` pasa a registro nominal; (b) `mapConsultaPredioRow` y los 4 puntos de export/search leen por clave, con un mapa `key → columna del SP` que conserva `sourceIndex` como ordinal legacy para no romper el contrato del frontend; (c) el título del XLS sale de `anno`; (d) reescribir los mocks del spec con recordsets nominales reales (`@busc=19/20/21`, con y sin pisos) y mantener el test de regresión de claves sin `@`. Checks: Jest del módulo + `tsc --noEmit`.
 
 ## Progreso / evidencia
 
@@ -104,6 +105,7 @@ El sistema nuevo no tiene una consulta genérica de predios por código, código
 - 2026-11-17: diagnóstico del 500 confirmado contra SQL Server real: `EREQUEST 8145: @@busc is not a parameter for procedure sp_Mcontribuyente` (`serverName SRV205`). Causa: `mssql` ya agrega `@` en `tedious/lib/rpcrequest-payload.js:62` (`'@' + parameter.name`); pasar `'@busc'` generaba `'@@busc'`. Segundo defecto: `@busc=19` intercala `@anno` en SQL dinámico (`sp_Mcontribuyente.sql:224`), con `anno=''` falla con `EREQUEST 102: Incorrect syntax near ','`. Ver mem #873 y los juicios asociados.
 - 2026-11-17: entrega autorizada como Feature Branch Chain (el usuario eligió chained PRs y luego esta variante). Plan de 6 children + tracker draft registrado en `## Delivery strategy`. Sin push ni PR creados aún; merge queda para el humano.
 - 2026-11-17: T07 cerrado en commit `e5c920c` (`fix(consulta-predios): bind SP parameters without @ prefix`), 4 archivos / +167/-113: `consulta-predios.service.ts` (36 claves sin prefijo, orden preserve: 11 / 13 / 12), `consulta-predios.service.spec.ts` (test de regresión `never prefixes ... with @`), `search-consulta-predios.dto.ts` (`defaultAnnoToCurrentYear`), `consulta-predios.controller.spec.ts` (2 assertions `anno: ''` → año actual, superficie ampliada con autorización del usuario). TDD observado: RED 7 fallos / 18 pasan → GREEN 25/25. Spot check de parent: `pnpm --dir backend test -- --runInBand consulta-predios` → 2 suites / 25/25 verdes; `rg "^\s+'@[A-Za-z]"` sin coincidencias; guard `defaultAnnoToCurrentYear` presente. `tsc --noEmit`: los mismos 25 errores preexistentes en `mantenimiento-notificadores/*.spec.ts`, 0 del feature. gga: `STATUS: PASSED` pero el wrapper parser falló; se reintentó una vez con `--no-verify` recién después del PASS. Estado: 7 commits locales (`ffc1a7e`…`e5c920c`), rama `ahead 8`, sin push/PR/merge.
+- 2026-11-17: T08 cerrado por el child #186: `SpConsultaPrediosRow` pasa a `Readonly<Record<string, unknown>>` y `mapConsultaPredioRow`/`search`/`exportPredios` leen por nombre mediante `SP_FIELD_BY_KEY` + el helper `readSpField` (lanza si falta mapping, nunca emite celda vacía silenciosa). `anexo` se usa tal cual y `direccion` lee `direcion`; el total sale de la clave `''` y el título del XLS de `anno`; `sourceIndex` y las 16/33 columnas quedan intactos. Spec reescrito con recordsets nominales `@busc=19/20/21` (con y sin pisos, 17 claves con valores distintos) y regresiones explícitas: named row poblado, array posicional ya no se lee, total por `''`, título por `anno` en ambos flags, y cada columna base/piso desde su clave. Se conservan el test de claves sin `@` y todas las assertions de parámetros/paginación. TDD observado: RED 9 fallos / 19 pasan / 28 total → GREEN 28/28 (2 suites). Checks: `pnpm --dir backend test -- --runInBand consulta-predios` → 2 suites / 28/28 verdes; `pnpm --dir backend exec tsc --noEmit -p tsconfig.json` → los mismos 25 errores preexistentes en `mantenimiento-notificadores/*.spec.ts`, 0 nuevos del feature. T08 cerrado en commit `a4a65d5` (`fix(consulta-predios): map sp recordset columns by name`), 4 archivos / +312/-159.
 
 ## Route declaration
 
@@ -116,6 +118,7 @@ El sistema nuevo no tiene una consulta genérica de predios por código, código
 | T05 | Delegated direct (writer) | export-utils + page + tests → writer trigger |
 | T06 | Inline | bookkeeping mecánico ya entendido |
 | T07 | Delegated direct (writer) | 4 archivos backend no triviales + fix de runtime → writer trigger |
+| T08 | Delegated direct (writer) | service + types + spec reescrito + tracker → writer trigger |
 
 ## Delivery strategy
 
@@ -123,7 +126,7 @@ El sistema nuevo no tiene una consulta genérica de predios por código, código
 
 ### Chain decidido (Feature Branch Chain)
 
-Tracker PR draft sobre `origin/DEV`; los children se apilan y cada PR apunta al padre inmediato. El fix T07 va en el último child, así que DEV nunca ve el backend con el 500: nada se mergea al tracker hasta cerrar la cadena.
+Tracker PR draft sobre `origin/DEV`; los children se apilan y cada PR apunta al padre inmediato. Los fixes T07 (500) y T08 (campos vacíos) van al final de la cadena, así que DEV nunca ve un backend roto: nada se mergea al tracker hasta cerrar la cadena.
 
 ```text
 origin/DEV
@@ -133,9 +136,10 @@ origin/DEV
                  └── #183 feat/consulta-predios-03-grid  base #182
                       └── #184 feat/consulta-predios-04-xls  base #183
                            └── #185 feat/consulta-predios-05-fix  base #184
+                                 └── #186 feat/consulta-predios-06-recordset  base #185  (fix T08)
 ```
 
-Issue de tracking: **#179** (labels `enhancement`, `Modulo`, `type:feature`). El tracker #180 lleva `Closes #179`; los children llevan `Part of #179`. Labels de PR: `type:feature` en #180–#184, `type:bug` en #185.
+Issue de tracking: **#179** (labels `enhancement`, `Modulo`, `type:feature`). El tracker #180 lleva `Closes #179`; los children llevan `Part of #179`. Labels de PR: `type:feature` en #180–#184; #185 quedó sin label y #186 usa `bug` (no existe `type:bug` en el repo).
 
 Slices (una pasada honesta; cada commit individual ya supera 400 → `size:exception` justificado por unidad de entrega coherente, sin comprimir código ni tests):
 
@@ -147,11 +151,16 @@ Slices (una pasada honesta; cada commit individual ya supera 400 → `size:excep
 | #183 | frontend grilla | `07d9271` | 1042 / 0 | #182 |
 | #184 | frontend XLS | `b80d6a1` | 667 / 32 | #183 |
 | #185 | fix T07 + cierre de trackers | `5a7b60d`, `e5c920c`, `9698504`, `7b70e1c` | 326 / 119 | #184 |
+| #186 | fix T08: recordset nominal por nombre | `a4a65d5` | 312 / 159 | #185 |
 
-Verificado vía `gh api`: los 6 PR están open, bases encadenadas correctas, tracker `draft: true`, cada child con 1 commit salvo #185 con 4. Ningún diff contaminado.
+Verificado vía `gh api`: los 7 PR están open, bases encadenadas correctas, tracker `draft: true`, #185 con 4 commits, #186 con 2 y el resto con 1. Ningún diff contaminado.
 
 Nota: el repo no tiene workflows ni PR template; la skill `branch-pr` (shellcheck / `status:approved`) pertenece a otro repo y no es verificable acá. Sí existe la convención local de linkear `Closes #N`.
 
+### Child #186 (fix de campos)
+
+Rama `feat/consulta-predios-06-recordset` creada desde `feat/consulta-predios-05-fix`. No se mergea nada hasta que este child aterrice: sin él la búsqueda devuelve los campos vacíos en runtime. Label `bug`, base `#185`, cuerpo `Part of #179`. T08 cerrado en `a4a65d5`.
+
 ## Próximo paso
 
-Cadena publicada (#180–#185) sobre la issue #179. El merge es decisión humana: revisar y mergear los children en orden #181 → #185, y al cerrar #185 quitar el draft de #180 para integrar el feature a `DEV`. Sin push adicional pendiente.
+Cadena publicada (#180–#186) sobre la issue #179. El merge es decisión humana: revisar y mergear los children en orden #181 → #182 → #183 → #184 → #185 → #186, y al cerrar #186 quitar el draft de #180 para integrar el feature a `DEV`.

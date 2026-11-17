@@ -1,8 +1,9 @@
-// ── Fila cruda posicional de Rentas.sp_Mcontribuyente @busc=19 ──
-// El SP devuelve columnas sin alias utilizable: el contrato es el índice.
-export type SpConsultaPrediosRow = readonly unknown[];
+// ── Raw named row from Rentas.sp_Mcontribuyente @busc=19/20/21 ──
+// `mssql` returns `recordset` as objects keyed by column/alias: mapping is
+// done by column name, never by position.
+export type SpConsultaPrediosRow = Readonly<Record<string, unknown>>;
 
-// ── Fila de dominio (mapa posicional verificado del controller legacy) ──
+// ── Domain row (name-based mapping verified against the live SP) ──
 
 export interface ConsultaPrediosRow {
   codigo: string;
@@ -42,7 +43,7 @@ export interface ConsultaPrediosExportColumn {
 }
 
 export interface ConsultaPrediosExportResponse {
-  /** `$rows[0][15]`: título del reporte, nunca una celda de dato. */
+  /** Title read from the `anno` key; the frontend prepends its own prefix. */
   title: string;
   mostrarPisos: boolean;
   /** 16 columnas sin pisos, 33 con pisos. Incluye la numeración `N`. */
