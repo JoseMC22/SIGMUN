@@ -21,5 +21,10 @@
 
 ## 3. Integración
 
-- [ ] T14 Alta del ítem de menú en la tabla de accesos/submenú apuntando a `/dashboard/notificaciones/constancia-exigibilidad` (sin esta fila la pantalla no es navegable).
-- [ ] T15 Verificación funcional con BD real: valor inexistente (S2), cancelado estados 9 y 2 (S3 + riesgo D5), sin cargo (S4), con y sin constancia (S6), regla de 7 días hábiles (S10) e impresión del PDF (S8).
+- [x] T14 Alta del ítem de menú en la tabla de accesos/submenú apuntando a `/dashboard/notificaciones/constancia-exigibilidad` (sin esta fila la pantalla no es navegable). Verificado 2026-11-12: la fila `23.04.00` ya existía en `Acceso.MAcceso` con grants en `MPerfil_acceso`; `sp_LogOut @buscar=8` la devuelve para el perfil ENCARGADO DE NOTIFICACIONES.
+- [x] T15 Verificación funcional con BD real: valor inexistente (S2), cancelado estados 9 y 2 (S3 + riesgo D5), sin cargo (S4), con y sin constancia (S6), regla de 7 días hábiles (S10) e impresión del PDF (S8). Ejecutada 2026-11-12 contra `192.168.3.205/Base_sigmun`; D5 cerrado; hallazgos H1 (`nroconstancia` sin padding) y H2 (rama muerta de `FNotifica`) registrados en `odd/tasks/constancia-exigibilidad.md`.
+
+## 4. Correcciones
+
+- [x] T16 H1: el PDF toma `nroconstancia` de la columna `Constancia` del SP (`@opcion=4`) en lugar de reconstruirlo desde `numexig`/`anoexig`, que llegan sin padding desde `@opcion=2`.
+- [x] T17 Cerrar los 2 errores de `tsc --noEmit` del feature (preexistentes, type-only): `ConstanciaExigibilidadPrintData` como `type` (índice implícito para `llenarPlantilla`) y `tiposValorOk()` devolviendo el envelope en lugar de una `Promise`.

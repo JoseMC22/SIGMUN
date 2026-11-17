@@ -22,6 +22,12 @@ export interface ConstanciaExigibilidadImpresion {
   numexig: string;
   /** Año de la constancia/exigibilidad (ANOEXIG). */
   anoexig: string;
+  /**
+   * Número de constancia canónico, tal como lo devuelve el SP en `@opcion=4`
+   * (columna `Constancia` = NUMEXIG con 7 dígitos + '-' + ANOEXIG). No se
+   * reconstruye en el cliente: `numexig` llega sin padding desde `@opcion=2`.
+   */
+  constancia: string;
   /** Valor completo legible (tipo + año + número). */
   valorCompleto: string;
   /** Fecha de notificación ya formateada dd/MM/yyyy (columna Fnotifica). */
@@ -32,8 +38,13 @@ export interface ConstanciaExigibilidadImpresion {
   fechaEmision?: Date;
 }
 
-/** Placeholders exactos del contrato S8 (ver cabecera de la plantilla). */
-export interface ConstanciaExigibilidadPrintData {
+/**
+ * Placeholders exactos del contrato S8 (ver cabecera de la plantilla).
+ * Se declara como `type` y no como `interface` para que TypeScript le aplique
+ * el índice implícito y sea asignable a `Record<string, string | undefined>`
+ * que exige `llenarPlantilla`, sin perder el contrato de claves exactas.
+ */
+export type ConstanciaExigibilidadPrintData = {
   nombre: string;
   nroconstancia: string;
   valor_completo: string;
@@ -70,7 +81,7 @@ export function buildConstanciaExigibilidadPrintData(
   const emision = input.fechaEmision ?? new Date();
   return {
     nombre: input.nombre,
-    nroconstancia: `${input.numexig}-${input.anoexig}`,
+    nroconstancia: input.constancia,
     valor_completo: input.valorCompleto,
     fnotifica: input.fnotifica,
     nrocargo: input.nrocargo,
