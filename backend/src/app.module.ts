@@ -18,6 +18,7 @@ import { DeclaracionJuradaModule } from './administracion-tributaria/declaracion
 import { MaestroContribuyentesModule } from './administracion-tributaria/maestro-contribuyentes/maestro-contribuyentes.module';
 import { PrediosContribuyentesModule } from './administracion-tributaria/predios-contribuyentes/predios-contribuyentes.module';
 import { ConsultaPrediosModule } from './administracion-tributaria/consulta-predios/consulta-predios.module';
+import { EstadoCuentaProyectadoModule } from './administracion-tributaria/estado-cuenta-proyectado/estado-cuenta-proyectado.module';
 import { ReporteDeudaUsoModule } from './administracion-tributaria/reporte-deuda-uso/reporte-deuda-uso.module';
 import { ReporteInafectosModule } from './administracion-tributaria/reporte-inafectos/reporte-inafectos.module';
 import { ReporteIngresosCajeroModule } from './administracion-tributaria/reporte-ingresos-cajero/reporte-ingresos-cajero.module';
@@ -90,6 +91,8 @@ import { StorageModule } from './storage/storage.module';
     PrediosContribuyentesModule,
     // Módulo de administración tributaria - consulta de predios
     ConsultaPrediosModule,
+    // Módulo de administración tributaria - estado de cuenta proyectado (búsqueda)
+    EstadoCuentaProyectadoModule,
     // Módulo de administración tributaria - reporte de deuda por uso
     ReporteDeudaUsoModule,
     // Módulo de administración tributaria - reporte de inafectos
