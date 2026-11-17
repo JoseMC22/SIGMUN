@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 const AUTH_COOKIE_NAME = "SIGMUN_AUTH";
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api";
 const SEARCH_PATH = "/administracion-tributaria/consulta-predios/search";
+const EXPORT_PATH = "/administracion-tributaria/consulta-predios/export";
 
 // ── Contrato del feature (espejo tipado estricto del backend) ────────────
 
@@ -60,9 +61,32 @@ export type SearchConsultaPrediosResult =
   | ({ success: true } & ConsultaPrediosSearchPayload)
   | ({ success: false } & ConsultaPrediosApiError);
 
+/** Definición de columna del XLS; el backend ya incluye la columna `N`. */
+export interface ConsultaPrediosExportColumn {
+  key: string;
+  label: string;
+  sourceIndex: number;
+}
+
+/** `@busc=21`: 16 columnas sin pisos, 33 con pisos, con `N` ya generada. */
+export interface ConsultaPrediosExportPayload {
+  title: string;
+  mostrarPisos: boolean;
+  columns: ConsultaPrediosExportColumn[];
+  rows: string[][];
+}
+
+export type ExportConsultaPrediosResult =
+  | ({ success: true } & ConsultaPrediosExportPayload)
+  | ({ success: false } & ConsultaPrediosApiError);
+
 // ── Validación del boundary con type guards estrechos ────────────────────
-// zod no es dependencia del paquete frontend, por lo que aquí se valida en
-// runtime con predicados de tipo antes de mapear al dominio.
+// Desviación T04/T05 registrada en odd/tasks/consulta-predios.md: zod no es
+// resoluble desde frontend/node_modules y el alcance prohíbe agregar
+// dependencias, por lo que el boundary valida con predicados de tipo antes de
+// mapear al dominio. Los códigos `network_error`/`unknown_error` describen
+// fallos de transporte del cliente; el envelope `{code,message,details}` se
+// conserva intacto.
 
 const FILTER_FIELDS: readonly (keyof ConsultaPrediosFilters)[] = [
   "codigo",
@@ -121,13 +145,35 @@ function isConsultaPrediosRow(value: unknown): value is ConsultaPrediosRow {
     if (typeof value[field] !== "string") return false;
   }
   for (const field of ROW_NUMBER_FIELDS) {
-    if (!isCount(value[field]) && !isFiniteNumber(value[field])) return false;
+    if (!isNonNegativeNumber(value[field])) return false;
   }
   return true;
 }
 
-function isFiniteNumber(value: unknown): boolean {
-  return typeof value === "number" && Number.isFinite(value);
+function isExportColumn(value: unknown): value is ConsultaPrediosExportColumn {
+  return (
+    isRecord(value) &&
+    typeof value.key === "string" &&
+    typeof value.label === "string" &&
+    typeof value.sourceIndex === "number" &&
+    Number.isFinite(value.sourceIndex)
+  );
+}
+
+function isExportPayload(value: unknown): value is ConsultaPrediosExportPayload {
+  if (!isRecord(value)) return false;
+  if (typeof value.title !== "string") return false;
+  if (typeof value.mostrarPisos !== "boolean") return false;
+  if (!Array.isArray(value.columns)) return false;
+  if (!value.columns.every(isExportColumn)) return false;
+  if (!Array.isArray(value.rows)) return false;
+  return value.rows.every(
+    (row) => Array.isArray(row) && row.every((cell) => typeof cell === "string"),
+  );
+}
+
+function isNonNegativeNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
 }
 
 function mapApiError(body: unknown): ConsultaPrediosApiError {
@@ -164,7 +210,39 @@ const SCHEMA_MISMATCH: SearchConsultaPrediosResult = {
   message: "Respuesta inesperada del servidor",
 };
 
-// ── Server action ─────────────────────────────────────────────────────────
+const EXPORT_SCHEMA_MISMATCH: ExportConsultaPrediosResult = {
+  success: false,
+  code: "schema_mismatch",
+  message: "Respuesta inesperada del servidor",
+};
+
+function invalidExportParams(): ExportConsultaPrediosResult {
+  return {
+    success: false,
+    code: "validation_error",
+    message: "Validation failed",
+    details: {
+      errors: [
+        { path: "filters", message: "Invalid filter values" },
+        { path: "mostrarPisos", message: "Must be a boolean" },
+      ],
+    },
+  };
+}
+
+// ── Server actions ────────────────────────────────────────────────────────
+
+async function buildAuthHeaders(): Promise<Record<string, string>> {
+  const cookieStore = await cookies();
+  const authCookie = cookieStore.get(AUTH_COOKIE_NAME);
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (authCookie) {
+    headers["Cookie"] = `${AUTH_COOKIE_NAME}=${authCookie.value}`;
+  }
+  return headers;
+}
 
 export async function searchConsultaPrediosAction(
   filters: ConsultaPrediosFilters,
@@ -176,14 +254,7 @@ export async function searchConsultaPrediosAction(
   }
 
   try {
-    const cookieStore = await cookies();
-    const authCookie = cookieStore.get(AUTH_COOKIE_NAME);
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-    if (authCookie) {
-      headers["Cookie"] = `${AUTH_COOKIE_NAME}=${authCookie.value}`;
-    }
+    const headers = await buildAuthHeaders();
 
     const response = await fetch(`${API_BASE}${SEARCH_PATH}`, {
       method: "POST",
@@ -221,6 +292,47 @@ export async function searchConsultaPrediosAction(
       page: body.page,
       pageSize: body.pageSize,
       totalPages: body.totalPages,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      code: "network_error",
+      message: error instanceof Error ? error.message : "Error de conexión",
+    };
+  }
+}
+
+export async function exportarPredios(
+  filters: ConsultaPrediosFilters,
+  mostrarPisos: boolean,
+): Promise<ExportConsultaPrediosResult> {
+  if (!isFilters(filters) || typeof mostrarPisos !== "boolean") {
+    return invalidExportParams();
+  }
+
+  try {
+    const headers = await buildAuthHeaders();
+
+    const response = await fetch(`${API_BASE}${EXPORT_PATH}`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ ...filters, mostrarPisos }),
+    });
+
+    if (!response.ok) {
+      const errorBody: unknown = await response.json().catch(() => null);
+      return { success: false, ...mapApiError(errorBody) };
+    }
+
+    const body: unknown = await response.json();
+    if (!isExportPayload(body)) return EXPORT_SCHEMA_MISMATCH;
+
+    return {
+      success: true,
+      title: body.title,
+      mostrarPisos: body.mostrarPisos,
+      columns: body.columns,
+      rows: body.rows,
     };
   } catch (error) {
     return {
