@@ -1,5 +1,8 @@
 import { DatabaseService } from '../../database/database.service';
-import { SearchConsultaPrediosDto } from './dto/search-consulta-predios.dto';
+import {
+  ConsultaPrediosFiltersSchema,
+  SearchConsultaPrediosDto,
+} from './dto/search-consulta-predios.dto';
 import { ExportConsultaPrediosDto } from './dto/export-consulta-predios.dto';
 import { SpConsultaPrediosRow } from './consulta-predios.types';
 import {
@@ -33,17 +36,17 @@ describe('ConsultaPrediosService', () => {
 
   /** Orden literal del branch @busc=20 del controller legacy. */
   const totalParams = (dto: SearchConsultaPrediosDto): Record<string, unknown> => ({
-    '@busc': 20,
-    '@anno': dto.anno,
-    '@id_via': dto.codVia,
-    '@nro': dto.nro,
-    '@dpto': dto.dpto,
-    '@Mza': dto.mza,
-    '@Lte': dto.lte,
-    '@SubLte': dto.sublote,
-    '@cod_pred': dto.codPred,
-    '@codigo': dto.codigo,
-    '@cod_urb': dto.urbBus,
+    'busc': 20,
+    'anno': dto.anno,
+    'id_via': dto.codVia,
+    'nro': dto.nro,
+    'dpto': dto.dpto,
+    'Mza': dto.mza,
+    'Lte': dto.lte,
+    'SubLte': dto.sublote,
+    'cod_pred': dto.codPred,
+    'codigo': dto.codigo,
+    'cod_urb': dto.urbBus,
   });
 
   /** Orden literal del branch @busc=19 (@inicio/@final antes de @cod_urb). */
@@ -52,19 +55,19 @@ describe('ConsultaPrediosService', () => {
     inicio: number,
     final: number,
   ): Record<string, unknown> => ({
-    '@busc': 19,
-    '@anno': dto.anno,
-    '@id_via': dto.codVia,
-    '@nro': dto.nro,
-    '@dpto': dto.dpto,
-    '@Mza': dto.mza,
-    '@Lte': dto.lte,
-    '@SubLte': dto.sublote,
-    '@cod_pred': dto.codPred,
-    '@codigo': dto.codigo,
-    '@inicio': inicio,
-    '@final': final,
-    '@cod_urb': dto.urbBus,
+    'busc': 19,
+    'anno': dto.anno,
+    'id_via': dto.codVia,
+    'nro': dto.nro,
+    'dpto': dto.dpto,
+    'Mza': dto.mza,
+    'Lte': dto.lte,
+    'SubLte': dto.sublote,
+    'cod_pred': dto.codPred,
+    'codigo': dto.codigo,
+    'inicio': inicio,
+    'final': final,
+    'cod_urb': dto.urbBus,
   });
 
   const mockResults = (
@@ -95,17 +98,17 @@ describe('ConsultaPrediosService', () => {
         totalParams(filters),
       );
       expect(Object.keys(executeProcedure.mock.calls[0][1])).toEqual([
-        '@busc',
-        '@anno',
-        '@id_via',
-        '@nro',
-        '@dpto',
-        '@Mza',
-        '@Lte',
-        '@SubLte',
-        '@cod_pred',
-        '@codigo',
-        '@cod_urb',
+        'busc',
+        'anno',
+        'id_via',
+        'nro',
+        'dpto',
+        'Mza',
+        'Lte',
+        'SubLte',
+        'cod_pred',
+        'codigo',
+        'cod_urb',
       ]);
     });
 
@@ -120,19 +123,19 @@ describe('ConsultaPrediosService', () => {
         rowsParams(filters, 1, 20),
       );
       expect(Object.keys(executeProcedure.mock.calls[1][1])).toEqual([
-        '@busc',
-        '@anno',
-        '@id_via',
-        '@nro',
-        '@dpto',
-        '@Mza',
-        '@Lte',
-        '@SubLte',
-        '@cod_pred',
-        '@codigo',
-        '@inicio',
-        '@final',
-        '@cod_urb',
+        'busc',
+        'anno',
+        'id_via',
+        'nro',
+        'dpto',
+        'Mza',
+        'Lte',
+        'SubLte',
+        'cod_pred',
+        'codigo',
+        'inicio',
+        'final',
+        'cod_urb',
       ]);
     });
 
@@ -293,18 +296,18 @@ describe('ConsultaPrediosService', () => {
       dto: ExportConsultaPrediosDto,
       flag: '1' | '0',
     ): Record<string, unknown> => ({
-      '@busc': '21',
-      '@codigo': dto.codigo,
-      '@cod_pred': dto.codPred,
-      '@id_via': dto.codVia,
-      '@cod_urb': dto.urbBus,
-      '@anno': dto.anno,
-      '@nro': dto.nro,
-      '@dpto': dto.dpto,
-      '@Mza': dto.mza,
-      '@Lte': dto.lte,
-      '@SubLte': dto.sublote,
-      '@flag_pisos': flag,
+      'busc': '21',
+      'codigo': dto.codigo,
+      'cod_pred': dto.codPred,
+      'id_via': dto.codVia,
+      'cod_urb': dto.urbBus,
+      'anno': dto.anno,
+      'nro': dto.nro,
+      'dpto': dto.dpto,
+      'Mza': dto.mza,
+      'Lte': dto.lte,
+      'SubLte': dto.sublote,
+      'flag_pisos': flag,
     });
 
     /** Fila con las 33 celdas del SP; el índice 15 es el título del reporte. */
@@ -355,18 +358,18 @@ describe('ConsultaPrediosService', () => {
         exportParams(exportFilters, '0'),
       );
       expect(Object.keys(executeProcedure.mock.calls[0][1])).toEqual([
-        '@busc',
-        '@codigo',
-        '@cod_pred',
-        '@id_via',
-        '@cod_urb',
-        '@anno',
-        '@nro',
-        '@dpto',
-        '@Mza',
-        '@Lte',
-        '@SubLte',
-        '@flag_pisos',
+        'busc',
+        'codigo',
+        'cod_pred',
+        'id_via',
+        'cod_urb',
+        'anno',
+        'nro',
+        'dpto',
+        'Mza',
+        'Lte',
+        'SubLte',
+        'flag_pisos',
       ]);
     });
 
@@ -375,7 +378,7 @@ describe('ConsultaPrediosService', () => {
 
       await service.exportPredios({ ...exportFilters, mostrarPisos: true });
 
-      expect(executeProcedure.mock.calls[0][1]['@flag_pisos']).toBe('1');
+      expect(executeProcedure.mock.calls[0][1]['flag_pisos']).toBe('1');
     });
 
     it('uses row[15] as the title and never emits it as a data cell', async () => {
@@ -444,6 +447,48 @@ describe('ConsultaPrediosService', () => {
       expect(result.title).toBe('');
       expect(result.rows).toEqual([]);
       expect(result.columns).toHaveLength(16);
+    });
+  });
+
+  describe('SP parameter binding', () => {
+    it('never prefixes an executeProcedure parameter key with @', async () => {
+      mockResults([[0]], []);
+      await service.search(filters);
+
+      executeProcedure.mockResolvedValueOnce({ recordset: [] });
+      await service.exportPredios({
+        codigo: '0000123',
+        codPred: '0101',
+        anno: '2026',
+        codVia: '12',
+        urbBus: 'URB1',
+        nro: '45',
+        dpto: 'A',
+        mza: 'B',
+        lte: 'C',
+        sublote: 'D',
+        mostrarPisos: false,
+      });
+
+      const keys = executeProcedure.mock.calls.flatMap(([, params]) =>
+        Object.keys(params),
+      );
+      expect(keys.length).toBeGreaterThan(0);
+      expect(keys.filter((key) => key.startsWith('@'))).toEqual([]);
+    });
+  });
+
+  describe('ConsultaPrediosFiltersSchema anno guard', () => {
+    it('defaults an empty anno to the current year', () => {
+      const parsed = ConsultaPrediosFiltersSchema.parse({ anno: '' });
+
+      expect(parsed.anno).toBe(String(new Date().getFullYear()));
+    });
+
+    it('preserves a real anno value', () => {
+      const parsed = ConsultaPrediosFiltersSchema.parse({ anno: '2019' });
+
+      expect(parsed.anno).toBe('2019');
     });
   });
 });
