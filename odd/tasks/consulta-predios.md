@@ -126,7 +126,7 @@ El sistema nuevo no tiene una consulta genérica de predios por código, código
 
 ### Chain decidido (Feature Branch Chain)
 
-Tracker PR draft sobre `origin/DEV`; los children se apilan y cada PR apunta al padre inmediato. El fix T07 va en el último child, así que DEV nunca ve el backend con el 500: nada se mergea al tracker hasta cerrar la cadena.
+Tracker PR draft sobre `origin/DEV`; los children se apilan y cada PR apunta al padre inmediato. Los fixes T07 (500) y T08 (campos vacíos) van al final de la cadena, así que DEV nunca ve un backend roto: nada se mergea al tracker hasta cerrar la cadena.
 
 ```text
 origin/DEV
@@ -153,7 +153,7 @@ Slices (una pasada honesta; cada commit individual ya supera 400 → `size:excep
 | #185 | fix T07 + cierre de trackers | `5a7b60d`, `e5c920c`, `9698504`, `7b70e1c` | 326 / 119 | #184 |
 | #186 | fix T08: recordset nominal por nombre | `a4a65d5` | 312 / 159 | #185 |
 
-Verificado vía `gh api`: los 6 PR originales están open, bases encadenadas correctas, tracker `draft: true`, cada child con 1 commit salvo #185 con 4. Ningún diff contaminado. #186 se publica aparte con base #185.
+Verificado vía `gh api`: los 7 PR están open, bases encadenadas correctas, tracker `draft: true`, #185 con 4 commits, #186 con 2 y el resto con 1. Ningún diff contaminado.
 
 Nota: el repo no tiene workflows ni PR template; la skill `branch-pr` (shellcheck / `status:approved`) pertenece a otro repo y no es verificable acá. Sí existe la convención local de linkear `Closes #N`.
 
@@ -163,4 +163,4 @@ Rama `feat/consulta-predios-06-recordset` creada desde `feat/consulta-predios-05
 
 ## Próximo paso
 
-Cadena publicada (#180–#185) sobre la issue #179, más el child #186 en preparación. El merge es decisión humana: revisar y mergear los children en orden #181 → #182 → #183 → #184 → #185 → #186, y al cerrar #186 quitar el draft de #180 para integrar el feature a `DEV`.
+Cadena publicada (#180–#186) sobre la issue #179. El merge es decisión humana: revisar y mergear los children en orden #181 → #182 → #183 → #184 → #185 → #186, y al cerrar #186 quitar el draft de #180 para integrar el feature a `DEV`.
