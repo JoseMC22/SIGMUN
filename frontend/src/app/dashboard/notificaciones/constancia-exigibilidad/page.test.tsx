@@ -15,6 +15,7 @@ import {
   validarConstanciaExigibilidadAction,
 } from "@/actions/notificaciones/constancia-exigibilidad";
 import type { ValidarConstanciaExigibilidadData } from "@/actions/notificaciones/constancia-exigibilidad";
+import { imprimirConstanciaExigibilidad } from "./export-utils";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
@@ -40,6 +41,7 @@ const mockValidar = vi.mocked(validarConstanciaExigibilidadAction);
 const mockEmitir = vi.mocked(emitirConstanciaExigibilidadAction);
 const mockImpresion = vi.mocked(imprimirConstanciaExigibilidadAction);
 const mockPlantilla = vi.mocked(obtenerPlantillaConstanciaExigibilidadAction);
+const mockImprimirPdf = vi.mocked(imprimirConstanciaExigibilidad);
 
 const tiposValor = [
   { id_valor: "01", nomb_val: "Impuesto Predial" },
@@ -69,7 +71,7 @@ function validarRow(
 }
 
 function tiposValorOk() {
-  return Promise.resolve({ success: true, data: tiposValor, total: 2 });
+  return { success: true, data: tiposValor, total: 2 };
 }
 
 async function loadPageAndWaitCombo() {
@@ -249,5 +251,13 @@ describe("ConstanciaExigibilidadPage", () => {
       }),
     );
     expect(mockPlantilla).toHaveBeenCalledTimes(1);
+    // H1: el número del documento sale de la columna Constancia del SP (@opcion=4),
+    // nunca se reconstruye desde numexig/anoexig (que llegan sin padding).
+    await waitFor(() =>
+      expect(mockImprimirPdf).toHaveBeenCalledWith(
+        "<html>{{nroconstancia}}</html>",
+        expect.objectContaining({ constancia: "0000007-2026" }),
+      ),
+    );
   });
 });
