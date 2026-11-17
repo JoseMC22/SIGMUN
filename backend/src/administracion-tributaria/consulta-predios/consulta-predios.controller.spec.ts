@@ -4,11 +4,15 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { ConsultaPrediosController } from './consulta-predios.controller';
 import { ConsultaPrediosService } from './consulta-predios.service';
-import { ConsultaPrediosSearchResponse } from './consulta-predios.types';
+import {
+  ConsultaPrediosExportResponse,
+  ConsultaPrediosSearchResponse,
+} from './consulta-predios.types';
 
 describe('ConsultaPrediosController', () => {
   let controller: ConsultaPrediosController;
   const search = jest.fn();
+  const exportPredios = jest.fn();
 
   const emptyPage: ConsultaPrediosSearchResponse = {
     data: [],
@@ -22,7 +26,12 @@ describe('ConsultaPrediosController', () => {
     jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ConsultaPrediosController],
-      providers: [{ provide: ConsultaPrediosService, useValue: { search } }],
+      providers: [
+        {
+          provide: ConsultaPrediosService,
+          useValue: { search, exportPredios },
+        },
+      ],
     })
       .overrideGuard(JwtAuthGuard)
       .useValue({ canActivate: () => true })
@@ -109,6 +118,77 @@ describe('ConsultaPrediosController', () => {
         },
       });
       expect(search).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('POST /administracion-tributaria/consulta-predios/export', () => {
+    const emptyExport: ConsultaPrediosExportResponse = {
+      title: '',
+      mostrarPisos: false,
+      columns: [],
+      rows: [],
+    };
+
+    const expectedExportDto = {
+      codigo: '0000123',
+      codPred: '',
+      anno: '2026',
+      codVia: '',
+      urbBus: '',
+      nro: '',
+      dpto: '',
+      mza: '',
+      lte: '',
+      sublote: '',
+      mostrarPisos: false,
+    };
+
+    it('returns the export data and defaults mostrarPisos to false', async () => {
+      exportPredios.mockResolvedValue(emptyExport);
+
+      const result = await controller.export({
+        codigo: ' 123 ',
+        anno: 2026,
+      });
+
+      expect(result).toEqual(emptyExport);
+      expect(exportPredios).toHaveBeenCalledWith(expectedExportDto);
+    });
+
+    it('forwards mostrarPisos true to the service', async () => {
+      exportPredios.mockResolvedValue(emptyExport);
+
+      await controller.export({ mostrarPisos: true });
+
+      expect(exportPredios).toHaveBeenCalledWith({
+        ...expectedExportDto,
+        codigo: '',
+        anno: '',
+        mostrarPisos: true,
+      });
+    });
+
+    it('responds with the canonical envelope and HTTP 400 on invalid input', async () => {
+      const error = await controller
+        .export({ mostrarPisos: 'not-a-boolean' })
+        .catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(BadRequestException);
+      const exception = error as BadRequestException;
+      expect(exception.getStatus()).toBe(400);
+      expect(exception.getResponse()).toEqual({
+        code: 'validation_error',
+        message: 'Validation failed',
+        details: {
+          errors: [
+            expect.objectContaining({
+              path: 'mostrarPisos',
+              message: expect.any(String),
+            }),
+          ],
+        },
+      });
+      expect(exportPredios).not.toHaveBeenCalled();
     });
   });
 

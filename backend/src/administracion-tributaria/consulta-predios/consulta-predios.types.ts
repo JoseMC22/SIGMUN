@@ -31,3 +31,22 @@ export interface ConsultaPrediosSearchResponse {
   pageSize: number;
   totalPages: number;
 }
+
+// ── Export (@busc=21) ──
+
+/** Definición de una columna del XLS; `sourceIndex` es la celda del SP. */
+export interface ConsultaPrediosExportColumn {
+  key: string;
+  label: string;
+  sourceIndex: number;
+}
+
+export interface ConsultaPrediosExportResponse {
+  /** `$rows[0][15]`: título del reporte, nunca una celda de dato. */
+  title: string;
+  mostrarPisos: boolean;
+  /** 16 columnas sin pisos, 33 con pisos. Incluye la numeración `N`. */
+  columns: ConsultaPrediosExportColumn[];
+  /** Una fila por registro; misma longitud que `columns`. */
+  rows: string[][];
+}
