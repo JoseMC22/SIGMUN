@@ -50,7 +50,7 @@ describe('ConsultaPrediosController', () => {
       expect(search).toHaveBeenCalledWith({
         codigo: '0000123',
         codPred: '',
-        anno: '',
+        anno: String(new Date().getFullYear()),
         codVia: '',
         urbBus: '',
         nro: '',
@@ -163,7 +163,7 @@ describe('ConsultaPrediosController', () => {
       expect(exportPredios).toHaveBeenCalledWith({
         ...expectedExportDto,
         codigo: '',
-        anno: '',
+        anno: String(new Date().getFullYear()),
         mostrarPisos: true,
       });
     });

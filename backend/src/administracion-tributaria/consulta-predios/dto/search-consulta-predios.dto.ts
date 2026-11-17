@@ -17,11 +17,20 @@ function padCodigo(value: string): string {
   return zeros.substring(0, zeros.length - trimmed.length) + trimmed;
 }
 
+/**
+ * El SP interpola @anno en SQL dinámico en @busc=19; con el año vacío genera
+ * `get_instalaciones(c.codigo, , ...)` y falla con error 102. La rama de conteo
+ * del propio SP usa year(getdate()), así que el boundary aplica el mismo default.
+ */
+function defaultAnnoToCurrentYear(value: string): string {
+  return value.length === 0 ? String(new Date().getFullYear()) : value;
+}
+
 /** Los 10 filtros compartidos por los branches @busc=19/20 y @busc=21. */
 export const ConsultaPrediosFiltersSchema = z.object({
   codigo: z.coerce.string().trim().default('').transform(padCodigo),
   codPred: z.coerce.string().trim().default(''),
-  anno: z.coerce.string().trim().default(''),
+  anno: z.coerce.string().trim().default('').transform(defaultAnnoToCurrentYear),
   codVia: z.coerce.string().trim().default(''),
   urbBus: z.coerce.string().trim().default(''),
   nro: z.coerce.string().trim().default(''),
