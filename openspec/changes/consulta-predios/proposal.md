@@ -18,9 +18,9 @@ Se agrega el feature `administracion-tributaria/consulta-predios`:
   `Rentas.sp_Mcontribuyente` con `@busc=20` (total) y `@busc=19` (filas); endpoint
   `export` sobre `@busc=21` (solo datos). Registro en `backend/src/app.module.ts`.
 - **Frontend**: server action con cookie `SIGMUN_AUTH`, página
-  `/dashboard/consulta-predios` con filtros, grilla paginada, estados
-  loading/empty/error y botón Exportar; `export-utils.ts` genera el XLS en el cliente
-  con `xlsx` (16/33 columnas según "Mostrar Pisos").
+  `/dashboard/administracion-tributaria/consulta-predios` con filtros, grilla paginada,
+  estados loading/empty/error y botón Exportar; `export-utils.ts` genera el XLS en el
+  cliente con `xlsx` (16/33 columnas según "Mostrar Pisos").
 
 ## Capabilities
 
@@ -37,10 +37,10 @@ Se agrega el feature `administracion-tributaria/consulta-predios`:
 
 ## User-visible outcome
 
-Al abrir `/dashboard/consulta-predios`, el operador ve los 9 filtros de texto más el
-combo Año (1998 → año actual, seleccionado el año en curso) y el checkbox
-"Mostrar Pisos", con los botones Buscar y Exportar. Buscar muestra una grilla de 15
-columnas con paginación de 20 filas por página, estados de carga, mensaje
+Al abrir `/dashboard/administracion-tributaria/consulta-predios`, el operador ve los 9
+filtros de texto más el combo Año (1998 → año actual, seleccionado el año en curso) y
+el checkbox "Mostrar Pisos", con los botones Buscar y Exportar. Buscar muestra una
+grilla de 15 columnas con paginación de 20 filas por página, estados de carga, mensaje
 "No se encontraron predios" cuando no hay datos y el error canónico cuando falla la
 consulta. Exportar descarga un XLS con 16 columnas, o 33 cuando "Mostrar Pisos" está
 activo, sin incluir la fila de título del SP como dato.

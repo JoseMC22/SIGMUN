@@ -123,7 +123,7 @@ Códigos: `validation_error` 400, `auth_invalid` 401, `auth_forbidden` 403,
 
 ```
 frontend/src/actions/administracion-tributaria/consulta-predios.ts   (nuevo)
-frontend/src/app/dashboard/consulta-predios/
+frontend/src/app/dashboard/administracion-tributaria/consulta-predios/
 ├── page.tsx                    (RSC por defecto)
 ├── consulta-predios-view.tsx   (cliente: filtros, grilla, paginación, exportar)
 ├── export-utils.ts             (cliente: XLS con xlsx)

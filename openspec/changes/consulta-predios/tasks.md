@@ -15,7 +15,7 @@ tracker; T06 cierra el feature con la verificación completa.
 
 ## 2. Frontend
 
-- [ ] **T04 — Frontend grilla**: `frontend/src/actions/administracion-tributaria/consulta-predios.ts` (server action con cookie `SIGMUN_AUTH`) y `frontend/src/app/dashboard/consulta-predios/**` con los 9 filtros de texto + combo Año + checkbox "Mostrar Pisos", grilla de 15 columnas, paginación de 20 y estados loading/empty/error. Enter y padding del código según D6 del design. Tests Vitest. **Checks:** `pnpm --dir frontend exec vitest run <tests del feature>` y `pnpm --dir frontend exec tsc --noEmit`.
+- [ ] **T04 — Frontend grilla**: `frontend/src/actions/administracion-tributaria/consulta-predios.ts` (server action con cookie `SIGMUN_AUTH`) y `frontend/src/app/dashboard/administracion-tributaria/consulta-predios/**` con los 9 filtros de texto + combo Año + checkbox "Mostrar Pisos", grilla de 15 columnas, paginación de 20 y estados loading/empty/error. Enter y padding del código según D6 del design. Tests Vitest. **Checks:** `pnpm --dir frontend exec vitest run <tests del feature>` y `pnpm --dir frontend exec tsc --noEmit`.
 
 - [ ] **T05 — Frontend export**: `export-utils.ts` con generación XLS client-side (`xlsx`) de 16/33 columnas según `mostrarPisos`, columna N 1-based y encabezados del D8 del design; cablear el botón Exportar. Tests Vitest. **Checks:** `pnpm --dir frontend exec vitest run <tests del feature>` y `pnpm --dir frontend exec tsc --noEmit`.
 

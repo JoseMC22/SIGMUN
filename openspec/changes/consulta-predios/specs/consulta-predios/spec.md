@@ -4,9 +4,10 @@
 
 ### Requirement: Pantalla de consulta de predios
 
-El sistema SHALL ofrecer una pantalla en `/dashboard/consulta-predios` con los filtros
-legacy, la grilla paginada y el botón Exportar. La página se abre por URL directa, sin
-alta en el menú ni cambios en BD.
+El sistema SHALL ofrecer una pantalla en
+`/dashboard/administracion-tributaria/consulta-predios` con los filtros legacy, la
+grilla paginada y el botón Exportar. La página se abre por URL directa, sin alta en el
+menú ni cambios en BD.
 
 #### Scenario: Inicialización
 
