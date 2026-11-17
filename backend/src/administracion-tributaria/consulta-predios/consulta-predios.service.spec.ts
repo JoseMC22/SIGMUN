@@ -1,5 +1,6 @@
 import { DatabaseService } from '../../database/database.service';
 import { SearchConsultaPrediosDto } from './dto/search-consulta-predios.dto';
+import { ExportConsultaPrediosDto } from './dto/export-consulta-predios.dto';
 import { SpConsultaPrediosRow } from './consulta-predios.types';
 import {
   ConsultaPrediosService,
@@ -270,6 +271,179 @@ describe('ConsultaPrediosService', () => {
       expect(() =>
         mapConsultaPredioRow(undefined as unknown as SpConsultaPrediosRow),
       ).not.toThrow();
+    });
+  });
+
+  describe('exportPredios', () => {
+    const exportFilters: ExportConsultaPrediosDto = {
+      codigo: '0000123',
+      codPred: '0101',
+      anno: '2026',
+      codVia: '12',
+      urbBus: 'URB1',
+      nro: '45',
+      dpto: 'A',
+      mza: 'B',
+      lte: 'C',
+      sublote: 'D',
+      mostrarPisos: false,
+    };
+
+    const exportParams = (
+      dto: ExportConsultaPrediosDto,
+      flag: '1' | '0',
+    ): Record<string, unknown> => ({
+      '@busc': '21',
+      '@codigo': dto.codigo,
+      '@cod_pred': dto.codPred,
+      '@id_via': dto.codVia,
+      '@cod_urb': dto.urbBus,
+      '@anno': dto.anno,
+      '@nro': dto.nro,
+      '@dpto': dto.dpto,
+      '@Mza': dto.mza,
+      '@Lte': dto.lte,
+      '@SubLte': dto.sublote,
+      '@flag_pisos': flag,
+    });
+
+    /** Fila con las 33 celdas del SP; el índice 15 es el título del reporte. */
+    const exportRow: SpConsultaPrediosRow = [
+      '0000123',
+      'JUAN PEREZ',
+      '0101',
+      '12',
+      '3',
+      'AV. CENTRAL 123',
+      'RESIDENCIAL',
+      250,
+      100,
+      120.5,
+      5000,
+      8000,
+      13000,
+      'A1',
+      2,
+      'REPORTE DE PREDIOS - URB1',
+      'P1',
+      'N1',
+      '05',
+      '2020',
+      'RES',
+      'CONCRETO',
+      'BUENO',
+      'M1',
+      'T1',
+      'P1',
+      'PU1',
+      'REV1',
+      'B1',
+      'IN1',
+      1200,
+      90,
+      7000,
+    ];
+
+    it("invokes @busc='21' with the exact legacy parameter order", async () => {
+      executeProcedure.mockResolvedValueOnce({ recordset: [exportRow] });
+
+      await service.exportPredios(exportFilters);
+
+      expect(executeProcedure).toHaveBeenCalledTimes(1);
+      expect(executeProcedure).toHaveBeenCalledWith(
+        'Rentas.sp_Mcontribuyente',
+        exportParams(exportFilters, '0'),
+      );
+      expect(Object.keys(executeProcedure.mock.calls[0][1])).toEqual([
+        '@busc',
+        '@codigo',
+        '@cod_pred',
+        '@id_via',
+        '@cod_urb',
+        '@anno',
+        '@nro',
+        '@dpto',
+        '@Mza',
+        '@Lte',
+        '@SubLte',
+        '@flag_pisos',
+      ]);
+    });
+
+    it("maps mostrarPisos true to @flag_pisos '1'", async () => {
+      executeProcedure.mockResolvedValueOnce({ recordset: [exportRow] });
+
+      await service.exportPredios({ ...exportFilters, mostrarPisos: true });
+
+      expect(executeProcedure.mock.calls[0][1]['@flag_pisos']).toBe('1');
+    });
+
+    it('uses row[15] as the title and never emits it as a data cell', async () => {
+      executeProcedure.mockResolvedValueOnce({ recordset: [exportRow] });
+
+      const result = await service.exportPredios(exportFilters);
+
+      expect(result.title).toBe('REPORTE DE PREDIOS - URB1');
+      expect(result.rows).toHaveLength(1);
+      expect(result.rows[0]).not.toContain('REPORTE DE PREDIOS - URB1');
+      expect(result.rows[0][0]).toBe('1');
+      expect(result.rows[0][1]).toBe('0000123');
+      expect(result.columns.some((column) => column.sourceIndex === 15)).toBe(
+        false,
+      );
+    });
+
+    it('returns 16 columns without pisos and 33 columns with pisos', async () => {
+      executeProcedure.mockResolvedValueOnce({ recordset: [exportRow] });
+      const withoutPisos = await service.exportPredios(exportFilters);
+
+      executeProcedure.mockResolvedValueOnce({ recordset: [exportRow] });
+      const withPisos = await service.exportPredios({
+        ...exportFilters,
+        mostrarPisos: true,
+      });
+
+      expect(withoutPisos.columns).toHaveLength(16);
+      expect(withoutPisos.rows[0]).toHaveLength(16);
+      expect(withPisos.columns).toHaveLength(33);
+      expect(withPisos.rows[0]).toHaveLength(33);
+      expect(withoutPisos.columns[8]).toEqual({
+        key: 'porcen',
+        label: '% Propiedad',
+        sourceIndex: 7,
+      });
+      expect(withPisos.columns[16]).toEqual({
+        key: 'item_piso',
+        label: 'Item Piso',
+        sourceIndex: 16,
+      });
+    });
+
+    it('maps null and undefined cells without throwing', async () => {
+      const nullRow: SpConsultaPrediosRow = Array.from(
+        { length: 33 },
+        () => null,
+      );
+      executeProcedure.mockResolvedValueOnce({ recordset: [nullRow] });
+
+      const result = await service.exportPredios({
+        ...exportFilters,
+        mostrarPisos: true,
+      });
+
+      expect(result.title).toBe('');
+      expect(result.rows[0]).toHaveLength(33);
+      expect(result.rows[0].slice(1)).toEqual(Array(32).fill(''));
+    });
+
+    it('returns an empty title and rows when the SP has no data', async () => {
+      executeProcedure.mockResolvedValueOnce({ recordset: [] });
+
+      const result = await service.exportPredios(exportFilters);
+
+      expect(result.title).toBe('');
+      expect(result.rows).toEqual([]);
+      expect(result.columns).toHaveLength(16);
     });
   });
 });

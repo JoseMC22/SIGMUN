@@ -17,8 +17,8 @@ function padCodigo(value: string): string {
   return zeros.substring(0, zeros.length - trimmed.length) + trimmed;
 }
 
-/** Filtros del branch @busc=19/20 más paginación 1-based. */
-export const SearchConsultaPrediosSchema = z.object({
+/** Los 10 filtros compartidos por los branches @busc=19/20 y @busc=21. */
+export const ConsultaPrediosFiltersSchema = z.object({
   codigo: z.coerce.string().trim().default('').transform(padCodigo),
   codPred: z.coerce.string().trim().default(''),
   anno: z.coerce.string().trim().default(''),
@@ -29,6 +29,10 @@ export const SearchConsultaPrediosSchema = z.object({
   mza: z.coerce.string().trim().default(''),
   lte: z.coerce.string().trim().default(''),
   sublote: z.coerce.string().trim().default(''),
+});
+
+/** Filtros del branch @busc=19/20 más paginación 1-based. */
+export const SearchConsultaPrediosSchema = ConsultaPrediosFiltersSchema.extend({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).default(20),
 });

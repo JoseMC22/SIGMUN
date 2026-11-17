@@ -5,14 +5,15 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { ZodError } from 'zod';
+import { ZodError, ZodType, ZodTypeDef } from 'zod';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { ConsultaPrediosService } from './consulta-predios.service';
+import { SearchConsultaPrediosSchema } from './dto/search-consulta-predios.dto';
+import { ExportConsultaPrediosSchema } from './dto/export-consulta-predios.dto';
 import {
-  SearchConsultaPrediosDto,
-  SearchConsultaPrediosSchema,
-} from './dto/search-consulta-predios.dto';
-import { ConsultaPrediosSearchResponse } from './consulta-predios.types';
+  ConsultaPrediosExportResponse,
+  ConsultaPrediosSearchResponse,
+} from './consulta-predios.types';
 
 @Controller('administracion-tributaria/consulta-predios')
 @UseGuards(JwtAuthGuard)
@@ -21,9 +22,23 @@ export class ConsultaPrediosController {
 
   @Post('search')
   async search(@Body() body: unknown): Promise<ConsultaPrediosSearchResponse> {
-    let dto: SearchConsultaPrediosDto;
+    return this.service.search(this.parse(SearchConsultaPrediosSchema, body));
+  }
+
+  @Post('export')
+  async export(@Body() body: unknown): Promise<ConsultaPrediosExportResponse> {
+    return this.service.exportPredios(
+      this.parse(ExportConsultaPrediosSchema, body),
+    );
+  }
+
+  /** Parsea el body y traduce ZodError al envelope canónico de la API. */
+  private parse<Output, Input>(
+    schema: ZodType<Output, ZodTypeDef, Input>,
+    body: unknown,
+  ): Output {
     try {
-      dto = SearchConsultaPrediosSchema.parse(body);
+      return schema.parse(body);
     } catch (error) {
       if (error instanceof ZodError) {
         throw new BadRequestException({
@@ -39,7 +54,5 @@ export class ConsultaPrediosController {
       }
       throw error;
     }
-
-    return this.service.search(dto);
   }
 }
