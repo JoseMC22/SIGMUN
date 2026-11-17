@@ -205,6 +205,7 @@ export default function ConstanciaExigibilidadPage() {
         nombre: imp.nombre,
         numexig,
         anoexig,
+        constancia: imp.constancia,
         valorCompleto: imp.valor,
         fnotifica: formatFechaCorta(imp.fnotifica),
         nrocargo: imp.cargo,
@@ -233,7 +234,7 @@ export default function ConstanciaExigibilidadPage() {
   return (
     <div className="space-y-4 p-4">
       {/* Header */}
-      <div className="relative overflow-hidden rounded-lg bg-gradient-to-br from-sat-navy via-[#1b2b4a] to-slate-800 px-5 py-4 shadow-sm">
+      <div className="relative overflow-hidden rounded-lg bg-gradient-to-br from-sat-navy to-slate-800 px-5 py-4 shadow-sm">
         <div className="relative flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-white/15 to-white/5 backdrop-blur-sm ring-1 ring-white/10">
             <FileText size={18} className="text-white" />

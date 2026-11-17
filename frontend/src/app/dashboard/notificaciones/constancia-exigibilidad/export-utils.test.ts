@@ -21,6 +21,7 @@ const base: ConstanciaExigibilidadImpresion = {
   nombre: "PEREZ JUAN",
   numexig: "45",
   anoexig: "2026",
+  constancia: "0000045-2026",
   valorCompleto: "IMPUESTO PREDIAL 2026 N° 0001234",
   fnotifica: "15/10/2026",
   nrocargo: "000777",
@@ -28,10 +29,10 @@ const base: ConstanciaExigibilidadImpresion = {
 };
 
 describe("buildConstanciaExigibilidadPrintData", () => {
-  it("deriva el contrato S8: nroconstancia, dia DD, mes MMMM es-ES y anio", () => {
+  it("deriva el contrato S8: nroconstancia canónico del SP, dia DD, mes MMMM es-ES y anio", () => {
     expect(buildConstanciaExigibilidadPrintData(base)).toEqual({
       nombre: "PEREZ JUAN",
-      nroconstancia: "45-2026",
+      nroconstancia: "0000045-2026",
       valor_completo: "IMPUESTO PREDIAL 2026 N° 0001234",
       fnotifica: "15/10/2026",
       nrocargo: "000777",
@@ -39,6 +40,15 @@ describe("buildConstanciaExigibilidadPrintData", () => {
       mes: "noviembre",
       anio: "2026",
     });
+  });
+
+  it("no reconstruye el número: usa la columna Constancia de @opcion=4 tal cual", () => {
+    const data = buildConstanciaExigibilidadPrintData({
+      ...base,
+      numexig: "837",
+      constancia: "0000837-2026",
+    });
+    expect(data.nroconstancia).toBe("0000837-2026");
   });
 
   it("rellena el dia con cero a la izquierda y mapea diciembre", () => {
@@ -56,6 +66,7 @@ describe("buildConstanciaExigibilidadPrintData", () => {
       nombre: base.nombre,
       numexig: base.numexig,
       anoexig: base.anoexig,
+      constancia: base.constancia,
       valorCompleto: base.valorCompleto,
       fnotifica: base.fnotifica,
       nrocargo: base.nrocargo,
@@ -75,7 +86,7 @@ describe("imprimirConstanciaExigibilidad", () => {
     const html = await imprimirConstanciaExigibilidad(template, base);
 
     expect(html).not.toContain("{{");
-    expect(html).toContain("Constancia N° 45-2026");
+    expect(html).toContain("Constancia N° 0000045-2026");
     expect(html).toContain("PEREZ JUAN — IMPUESTO PREDIAL 2026 N° 0001234");
     expect(html).toContain("15/10/2026");
     expect(html).toContain("Ica, a los 09 días del mes de noviembre de 2026.");

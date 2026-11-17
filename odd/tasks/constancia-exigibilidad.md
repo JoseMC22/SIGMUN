@@ -52,6 +52,8 @@ usa `reporte-constancia-exigibilidad` con `@opcion=5`), con `@opcion` **1/2/3/4*
   existe."* Renderiza plantilla HTML (Mustache) con `{nombre, nroconstancia,
   valor_completo, fnotifica (dd/MM/yyyy), nrocargo, dia (DD), mes (MMMM es-ES),
   anio}` → **PDF A4 sin QR** → `Constancia_{NUMEXIG}_{ANOEXIG}.pdf`.
+  **`nroconstancia` = columna `Constancia` del SP** (`0000837-2026`, 7 dígitos con
+  ceros), nunca reconstruido desde `numexig`/`anoexig` (llegan sin padding).
 - **S9** — **Cancelar** limpia los campos (el año vuelve al año actual).
 - **S10** — **Regla de emisión (7 días hábiles)**: con `@opcion=3` solo se puede emitir la
   constancia si desde la **fecha de notificación** (`FNotifica`) pasaron **>= 7 dias
@@ -88,6 +90,8 @@ usa `reporte-constancia-exigibilidad` con `@opcion=5`), con `@opcion` **1/2/3/4*
 | T13 | Verificación frontend + commit work unit | — | hecha (21/21 verdes: action 8 + export-utils 5 + page 8; eslint limpio) |
 | T14 | Alta del ítem de menú en accesos/submenú → `/dashboard/notificaciones/constancia-exigibilidad` | S1 | hecha (ya existía en BD: `Acceso.MAcceso` `23.04.00` + 6 perfiles; verificada con `sp_LogOut @buscar=8`) |
 | T15 | Verificación funcional con BD real (S2,S3,S4,S6,S8,S10 + riesgo D5) | S2..S10 | hecha (sonda 2026-11-12 contra `192.168.3.205/Base_sigmun`; D5 cerrado; 2 hallazgos nuevos, ver H1/H2) |
+| T16 | H1: `nroconstancia` del PDF toma la columna `Constancia` del SP (no se reconstruye) | S8 | hecha (TDD: RED `837-2026` → GREEN `0000837-2026`; 22/22 frontend) |
+| T17 | Cerrar los 2 errores de `tsc --noEmit` del feature (preexistentes, type-only) | S8 | hecha (`interface`→`type` en `ConstanciaExigibilidadPrintData`; `tiposValorOk()` devuelve envelope) |
 
 ## Ruta y verificación
 
@@ -119,8 +123,9 @@ usa `reporte-constancia-exigibilidad` con `@opcion=5`), con `@opcion` **1/2/3/4*
   pero `export-utils.ts` arma `nroconstancia` como `${numexig}-${anoexig}` y `numexig`
   llega sin padding desde `@opcion=2` (int). Resultado: el documento imprime
   `N° 837-2026` en lugar de `N° 0000837-2026`. `page.tsx` ya recibe `imp.constancia`
-  y lo descarta. Decisión pendiente del owner: usar `imp.constancia` (recomendado) o
-  paddear a 7 en el cliente.
+  y lo descartaba. **RESUELTO (T16)**: `ConstanciaExigibilidadImpresion.constancia` es
+  ahora obligatorio y `nroconstancia` toma ese valor tal cual; el cliente ya no
+  reconstruye el número. Tests: RED con `'837-2026'` → GREEN con `'0000837-2026'`.
 - **H2 — rama muerta en la validación de `FNotifica`.** `@opcion=2` devuelve
   `isnull(cargo.F_NOTIFICA,'')` sobre una columna `date`, así que un valor sin
   notificación llega como `1900-01-01`, no `null`. El chequeo
@@ -234,4 +239,30 @@ usa `reporte-constancia-exigibilidad` con `@opcion=5`), con `@opcion` **1/2/3/4*
   más reciente es 2026-05-23; queda cubierto por los unit tests (six business days,
   weekend, future date). Suite re-verificada: backend 25/25, frontend 21/21.
   Hallazgos H1/H2 arriba; `H1` requiere decisión del owner.
+- **L12** (2026-11-12): T16 (fix de H1) cerrada con TDD. Test nuevo en
+  `export-utils.test.ts` fija que `nroconstancia` sale de `constancia` y no se
+  reconstruye; RED real con `'837-2026'`, GREEN con `'0000837-2026'`. Cambios:
+  `constancia: string` obligatorio en `ConstanciaExigibilidadImpresion` (con el porqué
+  documentado: `numexig` de `@opcion=2` es int sin padding), `nroconstancia:
+  input.constancia` en `buildConstanciaExigibilidadPrintData`, y `page.tsx` pasa
+  `constancia: imp.constancia`. Test de página nuevo verifica que el page reenvía
+  `constancia` al impresor. El nombre de archivo sigue siendo
+  `Constancia_{NUMEXIG}_{ANOEXIG}.pdf` (S8). Suite del feature: 22/22 verdes, eslint
+  limpio en los 4 archivos.
+- **L13** (2026-11-12): `tsc --noEmit` del frontend (no se había corrido completo antes) destapó
+  **2 errores preexistentes en archivos del feature** — confirmados presentes en `HEAD`
+  (`git show HEAD:...`) y ajenos a H1:
+  (1) `export-utils.ts(99)`: `ConstanciaExigibilidadPrintData` era `interface` y TS no le da
+  índice implícito, así que no era asignable a `Record<string, string | undefined>` de
+  `llenarPlantilla`. Fix: declararla como `type` (mantiene claves exactas, sin `as`).
+  (2) `page.test.tsx(94)`: `tiposValorOk()` devolvía `Promise.resolve(...)` y se pasaba a
+  `mockResolvedValue`, que ya resuelve. Fix: devolver el envelope.
+  Resultado: 0 errores en `constancia-exigibilidad`; quedan solo 3 archivos ajenos
+  (`baja-alcabala-modal.test.tsx`, y 3 tests de `mantenimiento-uit` con `TS2304 beforeEach`),
+  que no se tocan. Suite 22/22 y eslint limpio tras el fix.
+- **L14** (2026-11-12): el hook de gga bloqueó el commit por `via-[#1b2b4a]` (hex hardcodeado,
+  preexistente) en `page.tsx`. Se resolvió quitando el stop intermedio:
+  `from-sat-navy to-slate-800` (dos tokens), sin inventar un token nuevo. `page.test.tsx`
+  8/8 y eslint limpio. Nota: el mismo gradiente de 3 stops existe en otros módulos
+  (`alcabala/*`, `reporte-viewer-modal`, `confirm-dialog`), fuera del alcance de este feature.
 
