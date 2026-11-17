@@ -1,0 +1,119 @@
+# Consulta de Predios — port del legacy `consultapred/index`
+
+## Objetivo
+
+Llevar al dashboard de SIGMUN la pantalla legacy "Consulta de Predios" (`consultapred/index`), con sus filtros, grilla paginada y export XLS, usando el mismo SP y la misma semántica de datos.
+
+## Problema / Por qué
+
+El sistema nuevo no tiene una consulta genérica de predios por código, código de predio, año, vía, urbanización, número, dpto, mza, lte y sublote. Los módulos existentes (`predios-contribuyentes` `@busc=29`, `predios-por-uso`, `inconsistencia-predios`) resuelven otros casos. La referencia canónica es el share legacy `Z:\` (autorizado solo para lectura); `D:\WEB\sigmun0911` no se usa.
+
+## Alcance acordado
+
+**Incluido (decisión del usuario 2026-11-17):**
+- Filtros legacy y grilla paginada sobre `Rentas.sp_Mcontribuyente` `@busc=19/20`.
+- Export XLS client-side con 16/33 columnas según "Mostrar Pisos", alimentado por `@busc=21`.
+- La página se abre por URL directa: **sin cambios en BD** (no se habilita el menú del sidebar).
+
+**Fuera de alcance:**
+- Detalle/modal: no existe en la carpeta legacy.
+- `mod=14/2` (ocultar botones en el legacy): no tiene contraparte en el dashboard.
+- Escritura en `Acceso.sp_LogOut @buscar=8` / `doform2`: requiere autorización explícita posterior.
+- Reproducir el SQL por concatenación de `Z:\application\models\DbDatos\Datos.php` ni exponer secretos de configuración legacy.
+
+## Evidencia legacy (path:line)
+
+- `Z:\application\controllers\ConsultapredController.php`
+  - `indexAction` L7-46: título "Consulta de Predios", combo 1998→año actual, botones Buscar/Exportar.
+  - `consultapredioAction` L48-132: `@busc=20` para total, `@busc=19` para filas; parámetros `@anno,@id_via,@nro,@dpto,@Mza,@Lte,@SubLte,@cod_pred,@codigo,@cod_urb`, con `@inicio,@final` antes de `@cod_urb` en `@busc=19`. Mapa posicional **verificado por lectura directa** (L111-127): `[0] codigo, [1] nombre, [2] cod_pred, [3]+[4] anexo unido con '-', [5] direccion, [6] uso, [7] t_area_const, [8] area_terreno, [9] porcen, [10] val_terreno, [11] val_constru, [12] autoavaluo, [13] id_instalas, [14] num_pisos, [15] categoria`. `start=(page-1)*limit+1`, `end=start+limit-1`, `limit=20`. Total se lee de `$rowsTotal[0][0]`.
+  - `exportarprediosAction` L134-296: `@busc='21'`, parámetros `@codigo,@cod_pred,@id_via,@cod_urb,@anno,@nro,@dpto,@Mza,@Lte,@SubLte,@flag_pisos`; 16 columnas si `flag=0`, 33 si `flag=1`; `$row[15]` es el título del reporte, no una celda de datos.
+- `Z:\application\views\scripts\consultapred\index.phtml` L21-79: "Criterios:", filtros `txtcodigo` (maxlength 7), `txtcodpred`, `cb_annobus`, `txt_viabus`, `txt_urbbus`, `txt_busnro`, dpto, mza, lte, sublote y checkbox `chbxPisos`.
+- `Z:\public\js\js_consultapred.js` L55-240: `proxy.extraParams`, Store `pageSize:20`, PagingToolbar `pageSize:10`, Enter en código, blur con padding a 7 caracteres, export `consultapred/exportarpredios?codigo=...&flag=1|0`.
+
+## Decisiones de implementación
+
+- `pageSize` = 20 (el Store legacy manda; el toolbar con 10 era inconsistente).
+- Etiquetas: se conservan los nombres legacy, corrigiendo solo errores obvios de tipeo (`% Popiedad` → `% Propiedad`, `direccion` → `Dirección`, vacío → `No se encontraron predios`). No se replican typos del HTML legacy (`coslpan`).
+- El feature completo apunta a `administracion-tributaria/consulta-predios`: módulo backend bajo esa área y página en `/dashboard/administracion-tributaria/consulta-predios` (decisión del usuario 2026-11-17).
+- `@busc=21` se usa **solo para traer datos**; el archivo XLS se genera en el cliente con `xlsx`, igual que `predios-contribuyentes`.
+- Corrección T03: el backend ya emite la columna `N` (`sourceIndex: -1`) en las definiciones 16/33, así que el frontend **no** agrega una segunda columna de numeración (esto prevalece sobre la nota D7 del design). En la grilla de T04 la numeración `N` es solo visual (UI-only), separada de los 15 campos de dato.
+- Desviación T04 registrada: Zod no es resoluble desde `frontend/node_modules` (solo existe en backend), así que la server action usa type guards estrechos en el boundary del cliente. El boundary del servidor sí valida con Zod (T02/T03). No se agregó dependencia nueva.
+- Los parámetros al SP se enlazan con `request.input(...)`; queda prohibida la concatenación de input del usuario.
+- Respuesta de error canónica `{code,message,details}` (`openspec/standards/API.md`), no el `{success,error}` viejo de `predios-contribuyentes`.
+- Sin `any`, sin `@ts-ignore`, sin secretos, sin logs con datos personales.
+- UI con tokens `sat-navy`/`sat-cyan`, foco visible y labels accesibles.
+
+## Restricciones
+
+- RDD: `off (decided by global)` → sin review nativo. Verificación = Jest + Vitest + `tsc --noEmit` + lectura estructural.
+- Escritura en `Z:\`: prohibida. Solo lectura como referencia.
+- Un solo escritor por archivo; no se mezclan refactors masivos.
+- Commits Conventional en inglés, sin `Co-Authored-By`. Tests y docs con el código.
+- Push / PR / merge siguen siendo decisión del usuario.
+
+## Superficies autorizadas de edición
+
+- `backend/src/administracion-tributaria/consulta-predios/**` (nuevo)
+- `backend/src/app.module.ts`
+- `frontend/src/actions/administracion-tributaria/consulta-predios.ts` (nuevo)
+- `frontend/src/app/dashboard/administracion-tributaria/consulta-predios/**` (nuevo)
+- `openspec/changes/consulta-predios/**` (nuevo)
+- `odd/tasks/consulta-predios.md`
+
+## Criterios de aceptación
+
+- `GET/POST search` valida boundary con Zod y devuelve `{data,total,page,pageSize,totalPages}` con envelope canónico en error.
+- `search` usa `@busc=19/20` del SP legacy, con paginación 1-based y parámetros nominales.
+- `export` usa `@busc=21` y devuelve filas para 16/33 columnas según `mostrarPisos`.
+- La página `/dashboard/administracion-tributaria/consulta-predios` muestra filtros, estados loading/empty/error, grilla paginada y botón Exportar.
+- El XLS generado respeta el flag de pisos y no incluye la fila de título como dato.
+- Tests nuevos: backend Jest (service + controller) y frontend Vitest (acción, export-utils, page).
+- `tsc --noEmit` sin errores nuevos en los archivos del feature.
+
+## Checks aplicables
+
+- Backend: `pnpm --dir backend test -- consulta-predios` (o el runner Jest equivalente del repo).
+- Frontend: `pnpm --dir frontend exec vitest run <tests del feature>`.
+- Typecheck: `pnpm --dir frontend exec tsc --noEmit` y el equivalente backend si aplica.
+- Verificación de reglas: sin `any`, sin `@ts-ignore`, SQL parametrizado, envelope canónico, JWT guard.
+
+## Tareas
+
+- [x] **T01 — SDD**: crear `openspec/changes/consulta-predios/{proposal.md,design.md,tasks.md,specs/consulta-predios/spec.md}` con la evidencia legacy y las decisiones de este documento. Checks: lectura estructural de los 4 archivos.
+- [x] **T02 — Backend search**: módulo `consulta-predios` (controller/service/module/DTO/types), endpoint `search`, Zod boundary, `@busc=19/20`, tests Jest de service y controller. Checks: Jest del módulo.
+- [x] **T03 — Backend export**: endpoint `export` sobre `@busc=21` con `mostrarPisos`, mapeo 16/33 columnas excluyendo la fila título, tests Jest. Checks: Jest del módulo.
+- [x] **T04 — Frontend grilla**: server action con cookie `SIGMUN_AUTH`, página `/dashboard/administracion-tributaria/consulta-predios` con 9 filtros, grilla de 15 columnas, paginación y estados loading/empty/error, tests Vitest. Checks: Vitest + `tsc --noEmit`.
+- [x] **T05 — Frontend export**: `export-utils.ts` con generación XLS client-side 16/33 columnas y tests Vitest; cablear botón Exportar. Checks: Vitest + `tsc --noEmit`.
+- [x] **T06 — Cierre**: actualizar `openspec/.../tasks.md` y este tracker con evidencia de commits y checks; verificación final completa. Checks: suite completa del feature + typecheck + git status limpio.
+
+## Progreso / evidencia
+
+- 2026-11-17: feature creado desde `origin/DEV` (`a713d44`) en rama `feat/consulta-predios`. Sin writes de código aún.
+- 2026-11-17: mapeo legacy completado por explorador de solo lectura; ver memoria `legacy/consultapred` (#859).
+- 2026-11-17: T01 cerrado en commit `ffc1a7e` (4 archivos SDD, +457). Sin tests aplicables; verificación estructural.
+- 2026-11-17: el usuario pidió alinear el feature con `administracion-tributaria/consulta-predios`; se ajustan las rutas del frontend y los documentos del change en `aee758f` (5 referencias, grep sin coincidencias viejas).
+- 2026-11-17: T01 verificado por spot check de parent: 0 referencias a ruta vieja, 10 referencias a la nueva, working tree limpio, `ahead 2`. Checks: solo verificación estructural (docs, sin runner aplicable).
+- 2026-11-17: T02 cerrado en commit `a78ce8f` (`feat(consulta-predios): add backend search over sp_Mcontribuyente busc 19/20`), 8 archivos / 648 líneas. TDD observado: RED (2 suites, TS2307) → intermedio 5/13 → GREEN 13/13. Spot check de parent: `pnpm --dir backend test -- --runInBand consulta-predios` → 2 suites, 13/13 verdes; sin `any`, `@ts-ignore` ni `request.query(`. `tsc --noEmit` del backend: 25 errores preexistentes en `mantenimiento-notificadores/*.spec.ts`, 0 nuevos. gga `STATUS: PASSED`, sin `--no-verify`. Nota: `.gitignore:52` ignora `*.spec.ts`, los specs se agregaron con `git add -f`.
+- 2026-11-17: T03 cerrado en commit `8418612` (`feat(consulta-predios): add export endpoint over sp_Mcontribuyente busc 21`), 7 archivos / +427/-13. TDD observado: RED (TS2307/TS2339) → GREEN 22/22. Spot check de parent: misma suite → 2 suites, 22/22 verdes. `tsc --noEmit`: los mismos 25 errores preexistentes, 0 del feature. gga `STATUS: PASSED`. Verificación legacy: `$row[15]` es título, datos extra `[16..32]` con `flag=1`; se usaron las etiquetas corregidas del design D8. Corrección registrada: backend emite la columna `N`, frontend no debe duplicarla.
+- 2026-11-17: T04 cerrado en commit `07d9271` (`feat(consulta-predios): add frontend search grid under administracion-tributaria`), 4 archivos / +1042. TDD observado: RED (falló resolve de `./page`) → GREEN 7/7, re-run tras refactor 7/7. Spot check de parent: mismo runner → 1 archivo, 7/7 verdes; `rg` de ruta vieja sin coincidencias. `tsc --noEmit`: 12 errores preexistentes (9 en `baja-alcabala-modal.test.tsx`, 3 en `mantenimiento-uit`), 0 del feature. gga: primer intento `STATUS: FAILED` (tokens de diseño y boundary), corregido y reintentado con `STATUS: PASSED`, sin `--no-verify`. Archivos: action (232), view (505), page (129), test (176).
+- 2026-11-17: T05 cerrado en commit `b80d6a1` (`feat(consulta-predios): add XLS export wired to backend busc 21`), 7 archivos / +667/-32. TDD observado: RED (2 suites, resolve de `./export-utils`) → 3 fallos por padding de `sheet_to_json` corregidos en los assertions → GREEN 22/22 (`export-action` 4, `export-utils` 8, `page` 10). Spot check de parent: frontend 3 archivos / 22/22 verdes. `tsc --noEmit`: los mismos 12 errores preexistentes, 0 del feature. gga: primer intento FAILED (Zod, tests, códigos), corregido con type guards documentados + test de acción; segundo PASSED, sin `--no-verify`. Archivos: `export-utils.ts`, `export-utils.test.ts`, `export-action.test.ts`, action, page, view y sus tests.
+- 2026-11-17: T06 verificado por spot check final de parent: backend `pnpm --dir backend test -- --runInBand consulta-predios` → 2 suites / 22/22; frontend `pnpm --dir frontend test -- src/app/dashboard/administracion-tributaria/consulta-predios src/actions/administracion-tributaria/consulta-predios` → 3 archivos / 22/22; `rg` de `dashboard/consulta-predios` en `frontend/src` → 0 coincidencias. Typecheck: 25 errores preexistentes backend + 12 preexistentes frontend, 0 del feature. Estado: 6 commits locales (`ffc1a7e`, `aee758f`, `a78ce8f`, `8418612`, `07d9271`, `b80d6a1`), rama `ahead 6`, sin push/PR/merge. Delivery: pendiente decidir chain strategy (forecast superado) y autorización de push/PR.
+
+## Route declaration
+
+| Task | Route | Trigger |
+| --- | --- | --- |
+| T01 | Delegated direct (writer) | 4 archivos SDD no triviales → writer trigger |
+| T02 | Delegated direct (writer) | 5+ archivos backend + tests → writer trigger |
+| T03 | Delegated direct (writer) | service + DTO + tests → writer trigger |
+| T04 | Delegated direct (writer) | action + page + tests → writer trigger |
+| T05 | Delegated direct (writer) | export-utils + page + tests → writer trigger |
+| T06 | Inline | bookkeeping mecánico ya entendido |
+
+## Delivery strategy
+
+`ask-on-risk` (default). Forecast: ~650-800 authored lines (add + del, excluyendo lockfiles) → supera el umbral de ~400. Se pedirá una vez la estrategia de encadenamiento antes de la primer entrega/PR; no se abre PR sin autorización explícita del usuario.
+
+## Próximo paso
+
+Ejecutar T01 (SDD) con un writer acotado a las superficies autorizadas, luego T02.
