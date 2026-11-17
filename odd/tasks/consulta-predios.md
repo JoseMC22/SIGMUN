@@ -168,8 +168,8 @@ Rama `feat/consulta-predios-06-recordset` creada desde `feat/consulta-predios-05
 
 ### Child #187 (normalización de filtros)
 
-Rama `feat/consulta-predios-07-filters` creada desde `feat/consulta-predios-06-recordset`. PR #187 open, label `enhancement`, base `#186`, cuerpo `Part of #179`. Sin merges. T09 cerrado en `997044e`.
+Rama `feat/consulta-predios-07-filters` creada desde `feat/consulta-predios-06-recordset`. PR #187 mergeado, label `enhancement`, cuerpo `Part of #179`. T09 cerrado en `997044e`.
 
 ## Próximo paso
 
-Cadena publicada (#180–#187) sobre la issue #179. El merge es decisión humana: revisar y mergear los children en orden #181 → #182 → #183 → #184 → #185 → #186 → #187, y al cerrar #187 quitar el draft de #180 para integrar el feature a `DEV`.
+**CERRADO — feature integrada en `DEV`.** Cadena #180–#187 sobre la issue #179, todos los PR mergeados. Los children #181→#187 se re-apuntaron al tracker (`gh pr edit N --base feat/consulta-predios-tracker`, porque `deleteBranchOnMerge=false` impidió el re-apuntamiento automático) y se mergearon con merge commits; luego #180 se quitó de draft y se mergeó a `DEV`. Issue #179 cerrada como `COMPLETED`. DEV: `a713d44` → `abb1430`. Sin trabajo pendiente.
