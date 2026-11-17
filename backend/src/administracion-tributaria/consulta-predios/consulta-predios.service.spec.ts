@@ -4,7 +4,10 @@ import {
   SearchConsultaPrediosDto,
 } from './dto/search-consulta-predios.dto';
 import { ExportConsultaPrediosDto } from './dto/export-consulta-predios.dto';
-import { SpConsultaPrediosRow } from './consulta-predios.types';
+import {
+  ConsultaPrediosRow,
+  SpConsultaPrediosRow,
+} from './consulta-predios.types';
 import {
   ConsultaPrediosService,
   mapConsultaPredioRow,
@@ -14,6 +17,147 @@ type ExecuteProcedureMock = jest.Mock<
   Promise<unknown>,
   [procedure: string, params: Record<string, unknown>]
 >;
+
+/** Real @busc=19 named recordset: `anexo` is already joined, key is `direcion`. */
+const BUSC_19_ROW: SpConsultaPrediosRow = {
+  codigo: '0000123',
+  nombre: 'JUAN PEREZ',
+  cod_pred: '0101',
+  anexo: '1-0',
+  sub_anexo: 0,
+  direcion: 'AV. CENTRAL 123',
+  uso: 'RESIDENCIAL',
+  total_area_constru: 120.5,
+  area_terreno: 250,
+  porcen_propiedad: 100,
+  val_total_terreno: 5000,
+  val_total_constru: 8000,
+  total_autoavaluo: 13000,
+  id_instalas: 'A1',
+  num_pisos: 2,
+  categoria: 'A',
+  ROW: 1,
+};
+
+/** Real @busc=21 named recordset without pisos: `anno` carries the title. */
+const BUSC_21_BASE_ROW: SpConsultaPrediosRow = {
+  codigo: 'COD',
+  nombre: 'NOM',
+  cod_pred: 'PRED',
+  anexo: 'ANX',
+  direcion: 'DIR',
+  uso: 'USO',
+  area_terreno: 'AREA_TER',
+  porcen_propiedad: 'PORC',
+  total_area_constru: 'T_AREA',
+  val_total_terreno: 'VT_TER',
+  val_total_constru: 'VT_CON',
+  total_autoavaluo: 'AUTO',
+  id_instalas: 'INST',
+  num_pisos: 'NPIS',
+  categoria: 'CAT',
+  anno: '2026',
+};
+
+/** @busc=21 with @flag_pisos='1': 17 extra keys, each with a distinct value. */
+const BUSC_21_PISOS_ROW: SpConsultaPrediosRow = {
+  ...BUSC_21_BASE_ROW,
+  niv_piso: 'NIV-1',
+  tipo_piso: 'TIPO-2',
+  mes_cons: 'MES-3',
+  ano_cons: 'ANO-4',
+  id_clafica: 'CLAF-5',
+  id_materia: 'MAT-6',
+  id_estados: 'EST-7',
+  cat_muros: 'MUR-8',
+  cate_techo: 'TEC-9',
+  cate_pisos: 'PIS-10',
+  cate_puert: 'PUE-11',
+  cate_reves: 'REV-12',
+  cate_banno: 'BAN-13',
+  cate_insel: 'INS-14',
+  val_uni: 'VU-15',
+  area_const: 'AC-16',
+  val_const: 'VC-17',
+};
+
+const EXPECTED_DOMAIN_ROW: ConsultaPrediosRow = {
+  codigo: '0000123',
+  nombre: 'JUAN PEREZ',
+  cod_pred: '0101',
+  anexo: '1-0',
+  direccion: 'AV. CENTRAL 123',
+  uso: 'RESIDENCIAL',
+  t_area_const: 120.5,
+  area_terreno: 250,
+  porcen: 100,
+  val_terreno: 5000,
+  val_constru: 8000,
+  autoavaluo: 13000,
+  id_instalas: 'A1',
+  num_pisos: 2,
+  categoria: 'A',
+};
+
+const EMPTY_DOMAIN_ROW: ConsultaPrediosRow = {
+  codigo: '',
+  nombre: '',
+  cod_pred: '',
+  anexo: '',
+  direccion: '',
+  uso: '',
+  t_area_const: 0,
+  area_terreno: 0,
+  porcen: 0,
+  val_terreno: 0,
+  val_constru: 0,
+  autoavaluo: 0,
+  id_instalas: '',
+  num_pisos: 0,
+  categoria: '',
+};
+
+/** Export row without pisos: N + 15 cells in EXPORT_BASE_COLUMNS order. */
+const EXPECTED_BASE_EXPORT_ROW = [
+  '1',
+  'COD',
+  'NOM',
+  'PRED',
+  'ANX',
+  'DIR',
+  'USO',
+  'AREA_TER',
+  'PORC',
+  'T_AREA',
+  'VT_TER',
+  'VT_CON',
+  'AUTO',
+  'INST',
+  'NPIS',
+  'CAT',
+];
+
+/** Export row with pisos: the base cells plus 17 legacy-order piso cells. */
+const EXPECTED_PISOS_EXPORT_ROW = [
+  ...EXPECTED_BASE_EXPORT_ROW,
+  'NIV-1',
+  'TIPO-2',
+  'MES-3',
+  'ANO-4',
+  'CLAF-5',
+  'MAT-6',
+  'EST-7',
+  'MUR-8',
+  'TEC-9',
+  'PIS-10',
+  'PUE-11',
+  'REV-12',
+  'BAN-13',
+  'INS-14',
+  'VU-15',
+  'AC-16',
+  'VC-17',
+];
 
 describe('ConsultaPrediosService', () => {
   let executeProcedure: ExecuteProcedureMock;
@@ -71,7 +215,7 @@ describe('ConsultaPrediosService', () => {
   });
 
   const mockResults = (
-    total: readonly (readonly unknown[])[],
+    total: readonly SpConsultaPrediosRow[],
     rows: readonly SpConsultaPrediosRow[],
   ): void => {
     executeProcedure
@@ -87,7 +231,7 @@ describe('ConsultaPrediosService', () => {
 
   describe('search', () => {
     it('invokes @busc=20 first with the 10 filters in legacy parameter order', async () => {
-      mockResults([[0]], []);
+      mockResults([{ '': 0 }], []);
 
       await service.search(filters);
 
@@ -113,7 +257,7 @@ describe('ConsultaPrediosService', () => {
     });
 
     it('invokes @busc=19 with @inicio/@final inserted before @cod_urb', async () => {
-      mockResults([[1]], []);
+      mockResults([{ '': 1 }], []);
 
       await service.search(filters);
 
@@ -139,8 +283,8 @@ describe('ConsultaPrediosService', () => {
       ]);
     });
 
-    it('reads the total from the first column of the first row of @busc=20', async () => {
-      mockResults([[57, 999]], []);
+    it("reads the @busc=20 total from the '' key, not a positional index", async () => {
+      mockResults([{ other: 999, '': 57 }, { '': 1 }], []);
 
       const result = await service.search(filters);
 
@@ -149,7 +293,7 @@ describe('ConsultaPrediosService', () => {
 
     it('computes 1-based @inicio/@final and totalPages from page/pageSize', async () => {
       const dto = { ...filters, page: 3, pageSize: 10 };
-      mockResults([[95]], []);
+      mockResults([{ '': 95 }], []);
 
       const result = await service.search(dto);
 
@@ -163,8 +307,16 @@ describe('ConsultaPrediosService', () => {
       });
     });
 
-    it('maps the 16 positional columns into the domain row, joining anexo', async () => {
-      const spRow: SpConsultaPrediosRow = [
+    it('maps a named @busc=19 recordset into populated legacy fields', async () => {
+      mockResults([{ '': 1 }], [BUSC_19_ROW]);
+
+      const result = await service.search(filters);
+
+      expect(result.data).toEqual([EXPECTED_DOMAIN_ROW]);
+    });
+
+    it('does not read a legacy positional array as a named recordset', async () => {
+      const positionalRow = [
         '0000123',
         'JUAN PEREZ',
         '0101',
@@ -181,34 +333,16 @@ describe('ConsultaPrediosService', () => {
         'A1',
         2,
         'A',
-      ];
-      mockResults([[1]], [spRow]);
+      ] as unknown as SpConsultaPrediosRow;
+      mockResults([{ '': 1 }], [positionalRow]);
 
       const result = await service.search(filters);
 
-      expect(result.data).toEqual([
-        {
-          codigo: '0000123',
-          nombre: 'JUAN PEREZ',
-          cod_pred: '0101',
-          anexo: '12-3',
-          direccion: 'AV. CENTRAL 123',
-          uso: 'RESIDENCIAL',
-          t_area_const: 120.5,
-          area_terreno: 250,
-          porcen: 100,
-          val_terreno: 5000,
-          val_constru: 8000,
-          autoavaluo: 13000,
-          id_instalas: 'A1',
-          num_pisos: 2,
-          categoria: 'A',
-        },
-      ]);
+      expect(result.data).toEqual([EMPTY_DOMAIN_ROW]);
     });
 
     it('returns an empty page with totalPages 0 when there are no matches', async () => {
-      mockResults([[0]], []);
+      mockResults([{ '': 0 }], []);
 
       const result = await service.search(filters);
 
@@ -232,45 +366,17 @@ describe('ConsultaPrediosService', () => {
   });
 
   describe('mapConsultaPredioRow', () => {
-    it('maps null and undefined cells without throwing', () => {
-      const emptyRow = mapConsultaPredioRow([]);
-      const nullRow = mapConsultaPredioRow([
-        null,
-        undefined,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-      ]);
+    it('reads each legacy field from its SP column name', () => {
+      expect(mapConsultaPredioRow(BUSC_19_ROW)).toEqual(EXPECTED_DOMAIN_ROW);
+    });
 
-      expect(emptyRow).toEqual({
-        codigo: '',
-        nombre: '',
-        cod_pred: '',
-        anexo: '-',
-        direccion: '',
-        uso: '',
-        t_area_const: 0,
-        area_terreno: 0,
-        porcen: 0,
-        val_terreno: 0,
-        val_constru: 0,
-        autoavaluo: 0,
-        id_instalas: '',
-        num_pisos: 0,
-        categoria: '',
-      });
-      expect(nullRow).toEqual(emptyRow);
+    it('maps missing and null named values without throwing', () => {
+      const nullRow: SpConsultaPrediosRow = Object.fromEntries(
+        Object.keys(BUSC_19_ROW).map((name) => [name, null]),
+      );
+
+      expect(mapConsultaPredioRow({})).toEqual(EMPTY_DOMAIN_ROW);
+      expect(mapConsultaPredioRow(nullRow)).toEqual(EMPTY_DOMAIN_ROW);
       expect(() =>
         mapConsultaPredioRow(undefined as unknown as SpConsultaPrediosRow),
       ).not.toThrow();
@@ -310,45 +416,8 @@ describe('ConsultaPrediosService', () => {
       'flag_pisos': flag,
     });
 
-    /** Fila con las 33 celdas del SP; el índice 15 es el título del reporte. */
-    const exportRow: SpConsultaPrediosRow = [
-      '0000123',
-      'JUAN PEREZ',
-      '0101',
-      '12',
-      '3',
-      'AV. CENTRAL 123',
-      'RESIDENCIAL',
-      250,
-      100,
-      120.5,
-      5000,
-      8000,
-      13000,
-      'A1',
-      2,
-      'REPORTE DE PREDIOS - URB1',
-      'P1',
-      'N1',
-      '05',
-      '2020',
-      'RES',
-      'CONCRETO',
-      'BUENO',
-      'M1',
-      'T1',
-      'P1',
-      'PU1',
-      'REV1',
-      'B1',
-      'IN1',
-      1200,
-      90,
-      7000,
-    ];
-
     it("invokes @busc='21' with the exact legacy parameter order", async () => {
-      executeProcedure.mockResolvedValueOnce({ recordset: [exportRow] });
+      executeProcedure.mockResolvedValueOnce({ recordset: [BUSC_21_BASE_ROW] });
 
       await service.exportPredios(exportFilters);
 
@@ -374,33 +443,51 @@ describe('ConsultaPrediosService', () => {
     });
 
     it("maps mostrarPisos true to @flag_pisos '1'", async () => {
-      executeProcedure.mockResolvedValueOnce({ recordset: [exportRow] });
+      executeProcedure.mockResolvedValueOnce({ recordset: [BUSC_21_PISOS_ROW] });
 
       await service.exportPredios({ ...exportFilters, mostrarPisos: true });
 
       expect(executeProcedure.mock.calls[0][1]['flag_pisos']).toBe('1');
     });
 
-    it('uses row[15] as the title and never emits it as a data cell', async () => {
-      executeProcedure.mockResolvedValueOnce({ recordset: [exportRow] });
+    it("reads the title from the SP's anno key for both flag values", async () => {
+      executeProcedure.mockResolvedValueOnce({ recordset: [BUSC_21_BASE_ROW] });
+      const withoutPisos = await service.exportPredios(exportFilters);
+
+      executeProcedure.mockResolvedValueOnce({ recordset: [BUSC_21_PISOS_ROW] });
+      const withPisos = await service.exportPredios({
+        ...exportFilters,
+        mostrarPisos: true,
+      });
+
+      expect(withoutPisos.title).toBe('2026');
+      expect(withPisos.title).toBe('2026');
+      expect(withoutPisos.rows[0]).not.toContain('2026');
+      expect(withPisos.rows[0]).not.toContain('2026');
+    });
+
+    it('keeps the N column and never emits the title as a data cell', async () => {
+      executeProcedure.mockResolvedValueOnce({ recordset: [BUSC_21_BASE_ROW] });
 
       const result = await service.exportPredios(exportFilters);
 
-      expect(result.title).toBe('REPORTE DE PREDIOS - URB1');
-      expect(result.rows).toHaveLength(1);
-      expect(result.rows[0]).not.toContain('REPORTE DE PREDIOS - URB1');
+      expect(result.rows[0]).toEqual(EXPECTED_BASE_EXPORT_ROW);
       expect(result.rows[0][0]).toBe('1');
-      expect(result.rows[0][1]).toBe('0000123');
+      expect(result.columns[0]).toEqual({
+        key: 'n',
+        label: 'N',
+        sourceIndex: -1,
+      });
       expect(result.columns.some((column) => column.sourceIndex === 15)).toBe(
         false,
       );
     });
 
-    it('returns 16 columns without pisos and 33 columns with pisos', async () => {
-      executeProcedure.mockResolvedValueOnce({ recordset: [exportRow] });
+    it('reads every base and piso value from its own SP key', async () => {
+      executeProcedure.mockResolvedValueOnce({ recordset: [BUSC_21_BASE_ROW] });
       const withoutPisos = await service.exportPredios(exportFilters);
 
-      executeProcedure.mockResolvedValueOnce({ recordset: [exportRow] });
+      executeProcedure.mockResolvedValueOnce({ recordset: [BUSC_21_PISOS_ROW] });
       const withPisos = await service.exportPredios({
         ...exportFilters,
         mostrarPisos: true,
@@ -410,6 +497,8 @@ describe('ConsultaPrediosService', () => {
       expect(withoutPisos.rows[0]).toHaveLength(16);
       expect(withPisos.columns).toHaveLength(33);
       expect(withPisos.rows[0]).toHaveLength(33);
+      expect(withoutPisos.rows[0]).toEqual(EXPECTED_BASE_EXPORT_ROW);
+      expect(withPisos.rows[0]).toEqual(EXPECTED_PISOS_EXPORT_ROW);
       expect(withoutPisos.columns[8]).toEqual({
         key: 'porcen',
         label: '% Propiedad',
@@ -422,10 +511,9 @@ describe('ConsultaPrediosService', () => {
       });
     });
 
-    it('maps null and undefined cells without throwing', async () => {
-      const nullRow: SpConsultaPrediosRow = Array.from(
-        { length: 33 },
-        () => null,
+    it('maps missing and null named values without throwing', async () => {
+      const nullRow: SpConsultaPrediosRow = Object.fromEntries(
+        Object.keys(BUSC_21_PISOS_ROW).map((name) => [name, null]),
       );
       executeProcedure.mockResolvedValueOnce({ recordset: [nullRow] });
 
@@ -452,7 +540,7 @@ describe('ConsultaPrediosService', () => {
 
   describe('SP parameter binding', () => {
     it('never prefixes an executeProcedure parameter key with @', async () => {
-      mockResults([[0]], []);
+      mockResults([{ '': 0 }], []);
       await service.search(filters);
 
       executeProcedure.mockResolvedValueOnce({ recordset: [] });
