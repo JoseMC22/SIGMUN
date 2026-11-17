@@ -127,27 +127,31 @@ Tracker PR draft sobre `origin/DEV`; los children se apilan y cada PR apunta al 
 
 ```text
 origin/DEV
-  └── #0 tracker feat/consulta-predios-tracker  (SDD, draft/no-merge) 📍 base DEV
-       └── #1 feat/consulta-predios-01-backend-search   base tracker
-            └── #2 feat/consulta-predios-02-backend-export  base #1
-                 └── #3 feat/consulta-predios-03-grid  base #2
-                      └── #4 feat/consulta-predios-04-xls  base #3
-                           └── #5 feat/consulta-predios-05-fix  base #4
+  └── #180 tracker feat/consulta-predios-tracker  (SDD, DRAFT/no-merge) base DEV
+       └── #181 feat/consulta-predios-01-backend-search   base tracker
+            └── #182 feat/consulta-predios-02-backend-export  base #181
+                 └── #183 feat/consulta-predios-03-grid  base #182
+                      └── #184 feat/consulta-predios-04-xls  base #183
+                           └── #185 feat/consulta-predios-05-fix  base #184
 ```
+
+Issue de tracking: **#179** (labels `enhancement`, `Modulo`, `type:feature`). El tracker #180 lleva `Closes #179`; los children llevan `Part of #179`. Labels de PR: `type:feature` en #180–#184, `type:bug` en #185.
 
 Slices (una pasada honesta; cada commit individual ya supera 400 → `size:exception` justificado por unidad de entrega coherente, sin comprimir código ni tests):
 
-| PR | Unidad | Commits | Líneas (add+del) | Base |
+| PR | Unidad | Commits | Líneas GitHub (add/del) | Base |
 | --- | --- | --- | --- | --- |
-| #0 | SDD + alineación de ruta | `ffc1a7e`, `aee758f` | ~480 | DEV |
-| #1 | backend search `@busc=19/20` | `a78ce8f` | 648 | #0 |
-| #2 | backend export `@busc=21` | `8418612` | 440 | #1 |
-| #3 | frontend grilla | `07d9271` | 1042 | #2 |
-| #4 | frontend XLS | `b80d6a1` | 699 | #3 |
-| #5 | fix T07 + cierre de trackers | `5a7b60d`, `e5c920c`, `9698504` | 417 | #4 |
+| #180 | SDD + alineación de ruta | `ffc1a7e`, `aee758f` | 458 / 0 | DEV |
+| #181 | backend search `@busc=19/20` | `a78ce8f` | 648 / 0 | #180 |
+| #182 | backend export `@busc=21` | `8418612` | 427 / 13 | #181 |
+| #183 | frontend grilla | `07d9271` | 1042 / 0 | #182 |
+| #184 | frontend XLS | `b80d6a1` | 667 / 32 | #183 |
+| #185 | fix T07 + cierre de trackers | `5a7b60d`, `e5c920c`, `9698504`, `7b70e1c` | 326 / 119 | #184 |
+
+Verificado vía `gh api`: los 6 PR están open, bases encadenadas correctas, tracker `draft: true`, cada child con 1 commit salvo #185 con 4. Ningún diff contaminado.
 
 Nota: el repo no tiene workflows ni PR template; la skill `branch-pr` (shellcheck / `status:approved`) pertenece a otro repo y no es verificable acá. Sí existe la convención local de linkear `Closes #N`.
 
 ## Próximo paso
 
-Ejecutar T01 (SDD) con un writer acotado a las superficies autorizadas, luego T02.
+Cadena publicada (#180–#185) sobre la issue #179. El merge es decisión humana: revisar y mergear los children en orden #181 → #185, y al cerrar #185 quitar el draft de #180 para integrar el feature a `DEV`. Sin push adicional pendiente.
