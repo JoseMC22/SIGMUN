@@ -357,43 +357,44 @@ export default function EstadoCuentaProyectadoDetalleView({
           </h2>
         </div>
         <form onSubmit={handleSubmit} className="space-y-[11px] px-4 pb-4 pt-[13px]">
-          <fieldset>
-            <legend className={`mb-[3px] ${LEGEND_CLASS}`}>Estado</legend>
-            <div className="flex flex-wrap gap-x-6 gap-y-[6px]">
-              {ESTADOS.map((option) => (
-                <label
-                  key={option.value}
-                  className="inline-flex min-h-11 items-center gap-1 text-[11px] font-medium text-sat-navy/80"
-                >
-                  <input
-                    type="radio"
-                    name="estadoDetalle"
-                    value={option.value}
-                    checked={estado === option.value}
-                    onChange={() => setEstado(option.value)}
-                    className={CHECKBOX_CLASS}
-                  />
-                  {option.label}
-                </label>
-              ))}
+          <div className="flex flex-wrap items-start gap-x-[31px] gap-y-[11px]">
+            <fieldset>
+              <legend className={`mb-[0px] ${LEGEND_CLASS}`}>Estado</legend>
+              <div className="flex flex-wrap gap-x-6 gap-y-[2px]">
+                {ESTADOS.map((option) => (
+                  <label
+                    key={option.value}
+                    className="inline-flex min-h-11 items-center gap-2 text-[11px] font-medium text-sat-navy/80"
+                  >
+                    <input
+                      type="radio"
+                      name="estadoDetalle"
+                      value={option.value}
+                      checked={estado === option.value}
+                      onChange={() => setEstado(option.value)}
+                      className={CHECKBOX_CLASS}
+                    />
+                    {option.label}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <div className="flex flex-col gap-[0px]">
+              <label
+                htmlFor="fechaProyectada"
+                className="text-[9px] font-semibold uppercase tracking-wider text-sat-navy/70"
+              >
+                Fecha de proyección
+              </label>
+              <input
+                id="fechaProyectada"
+                name="fechaProyectada"
+                type="text"
+                value={fechaProyectada}
+                onChange={(event) => setFechaProyectada(event.target.value)}
+                className="h-9 w-40 rounded-md border border-sat-navy/25 bg-clean-white px-2.5 font-inter text-[11px] text-sat-navy tabular-nums focus:border-sat-cyan focus:outline-none focus:ring-2 focus:ring-sat-cyan/30"
+              />
             </div>
-          </fieldset>
-
-          <div className="flex flex-col gap-[3px]">
-            <label
-              htmlFor="fechaProyectada"
-              className="text-[9px] font-semibold uppercase tracking-wider text-sat-navy/70"
-            >
-              Fecha de proyección
-            </label>
-            <input
-              id="fechaProyectada"
-              name="fechaProyectada"
-              type="text"
-              value={fechaProyectada}
-              onChange={(event) => setFechaProyectada(event.target.value)}
-              className="h-9 w-40 rounded-md border border-sat-navy/25 bg-clean-white px-2.5 font-inter text-[11px] text-sat-navy tabular-nums focus:border-sat-cyan focus:outline-none focus:ring-2 focus:ring-sat-cyan/30"
-            />
           </div>
 
           <div className="flex flex-wrap items-start gap-x-4 gap-y-[11px]">
