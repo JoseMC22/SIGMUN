@@ -287,7 +287,7 @@ export default function EstadoCuentaProyectadoDetalleView({
           </span>
         </div>
         <section aria-label="Datos del contribuyente">
-          <dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
+          <dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 lg:w-1/2">
             <div>
               <dt className="font-inter text-[10px] uppercase tracking-wider text-clean-white/70">
                 Código
