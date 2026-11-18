@@ -160,9 +160,9 @@ function CheckboxGroup({
 }: CheckboxGroupProps) {
   return (
     <fieldset className="min-w-0">
-      <legend className={`mb-2 ${LEGEND_CLASS}`}>{legend}</legend>
+      <legend className={`mb-[6px] ${LEGEND_CLASS}`}>{legend}</legend>
       <div
-        className={`max-h-32 space-y-1 overflow-y-auto rounded-md border border-sat-navy/10 bg-sat-navy/[0.03] p-2 ${
+        className={`max-h-32 space-y-[3px] overflow-y-auto rounded-md border border-sat-navy/10 bg-sat-navy/[0.03] p-2 ${
           wide ? "min-w-[16rem]" : ""
         }`}
       >
@@ -356,10 +356,10 @@ export default function EstadoCuentaProyectadoDetalleView({
             Filtros
           </h2>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-4 p-4">
+        <form onSubmit={handleSubmit} className="space-y-[11px] p-4">
           <fieldset>
-            <legend className={`mb-2 ${LEGEND_CLASS}`}>Estado</legend>
-            <div className="flex flex-wrap gap-x-6 gap-y-2">
+            <legend className={`mb-[6px] ${LEGEND_CLASS}`}>Estado</legend>
+            <div className="flex flex-wrap gap-x-6 gap-y-[6px]">
               {ESTADOS.map((option) => (
                 <label
                   key={option.value}
@@ -379,7 +379,7 @@ export default function EstadoCuentaProyectadoDetalleView({
             </div>
           </fieldset>
 
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-[3px]">
             <label
               htmlFor="fechaProyectada"
               className="text-[9px] font-semibold uppercase tracking-wider text-sat-navy/70"
@@ -396,7 +396,7 @@ export default function EstadoCuentaProyectadoDetalleView({
             />
           </div>
 
-          <div className="flex flex-wrap items-start gap-4">
+          <div className="flex flex-wrap items-start gap-x-4 gap-y-[11px]">
             <CheckboxGroup
               legend="Concepto"
               options={CONCEPTOS}
@@ -430,7 +430,7 @@ export default function EstadoCuentaProyectadoDetalleView({
             />
           </div>
 
-          <div className="flex justify-end border-t border-sat-navy/10 pt-3">
+          <div className="flex justify-end border-t border-sat-navy/10 pt-[8px]">
             <button
               type="submit"
               className="inline-flex min-h-10 items-center gap-1.5 rounded-md bg-sat-cyan px-4 py-2 text-[11px] font-semibold text-sat-navy shadow-sm transition hover:bg-sat-cyan/90 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
