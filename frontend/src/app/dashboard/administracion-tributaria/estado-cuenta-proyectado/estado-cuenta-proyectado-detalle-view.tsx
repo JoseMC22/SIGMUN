@@ -358,7 +358,7 @@ export default function EstadoCuentaProyectadoDetalleView({
         </div>
         <form onSubmit={handleSubmit} className="space-y-[11px] px-4 pb-4 pt-[13px]">
           <fieldset>
-            <legend className={`mb-[6px] ${LEGEND_CLASS}`}>Estado</legend>
+            <legend className={`mb-[3px] ${LEGEND_CLASS}`}>Estado</legend>
             <div className="flex flex-wrap gap-x-6 gap-y-[6px]">
               {ESTADOS.map((option) => (
                 <label
