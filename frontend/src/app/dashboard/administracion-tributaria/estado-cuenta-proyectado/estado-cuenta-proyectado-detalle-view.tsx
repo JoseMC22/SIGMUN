@@ -180,7 +180,7 @@ function CheckboxGroup({
           options.map((option) => (
             <label
               key={option.value}
-              className="flex min-h-8 cursor-pointer items-center gap-2 text-xs font-inter text-sat-navy/80"
+              className="flex min-h-8 cursor-pointer items-center gap-2 text-xs font-medium text-sat-navy/80"
             >
               <input
                 type="checkbox"
@@ -302,7 +302,7 @@ export default function EstadoCuentaProyectadoDetalleView({
               <dt className="font-inter text-xs uppercase tracking-wider text-clean-white/70">
                 Código
               </dt>
-              <dd className="mt-0.5 font-outfit text-base font-semibold tabular-nums text-clean-white">
+              <dd className="mt-0.5 text-sm font-semibold tabular-nums text-clean-white">
                 {cabecera.codigo}
               </dd>
             </div>
@@ -310,7 +310,7 @@ export default function EstadoCuentaProyectadoDetalleView({
               <dt className="font-inter text-xs uppercase tracking-wider text-clean-white/70">
                 Contribuyente
               </dt>
-              <dd className="mt-0.5 font-outfit text-base font-semibold text-clean-white">
+              <dd className="mt-0.5 text-sm font-semibold text-clean-white">
                 {cabecera.nombre}
               </dd>
             </div>
