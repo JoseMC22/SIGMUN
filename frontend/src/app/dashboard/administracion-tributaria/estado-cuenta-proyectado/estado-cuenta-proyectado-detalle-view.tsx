@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { AlertCircle, FileText, Search, SearchX } from "lucide-react";
+import { AlertCircle, FileText, Search, SearchX, X } from "lucide-react";
 import type {
   CabeceraProyectado,
   CatalogosProyectado,
@@ -21,6 +21,7 @@ export interface EstadoCuentaProyectadoDetalleViewProps {
   recibos: ReciboEmitidoProyectado[];
   error: string | null;
   onMostrar: (filters: DetalleEstadoCuentaFilters) => void;
+  onClose: () => void;
 }
 
 interface CheckboxOption {
@@ -197,6 +198,7 @@ export default function EstadoCuentaProyectadoDetalleView({
   detalle,
   error,
   onMostrar,
+  onClose,
 }: EstadoCuentaProyectadoDetalleViewProps) {
   const [annos, setAnnos] = useState<string[]>([]);
   const [tipos, setTipos] = useState<string[]>([]);
@@ -281,10 +283,20 @@ export default function EstadoCuentaProyectadoDetalleView({
               Consulta de solo lectura del contribuyente {codigo}
             </p>
           </div>
-          <span className="inline-flex items-center gap-1.5 rounded-md border border-clean-white/25 px-2.5 py-1 font-inter text-[10px] text-clean-white/90">
-            <FileText size={13} aria-hidden="true" />
-            Proyección {catalogos.fechaProyectada}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-md border border-clean-white/25 px-2.5 py-1 font-inter text-[10px] text-clean-white/90">
+              <FileText size={13} aria-hidden="true" />
+              Proyección {catalogos.fechaProyectada}
+            </span>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Cerrar"
+              className="rounded-md p-1 text-clean-white/70 transition hover:bg-clean-white/10 hover:text-clean-white focus:outline-none focus:ring-2 focus:ring-sat-cyan/40"
+            >
+              <X size={16} aria-hidden="true" />
+            </button>
+          </div>
         </div>
         <section aria-label="Datos del contribuyente">
           <dl className="mt-4 grid grid-cols-1 gap-x-1 gap-y-1 sm:grid-cols-2 lg:grid-cols-12">

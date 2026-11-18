@@ -109,6 +109,7 @@ interface HarnessOverrides {
 
 function renderView(overrides: HarnessOverrides = {}) {
   const onMostrar = vi.fn();
+  const onClose = vi.fn();
   render(
     <EstadoCuentaProyectadoDetalleView
       codigo="0000123"
@@ -118,9 +119,10 @@ function renderView(overrides: HarnessOverrides = {}) {
       recibos={overrides.recibos ?? RECIBOS}
       error={overrides.error ?? null}
       onMostrar={onMostrar}
+      onClose={onClose}
     />,
   );
-  return { onMostrar };
+  return { onMostrar, onClose };
 }
 
 describe("EstadoCuentaProyectadoDetalleView", () => {
@@ -276,5 +278,11 @@ describe("EstadoCuentaProyectadoDetalleView", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Base de datos no disponible",
     );
+  });
+
+  it("calls onClose when the close button is clicked", () => {
+    const { onClose } = renderView();
+    fireEvent.click(screen.getByRole("button", { name: /cerrar/i }));
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

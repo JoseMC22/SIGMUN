@@ -64,7 +64,13 @@ interface DetalleCarga {
 }
 
 /** Read-only detail route: loads the catalog data, then queries on demand. */
-function EstadoCuentaProyectadoDetalle({ codigo }: { codigo: string }) {
+function EstadoCuentaProyectadoDetalle({
+  codigo,
+  onClose,
+}: {
+  codigo: string;
+  onClose: () => void;
+}) {
   const [carga, setCarga] = useState<DetalleCarga | null>(null);
   const [detalle, setDetalle] = useState<DetalleReciboProyectado[]>([]);
   const [loading, setLoading] = useState(true);
@@ -152,6 +158,7 @@ function EstadoCuentaProyectadoDetalle({ codigo }: { codigo: string }) {
       detalle={detalle}
       error={error}
       onMostrar={handleMostrar}
+      onClose={onClose}
     />
   );
 }
@@ -253,8 +260,17 @@ function EstadoCuentaProyectadoPageContent() {
     [router],
   );
 
+  const handleCloseDetalle = useCallback(() => {
+    router.push(DESTINATION_PATH);
+  }, [router]);
+
   if (codigoDestino) {
-    return <EstadoCuentaProyectadoDetalle codigo={codigoDestino} />;
+    return (
+      <EstadoCuentaProyectadoDetalle
+        codigo={codigoDestino}
+        onClose={handleCloseDetalle}
+      />
+    );
   }
 
   return (

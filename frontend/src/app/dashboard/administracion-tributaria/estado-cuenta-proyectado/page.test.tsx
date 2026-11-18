@@ -319,6 +319,17 @@ describe("EstadoCuentaProyectadoPage", () => {
     );
   });
 
+  it("closes the detail view and returns to the search route", async () => {
+    renderDetailPage();
+    await screen.findByText("JUAN PEREZ");
+
+    fireEvent.click(screen.getByRole("button", { name: /cerrar/i }));
+
+    expect(nav.push).toHaveBeenCalledWith(
+      "/dashboard/administracion-tributaria/estado-cuenta-proyectado",
+    );
+  });
+
   it("requests the selected page with pageSize 20", async () => {
     mockSearch.mockResolvedValueOnce(okResult({ total: 45, totalPages: 3 }));
     renderSearchPage();
