@@ -363,8 +363,8 @@ describe("EstadoCuentaProyectadoPage", () => {
       screen.getByRole("checkbox", { name: "Predio 0000003" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("table", { name: /recibos emitidos/i }),
-    ).toBeInTheDocument();
+      screen.queryByRole("table", { name: /recibos emitidos/i }),
+    ).not.toBeInTheDocument();
     expect(mockSearch).not.toHaveBeenCalled();
   });
 
@@ -440,7 +440,7 @@ describe("EstadoCuentaProyectadoPage", () => {
     expect(
       screen.getByText(/no se encontraron registros de detalle/i),
     ).toBeInTheDocument();
-    expect(screen.getByText(/no hay recibos emitidos/i)).toBeInTheDocument();
+    expect(screen.queryByText(/no hay recibos emitidos/i)).not.toBeInTheDocument();
   });
 
   it("shows an alert when the header cannot be loaded", async () => {

@@ -113,15 +113,6 @@ const DETALLE_COLUMNS: readonly string[] = [
   "Total",
 ];
 
-const RECIBO_COLUMNS: readonly string[] = [
-  "Recibo",
-  "Caja",
-  "Fecha de pago",
-  "Monto",
-  "Estado",
-  "Operador",
-];
-
 /** Port of the legacy min..max checkbox generation, including zero padding. */
 function expandRange(range: RangoProyectado): string[] {
   const from = Number(range.minimo);
@@ -204,7 +195,6 @@ export default function EstadoCuentaProyectadoDetalleView({
   cabecera,
   catalogos,
   detalle,
-  recibos,
   error,
   onMostrar,
 }: EstadoCuentaProyectadoDetalleViewProps) {
@@ -513,65 +503,6 @@ export default function EstadoCuentaProyectadoDetalleView({
                     <td className={`${TD_CLASS} ${NUMERIC_CLASS} font-semibold`}>{formatMoney(totals.total)}</td>
                   </tr>
                 </>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className={PANEL_CLASS} aria-labelledby="detalle-recibos-title">
-        <div className="flex items-center gap-2 border-b border-sat-navy/10 bg-gradient-to-r from-sat-navy/5 to-clean-white px-3 py-2">
-          <span className="h-3.5 w-0.5 rounded-full bg-sat-cyan" />
-          <h2
-            id="detalle-recibos-title"
-            className="text-[10px] font-semibold uppercase tracking-widest text-sat-navy/70"
-          >
-            Recibos emitidos
-          </h2>
-        </div>
-        <div className="overflow-x-auto p-2.5">
-          <table className="w-full min-w-[640px] table-fixed border-collapse">
-            <caption className="sr-only">Recibos emitidos</caption>
-            <thead className="bg-gradient-to-r from-sat-navy to-sat-navy/80">
-              <tr>
-                {RECIBO_COLUMNS.map((column) => (
-                  <th key={column} scope="col" className={TH_CLASS}>
-                    {column}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-sat-navy/10">
-              {recibos.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={RECIBO_COLUMNS.length}
-                    className="py-10 text-center font-inter text-sm font-medium text-sat-navy/80"
-                  >
-                    No hay recibos emitidos
-                  </td>
-                </tr>
-              ) : (
-                recibos.map((receipt, index) => {
-                  const anulado =
-                    receipt.estado.trim().toLowerCase() === "anulado";
-                  return (
-                    <tr
-                      key={`${receipt.num_ingr}-${index}`}
-                      data-anulado={anulado ? "true" : undefined}
-                      className={`transition hover:bg-sat-navy/5 ${
-                        anulado ? "line-through opacity-60" : ""
-                      }`}
-                    >
-                      <td className={`${TD_CLASS} tabular-nums`}>{formatCell(receipt.num_ingr)}</td>
-                      <td className={TD_CLASS}>{formatCell(receipt.caja)}</td>
-                      <td className={`${TD_CLASS} tabular-nums`}>{formatCell(receipt.fec_pago)}</td>
-                      <td className={`${TD_CLASS} ${NUMERIC_CLASS}`}>{formatMoney(receipt.monto)}</td>
-                      <td className={TD_CLASS}>{formatCell(receipt.estado)}</td>
-                      <td className={TD_CLASS}>{formatCell(receipt.operador)}</td>
-                    </tr>
-                  );
-                })
               )}
             </tbody>
           </table>

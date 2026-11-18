@@ -240,30 +240,26 @@ describe("EstadoCuentaProyectadoDetalleView", () => {
     }
   });
 
-  it("renders issued receipts and visually marks Anulado rows", () => {
+  it("does not render the issued receipts section", () => {
     renderView();
 
-    const panel = screen.getByRole("table", { name: /recibos emitidos/i });
-    expect(within(panel).getAllByText("CAJA 1")).toHaveLength(2);
-    expect(within(panel).getByText("OPER1")).toBeInTheDocument();
-    const anulado = within(panel).getByText("Anulado").closest("tr");
-    expect(anulado).toHaveAttribute("data-anulado", "true");
-    expect(anulado).toHaveClass("line-through");
+    expect(screen.queryByRole("table", { name: /recibos emitidos/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/recibos emitidos/i)).not.toBeInTheDocument();
   });
 
-  it("renders readable empty states for detail and receipts", () => {
+  it("renders readable detail empty state and hides receipts", () => {
     renderView({ detalle: [], recibos: [] });
 
     expect(
       screen.getByText(/no se encontraron registros de detalle/i),
     ).toBeInTheDocument();
-    expect(screen.getByText(/no hay recibos emitidos/i)).toBeInTheDocument();
+    expect(screen.queryByText(/no hay recibos emitidos/i)).not.toBeInTheDocument();
   });
 
   it("uses semantic tables with captions and scoped headers", () => {
     renderView();
 
-    for (const name of [/detalle de recibos/i, /recibos emitidos/i]) {
+    for (const name of [/detalle de recibos/i]) {
       const table = screen.getByRole("table", { name });
       expect(table.querySelector("caption")).not.toBeNull();
       const columnHeaders = within(table).getAllByRole("columnheader");
