@@ -347,7 +347,7 @@ export default function EstadoCuentaProyectadoDetalleView({
       )}
 
       <section className={PANEL_CLASS} aria-labelledby="detalle-filtros-title">
-        <div className="flex items-center gap-2 border-b border-sat-navy/10 bg-gradient-to-r from-sat-navy/5 to-clean-white px-3 py-2">
+        <div className="flex items-center gap-2 border-b border-sat-navy/10 bg-gradient-to-r from-sat-navy/5 to-clean-white px-3 pt-2 pb-[6px]">
           <span className="h-3.5 w-0.5 rounded-full bg-sat-cyan" />
           <h2
             id="detalle-filtros-title"
@@ -356,14 +356,14 @@ export default function EstadoCuentaProyectadoDetalleView({
             Filtros
           </h2>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-[11px] p-4">
+        <form onSubmit={handleSubmit} className="space-y-[11px] px-4 pb-4 pt-[13px]">
           <fieldset>
             <legend className={`mb-[6px] ${LEGEND_CLASS}`}>Estado</legend>
             <div className="flex flex-wrap gap-x-6 gap-y-[6px]">
               {ESTADOS.map((option) => (
                 <label
                   key={option.value}
-                  className="inline-flex min-h-11 items-center gap-2 text-[11px] font-medium text-sat-navy/80"
+                  className="inline-flex min-h-11 items-center gap-1 text-[11px] font-medium text-sat-navy/80"
                 >
                   <input
                     type="radio"
