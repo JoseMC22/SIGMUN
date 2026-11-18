@@ -287,8 +287,8 @@ export default function EstadoCuentaProyectadoDetalleView({
           </span>
         </div>
         <section aria-label="Datos del contribuyente">
-          <dl className="mt-4 grid grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div>
+          <dl className="mt-4 grid grid-cols-1 gap-x-1 gap-y-1 sm:grid-cols-2 lg:grid-cols-12">
+            <div className="lg:col-span-1">
               <dt className="font-inter text-[10px] uppercase tracking-wider text-clean-white/70">
                 Código
               </dt>
@@ -296,7 +296,7 @@ export default function EstadoCuentaProyectadoDetalleView({
                 {cabecera.codigo}
               </dd>
             </div>
-            <div>
+            <div className="lg:col-span-5">
               <dt className="font-inter text-[10px] uppercase tracking-wider text-clean-white/70">
                 Contribuyente
               </dt>
@@ -304,7 +304,7 @@ export default function EstadoCuentaProyectadoDetalleView({
                 {cabecera.nombre}
               </dd>
             </div>
-            <div>
+            <div className="lg:col-span-5">
               <dt className="font-inter text-[10px] uppercase tracking-wider text-clean-white/70">
                 Dirección
               </dt>
@@ -312,7 +312,7 @@ export default function EstadoCuentaProyectadoDetalleView({
                 {cabecera.dirfiscal}
               </dd>
             </div>
-            <div>
+            <div className="lg:col-span-1">
               <dt className="font-inter text-[10px] uppercase tracking-wider text-clean-white/70">
                 Nro. Documento
               </dt>
