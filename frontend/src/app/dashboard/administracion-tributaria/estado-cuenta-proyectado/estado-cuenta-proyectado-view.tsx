@@ -35,10 +35,10 @@ export interface EstadoCuentaProyectadoViewProps {
 }
 
 const INPUT_CLASS =
-  "h-9 w-full rounded-md border border-sat-navy/25 bg-clean-white px-2.5 font-inter text-xs text-sat-navy tabular-nums uppercase transition placeholder:text-sat-navy/70 focus:border-sat-cyan focus:outline-none focus:ring-2 focus:ring-sat-cyan/30";
+  "h-9 w-full rounded-md border border-sat-navy/25 bg-clean-white px-2.5 font-inter text-[11px] text-sat-navy tabular-nums uppercase transition placeholder:text-sat-navy/70 focus:border-sat-cyan focus:outline-none focus:ring-2 focus:ring-sat-cyan/30";
 const TH_CLASS =
-  "whitespace-nowrap px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-clean-white/90";
-const TD_CLASS = "truncate px-3 py-2 text-left text-xs font-inter text-sat-navy";
+  "whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-clean-white/90";
+const TD_CLASS = "truncate px-3 py-2 text-left text-[11px] font-inter text-sat-navy";
 
 const CRITERIOS: ReadonlyArray<{
   value: TipoBusquedaProyectado;
@@ -75,7 +75,7 @@ function FilterField({
     <div className="flex min-w-0 flex-col gap-1">
       <label
         htmlFor={id}
-        className="text-xs font-semibold uppercase tracking-wider text-sat-navy/70"
+        className="text-[9px] font-semibold uppercase tracking-wider text-sat-navy/70"
       >
         {label}
       </label>
@@ -138,113 +138,104 @@ export default function EstadoCuentaProyectadoView({
         <span className="h-3.5 w-0.5 rounded-full bg-sat-cyan" />
         <h2
           id="criterios-title"
-          className="text-xs font-semibold uppercase tracking-widest text-sat-navy/70"
+          className="text-[10px] font-semibold uppercase tracking-widest text-sat-navy/70"
         >
           Criterios
         </h2>
       </div>
 
       <form onSubmit={handleSubmit} className="p-4">
-        <fieldset>
-          <legend className="mb-1 text-xs font-semibold uppercase tracking-wider text-sat-navy/70">
-            Criterio de búsqueda
-          </legend>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-            {CRITERIOS.map((criterio) => (
-              <label
-                key={criterio.value}
-                className="inline-flex min-h-11 items-center gap-2 text-xs font-medium text-sat-navy/80"
-              >
-                <input
-                  type="radio"
-                  name="tipoBusqueda"
-                  value={criterio.value}
-                  aria-label={`Criterio ${criterio.label}`}
-                  checked={filters.tipoBusqueda === criterio.value}
-                  onChange={() => onCriterioChange(criterio.value)}
-                  className="h-4 w-4 border-sat-navy/25 accent-sat-cyan focus:outline-none focus:ring-2 focus:ring-sat-cyan/40"
-                />
-                {criterio.label}
-              </label>
-            ))}
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="w-[130px]">
+            <label htmlFor="tipoBusqueda" className="text-[9px] font-semibold uppercase tracking-wider text-sat-navy/70">
+              Tipo Búsqueda
+            </label>
+            <select
+              id="tipoBusqueda"
+              aria-label="Tipo Búsqueda"
+              value={filters.tipoBusqueda}
+              onChange={(event) => onCriterioChange(event.target.value as TipoBusquedaProyectado)}
+              className={INPUT_CLASS}
+            >
+              {CRITERIOS.map((criterio) => (
+                <option key={criterio.value} value={criterio.value}>
+                  {criterio.label}
+                </option>
+              ))}
+            </select>
           </div>
-
-          <div className="mt-2 grid grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div hidden={filters.tipoBusqueda !== "C"}>
-              <FilterField
-                id="codigo"
-                label="Código de contribuyente"
-                value={filters.codigo}
-                maxLength={7}
-                numeric
-                onBlur={onCodigoBlur}
-                onKeyDown={handleCodigoKeyDown}
-                onChange={(value) => onFilterChange("codigo", value)}
-              />
-            </div>
-            <div hidden={filters.tipoBusqueda !== "N"}>
-              <FilterField
-                id="criterioNombre"
-                label="Nombres"
-                value={filters.criterioNombre}
-                onChange={(value) => onFilterChange("criterioNombre", value)}
-              />
-            </div>
-            <div hidden={filters.tipoBusqueda !== "N"}>
-              <FilterField
-                id="criterioPaterno"
-                label="Apellido Paterno"
-                value={filters.criterioPaterno}
-                onChange={(value) => onFilterChange("criterioPaterno", value)}
-              />
-            </div>
-            <div hidden={filters.tipoBusqueda !== "N"}>
-              <FilterField
-                id="criterioMaterno"
-                label="Apellido Materno"
-                value={filters.criterioMaterno}
-                onChange={(value) => onFilterChange("criterioMaterno", value)}
-              />
-            </div>
-            <div hidden={filters.tipoBusqueda !== "R"}>
-              <FilterField
-                id="criterioRazon"
-                label="Razón Social"
-                value={filters.criterioRazon}
-                onChange={(value) => onFilterChange("criterioRazon", value)}
-              />
-            </div>
-            <div hidden={filters.tipoBusqueda !== "D"}>
-              <FilterField
-                id="documento"
-                label="Nro. Documento"
-                value={filters.documento}
-                maxLength={11}
-                numeric
-                onChange={(value) => onFilterChange("documento", value)}
-              />
-            </div>
-            <div className="flex items-end">
-              <button
-                type="submit"
-                disabled={loading}
-                className="inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-md bg-sat-cyan px-4 py-2 text-xs font-semibold text-sat-navy shadow-sm transition hover:bg-sat-cyan/90 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 size={14} className="animate-spin" aria-hidden="true" />
-                    Buscando...
-                  </>
-                ) : (
-                  <>
-                    <Search size={14} aria-hidden="true" />
-                    Buscar
-                  </>
-                )}
-              </button>
-            </div>
+          <div hidden={filters.tipoBusqueda !== "C"} className="w-[160px] max-w-full">
+            <FilterField
+              id="codigo"
+              label="Código de contribuyente"
+              value={filters.codigo}
+              maxLength={7}
+              numeric
+              onBlur={onCodigoBlur}
+              onKeyDown={handleCodigoKeyDown}
+              onChange={(value) => onFilterChange("codigo", value)}
+            />
           </div>
-        </fieldset>
+          <div hidden={filters.tipoBusqueda !== "N"} className="w-[160px] max-w-full">
+            <FilterField
+              id="criterioNombre"
+              label="Nombres"
+              value={filters.criterioNombre}
+              onChange={(value) => onFilterChange("criterioNombre", value)}
+            />
+          </div>
+          <div hidden={filters.tipoBusqueda !== "N"} className="w-[160px] max-w-full">
+            <FilterField
+              id="criterioPaterno"
+              label="Apellido Paterno"
+              value={filters.criterioPaterno}
+              onChange={(value) => onFilterChange("criterioPaterno", value)}
+            />
+          </div>
+          <div hidden={filters.tipoBusqueda !== "N"} className="w-[160px] max-w-full">
+            <FilterField
+              id="criterioMaterno"
+              label="Apellido Materno"
+              value={filters.criterioMaterno}
+              onChange={(value) => onFilterChange("criterioMaterno", value)}
+            />
+          </div>
+          <div hidden={filters.tipoBusqueda !== "R"} className="w-[160px] max-w-full">
+            <FilterField
+              id="criterioRazon"
+              label="Razón Social"
+              value={filters.criterioRazon}
+              onChange={(value) => onFilterChange("criterioRazon", value)}
+            />
+          </div>
+          <div hidden={filters.tipoBusqueda !== "D"} className="w-[160px] max-w-full">
+            <FilterField
+              id="documento"
+              label="Nro. Documento"
+              value={filters.documento}
+              maxLength={11}
+              numeric
+              onChange={(value) => onFilterChange("documento", value)}
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-md bg-sat-cyan px-4 py-2 text-[11px] font-semibold text-sat-navy shadow-sm transition hover:bg-sat-cyan/90 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {loading ? (
+              <>
+                <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+                Buscando...
+              </>
+            ) : (
+              <>
+                <Search size={14} aria-hidden="true" />
+                Buscar
+              </>
+            )}
+          </button>
+        </div>
       </form>
     </section>
   );
@@ -288,7 +279,7 @@ export default function EstadoCuentaProyectadoView({
                   aria-label="Estado de Cuenta"
                   title="Estado de Cuenta Proyectado"
                   onClick={() => onOpenEstadoCuenta(row.codigo)}
-                  className="inline-flex min-h-9 items-center gap-1 rounded-md border border-sat-navy/15 px-2 py-1 text-xs font-medium text-sat-navy/80 transition hover:bg-sat-navy/5 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40"
+                  className="inline-flex min-h-9 items-center gap-1 rounded-md border border-sat-navy/15 px-2 py-1 text-[11px] font-medium text-sat-navy/80 transition hover:bg-sat-navy/5 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40"
                 >
                   <FileText size={13} aria-hidden="true" />
                   Ver

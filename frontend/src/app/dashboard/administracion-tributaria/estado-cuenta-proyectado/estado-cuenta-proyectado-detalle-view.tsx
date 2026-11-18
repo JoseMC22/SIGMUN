@@ -40,11 +40,11 @@ interface CheckboxGroupProps {
 const PANEL_CLASS =
   "overflow-hidden rounded-lg border border-sat-navy/15 bg-clean-white shadow-sm";
 const LEGEND_CLASS =
-  "text-xs font-semibold uppercase tracking-wider text-sat-navy/70";
+  "text-[10px] font-semibold uppercase tracking-wider text-sat-navy/70";
 const TH_CLASS =
-  "whitespace-nowrap px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-clean-white/90";
+  "whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-clean-white/90";
 const TD_CLASS =
-  "whitespace-nowrap px-3 py-2 text-left font-inter text-xs text-sat-navy";
+  "whitespace-nowrap px-3 py-2 text-left font-inter text-[11px] text-sat-navy";
 const NUMERIC_CLASS = "tabular-nums text-right";
 const CHECKBOX_CLASS =
   "h-4 w-4 rounded border-sat-navy/25 accent-sat-cyan focus:outline-none focus:ring-2 focus:ring-sat-cyan/40";
@@ -175,12 +175,12 @@ function CheckboxGroup({
         }`}
       >
         {options.length === 0 ? (
-          <p className="font-inter text-xs text-sat-navy/70">Sin opciones</p>
+          <p className="font-inter text-[11px] text-sat-navy/70">Sin opciones</p>
         ) : (
           options.map((option) => (
             <label
               key={option.value}
-              className="flex min-h-8 cursor-pointer items-center gap-2 text-xs font-medium text-sat-navy/80"
+              className="flex min-h-8 cursor-pointer items-center gap-2 text-[11px] font-medium text-sat-navy/80"
             >
               <input
                 type="checkbox"
@@ -291,7 +291,7 @@ export default function EstadoCuentaProyectadoDetalleView({
               Consulta de solo lectura del contribuyente {codigo}
             </p>
           </div>
-          <span className="inline-flex items-center gap-1.5 rounded-md border border-clean-white/25 px-2.5 py-1 font-inter text-xs text-clean-white/90">
+          <span className="inline-flex items-center gap-1.5 rounded-md border border-clean-white/25 px-2.5 py-1 font-inter text-[10px] text-clean-white/90">
             <FileText size={13} aria-hidden="true" />
             Proyección {catalogos.fechaProyectada}
           </span>
@@ -299,34 +299,34 @@ export default function EstadoCuentaProyectadoDetalleView({
         <section aria-label="Datos del contribuyente">
           <dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
             <div>
-              <dt className="font-inter text-xs uppercase tracking-wider text-clean-white/70">
+              <dt className="font-inter text-[10px] uppercase tracking-wider text-clean-white/70">
                 Código
               </dt>
-              <dd className="mt-0.5 text-sm font-semibold tabular-nums text-clean-white">
+              <dd className="mt-0.5 text-[11px] font-semibold tabular-nums text-clean-white">
                 {cabecera.codigo}
               </dd>
             </div>
             <div>
-              <dt className="font-inter text-xs uppercase tracking-wider text-clean-white/70">
+              <dt className="font-inter text-[10px] uppercase tracking-wider text-clean-white/70">
                 Contribuyente
               </dt>
-              <dd className="mt-0.5 text-sm font-semibold text-clean-white">
+              <dd className="mt-0.5 text-[11px] font-semibold text-clean-white">
                 {cabecera.nombre}
               </dd>
             </div>
             <div>
-              <dt className="font-inter text-xs uppercase tracking-wider text-clean-white/70">
+              <dt className="font-inter text-[10px] uppercase tracking-wider text-clean-white/70">
                 Dirección
               </dt>
-              <dd className="mt-0.5 font-inter text-sm text-clean-white/90">
+              <dd className="mt-0.5 font-inter text-[11px] text-clean-white/90">
                 {cabecera.dirfiscal}
               </dd>
             </div>
             <div>
-              <dt className="font-inter text-xs uppercase tracking-wider text-clean-white/70">
+              <dt className="font-inter text-[10px] uppercase tracking-wider text-clean-white/70">
                 Nro. Documento
               </dt>
-              <dd className="mt-0.5 font-inter text-sm tabular-nums text-clean-white/90">
+              <dd className="mt-0.5 font-inter text-[11px] tabular-nums text-clean-white/90">
                 {cabecera.num_doc}
               </dd>
             </div>
@@ -349,7 +349,7 @@ export default function EstadoCuentaProyectadoDetalleView({
           <span className="h-3.5 w-0.5 rounded-full bg-sat-cyan" />
           <h2
             id="detalle-filtros-title"
-            className="text-xs font-semibold uppercase tracking-widest text-sat-navy/70"
+            className="text-[10px] font-semibold uppercase tracking-widest text-sat-navy/70"
           >
             Filtros
           </h2>
@@ -361,7 +361,7 @@ export default function EstadoCuentaProyectadoDetalleView({
               {ESTADOS.map((option) => (
                 <label
                   key={option.value}
-                  className="inline-flex min-h-11 items-center gap-2 text-xs font-medium text-sat-navy/80"
+                  className="inline-flex min-h-11 items-center gap-2 text-[11px] font-medium text-sat-navy/80"
                 >
                   <input
                     type="radio"
@@ -380,7 +380,7 @@ export default function EstadoCuentaProyectadoDetalleView({
           <div className="flex flex-col gap-1">
             <label
               htmlFor="fechaProyectada"
-              className="text-xs font-semibold uppercase tracking-wider text-sat-navy/70"
+              className="text-[9px] font-semibold uppercase tracking-wider text-sat-navy/70"
             >
               Fecha de proyección
             </label>
@@ -390,7 +390,7 @@ export default function EstadoCuentaProyectadoDetalleView({
               type="text"
               value={fechaProyectada}
               onChange={(event) => setFechaProyectada(event.target.value)}
-              className="h-9 w-40 rounded-md border border-sat-navy/25 bg-clean-white px-2.5 font-inter text-xs text-sat-navy tabular-nums focus:border-sat-cyan focus:outline-none focus:ring-2 focus:ring-sat-cyan/30"
+              className="h-9 w-40 rounded-md border border-sat-navy/25 bg-clean-white px-2.5 font-inter text-[11px] text-sat-navy tabular-nums focus:border-sat-cyan focus:outline-none focus:ring-2 focus:ring-sat-cyan/30"
             />
           </div>
 
@@ -431,7 +431,7 @@ export default function EstadoCuentaProyectadoDetalleView({
           <div className="flex justify-end border-t border-sat-navy/10 pt-3">
             <button
               type="submit"
-              className="inline-flex min-h-10 items-center gap-1.5 rounded-md bg-sat-cyan px-4 py-2 text-xs font-semibold text-sat-navy shadow-sm transition hover:bg-sat-cyan/90 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
+              className="inline-flex min-h-10 items-center gap-1.5 rounded-md bg-sat-cyan px-4 py-2 text-[11px] font-semibold text-sat-navy shadow-sm transition hover:bg-sat-cyan/90 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
             >
               <Search size={14} aria-hidden="true" />
               Mostrar
@@ -445,7 +445,7 @@ export default function EstadoCuentaProyectadoDetalleView({
           <span className="h-3.5 w-0.5 rounded-full bg-sat-cyan" />
           <h2
             id="detalle-grid-title"
-            className="text-xs font-semibold uppercase tracking-widest text-sat-navy/70"
+            className="text-[10px] font-semibold uppercase tracking-widest text-sat-navy/70"
           >
             Recibos del contribuyente
           </h2>
@@ -504,7 +504,7 @@ export default function EstadoCuentaProyectadoDetalleView({
                     </tr>
                   ))}
                   <tr className="bg-sat-navy/5 font-semibold">
-                    <th scope="row" colSpan={DETALLE_COLUMNS.length - 4} className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-sat-navy">
+                    <th scope="row" colSpan={DETALLE_COLUMNS.length - 4} className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-sat-navy">
                       TOTAL
                     </th>
                     <td className={`${TD_CLASS} ${NUMERIC_CLASS} font-semibold`}>{formatMoney(totals.costoEmis)}</td>
@@ -524,7 +524,7 @@ export default function EstadoCuentaProyectadoDetalleView({
           <span className="h-3.5 w-0.5 rounded-full bg-sat-cyan" />
           <h2
             id="detalle-recibos-title"
-            className="text-xs font-semibold uppercase tracking-widest text-sat-navy/70"
+            className="text-[10px] font-semibold uppercase tracking-widest text-sat-navy/70"
           >
             Recibos emitidos
           </h2>

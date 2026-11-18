@@ -157,11 +157,13 @@ function consultaBody(): Record<string, unknown> {
   return JSON.parse(String(call?.[1]?.body)) as Record<string, unknown>;
 }
 
-// Text filters share their label text with the criterion radios, so scope
-// label queries to the text inputs to avoid ambiguous matches.
+// Scope label queries to the text inputs so the criterion select and other
+// labeled controls cannot produce ambiguous matches.
 function getTextInput(label: string): HTMLElement {
   return screen.getByLabelText(label, { selector: 'input[type="text"]' });
 }
+
+const getCriterio = () => screen.getByRole("combobox", { name: "Tipo Búsqueda" });
 
 describe("EstadoCuentaProyectadoPage", () => {
   beforeEach(() => {
@@ -180,17 +182,10 @@ describe("EstadoCuentaProyectadoPage", () => {
     vi.unstubAllGlobals();
   });
 
-  it("renders the four criterion radios, all six inputs and the Buscar button", () => {
+  it("renders the criterion select, all six inputs and the Buscar button", () => {
     renderSearchPage();
 
-    for (const name of [
-      "Criterio Código",
-      "Criterio Nombres",
-      "Criterio Razón Social",
-      "Criterio Documento",
-    ]) {
-      expect(screen.getByRole("radio", { name })).toBeInTheDocument();
-    }
+    expect(getCriterio()).toHaveValue("C");
     for (const label of [
       "Código de contribuyente",
       "Nombres",
@@ -212,17 +207,17 @@ describe("EstadoCuentaProyectadoPage", () => {
     expect(codigo).toBeVisible();
     expect(getTextInput("Nombres")).not.toBeVisible();
 
-    fireEvent.click(screen.getByRole("radio", { name: "Criterio Nombres" }));
+    fireEvent.change(getCriterio(), { target: { value: "N" } });
     expect(codigo).not.toBeVisible();
     expect(getTextInput("Nombres")).toBeVisible();
     expect(getTextInput("Apellido Paterno")).toBeVisible();
     expect(getTextInput("Apellido Materno")).toBeVisible();
 
-    fireEvent.click(screen.getByRole("radio", { name: "Criterio Razón Social" }));
+    fireEvent.change(getCriterio(), { target: { value: "R" } });
     expect(getTextInput("Razón Social")).toBeVisible();
     expect(getTextInput("Nombres")).not.toBeVisible();
 
-    fireEvent.click(screen.getByRole("radio", { name: "Criterio Documento" }));
+    fireEvent.change(getCriterio(), { target: { value: "D" } });
     expect(getTextInput("Nro. Documento")).toBeVisible();
     expect(getTextInput("Razón Social")).not.toBeVisible();
   });
@@ -263,7 +258,7 @@ describe("EstadoCuentaProyectadoPage", () => {
   it("uppercases free-text filters and sends the active criterion", async () => {
     renderSearchPage();
 
-    fireEvent.click(screen.getByRole("radio", { name: "Criterio Nombres" }));
+    fireEvent.change(getCriterio(), { target: { value: "N" } });
     fireEvent.change(getTextInput("Nombres"), {
       target: { value: "juan" },
     });
