@@ -145,93 +145,91 @@ export default function EstadoCuentaProyectadoView({
       </div>
 
       <form onSubmit={handleSubmit} className="p-4">
-        <fieldset className="mb-4">
-          <legend className="mb-2 text-xs font-semibold uppercase tracking-wider text-sat-navy/70">
-            Criterio de búsqueda
-          </legend>
-          <div className="flex flex-wrap gap-x-6 gap-y-2">
-            {CRITERIOS.map((criterio) => (
-              <label
-                key={criterio.value}
-                className="inline-flex min-h-11 items-center gap-2 text-xs font-medium text-sat-navy/80"
-              >
-                <input
-                  type="radio"
-                  name="tipoBusqueda"
-                  value={criterio.value}
-                  aria-label={`Criterio ${criterio.label}`}
-                  checked={filters.tipoBusqueda === criterio.value}
-                  onChange={() => onCriterioChange(criterio.value)}
-                  className="h-4 w-4 border-sat-navy/25 accent-sat-cyan focus:outline-none focus:ring-2 focus:ring-sat-cyan/40"
-                />
-                {criterio.label}
-              </label>
-            ))}
-          </div>
-        </fieldset>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+          <fieldset className="lg:shrink-0">
+            <legend className="sr-only">Criterio de búsqueda</legend>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 lg:max-w-[18rem]">
+              {CRITERIOS.map((criterio) => (
+                <label
+                  key={criterio.value}
+                  className="inline-flex min-h-11 items-center gap-2 text-xs font-medium text-sat-navy/80"
+                >
+                  <input
+                    type="radio"
+                    name="tipoBusqueda"
+                    value={criterio.value}
+                    aria-label={`Criterio ${criterio.label}`}
+                    checked={filters.tipoBusqueda === criterio.value}
+                    onChange={() => onCriterioChange(criterio.value)}
+                    className="h-4 w-4 border-sat-navy/25 accent-sat-cyan focus:outline-none focus:ring-2 focus:ring-sat-cyan/40"
+                  />
+                  {criterio.label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
 
-        <div className="grid grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
-          <div hidden={filters.tipoBusqueda !== "C"}>
-            <FilterField
-              id="codigo"
-              label="Código de contribuyente"
-              value={filters.codigo}
-              maxLength={7}
-              numeric
-              onBlur={onCodigoBlur}
-              onKeyDown={handleCodigoKeyDown}
-              onChange={(value) => onFilterChange("codigo", value)}
-            />
+          <div className="grid flex-1 grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div hidden={filters.tipoBusqueda !== "C"}>
+              <FilterField
+                id="codigo"
+                label="Código de contribuyente"
+                value={filters.codigo}
+                maxLength={7}
+                numeric
+                onBlur={onCodigoBlur}
+                onKeyDown={handleCodigoKeyDown}
+                onChange={(value) => onFilterChange("codigo", value)}
+              />
+            </div>
+            <div hidden={filters.tipoBusqueda !== "N"}>
+              <FilterField
+                id="criterioNombre"
+                label="Nombres"
+                value={filters.criterioNombre}
+                onChange={(value) => onFilterChange("criterioNombre", value)}
+              />
+            </div>
+            <div hidden={filters.tipoBusqueda !== "N"}>
+              <FilterField
+                id="criterioPaterno"
+                label="Apellido Paterno"
+                value={filters.criterioPaterno}
+                onChange={(value) => onFilterChange("criterioPaterno", value)}
+              />
+            </div>
+            <div hidden={filters.tipoBusqueda !== "N"}>
+              <FilterField
+                id="criterioMaterno"
+                label="Apellido Materno"
+                value={filters.criterioMaterno}
+                onChange={(value) => onFilterChange("criterioMaterno", value)}
+              />
+            </div>
+            <div hidden={filters.tipoBusqueda !== "R"}>
+              <FilterField
+                id="criterioRazon"
+                label="Razón Social"
+                value={filters.criterioRazon}
+                onChange={(value) => onFilterChange("criterioRazon", value)}
+              />
+            </div>
+            <div hidden={filters.tipoBusqueda !== "D"}>
+              <FilterField
+                id="documento"
+                label="Nro. Documento"
+                value={filters.documento}
+                maxLength={11}
+                numeric
+                onChange={(value) => onFilterChange("documento", value)}
+              />
+            </div>
           </div>
-          <div hidden={filters.tipoBusqueda !== "N"}>
-            <FilterField
-              id="criterioNombre"
-              label="Nombres"
-              value={filters.criterioNombre}
-              onChange={(value) => onFilterChange("criterioNombre", value)}
-            />
-          </div>
-          <div hidden={filters.tipoBusqueda !== "N"}>
-            <FilterField
-              id="criterioPaterno"
-              label="Apellido Paterno"
-              value={filters.criterioPaterno}
-              onChange={(value) => onFilterChange("criterioPaterno", value)}
-            />
-          </div>
-          <div hidden={filters.tipoBusqueda !== "N"}>
-            <FilterField
-              id="criterioMaterno"
-              label="Apellido Materno"
-              value={filters.criterioMaterno}
-              onChange={(value) => onFilterChange("criterioMaterno", value)}
-            />
-          </div>
-          <div hidden={filters.tipoBusqueda !== "R"}>
-            <FilterField
-              id="criterioRazon"
-              label="Razón Social"
-              value={filters.criterioRazon}
-              onChange={(value) => onFilterChange("criterioRazon", value)}
-            />
-          </div>
-          <div hidden={filters.tipoBusqueda !== "D"}>
-            <FilterField
-              id="documento"
-              label="Nro. Documento"
-              value={filters.documento}
-              maxLength={11}
-              numeric
-              onChange={(value) => onFilterChange("documento", value)}
-            />
-          </div>
-        </div>
 
-        <div className="mt-4 flex flex-wrap items-end justify-end gap-3 border-t border-sat-navy/10 pt-3">
           <button
             type="submit"
             disabled={loading}
-            className="inline-flex min-h-10 items-center gap-1.5 rounded-md bg-sat-cyan px-4 py-2 text-xs font-semibold text-sat-navy shadow-sm transition hover:bg-sat-cyan/90 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-md bg-sat-cyan px-4 py-2 text-xs font-semibold text-sat-navy shadow-sm transition hover:bg-sat-cyan/90 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? (
               <>
