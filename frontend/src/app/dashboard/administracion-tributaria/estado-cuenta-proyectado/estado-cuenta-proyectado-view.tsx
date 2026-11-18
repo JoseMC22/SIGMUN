@@ -145,31 +145,31 @@ export default function EstadoCuentaProyectadoView({
       </div>
 
       <form onSubmit={handleSubmit} className="p-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
-          <fieldset className="lg:shrink-0">
-            <legend className="sr-only">Criterio de búsqueda</legend>
-            <div className="flex flex-wrap gap-x-4 gap-y-1 lg:max-w-[18rem]">
-              {CRITERIOS.map((criterio) => (
-                <label
-                  key={criterio.value}
-                  className="inline-flex min-h-11 items-center gap-2 text-xs font-medium text-sat-navy/80"
-                >
-                  <input
-                    type="radio"
-                    name="tipoBusqueda"
-                    value={criterio.value}
-                    aria-label={`Criterio ${criterio.label}`}
-                    checked={filters.tipoBusqueda === criterio.value}
-                    onChange={() => onCriterioChange(criterio.value)}
-                    className="h-4 w-4 border-sat-navy/25 accent-sat-cyan focus:outline-none focus:ring-2 focus:ring-sat-cyan/40"
-                  />
-                  {criterio.label}
-                </label>
-              ))}
-            </div>
-          </fieldset>
+        <fieldset>
+          <legend className="mb-1 text-xs font-semibold uppercase tracking-wider text-sat-navy/70">
+            Criterio de búsqueda
+          </legend>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            {CRITERIOS.map((criterio) => (
+              <label
+                key={criterio.value}
+                className="inline-flex min-h-11 items-center gap-2 text-xs font-medium text-sat-navy/80"
+              >
+                <input
+                  type="radio"
+                  name="tipoBusqueda"
+                  value={criterio.value}
+                  aria-label={`Criterio ${criterio.label}`}
+                  checked={filters.tipoBusqueda === criterio.value}
+                  onChange={() => onCriterioChange(criterio.value)}
+                  className="h-4 w-4 border-sat-navy/25 accent-sat-cyan focus:outline-none focus:ring-2 focus:ring-sat-cyan/40"
+                />
+                {criterio.label}
+              </label>
+            ))}
+          </div>
 
-          <div className="grid flex-1 grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-2 grid grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
             <div hidden={filters.tipoBusqueda !== "C"}>
               <FilterField
                 id="codigo"
@@ -224,26 +224,27 @@ export default function EstadoCuentaProyectadoView({
                 onChange={(value) => onFilterChange("documento", value)}
               />
             </div>
+            <div className="flex items-end">
+              <button
+                type="submit"
+                disabled={loading}
+                className="inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-md bg-sat-cyan px-4 py-2 text-xs font-semibold text-sat-navy shadow-sm transition hover:bg-sat-cyan/90 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+                    Buscando...
+                  </>
+                ) : (
+                  <>
+                    <Search size={14} aria-hidden="true" />
+                    Buscar
+                  </>
+                )}
+              </button>
+            </div>
           </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-md bg-sat-cyan px-4 py-2 text-xs font-semibold text-sat-navy shadow-sm transition hover:bg-sat-cyan/90 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {loading ? (
-              <>
-                <Loader2 size={14} className="animate-spin" aria-hidden="true" />
-                Buscando...
-              </>
-            ) : (
-              <>
-                <Search size={14} aria-hidden="true" />
-                Buscar
-              </>
-            )}
-          </button>
-        </div>
+        </fieldset>
       </form>
     </section>
   );
