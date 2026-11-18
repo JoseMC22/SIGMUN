@@ -153,6 +153,8 @@ Inspección de SOLO LECTURA autorizada por el usuario sobre `192.168.3.205:1433 
 - RDD: `off (decided by global)`. `gentle-ai review assess` devolvió `risk: high`, `review_due_reason: high_risk` únicamente por `unassessable` (archivos untracked); se registró como información, sin review nativo.
 - Sin pushes, PR ni merges creados.
 - 2026-11-18: usuario eligió `feature-branch-chain` como `chain_strategy` para el delivery de este feature; la decisión se registró antes del commit del work unit.
+- 2026-11-18: work unit del detalle commiteado como `e0675f030b42e454705978b2198faaafdc1f76ae` (`feat(estado-cuenta-proyectado): add read-only projected statement detail`), 15 archivos, 2719 inserciones y 49 borrados. Antes del commit: backend 4 suites / 62 tests verdes, frontend 2 archivos / 26 tests verdes, `tsc` con bases preexistentes y cero errores nuevos, `git diff --check` limpio.
+- 2026-11-18: pre-commit `gga` bloqueó con resultados contradictorios: primera corrida `STATUS: PASSED` rechazada por el parser estricto; segunda `STATUS: FAILED` con hallazgos falsos porque `.gga` excluye `*.spec.ts`/`*.test.tsx` del review y `ObjectAccessGuard` no está aplicado en ningún controller ( patrón real: `JwtAuthGuard` en 55 callers). El usuario autorizó explícitamente `--no-verify` para este commit; no se modificó `.gga`.
 
 ### Próximo paso
 Decisión humana: push y PR del child, o continuar con la siguiente capa (PDF/generación de recibos), que requiere autorización adicional porque incluye acciones mutantes. Push/PR/merge requieren autorización explícita.
