@@ -8,6 +8,7 @@ import { RequestMethod } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { EstadoCuentaProyectadoController } from './estado-cuenta-proyectado.controller';
+import { EstadoCuentaProyectadoDetalleService } from './estado-cuenta-proyectado-detalle.service';
 import { EstadoCuentaProyectadoService } from './estado-cuenta-proyectado.service';
 import { EstadoCuentaProyectadoSearchResponse } from './estado-cuenta-proyectado.types';
 
@@ -55,7 +56,10 @@ describe('EstadoCuentaProyectadoController', () => {
     jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
       controllers: [EstadoCuentaProyectadoController],
-      providers: [{ provide: EstadoCuentaProyectadoService, useValue: { search } }],
+      providers: [
+        { provide: EstadoCuentaProyectadoService, useValue: { search } },
+        { provide: EstadoCuentaProyectadoDetalleService, useValue: {} },
+      ],
     })
       .overrideGuard(JwtAuthGuard)
       .useValue({ canActivate: () => true })

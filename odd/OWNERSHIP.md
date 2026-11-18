@@ -122,6 +122,7 @@ están libres; dos agentes en el mismo submenú exigen worktree aislado (§0.5).
 | cobranza | reporte-fracc-detallado | `backend/src/cobranza/reporte-fracc-detallado/**`, `frontend/src/app/dashboard/cobranza/reporte-fracc-detallado/**`, `frontend/src/actions/cobranza/reporte-fracc-detallado.*` | agente writer |
 | notificaciones | constancia-exigibilidad | `backend/src/notificaciones/constancia-exigibilidad/**`, `frontend/src/actions/notificaciones/constancia-exigibilidad.ts`, `frontend/src/app/dashboard/notificaciones/constancia-exigibilidad/**` | agente writer |
 | administracion-tributaria | estado-cuenta-proyectado (búsqueda + enlace) | `backend/src/administracion-tributaria/estado-cuenta-proyectado/**`, `frontend/src/app/dashboard/administracion-tributaria/estado-cuenta-proyectado/**`, `frontend/src/actions/administracion-tributaria/estado-cuenta-proyectado.ts` | agente writer |
+| administracion-tributaria | estado-cuenta-proyectado (detalle, child 02) | `backend/src/administracion-tributaria/estado-cuenta-proyectado/dto/get-estado-cuenta-proyectado.dto.ts`, `backend/src/administracion-tributaria/estado-cuenta-proyectado/estado-cuenta-proyectado-detalle.ts`, `frontend/src/app/dashboard/administracion-tributaria/estado-cuenta-proyectado/estado-cuenta-proyectado-detalle-view.tsx`, `frontend/src/app/dashboard/administracion-tributaria/estado-cuenta-proyectado/page.tsx` (extensión serial del work unit commiteado; sin solape activo) | agente writer |
 
 ---
 

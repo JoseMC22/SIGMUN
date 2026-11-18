@@ -1,14 +1,26 @@
 "use client";
 
-import { Suspense, useCallback, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type {
+  CabeceraProyectado,
+  CatalogosProyectado,
   ContribuyenteProyectadoRow,
   ContribuyentesProyectadosFilters,
+  DetalleEstadoCuentaFilters,
+  DetalleReciboProyectado,
+  ReciboEmitidoProyectado,
   TipoBusquedaProyectado,
 } from "@/actions/administracion-tributaria/estado-cuenta-proyectado";
-import { searchContribuyentesProyectadosAction } from "@/actions/administracion-tributaria/estado-cuenta-proyectado";
+import {
+  consultarDetalleProyectadoAction,
+  getCabeceraProyectadaAction,
+  getCatalogosProyectadoAction,
+  getRecibosProyectadoAction,
+  searchContribuyentesProyectadosAction,
+} from "@/actions/administracion-tributaria/estado-cuenta-proyectado";
 import EstadoCuentaProyectadoView from "./estado-cuenta-proyectado-view";
+import EstadoCuentaProyectadoDetalleView from "./estado-cuenta-proyectado-detalle-view";
 
 const PAGE_SIZE = 20;
 const CODIGO_LENGTH = 7;
@@ -45,34 +57,102 @@ function buildInitialFilters(): ContribuyentesProyectadosFilters {
   };
 }
 
-/** Honest placeholder for the destination route; T04 will replace it. */
-function DetalleStub({ codigo }: { codigo: string }) {
+interface DetalleCarga {
+  cabecera: CabeceraProyectado;
+  catalogos: CatalogosProyectado;
+  recibos: ReciboEmitidoProyectado[];
+}
+
+/** Read-only detail route: loads the catalog data, then queries on demand. */
+function EstadoCuentaProyectadoDetalle({ codigo }: { codigo: string }) {
+  const [carga, setCarga] = useState<DetalleCarga | null>(null);
+  const [detalle, setDetalle] = useState<DetalleReciboProyectado[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError(null);
+
+    async function load(): Promise<string | null> {
+      try {
+        const cabecera = await getCabeceraProyectadaAction(codigo);
+        if (!cabecera.success) return cabecera.message;
+        const catalogos = await getCatalogosProyectadoAction(codigo);
+        if (!catalogos.success) return catalogos.message;
+        const recibos = await getRecibosProyectadoAction(codigo);
+        if (!recibos.success) return recibos.message;
+        if (active) {
+          setCarga({
+            cabecera: cabecera.data,
+            catalogos: catalogos.data,
+            recibos: recibos.data,
+          });
+        }
+        return null;
+      } catch {
+        return "Error de conexión";
+      }
+    }
+
+    void load().then((message) => {
+      if (!active) return;
+      if (message) setError(message);
+      setLoading(false);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [codigo]);
+
+  const handleMostrar = useCallback(
+    (filters: DetalleEstadoCuentaFilters) => {
+      setError(null);
+      setLoading(true);
+      void consultarDetalleProyectadoAction(codigo, filters)
+        .then((result) => {
+          if (result.success) {
+            setDetalle(result.data);
+          } else {
+            setError(result.message);
+          }
+        })
+        .catch(() => setError("Error de conexión"))
+        .finally(() => setLoading(false));
+    },
+    [codigo],
+  );
+
+  if (!carga) {
+    if (!loading && error) {
+      return (
+        <div
+          role="alert"
+          className="rounded-lg border border-sat-amber/40 bg-sat-amber/10 px-4 py-3 font-inter text-sm text-sat-navy"
+        >
+          {error}
+        </div>
+      );
+    }
+    return (
+      <div role="status" className="py-12 text-center font-inter text-xs text-sat-navy/70">
+        Cargando estado de cuenta...
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-4">
-      <header className="overflow-hidden rounded-lg bg-gradient-to-br from-sat-navy to-sat-navy/70 px-5 py-4 shadow-sm">
-        <h1 className="font-outfit text-lg font-bold tracking-tight text-clean-white">
-          Estado de Cuenta Proyectado
-        </h1>
-        <p className="mt-0.5 font-inter text-xs text-clean-white/80">
-          Detalle del contribuyente seleccionado
-        </p>
-      </header>
-      <section
-        className="rounded-lg border border-sat-navy/15 bg-clean-white p-5 shadow-sm"
-        aria-label="Detalle pendiente"
-      >
-        <p className="font-inter text-xs uppercase tracking-wider text-sat-navy/70">
-          Código de contribuyente
-        </p>
-        <p className="mt-1 font-outfit text-xl font-semibold tabular-nums text-sat-navy">
-          {codigo}
-        </p>
-        <p className="mt-4 rounded-md border border-sat-amber/40 bg-sat-amber/10 px-4 py-3 font-inter text-sm text-sat-navy">
-          El detalle del estado de cuenta proyectado se implementa en el siguiente
-          work unit. No se muestran datos todavía.
-        </p>
-      </section>
-    </div>
+    <EstadoCuentaProyectadoDetalleView
+      codigo={codigo}
+      cabecera={carga.cabecera}
+      catalogos={carga.catalogos}
+      recibos={carga.recibos}
+      detalle={detalle}
+      error={error}
+      onMostrar={handleMostrar}
+    />
   );
 }
 
@@ -174,7 +254,7 @@ function EstadoCuentaProyectadoPageContent() {
   );
 
   if (codigoDestino) {
-    return <DetalleStub codigo={codigoDestino} />;
+    return <EstadoCuentaProyectadoDetalle codigo={codigoDestino} />;
   }
 
   return (

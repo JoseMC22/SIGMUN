@@ -199,3 +199,326 @@ export async function searchContribuyentesProyectadosAction(
     };
   }
 }
+
+// ── Detalle del estado de cuenta (child 02) ─────────────────────────────────
+// Espejo del contrato validado de los SP: mapeo por nombre de columna, nunca
+// por posición. Los parámetros compuestos se unen con coma antes de enlazarse.
+
+export type EstadoDetalleProyectado = "0" | "1" | "%";
+
+/** Selection owned by the detail view; the action maps it to the SP body. */
+export interface DetalleEstadoCuentaFilters {
+  annos: string[];
+  tipos: string[];
+  tiporec: string[];
+  perio: string[];
+  predio: string[];
+  estado: EstadoDetalleProyectado;
+  fecha_proyectada: string;
+}
+
+export interface CabeceraProyectado {
+  codigo: string;
+  nombre: string;
+  dirfiscal: string;
+  num_doc: string;
+  flag_fraccionamiento: string;
+}
+
+export interface RangoProyectado {
+  minimo: string;
+  maximo: string;
+}
+
+export interface PredioProyectado {
+  cod_pred: string;
+  anexo1: string;
+  direccion: string;
+  anno: string;
+}
+
+export interface CatalogosProyectado {
+  periodos: RangoProyectado;
+  annos: RangoProyectado;
+  predios: PredioProyectado[];
+  fechaProyectada: string;
+}
+
+export interface ReciboEmitidoProyectado {
+  num_ingr: string;
+  codigo: string;
+  caja: string;
+  fec_pago: string;
+  monto: string;
+  estado: string;
+  operador: string;
+}
+
+export interface DetalleReciboProyectado {
+  idrecibo: string;
+  codigo: string;
+  tipo: string;
+  anno: string;
+  cod_pred: string;
+  anexo: string;
+  sub_anexo: string;
+  tipo_rec: string;
+  periodo: string;
+  imp_insol: string;
+  imp_reaj: string;
+  mora: string;
+  costo_emis: string;
+  des_tipo: string;
+  des_cabecera: string;
+  det_anexo: string;
+  total: number;
+  benefic: number;
+  tot_pagado: number;
+  ubica: string;
+}
+
+export type DetalleActionResult<T> =
+  | ({ success: true } & { data: T })
+  | ({ success: false } & ProyectadoApiError);
+
+const DETALLE_BASE_PATH =
+  "/administracion-tributaria/estado-cuenta-proyectado";
+const CODIGO_LENGTH = 7;
+
+const CABECERA_FIELDS: readonly string[] = [
+  "codigo",
+  "nombre",
+  "dirfiscal",
+  "num_doc",
+  "flag_fraccionamiento",
+];
+const RECIBO_FIELDS: readonly string[] = [
+  "num_ingr",
+  "codigo",
+  "caja",
+  "fec_pago",
+  "monto",
+  "estado",
+  "operador",
+];
+const PREDIO_FIELDS: readonly string[] = [
+  "cod_pred",
+  "anexo1",
+  "direccion",
+  "anno",
+];
+const DETALLE_STRING_FIELDS: readonly string[] = [
+  "idrecibo",
+  "codigo",
+  "tipo",
+  "anno",
+  "cod_pred",
+  "anexo",
+  "sub_anexo",
+  "tipo_rec",
+  "periodo",
+  "imp_insol",
+  "imp_reaj",
+  "mora",
+  "costo_emis",
+  "des_tipo",
+  "des_cabecera",
+  "det_anexo",
+  "ubica",
+];
+const FILTER_ARRAY_FIELDS: readonly string[] = [
+  "annos",
+  "tipos",
+  "tiporec",
+  "perio",
+  "predio",
+];
+
+const DETALLE_SCHEMA_MISMATCH: DetalleActionResult<never> = {
+  success: false,
+  code: "schema_mismatch",
+  message: "Respuesta inesperada del servidor",
+};
+
+function hasStringFields(
+  value: unknown,
+  fields: readonly string[],
+): value is Record<string, string> {
+  if (!isRecord(value)) return false;
+  return fields.every((field) => typeof value[field] === "string");
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+function isArrayOf<T>(
+  value: unknown,
+  itemGuard: (item: unknown) => item is T,
+): value is T[] {
+  return Array.isArray(value) && value.every(itemGuard);
+}
+
+function isCodigo(value: unknown): value is string {
+  return typeof value === "string" && /^\d{1,7}$/.test(value.trim());
+}
+
+function normalizeCodigo(value: string): string {
+  return value.trim().padStart(CODIGO_LENGTH, "0");
+}
+
+function isEstado(value: unknown): value is EstadoDetalleProyectado {
+  return value === "0" || value === "1" || value === "%";
+}
+
+function isDetalleFilters(value: unknown): value is DetalleEstadoCuentaFilters {
+  if (!isRecord(value)) return false;
+  if (!isEstado(value.estado) || typeof value.fecha_proyectada !== "string") {
+    return false;
+  }
+  return FILTER_ARRAY_FIELDS.every((field) => isStringArray(value[field]));
+}
+
+function isCabecera(value: unknown): value is CabeceraProyectado {
+  return hasStringFields(value, CABECERA_FIELDS);
+}
+
+function isRango(value: unknown): value is RangoProyectado {
+  return hasStringFields(value, ["minimo", "maximo"]);
+}
+
+function isCatalogos(value: unknown): value is CatalogosProyectado {
+  if (!isRecord(value)) return false;
+  if (!isRango(value.periodos) || !isRango(value.annos)) return false;
+  if (typeof value.fechaProyectada !== "string" || !Array.isArray(value.predios)) {
+    return false;
+  }
+  return value.predios.every((predio) =>
+    hasStringFields(predio, PREDIO_FIELDS),
+  );
+}
+
+function isRecibo(value: unknown): value is ReciboEmitidoProyectado {
+  return hasStringFields(value, RECIBO_FIELDS);
+}
+
+function toAmount(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value.replace(/,/g, ""));
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+function isDetalleRow(value: unknown): value is DetalleReciboProyectado {
+  if (!hasStringFields(value, DETALLE_STRING_FIELDS)) return false;
+  return (
+    toAmount(value.total) !== null &&
+    toAmount(value.benefic) !== null &&
+    toAmount(value.tot_pagado) !== null
+  );
+}
+
+function mapDetalleRow(value: DetalleReciboProyectado): DetalleReciboProyectado {
+  return {
+    ...value,
+    total: toAmount(value.total) ?? 0,
+    benefic: toAmount(value.benefic) ?? 0,
+    tot_pagado: toAmount(value.tot_pagado) ?? 0,
+  };
+}
+
+function invalidCodigo<T>(): DetalleActionResult<T> {
+  return {
+    success: false,
+    code: "validation_error",
+    message: "Validation failed",
+    details: {
+      errors: [{ path: "codigo", message: "Codigo must be 1 to 7 digits" }],
+    },
+  };
+}
+
+interface DetalleRequest {
+  method: "GET" | "POST";
+  body?: string;
+}
+
+async function requestDetalle<T>(
+  suffix: string,
+  request: DetalleRequest,
+  guard: (body: unknown) => body is T,
+): Promise<DetalleActionResult<T>> {
+  try {
+    const headers = await buildAuthHeaders();
+    const response = await fetch(`${API_BASE}${DETALLE_BASE_PATH}${suffix}`, {
+      method: request.method,
+      headers,
+      ...(request.body ? { body: request.body } : {}),
+    });
+    if (!response.ok) {
+      const errorBody: unknown = await response.json().catch(() => null);
+      return { success: false, ...mapApiError(errorBody) };
+    }
+    const body: unknown = await response.json();
+    if (!guard(body)) return DETALLE_SCHEMA_MISMATCH;
+    return { success: true, data: body };
+  } catch (error) {
+    return {
+      success: false,
+      code: "network_error",
+      message: error instanceof Error ? error.message : "Error de conexión",
+    };
+  }
+}
+
+export async function getCabeceraProyectadaAction(
+  codigo: string,
+): Promise<DetalleActionResult<CabeceraProyectado>> {
+  if (!isCodigo(codigo)) return invalidCodigo();
+  const suffix = `/cabecera?codigo=${encodeURIComponent(normalizeCodigo(codigo))}`;
+  return requestDetalle(suffix, { method: "GET" }, isCabecera);
+}
+
+export async function getCatalogosProyectadoAction(
+  codigo: string,
+): Promise<DetalleActionResult<CatalogosProyectado>> {
+  if (!isCodigo(codigo)) return invalidCodigo();
+  const suffix = `/catalogos?codigo=${encodeURIComponent(normalizeCodigo(codigo))}`;
+  return requestDetalle(suffix, { method: "GET" }, isCatalogos);
+}
+
+export async function getRecibosProyectadoAction(
+  codigo: string,
+): Promise<DetalleActionResult<ReciboEmitidoProyectado[]>> {
+  if (!isCodigo(codigo)) return invalidCodigo();
+  const suffix = `/recibos?codigo=${encodeURIComponent(normalizeCodigo(codigo))}`;
+  return requestDetalle(suffix, { method: "GET" }, (body) =>
+    isArrayOf(body, isRecibo),
+  );
+}
+
+export async function consultarDetalleProyectadoAction(
+  codigo: string,
+  filters: DetalleEstadoCuentaFilters,
+): Promise<DetalleActionResult<DetalleReciboProyectado[]>> {
+  if (!isCodigo(codigo) || !isDetalleFilters(filters)) return invalidCodigo();
+  const body = {
+    codigo: normalizeCodigo(codigo),
+    annos: filters.annos,
+    tipos: filters.tipos,
+    tiporec: filters.tiporec.join(","),
+    perio: filters.perio.join(","),
+    predio: filters.predio.join(","),
+    estado: filters.estado,
+    fecha_proyectada: filters.fecha_proyectada,
+  };
+  const result = await requestDetalle<DetalleReciboProyectado[]>(
+    "/consulta",
+    { method: "POST", body: JSON.stringify(body) },
+    (value) => isArrayOf(value, isDetalleRow),
+  );
+  if (!result.success) return result;
+  return { success: true, data: result.data.map(mapDetalleRow) };
+}

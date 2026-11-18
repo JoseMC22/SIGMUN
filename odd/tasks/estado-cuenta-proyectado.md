@@ -80,7 +80,7 @@ Documentación (orquestador): `odd/tasks/estado-cuenta-proyectado.md`, `odd/OWNE
 | T03 | Inline (orquestador) | puente `app.module.ts` + ownership + verificación |
 
 ## Delivery strategy
-`ask-on-risk` (default). Forecast ~1.6k authored lines (add + del), supera ~400. Sin PR creado aún; el usuario autorizó implementar, no publicar. Push/PR/merge requieren autorización explícita. La rama es `feat/estado-cuenta-proyectado-01-busqueda` desde `DEV`.
+`ask-on-risk` (default) con `chain_strategy: feature-branch-chain`, elegida por el usuario el 2026-11-18. Forecast ~1.6k authored lines (add + del), supera ~400; el work unit del detalle tiene 2.7k líneas staged. SIN PR creado aún; el usuario autorizó implementar, no publicar. Push/PR/merge requieren autorización explícita. La rama es `feat/estado-cuenta-proyectado-01-busqueda` desde `DEV`.
 
 ## Progreso / evidencia
 - 2026-11-17: feature iniciado tras verificación del legacy y elección de alcance "Búsqueda + enlace". Rama creada desde `DEV` (`3fbbfc7`). Tracker creado antes del primer source write.
@@ -101,5 +101,58 @@ Documentación (orquestador): `odd/tasks/estado-cuenta-proyectado.md`, `odd/OWNE
 - RDD: `off (decided by global)`. `gentle-ai review assess --cwd D:\WEB\sigmun2.0\SIGMUN --json` devolvió `risk: high`, `review_due: true`, razón `unassessable` únicamente por archivos untracked sin declarar (candidate `current-changes`, `changed_paths: 0`). Sin review nativo por switch apagado; se registra como información, no bloquea.
 - Sin pushes, PR ni merges creados. Rama activa: `feat/estado-cuenta-proyectado-01-busqueda`.
 
-## Próximo paso
-Work unit completo y verificado. Siguiente acción (decisión humana): push y PR del slice, o continuar con el child de la pantalla real `rentascajaproyec`. Push/PR/merge requieren autorización explícita del usuario.
+## Child 02 — Pantalla real del estado de cuenta (detalle)
+
+### Objetivo del child
+Reemplazar el stub honesto por la pantalla de solo lectura del estado de cuenta proyectado, replicando `rentascajaproyec` + `rentascajareccontriproyec` del legacy: cabecera del contribuyente, catálogos (períodos, años, predios, fecha de proyección), grilla de recibos emitidos y detalle de recibos con totales. Quedan fuera PDF, pago/generación de recibos, anulación y fraccionamiento (acciones mutantes del legacy).
+
+### Evidencia validada (2026-11-17)
+Inspección de SOLO LECTURA autorizada por el usuario sobre `192.168.3.205:1433 / Base_sigmun` (credencial de `backend/.env`). Sin ejecución de procedures ni mutaciones. Definiciones extraídas a `C:\Users\Mvaez\AppData\Local\Temp\opencode\*.sql`.
+
+- `Caja.sp_EstCta_Rentas_proyectado_2022`: parámetros `@codigo char(7)`, `@annos`, `@tipos`, `@tiporec`, `@perio`, `@predio`, `@estado varchar(1)`, `@criterio varchar(2)`, `@fecha_proyectada nvarchar(10)`. El `SELECT DISTINCT *` final devuelve, en este orden, columnas **con nombre**: `idrecibo, codigo, tipo, anno, cod_pred, anexo, sub_anexo, tipo_docu, num_docu, tipo_rec, periodo, imp_insol, costo_emis, fact_reaj, imp_reaj, fact_mora, mora, observacion, estado, ubica_2, fec_venc, num_ingr, operador, estacion, fech_ing, ubica, fec_pago, des_tipo, des_cabecera, criterio, descuento, tot_pago, tipocontri`. El mapeo se hace **por nombre**, nunca por posición.
+- Legacy `RentascajareccontriproyecController.php:150-173` deriva: `det_anexo = anexo + '-' + sub_anexo` solo si `tipo === '11.00'`; `total = imp_reaj + mora + costo_emis - tot_pago`; `benefic = descuento`; `tot_pagado = tot_pago`; `ubica = ubica_2` (no la columna `ubica`). `@criterio` se fuerza a `'0'` en `:126`.
+- `dbo.store_caja_framework`: `@msquery=1` → `codigo, nombre, dirfiscal, num_doc, flag_fraccionamiento` (`:33-35`); `@msquery=5` → `minimo, maximo` de períodos (`:153-159`); `@msquery=6` → `minimo, maximo` de años (`:161-167`); `@msquery=15` → `cod_pred, anexo1, direccion, anno` (`:113-114`); `@msquery=9` → `banco_id, descripcion` (fuera de alcance del child).
+- `dbo.sp_ActualizaInteres_proyectada @buscar=2` → `select top 1 convert(varchar(10), fecha_proyeccion, 103)` (`:18-21`); es de solo lectura y entrega `dd/mm/yyyy`.
+- `Caja.sp_Recibos_emitidos @buscar=1` → `num_ingr, codigo, caja, fec_pago, monto, estado, estado, operador` (`:27-30`). El alias `estado` aparece dos veces: se usa la variante de texto (`Cancelado`/`Anulado`) y NO se expone la variante numérica.
+- Valores legacy de `tipos`: cadenas ya agrupadas como `*02.01*,*00.16*` (`index.phtml:110-145`); el controlador las une con comas (`RentascajareccontriproyecController.php:83-86`). La API acepta arreglos y los une con `,` antes de enlazar el parámetro por nombre.
+
+### Tareas
+- [x] **T04 — Backend detalle**: DTO Zod de consulta del detalle, tipos derivados, métodos de cabecera/catálogos/recibos/detalle en el service y endpoints `GET cabecera`, `GET catalogos`, `GET recibos`, `POST consulta` con `JwtAuthGuard` y envelope canónico. Parámetros SP por nombre; mapeo por nombre de columna; totales derivados del legacy. Checks: Jest backend + typecheck backend.
+- [x] **T05 — Frontend detalle**: acciones de solo lectura, vista con cabecera, filtros, grilla de detalle, panel de recibos y totales, reemplazo del stub en `page.tsx:176-178`, y tests. Checks: Vitest frontend + typecheck frontend.
+- [x] **T06 — Integración del child**: verificación completa, diff de puentes, registro de evidencia y decisión de entrega (sin push/PR/merge sin autorización). Checks: cuatro checks aplicables + `git diff --check`.
+
+### Route declaration
+| Task | Route | Trigger |
+|---|---|---|
+| T04 | Delegated direct (writer) | DTO + tipos + service + controller + specs → writer trigger |
+| T05 | Delegated direct (writer) | action + vista + page + tests → writer trigger |
+| T06 | Inline (orquestador) | verificación centralizada y registro; sin puentes transversales |
+
+### Checks aplicables
+- `pnpm --dir backend test -- --runInBand estado-cuenta-proyectado`
+- `pnpm --dir frontend test -- src/app/dashboard/administracion-tributaria/estado-cuenta-proyectado`
+- `pnpm --dir backend exec tsc --noEmit -p tsconfig.json`
+- `pnpm --dir frontend exec tsc --noEmit`
+- Bases conocidas: 25 TS2554 preexistentes (backend), 12 errores preexistentes (frontend). Cero nuevos.
+- RDD: `off (decided by global)` → sin revisión nativa; `gentle-ai review assess` se registra como información.
+
+### Progreso del child
+- 2026-11-17: usuario eligió "Validar SP primero" y autorizó inspección de solo lectura a la BD; se obtuvieron los cinco cuerpos de SP y se confirmó que el detalle se puede mapear por nombre.
+- T04 (backend) con TDD: RED `Test Suites: 2 failed, 2 passed, 4 total` / `Tests: 27 passed, 27 total` → GREEN `Test Suites: 4 passed, 4 total` / `Tests: 62 passed, 62 total`.
+- T05 (frontend) con TDD: RED `Test Files 2 failed (2)` / `Tests 7 failed | 9 passed (16)` → GREEN `Test Files 2 passed (2)` / `Tests 26 passed (26)`.
+- Verificación del orquestador (spot check de los cuatro checks):
+  - backend Jest: 4 suites / 62 tests verdes.
+  - frontend Vitest: 2 archivos / 26 tests verdes.
+  - backend `tsc --noEmit`: 25 TS2554 preexistentes en `mantenimiento-notificadores/*.spec.ts`; cero errores nuevos.
+  - frontend `tsc --noEmit`: 12 errores preexistentes (9 `baja-alcabala-modal.test.tsx`, 3 `mantenimiento-uit`); cero errores nuevos.
+  - `git diff --check`: sin hallazgos (solo avisos LF→CRLF del working copy).
+- Verificación independiente del backend (RDD off, assess `high/unassessable` por archivos untracked): `verdict: findings`, dos hallazgos menores. Corregido el `@Optional()` del `detalleService` en el controller para restaurar fail-fast de Nest; el harness search-only ahora provee un mock del servicio. Segundo hallazgo (specs ignorados por `*.spec.ts`) resuelto con `git add -f` en el commit. Sin hallazgos de seguridad, contrato, mapeo ni tipado.
+- Archivos T04: `dto/get-estado-cuenta-proyectado.dto.ts`, `estado-cuenta-proyectado-detalle.types.ts`, `estado-cuenta-proyectado-detalle.service.ts`, más controller y module extendidos; specs `detalle.service.spec.ts` y `detalle.controller.spec.ts`.
+- Archivos T05: acciones de detalle en `frontend/src/actions/administracion-tributaria/estado-cuenta-proyectado.ts`, `estado-cuenta-proyectado-detalle-view.tsx`, su test, y `page.tsx`/`page.test.tsx` actualizados. El stub fue reemplazado.
+- Controles legacy omitidos a propósito por ser mutantes o no read-only: PDF "Est. de cuenta", "Ver Recibos", "Anular Recibos", "Pagar", "Cerrar Ventana", "Fraccionar" y los atajos Todos/Ninguno.
+- RDD: `off (decided by global)`. `gentle-ai review assess` devolvió `risk: high`, `review_due_reason: high_risk` únicamente por `unassessable` (archivos untracked); se registró como información, sin review nativo.
+- Sin pushes, PR ni merges creados.
+- 2026-11-18: usuario eligió `feature-branch-chain` como `chain_strategy` para el delivery de este feature; la decisión se registró antes del commit del work unit.
+
+### Próximo paso
+Decisión humana: push y PR del child, o continuar con la siguiente capa (PDF/generación de recibos), que requiere autorización adicional porque incluye acciones mutantes. Push/PR/merge requieren autorización explícita.
