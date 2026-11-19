@@ -234,6 +234,17 @@ describe("EstadoCuentaProyectadoDetalleView", () => {
     expect(mostrar).toBeDisabled();
   });
 
+  it("does not process or show the detail grid when Mostrar is pressed without a concept", () => {
+    const { onMostrar } = renderView();
+
+    const mostrar = screen.getByRole("button", { name: /^mostrar$/i });
+    expect(mostrar).toBeDisabled();
+
+    fireEvent.click(mostrar);
+
+    expect(onMostrar).not.toHaveBeenCalled();
+  });
+
   it("emits the selected filters when Mostrar is pressed", () => {
     const { onMostrar } = renderView();
 
