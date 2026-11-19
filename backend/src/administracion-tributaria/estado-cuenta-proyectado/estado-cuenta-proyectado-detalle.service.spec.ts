@@ -4,6 +4,7 @@ import {
   EstadoCuentaProyectadoDetalleService,
   mapDetalleReciboProyectado,
   normalizeEstadoRecibo,
+  toSpFechaProyectada,
 } from './estado-cuenta-proyectado-detalle.service';
 import {
   SpDetalleReciboProyectadoRow,
@@ -365,6 +366,40 @@ describe('EstadoCuentaProyectadoDetalleService', () => {
       expect(allParamKeys().filter((key) => key.startsWith('@'))).toEqual([]);
     });
 
+    it('converts an ISO fecha_proyectada to DD/MM/YYYY before binding it to the SP', async () => {
+      executeProcedure.mockResolvedValueOnce({ recordset: [] });
+
+      await service.consulta({
+        ...CONSULTA_DTO,
+        fecha_proyectada: '2026-11-18',
+      });
+
+      expect(boundParams(0)['fecha_proyectada']).toBe('18/11/2026');
+      expect(Object.keys(boundParams(0))).toContain('fecha_proyectada');
+    });
+
+    it('passes an already DD/MM/YYYY fecha_proyectada through unchanged', async () => {
+      executeProcedure.mockResolvedValueOnce({ recordset: [] });
+
+      await service.consulta({
+        ...CONSULTA_DTO,
+        fecha_proyectada: '18/11/2026',
+      });
+
+      expect(boundParams(0)['fecha_proyectada']).toBe('18/11/2026');
+    });
+
+    it('passes an empty fecha_proyectada through unchanged', async () => {
+      executeProcedure.mockResolvedValueOnce({ recordset: [] });
+
+      await service.consulta({
+        ...CONSULTA_DTO,
+        fecha_proyectada: '',
+      });
+
+      expect(boundParams(0)['fecha_proyectada']).toBe('');
+    });
+
     it('joins array filters with commas and never concatenates them into SQL text', async () => {
       executeProcedure.mockResolvedValueOnce({ recordset: [] });
 
@@ -470,6 +505,14 @@ describe('EstadoCuentaProyectadoDetalleService', () => {
       expect(row.tot_pagado).toBe(0);
       expect(row.det_anexo).toBe('');
       expect(row.ubica).toBe('');
+    });
+  });
+
+  describe('toSpFechaProyectada', () => {
+    it('normalizes ISO dates and leaves legacy and empty values untouched', () => {
+      expect(toSpFechaProyectada('2026-11-18')).toBe('18/11/2026');
+      expect(toSpFechaProyectada('18/11/2026')).toBe('18/11/2026');
+      expect(toSpFechaProyectada('')).toBe('');
     });
   });
 

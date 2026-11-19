@@ -137,6 +137,43 @@ function toggleValue(values: string[], value: string): string[] {
     : [...values, value];
 }
 
+const ISO_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+const LEGACY_DATE_PATTERN = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+
+function isCalendarDate(year: number, month: number, day: number): boolean {
+  const candidate = new Date(0);
+  candidate.setUTCFullYear(year, month - 1, day);
+  return (
+    candidate.getUTCFullYear() === year &&
+    candidate.getUTCMonth() === month - 1 &&
+    candidate.getUTCDate() === day
+  );
+}
+
+/** The catalog SP returns DD/MM/YYYY; type="date" needs YYYY-MM-DD. */
+function catalogDateToInput(value: string): string {
+  const match = LEGACY_DATE_PATTERN.exec(value.trim());
+  if (
+    !match ||
+    !isCalendarDate(Number(match[3]), Number(match[2]), Number(match[1]))
+  ) {
+    return "";
+  }
+  return `${match[3]}-${match[2]}-${match[1]}`;
+}
+
+/** The legacy SP parses DD/MM/YYYY under DATEFORMAT dmy. */
+function inputDateToLegacy(value: string): string {
+  const match = ISO_DATE_PATTERN.exec(value.trim());
+  if (
+    !match ||
+    !isCalendarDate(Number(match[1]), Number(match[2]), Number(match[3]))
+  ) {
+    return "";
+  }
+  return `${match[3]}/${match[2]}/${match[1]}`;
+}
+
 function formatCell(value: string): string {
   return value.trim() === "" ? "—" : value;
 }
@@ -207,7 +244,7 @@ export default function EstadoCuentaProyectadoDetalleView({
   const [predio, setPredio] = useState<string[]>([]);
   const [estado, setEstado] = useState<EstadoDetalleProyectado>("0");
   const [fechaProyectada, setFechaProyectada] = useState(
-    catalogos.fechaProyectada,
+    catalogDateToInput(catalogos.fechaProyectada),
   );
 
   const annoOptions = useMemo(
@@ -261,7 +298,7 @@ export default function EstadoCuentaProyectadoDetalleView({
       perio,
       predio,
       estado,
-      fecha_proyectada: fechaProyectada,
+      fecha_proyectada: inputDateToLegacy(fechaProyectada),
     });
   };
 
@@ -379,17 +416,17 @@ export default function EstadoCuentaProyectadoDetalleView({
                 ))}
               </div>
             </fieldset>
-            <div className="flex flex-col gap-[0px]">
+            <div className="flex flex-col gap-[5px]">
               <label
                 htmlFor="fechaProyectada"
-                className="text-[9px] font-semibold uppercase tracking-wider text-sat-navy/70"
+                className="text-[10px] font-semibold uppercase tracking-wider text-sat-navy/70"
               >
                 Fecha de proyección
               </label>
               <input
                 id="fechaProyectada"
                 name="fechaProyectada"
-                type="text"
+                type="date"
                 value={fechaProyectada}
                 onChange={(event) => setFechaProyectada(event.target.value)}
                 className="h-9 w-40 rounded-md border border-sat-navy/25 bg-clean-white px-2.5 font-inter text-[11px] text-sat-navy tabular-nums focus:border-sat-cyan focus:outline-none focus:ring-2 focus:ring-sat-cyan/30"

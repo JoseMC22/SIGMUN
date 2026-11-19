@@ -19,6 +19,17 @@ const SP_DETALLE = 'Caja.sp_EstCta_Rentas_proyectado_2022';
 
 const DETALLE_TIPO_CON_ANEXO = '11.00';
 const CRITERIO_LEGACY = '0';
+const FECHA_ISO_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/**
+ * The legacy detail SP sets DATEFORMAT dmy and embeds @fecha_proyectada in
+ * dynamic SQL, so an ISO string raises SQL Server Msg 242. Convert only the
+ * browser format; the catalog's DD/MM/YYYY and the empty default pass through.
+ */
+export function toSpFechaProyectada(value: string): string {
+  const match = FECHA_ISO_PATTERN.exec(value);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : value;
+}
 
 /** Named-object result of a stored procedure call. */
 interface ProcedureResult {
@@ -226,7 +237,7 @@ export class EstadoCuentaProyectadoDetalleService {
         predio: dto.predio,
         estado: dto.estado,
         criterio: CRITERIO_LEGACY,
-        fecha_proyectada: dto.fecha_proyectada,
+        fecha_proyectada: toSpFechaProyectada(dto.fecha_proyectada),
       },
     );
     return (result.recordset ?? []).map(mapDetalleReciboProyectado);

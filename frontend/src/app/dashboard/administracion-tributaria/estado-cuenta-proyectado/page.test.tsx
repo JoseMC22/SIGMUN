@@ -398,6 +398,24 @@ describe("EstadoCuentaProyectadoPage", () => {
     });
   });
 
+  it("sends the projection date as DD/MM/YYYY after the ISO date input changes", async () => {
+    renderDetailPage();
+    await screen.findByText("JUAN PEREZ");
+
+    expect(screen.getByLabelText("Fecha de proyección")).toHaveValue(
+      "2026-11-17",
+    );
+    fireEvent.change(screen.getByLabelText("Fecha de proyección"), {
+      target: { value: "2026-11-18" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^mostrar$/i }));
+
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(consultaBody()).toEqual(
+      expect.objectContaining({ fecha_proyectada: "18/11/2026" }),
+    );
+  });
+
   it("comma-joins the selected recibo, periodo and predio filters in the body", async () => {
     renderDetailPage();
     await screen.findByText("JUAN PEREZ");

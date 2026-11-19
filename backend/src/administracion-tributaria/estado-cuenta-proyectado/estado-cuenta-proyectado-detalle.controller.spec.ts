@@ -149,6 +149,43 @@ describe('EstadoCuentaProyectadoController — detail endpoints', () => {
       expect(consulta.mock.calls[0][0]['annos']).toEqual(['2025', '2026']);
     });
 
+    it('accepts an ISO projection date and leaves SP normalization to the service', async () => {
+      consulta.mockResolvedValue([]);
+
+      await controller.consulta({
+        codigo: '123',
+        fecha_proyectada: '2026-11-18',
+      });
+
+      expect(consulta).toHaveBeenCalledWith(
+        expect.objectContaining({ fecha_proyectada: '2026-11-18' }),
+      );
+    });
+
+    it('rejects an impossible DD/MM/YYYY date with the canonical 400 envelope', async () => {
+      await expectCanonicalValidationError(
+        () => controller.consulta({ codigo: '123', fecha_proyectada: '31/02/2026' }),
+        'fecha_proyectada',
+      );
+      expect(consulta).not.toHaveBeenCalled();
+    });
+
+    it('rejects an impossible ISO date with the canonical 400 envelope', async () => {
+      await expectCanonicalValidationError(
+        () => controller.consulta({ codigo: '123', fecha_proyectada: '2026-02-31' }),
+        'fecha_proyectada',
+      );
+      expect(consulta).not.toHaveBeenCalled();
+    });
+
+    it('rejects an unsupported date format with the canonical 400 envelope', async () => {
+      await expectCanonicalValidationError(
+        () => controller.consulta({ codigo: '123', fecha_proyectada: '18-11-2026' }),
+        'fecha_proyectada',
+      );
+      expect(consulta).not.toHaveBeenCalled();
+    });
+
     it('strips unknown body fields such as a caller-supplied criterio', async () => {
       consulta.mockResolvedValue([]);
 

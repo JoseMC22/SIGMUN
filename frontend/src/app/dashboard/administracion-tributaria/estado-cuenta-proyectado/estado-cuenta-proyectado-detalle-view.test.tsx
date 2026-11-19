@@ -102,6 +102,7 @@ const RECIBOS: ReciboEmitidoProyectado[] = [
 const PREDIAL_VALUE = "*02.01*,*00.16*,*30.02*,*30.03*,*30.04*,*00.46*";
 
 interface HarnessOverrides {
+  catalogos?: CatalogosProyectado;
   detalle?: DetalleReciboProyectado[];
   recibos?: ReciboEmitidoProyectado[];
   error?: string | null;
@@ -114,7 +115,7 @@ function renderView(overrides: HarnessOverrides = {}) {
     <EstadoCuentaProyectadoDetalleView
       codigo="0000123"
       cabecera={CABECERA}
-      catalogos={CATALOGOS}
+      catalogos={overrides.catalogos ?? CATALOGOS}
       detalle={overrides.detalle ?? DETALLE_ROWS}
       recibos={overrides.recibos ?? RECIBOS}
       error={overrides.error ?? null}
@@ -179,8 +180,30 @@ describe("EstadoCuentaProyectadoDetalleView", () => {
     expect(screen.getByRole("radio", { name: "Cancelado" })).not.toBeChecked();
     expect(screen.getByRole("radio", { name: "Todos" })).not.toBeChecked();
     expect(screen.getByLabelText("Fecha de proyección")).toHaveValue(
-      "17/11/2026",
+      "2026-11-17",
     );
+    expect(screen.getByText("Proyección 17/11/2026")).toBeInTheDocument();
+  });
+
+  it("leaves the date input empty when the catalog date is missing", () => {
+    const { onMostrar } = renderView({
+      catalogos: { ...CATALOGOS, fechaProyectada: "" },
+    });
+
+    expect(screen.getByLabelText("Fecha de proyección")).toHaveValue("");
+
+    fireEvent.click(screen.getByRole("button", { name: /^mostrar$/i }));
+    expect(onMostrar).toHaveBeenCalledWith(
+      expect.objectContaining({ fecha_proyectada: "" }),
+    );
+  });
+
+  it("ignores an impossible catalog date without crashing", () => {
+    renderView({
+      catalogos: { ...CATALOGOS, fechaProyectada: "31/02/2026" },
+    });
+
+    expect(screen.getByLabelText("Fecha de proyección")).toHaveValue("");
   });
 
   it("emits the selected filters when Mostrar is pressed", () => {
@@ -193,7 +216,7 @@ describe("EstadoCuentaProyectadoDetalleView", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Predio 0000003" }));
     fireEvent.click(screen.getByRole("radio", { name: "Todos" }));
     fireEvent.change(screen.getByLabelText("Fecha de proyección"), {
-      target: { value: "18/11/2026" },
+      target: { value: "2026-11-18" },
     });
     fireEvent.click(screen.getByRole("button", { name: /^mostrar$/i }));
 

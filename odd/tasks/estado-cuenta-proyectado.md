@@ -120,6 +120,7 @@ Inspección de SOLO LECTURA autorizada por el usuario sobre `192.168.3.205:1433 
 - [x] **T04 — Backend detalle**: DTO Zod de consulta del detalle, tipos derivados, métodos de cabecera/catálogos/recibos/detalle en el service y endpoints `GET cabecera`, `GET catalogos`, `GET recibos`, `POST consulta` con `JwtAuthGuard` y envelope canónico. Parámetros SP por nombre; mapeo por nombre de columna; totales derivados del legacy. Checks: Jest backend + typecheck backend.
 - [x] **T05 — Frontend detalle**: acciones de solo lectura, vista con cabecera, filtros, grilla de detalle, panel de recibos y totales, reemplazo del stub en `page.tsx:176-178`, y tests. Checks: Vitest frontend + typecheck frontend.
 - [x] **T06 — Integración del child**: verificación completa, diff de puentes, registro de evidencia y decisión de entrega (sin push/PR/merge sin autorización). Checks: cuatro checks aplicables + `git diff --check`.
+- [x] **T07 — Normalizar fecha de proyección en el boundary**: conservar `type="date"`; convertir `YYYY-MM-DD` → `DD/MM/YYYY` antes de enlazar `@fecha_proyectada` al SP (`DATEFORMAT dmy`) y `DD/MM/YYYY` → `YYYY-MM-DD` para el valor del input, validando ambos formatos en Zod. Tests de regresión backend y frontend. Checks: cuatro checks aplicables + `git diff --check`.
 
 ### Route declaration
 | Task | Route | Trigger |
@@ -127,6 +128,7 @@ Inspección de SOLO LECTURA autorizada por el usuario sobre `192.168.3.205:1433 
 | T04 | Delegated direct (writer) | DTO + tipos + service + controller + specs → writer trigger |
 | T05 | Delegated direct (writer) | action + vista + page + tests → writer trigger |
 | T06 | Inline (orquestador) | verificación centralizada y registro; sin puentes transversales |
+| T07 | Delegated direct (writer) | DTO + service + spec backend + vista + 2 tests frontend → writer trigger |
 
 ### Checks aplicables
 - `pnpm --dir backend test -- --runInBand estado-cuenta-proyectado`
@@ -155,6 +157,11 @@ Inspección de SOLO LECTURA autorizada por el usuario sobre `192.168.3.205:1433 
 - 2026-11-18: usuario eligió `feature-branch-chain` como `chain_strategy` para el delivery de este feature; la decisión se registró antes del commit del work unit.
 - 2026-11-18: work unit del detalle commiteado como `e0675f030b42e454705978b2198faaafdc1f76ae` (`feat(estado-cuenta-proyectado): add read-only projected statement detail`), 15 archivos, 2719 inserciones y 49 borrados. Antes del commit: backend 4 suites / 62 tests verdes, frontend 2 archivos / 26 tests verdes, `tsc` con bases preexistentes y cero errores nuevos, `git diff --check` limpio.
 - 2026-11-18: pre-commit `gga` bloqueó con resultados contradictorios: primera corrida `STATUS: PASSED` rechazada por el parser estricto; segunda `STATUS: FAILED` con hallazgos falsos porque `.gga` excluye `*.spec.ts`/`*.test.tsx` del review y `ObjectAccessGuard` no está aplicado en ningún controller ( patrón real: `JwtAuthGuard` en 55 callers). El usuario autorizó explícitamente `--no-verify` para este commit; no se modificó `.gga`.
+
+- 2026-11-19: el usuario eligió **normalizar en el boundary** para el error de fecha de proyección (`type="date"` → ISO contra SP con `DATEFORMAT dmy`). Causa verificada en BD: `CONVERT(datetime,'2026-11-18')` → Msg 242; `18/11/2026` OK. El catálogo entrega `DD/MM/YYYY` y hoy el input queda vacío (2 tests frontend fallan, 26/28). T07 creado antes del primer source write; RDD sigue `off (decided by global)`.
+
+- 2026-11-19: T07 (delegado a un único writer por writer trigger; DTO + service + 2 specs + vista + 2 tests) con TDD estricto: RED previo `Tests 2 failed | 26 passed (28)`, RED de nuevos tests backend `4 failed, 65 passed (69)` y frontend `3 failed | 28 passed (31)` → GREEN backend `4 suites / 70 tests`, frontend `2 archivos / 31 tests`.
+- 2026-11-19: spot check del orquestador (réplica de los dos runners): backend `4 passed, 4 total` / `70 passed, 70 total`; frontend `2 passed (2)` / `31 passed (31)`; `git diff --check` sin hallazgos. Typechecks con las bases conocidas de 25 errores (backend) y 12 (frontend), cero errores nuevos. RDD `off (decided by global)`, sin revisión nativa.
 
 ### Próximo paso
 Decisión humana: push y PR del child, o continuar con la siguiente capa (PDF/generación de recibos), que requiere autorización adicional porque incluye acciones mutantes. Push/PR/merge requieren autorización explícita.
