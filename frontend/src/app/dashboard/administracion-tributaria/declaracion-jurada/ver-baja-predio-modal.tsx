@@ -57,17 +57,16 @@ export default function VerBajaPredioModal({ isOpen, onClose, codigoContribuyent
   // Register in the modal stack: ESC closes ONLY the topmost modal,
   // never the parent detalle modal underneath (project convention).
   const modalId = useModalStack(isOpen);
-  const topModal = isTopModal(modalId);
 
   // Escape closes this modal only when it is the top of the stack.
   useEffect(() => {
-    if (!isOpen || !topModal) return;
+    if (!isOpen) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape" && isTopModal(modalId)) onClose();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [isOpen, topModal, onClose]);
+  }, [isOpen, modalId, onClose]);
 
   // Fetch the "Predios de Baja" list. Extracted so the historial modal can
   // trigger a refetch after a restore (onRestored).
