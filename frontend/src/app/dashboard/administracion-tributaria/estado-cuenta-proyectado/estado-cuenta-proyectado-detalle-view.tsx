@@ -138,7 +138,6 @@ function toggleValue(values: string[], value: string): string[] {
 }
 
 const ISO_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
-const LEGACY_DATE_PATTERN = /^(\d{2})\/(\d{2})\/(\d{4})$/;
 
 function isCalendarDate(year: number, month: number, day: number): boolean {
   const candidate = new Date(0);
@@ -150,16 +149,16 @@ function isCalendarDate(year: number, month: number, day: number): boolean {
   );
 }
 
-/** The catalog SP returns DD/MM/YYYY; type="date" needs YYYY-MM-DD. */
-function catalogDateToInput(value: string): string {
-  const match = LEGACY_DATE_PATTERN.exec(value.trim());
-  if (
-    !match ||
-    !isCalendarDate(Number(match[3]), Number(match[2]), Number(match[1]))
-  ) {
-    return "";
-  }
-  return `${match[3]}-${match[2]}-${match[1]}`;
+/**
+ * Current LOCAL date as YYYY-MM-DD; toISOString() would shift the day for
+ * users east or west of UTC.
+ */
+function todayAsIso(): string {
+  const today = new Date();
+  const year = String(today.getFullYear()).padStart(4, "0");
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 /** The legacy SP parses DD/MM/YYYY under DATEFORMAT dmy. */
@@ -243,9 +242,7 @@ export default function EstadoCuentaProyectadoDetalleView({
   const [perio, setPerio] = useState<string[]>([]);
   const [predio, setPredio] = useState<string[]>([]);
   const [estado, setEstado] = useState<EstadoDetalleProyectado>("0");
-  const [fechaProyectada, setFechaProyectada] = useState(
-    catalogDateToInput(catalogos.fechaProyectada),
-  );
+  const [fechaProyectada, setFechaProyectada] = useState(todayAsIso);
 
   const annoOptions = useMemo(
     () =>
@@ -468,10 +465,20 @@ export default function EstadoCuentaProyectadoDetalleView({
             />
           </div>
 
+          {tipos.length === 0 && (
+            <p
+              id="mostrar-hint"
+              className="font-inter text-[11px] text-sat-navy/70"
+            >
+              Seleccione al menos un concepto para habilitar Mostrar.
+            </p>
+          )}
           <div className="flex justify-end border-t border-sat-navy/10 pt-[8px]">
             <button
               type="submit"
-              className="inline-flex min-h-10 items-center gap-1.5 rounded-md bg-sat-cyan px-4 py-2 text-[11px] font-semibold text-sat-navy shadow-sm transition hover:bg-sat-cyan/90 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
+              disabled={tipos.length === 0}
+              aria-describedby={tipos.length === 0 ? "mostrar-hint" : undefined}
+              className="inline-flex min-h-10 items-center gap-1.5 rounded-md bg-sat-cyan px-4 py-2 text-[11px] font-semibold text-sat-navy shadow-sm transition hover:bg-sat-cyan/90 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Search size={14} aria-hidden="true" />
               Mostrar

@@ -101,12 +101,12 @@ describe('EstadoCuentaProyectadoController — detail endpoints', () => {
     it('parses the body, pads codigo and applies safe defaults', async () => {
       consulta.mockResolvedValue([]);
 
-      await controller.consulta({ codigo: '123' });
+      await controller.consulta({ codigo: '123', tipos: ['*02.01*'] });
 
       expect(consulta).toHaveBeenCalledWith({
         codigo: '0000123',
         annos: [],
-        tipos: [],
+        tipos: ['*02.01*'],
         tiporec: '',
         perio: '',
         predio: '',
@@ -144,7 +144,11 @@ describe('EstadoCuentaProyectadoController — detail endpoints', () => {
     it('coerces numeric annos values to strings at the boundary', async () => {
       consulta.mockResolvedValue([]);
 
-      await controller.consulta({ codigo: '123', annos: [2025, 2026] });
+      await controller.consulta({
+        codigo: '123',
+        annos: [2025, 2026],
+        tipos: ['*02.01*'],
+      });
 
       expect(consulta.mock.calls[0][0]['annos']).toEqual(['2025', '2026']);
     });
@@ -154,6 +158,7 @@ describe('EstadoCuentaProyectadoController — detail endpoints', () => {
 
       await controller.consulta({
         codigo: '123',
+        tipos: ['*02.01*'],
         fecha_proyectada: '2026-11-18',
       });
 
@@ -164,7 +169,12 @@ describe('EstadoCuentaProyectadoController — detail endpoints', () => {
 
     it('rejects an impossible DD/MM/YYYY date with the canonical 400 envelope', async () => {
       await expectCanonicalValidationError(
-        () => controller.consulta({ codigo: '123', fecha_proyectada: '31/02/2026' }),
+        () =>
+          controller.consulta({
+            codigo: '123',
+            tipos: ['*02.01*'],
+            fecha_proyectada: '31/02/2026',
+          }),
         'fecha_proyectada',
       );
       expect(consulta).not.toHaveBeenCalled();
@@ -172,7 +182,12 @@ describe('EstadoCuentaProyectadoController — detail endpoints', () => {
 
     it('rejects an impossible ISO date with the canonical 400 envelope', async () => {
       await expectCanonicalValidationError(
-        () => controller.consulta({ codigo: '123', fecha_proyectada: '2026-02-31' }),
+        () =>
+          controller.consulta({
+            codigo: '123',
+            tipos: ['*02.01*'],
+            fecha_proyectada: '2026-02-31',
+          }),
         'fecha_proyectada',
       );
       expect(consulta).not.toHaveBeenCalled();
@@ -180,7 +195,12 @@ describe('EstadoCuentaProyectadoController — detail endpoints', () => {
 
     it('rejects an unsupported date format with the canonical 400 envelope', async () => {
       await expectCanonicalValidationError(
-        () => controller.consulta({ codigo: '123', fecha_proyectada: '18-11-2026' }),
+        () =>
+          controller.consulta({
+            codigo: '123',
+            tipos: ['*02.01*'],
+            fecha_proyectada: '18-11-2026',
+          }),
         'fecha_proyectada',
       );
       expect(consulta).not.toHaveBeenCalled();
@@ -191,6 +211,7 @@ describe('EstadoCuentaProyectadoController — detail endpoints', () => {
 
       await controller.consulta({
         codigo: '123',
+        tipos: ['*02.01*'],
         criterio: '9',
         sql: 'DROP TABLE x',
       });
@@ -201,7 +222,8 @@ describe('EstadoCuentaProyectadoController — detail endpoints', () => {
 
     it('rejects an unsupported estado with the canonical 400 envelope', async () => {
       await expectCanonicalValidationError(
-        () => controller.consulta({ codigo: '123', estado: '2' }),
+        () =>
+          controller.consulta({ codigo: '123', tipos: ['*02.01*'], estado: '2' }),
         'estado',
       );
       expect(consulta).not.toHaveBeenCalled();
@@ -215,9 +237,17 @@ describe('EstadoCuentaProyectadoController — detail endpoints', () => {
       expect(consulta).not.toHaveBeenCalled();
     });
 
+    it('rejects an empty tipos array with the canonical 400 envelope', async () => {
+      await expectCanonicalValidationError(
+        () => controller.consulta({ codigo: '123', tipos: [] }),
+        'tipos',
+      );
+      expect(consulta).not.toHaveBeenCalled();
+    });
+
     it('rejects an out-of-range codigo with the canonical 400 envelope', async () => {
       await expectCanonicalValidationError(
-        () => controller.consulta({ codigo: '12345678' }),
+        () => controller.consulta({ codigo: '12345678', tipos: ['*02.01*'] }),
         'codigo',
       );
       expect(consulta).not.toHaveBeenCalled();
@@ -227,7 +257,12 @@ describe('EstadoCuentaProyectadoController — detail endpoints', () => {
       const expected = [{ idrecibo: '10', total: 105 }];
       consulta.mockResolvedValue(expected);
 
-      expect(await controller.consulta({ codigo: '0000123' })).toBe(expected);
+      expect(
+        await controller.consulta({
+          codigo: '0000123',
+          tipos: ['*02.01*'],
+        }),
+      ).toBe(expected);
     });
   });
 

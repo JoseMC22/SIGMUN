@@ -75,7 +75,11 @@ export const ESTADOS_DETALLE_PROYECTADO = ['0', '1', '%'] as const;
 export const ConsultaDetalleEstadoCuentaProyectadoSchema = z.object({
   codigo: CodigoProyectadoSchema,
   annos: z.array(z.coerce.string().trim()).default([]),
-  tipos: z.array(z.coerce.string().trim()).default([]),
+  // The predecessor SP builds a dynamic @query from @tipos; an empty array
+  // arrives as '' and produces invalid SQL, so reject it at the boundary.
+  tipos: z.array(z.coerce.string().trim()).min(1, {
+    message: 'At least one tipo is required',
+  }),
   tiporec: z.coerce.string().trim().default(''),
   perio: z.coerce.string().trim().default(''),
   predio: z.coerce.string().trim().default(''),

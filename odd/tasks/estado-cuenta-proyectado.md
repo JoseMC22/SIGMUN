@@ -121,6 +121,7 @@ Inspección de SOLO LECTURA autorizada por el usuario sobre `192.168.3.205:1433 
 - [x] **T05 — Frontend detalle**: acciones de solo lectura, vista con cabecera, filtros, grilla de detalle, panel de recibos y totales, reemplazo del stub en `page.tsx:176-178`, y tests. Checks: Vitest frontend + typecheck frontend.
 - [x] **T06 — Integración del child**: verificación completa, diff de puentes, registro de evidencia y decisión de entrega (sin push/PR/merge sin autorización). Checks: cuatro checks aplicables + `git diff --check`.
 - [x] **T07 — Normalizar fecha de proyección en el boundary**: conservar `type="date"`; convertir `YYYY-MM-DD` → `DD/MM/YYYY` antes de enlazar `@fecha_proyectada` al SP (`DATEFORMAT dmy`) y `DD/MM/YYYY` → `YYYY-MM-DD` para el valor del input, validando ambos formatos en Zod. Tests de regresión backend y frontend. Checks: cuatro checks aplicables + `git diff --check`.
+- [x] **T08 — Default de fecha actual y guard de conceptos**: inicializar la fecha de proyección con la fecha local actual (ISO); deshabilitar "Mostrar" hasta que haya al menos un concepto seleccionado; rechazar `tipos` vacío en el DTO backend con envelope canónico para que el SP predecesor no reciba `@query` dinámico inválido. Tests backend y frontend. Checks: cuatro checks aplicables + `git diff --check`.
 
 ### Route declaration
 | Task | Route | Trigger |
@@ -129,6 +130,7 @@ Inspección de SOLO LECTURA autorizada por el usuario sobre `192.168.3.205:1433 
 | T05 | Delegated direct (writer) | action + vista + page + tests → writer trigger |
 | T06 | Inline (orquestador) | verificación centralizada y registro; sin puentes transversales |
 | T07 | Delegated direct (writer) | DTO + service + spec backend + vista + 2 tests frontend → writer trigger |
+| T08 | Delegated direct (writer) | DTO + spec backend + vista + 2 tests frontend → writer trigger |
 
 ### Checks aplicables
 - `pnpm --dir backend test -- --runInBand estado-cuenta-proyectado`
@@ -163,6 +165,11 @@ Inspección de SOLO LECTURA autorizada por el usuario sobre `192.168.3.205:1433 
 - 2026-11-19: T07 (delegado a un único writer por writer trigger; DTO + service + 2 specs + vista + 2 tests) con TDD estricto: RED previo `Tests 2 failed | 26 passed (28)`, RED de nuevos tests backend `4 failed, 65 passed (69)` y frontend `3 failed | 28 passed (31)` → GREEN backend `4 suites / 70 tests`, frontend `2 archivos / 31 tests`.
 - 2026-11-19: spot check del orquestador (réplica de los dos runners): backend `4 passed, 4 total` / `70 passed, 70 total`; frontend `2 passed (2)` / `31 passed (31)`; `git diff --check` sin hallazgos. Typechecks con las bases conocidas de 25 errores (backend) y 12 (frontend), cero errores nuevos. RDD `off (decided by global)`, sin revisión nativa.
 - 2026-11-19: work unit T07 commiteado como `80bbbb1a030527f4723ec8f6665d4760c1c95b20` (`fix(estado-cuenta-proyectado): normalize projection date at boundary`), 8 archivos, 229 inserciones y 10 borrados. Pre-commit `gga` devolvió `STATUS: PASSED` y el commit se creó sin `--no-verify`.
+
+- 2026-11-19: el usuario pidió fecha de proyección por defecto = fecha actual, evitar la caída del proceso y exigir al menos un concepto para habilitar "Mostrar". Evidencia local: `Caja.sp_EstCta_Rentas_proyectado_2022` delega en `sp_EstCta_Rentas_predecesor_proyectado`, que construye `@query` dinámico a partir de `@tipos`; un `tipos: []` llega como `''`. Sin ejecución remota: solo se leyó la definición ya extraída en temp. T08 creado antes del primer source write.
+
+- 2026-11-19: T08 (delegado a un único writer por writer trigger) con TDD estricto: RED backend `1 failed, 70 passed (71)` y frontend `6 failed | 26 passed (32)` → GREEN backend `4 suites / 71 tests` y frontend `2 archivos / 32 tests`.
+- 2026-11-19: spot check del orquestador: backend `4 passed, 4 total` / `71 passed, 71 total`; frontend `2 passed (2)` / `32 passed (32)`; `git diff --check` sin hallazgos. Typechecks solo con las bases conocidas (25 backend, 12 frontend), cero errores nuevos. RDD `off (decided by global)`, sin revisión nativa.
 
 ### Próximo paso
 Decisión humana: push y PR del child, o continuar con la siguiente capa (PDF/generación de recibos), que requiere autorización adicional porque incluye acciones mutantes. Push/PR/merge requieren autorización explícita.

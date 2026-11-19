@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import type {
   CabeceraProyectado,
@@ -100,6 +100,8 @@ const RECIBOS: ReciboEmitidoProyectado[] = [
 ];
 
 const PREDIAL_VALUE = "*02.01*,*00.16*,*30.02*,*30.03*,*30.04*,*00.46*";
+const TODAY_ISO = "2026-11-19";
+const TODAY_LEGACY = "19/11/2026";
 
 interface HarnessOverrides {
   catalogos?: CatalogosProyectado;
@@ -127,6 +129,15 @@ function renderView(overrides: HarnessOverrides = {}) {
 }
 
 describe("EstadoCuentaProyectadoDetalleView", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 10, 19, 12, 0, 0));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("renders the taxpayer header with codigo, nombre, direccion and documento", () => {
     renderView();
 
@@ -173,37 +184,54 @@ describe("EstadoCuentaProyectadoDetalleView", () => {
     );
   });
 
-  it("defaults the status to Pendiente and shows the projection date", () => {
+  it("defaults the status to Pendiente and the date to today, keeping the catalog badge", () => {
     renderView();
 
     expect(screen.getByRole("radio", { name: "Pendiente" })).toBeChecked();
     expect(screen.getByRole("radio", { name: "Cancelado" })).not.toBeChecked();
     expect(screen.getByRole("radio", { name: "Todos" })).not.toBeChecked();
-    expect(screen.getByLabelText("Fecha de proyección")).toHaveValue(
-      "2026-11-17",
-    );
+    expect(screen.getByLabelText("Fecha de proyección")).toHaveValue(TODAY_ISO);
     expect(screen.getByText("Proyección 17/11/2026")).toBeInTheDocument();
   });
 
-  it("leaves the date input empty when the catalog date is missing", () => {
+  it("defaults the date to today even when the catalog date is missing", () => {
     const { onMostrar } = renderView({
       catalogos: { ...CATALOGOS, fechaProyectada: "" },
     });
 
-    expect(screen.getByLabelText("Fecha de proyección")).toHaveValue("");
+    expect(screen.getByLabelText("Fecha de proyección")).toHaveValue(TODAY_ISO);
 
+    fireEvent.click(screen.getByRole("checkbox", { name: "Predial" }));
     fireEvent.click(screen.getByRole("button", { name: /^mostrar$/i }));
     expect(onMostrar).toHaveBeenCalledWith(
-      expect.objectContaining({ fecha_proyectada: "" }),
+      expect.objectContaining({ fecha_proyectada: TODAY_LEGACY }),
     );
   });
 
-  it("ignores an impossible catalog date without crashing", () => {
+  it("ignores an impossible catalog date and keeps today in the input", () => {
     renderView({
       catalogos: { ...CATALOGOS, fechaProyectada: "31/02/2026" },
     });
 
-    expect(screen.getByLabelText("Fecha de proyección")).toHaveValue("");
+    expect(screen.getByLabelText("Fecha de proyección")).toHaveValue(TODAY_ISO);
+  });
+
+  it("disables Mostrar with an accessible hint until a concept is selected", () => {
+    renderView();
+
+    const mostrar = screen.getByRole("button", { name: /^mostrar$/i });
+    expect(mostrar).toBeDisabled();
+    expect(mostrar).toHaveAttribute("aria-describedby", "mostrar-hint");
+    expect(
+      screen.getByText(/seleccione al menos un concepto/i),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Predial" }));
+    expect(mostrar).toBeEnabled();
+    expect(mostrar).not.toHaveAttribute("aria-describedby");
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Predial" }));
+    expect(mostrar).toBeDisabled();
   });
 
   it("emits the selected filters when Mostrar is pressed", () => {

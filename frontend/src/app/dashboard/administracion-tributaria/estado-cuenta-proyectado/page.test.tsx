@@ -114,6 +114,8 @@ const DETALLE_ROW: DetalleReciboProyectado = {
 };
 
 const PREDIAL_VALUE = "*02.01*,*00.16*,*30.02*,*30.03*,*30.04*,*00.46*";
+const TODAY_ISO = "2026-11-19";
+const TODAY_LEGACY = "19/11/2026";
 
 type OkResult = {
   success: true;
@@ -167,6 +169,8 @@ const getCriterio = () => screen.getByRole("combobox", { name: "Tipo Búsqueda" 
 
 describe("EstadoCuentaProyectadoPage", () => {
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 10, 19, 12, 0, 0));
     vi.clearAllMocks();
     nav.searchParams = new URLSearchParams();
     mockSearch.mockResolvedValue(okResult({ data: [], total: 0, totalPages: 0 }));
@@ -179,6 +183,7 @@ describe("EstadoCuentaProyectadoPage", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
@@ -379,22 +384,23 @@ describe("EstadoCuentaProyectadoPage", () => {
     expect(mockSearch).not.toHaveBeenCalled();
   });
 
-  it("posts the default consultation body with estado 0 and the projected date", async () => {
+  it("posts the consultation body with default estado and today as the projected date", async () => {
     renderDetailPage();
     await screen.findByText("JUAN PEREZ");
 
+    fireEvent.click(screen.getByRole("checkbox", { name: "Predial" }));
     fireEvent.click(screen.getByRole("button", { name: /^mostrar$/i }));
 
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
     expect(consultaBody()).toEqual({
       codigo: "0000123",
       annos: [],
-      tipos: [],
+      tipos: [PREDIAL_VALUE],
       tiporec: "",
       perio: "",
       predio: "",
       estado: "0",
-      fecha_proyectada: "17/11/2026",
+      fecha_proyectada: TODAY_LEGACY,
     });
   });
 
@@ -402,12 +408,11 @@ describe("EstadoCuentaProyectadoPage", () => {
     renderDetailPage();
     await screen.findByText("JUAN PEREZ");
 
-    expect(screen.getByLabelText("Fecha de proyección")).toHaveValue(
-      "2026-11-17",
-    );
+    expect(screen.getByLabelText("Fecha de proyección")).toHaveValue(TODAY_ISO);
     fireEvent.change(screen.getByLabelText("Fecha de proyección"), {
       target: { value: "2026-11-18" },
     });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Predial" }));
     fireEvent.click(screen.getByRole("button", { name: /^mostrar$/i }));
 
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
@@ -440,7 +445,7 @@ describe("EstadoCuentaProyectadoPage", () => {
       perio: "01,02",
       predio: "0000003",
       estado: "1",
-      fecha_proyectada: "17/11/2026",
+      fecha_proyectada: TODAY_LEGACY,
     });
   });
 
@@ -449,6 +454,7 @@ describe("EstadoCuentaProyectadoPage", () => {
     renderDetailPage();
     await screen.findByText("JUAN PEREZ");
 
+    fireEvent.click(screen.getByRole("checkbox", { name: "Predial" }));
     fireEvent.click(screen.getByRole("button", { name: /^mostrar$/i }));
 
     const grid = await screen.findByRole("table", { name: /detalle de recibos/i });
@@ -497,6 +503,7 @@ describe("EstadoCuentaProyectadoPage", () => {
     renderDetailPage();
     await screen.findByText("JUAN PEREZ");
 
+    fireEvent.click(screen.getByRole("checkbox", { name: "Predial" }));
     fireEvent.click(screen.getByRole("button", { name: /^mostrar$/i }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
