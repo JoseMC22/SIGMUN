@@ -170,6 +170,7 @@ Inspección de SOLO LECTURA autorizada por el usuario sobre `192.168.3.205:1433 
 
 - 2026-11-19: T08 (delegado a un único writer por writer trigger) con TDD estricto: RED backend `1 failed, 70 passed (71)` y frontend `6 failed | 26 passed (32)` → GREEN backend `4 suites / 71 tests` y frontend `2 archivos / 32 tests`.
 - 2026-11-19: spot check del orquestador: backend `4 passed, 4 total` / `71 passed, 71 total`; frontend `2 passed (2)` / `32 passed (32)`; `git diff --check` sin hallazgos. Typechecks solo con las bases conocidas (25 backend, 12 frontend), cero errores nuevos. RDD `off (decided by global)`, sin revisión nativa.
+- 2026-11-19: work unit T08 commiteado como `cdbdee34fcd1ca340f45756cd20de9b09347c2ce` (`fix(estado-cuenta-proyectado): default projection date and require concept`), 6 archivos, 130 inserciones y 42 borrados. Pre-commit `gga` devolvió `STATUS: PASSED`, sin `--no-verify`.
 
 ### Próximo paso
 Decisión humana: push y PR del child, o continuar con la siguiente capa (PDF/generación de recibos), que requiere autorización adicional porque incluye acciones mutantes. Push/PR/merge requieren autorización explícita.
