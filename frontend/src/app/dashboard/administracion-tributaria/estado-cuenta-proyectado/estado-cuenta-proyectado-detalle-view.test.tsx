@@ -187,7 +187,7 @@ describe("EstadoCuentaProyectadoDetalleView", () => {
       expect(classesFor(legend)).toContain("min-w-[6.9rem]");
       expect(classesFor(legend)).toContain("max-h-[5.6rem]");
     }
-    expect(classesFor("Predio")).toContain("w-[9rem]");
+    expect(classesFor("Predio")).toContain("w-[18rem]");
     expect(classesFor("Predio")).toContain("max-h-32");
   });
 
