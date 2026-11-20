@@ -36,14 +36,15 @@ interface ColumnDef {
   mono?: boolean;
   numeric?: boolean;
   strong?: boolean;
+  width?: string;
 }
 
 const columns: ColumnDef[] = [
-  { key: "codigo", label: "Código", mono: true },
-  { key: "concepto", label: "Concepto" },
-  { key: "partida", label: "Partida", mono: true },
-  { key: "nombre", label: "Gerencia" },
-  { key: "ftefin", label: "Rubro", mono: true },
+  { key: "codigo", label: "Código", mono: true, width: "3.67%" },
+  { key: "concepto", label: "Concepto", width: "50%" },
+  { key: "partida", label: "Partida", mono: true, width: "6.67%" },
+  { key: "nombre", label: "Gerencia", width: "26.67%"  },
+  { key: "ftefin", label: "Rubro", mono: true, width: "3.33%" },
   { key: "valor", label: "Valor", align: "right", numeric: true, strong: true },
 ];
 
@@ -294,6 +295,11 @@ export default function MantenimientoIngresosPage() {
         role="grid"
         data-testid="mi-grid"
       >
+        <colgroup>
+          {columns.map((col) => (
+            <col key={col.key} style={col.width ? { width: col.width } : undefined} />
+          ))}
+        </colgroup>
         <thead className="bg-gradient-to-r from-sat-navy to-[#1e3050]">
           <tr>
             {columns.map((col) => (
