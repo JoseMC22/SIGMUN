@@ -181,11 +181,11 @@ describe("EstadoCuentaProyectadoDetalleView", () => {
 
     for (const legend of ["Concepto", "Arbitrio"]) {
       expect(classesFor(legend)).toContain("min-w-[10.557rem]");
-      expect(classesFor(legend)).toContain("max-h-[5.6rem]");
+      expect(classesFor(legend)).toContain("max-h-32");
     }
     for (const legend of ["Período", "Año"]) {
       expect(classesFor(legend)).toContain("min-w-[6.9rem]");
-      expect(classesFor(legend)).toContain("max-h-[5.6rem]");
+      expect(classesFor(legend)).toContain("max-h-32");
     }
     expect(classesFor("Predio")).toContain("w-[36rem]");
     expect(classesFor("Predio")).toContain("max-h-32");

@@ -194,7 +194,7 @@ function CheckboxGroup({
   options,
   selected,
   onToggle,
-  containerClass = "max-h-[5.6rem] min-w-[13.8rem]",
+  containerClass = "max-h-32 min-w-[13.8rem]",
 }: CheckboxGroupProps) {
   return (
     <fieldset className="min-w-0">
@@ -439,28 +439,28 @@ export default function EstadoCuentaProyectadoDetalleView({
               options={CONCEPTOS}
               selected={tipos}
               onToggle={(value) => setTipos((current) => toggleValue(current, value))}
-              containerClass="max-h-[5.6rem] min-w-[10.557rem]"
+              containerClass="max-h-32 min-w-[10.557rem]"
             />
             <CheckboxGroup
               legend="Arbitrio"
               options={ARBITRIOS}
               selected={tiporec}
               onToggle={(value) => setTiporec((current) => toggleValue(current, value))}
-              containerClass="max-h-[5.6rem] min-w-[10.557rem]"
+              containerClass="max-h-32 min-w-[10.557rem]"
             />
             <CheckboxGroup
               legend="Período"
               options={periodoOptions}
               selected={perio}
               onToggle={(value) => setPerio((current) => toggleValue(current, value))}
-              containerClass="max-h-[5.6rem] min-w-[6.9rem]"
+              containerClass="max-h-32 min-w-[6.9rem]"
             />
             <CheckboxGroup
               legend="Año"
               options={annoOptions}
               selected={annos}
               onToggle={(value) => setAnnos((current) => toggleValue(current, value))}
-              containerClass="max-h-[5.6rem] min-w-[6.9rem]"
+              containerClass="max-h-32 min-w-[6.9rem]"
             />
             <CheckboxGroup
               legend="Predio"
