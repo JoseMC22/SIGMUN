@@ -256,14 +256,13 @@ describe("EstadoCuentaProyectadoDetalleView", () => {
     );
   });
 
-  it("defaults the status to Pendiente and the date to today, keeping the catalog badge", () => {
+  it("defaults the status to Pendiente and the date to today", () => {
     renderView();
 
     expect(screen.getByRole("radio", { name: "Pendiente" })).toBeChecked();
     expect(screen.getByRole("radio", { name: "Cancelado" })).not.toBeChecked();
     expect(screen.getByRole("radio", { name: "Todos" })).not.toBeChecked();
     expect(screen.getByLabelText("Fecha de proyección")).toHaveValue(TODAY_ISO);
-    expect(screen.getByText("Proyección 17/11/2026")).toBeInTheDocument();
   });
 
   it("defaults the date to today even when the catalog date is missing", () => {
@@ -413,9 +412,15 @@ describe("EstadoCuentaProyectadoDetalleView", () => {
     );
   });
 
-  it("calls onClose when the close button is clicked", () => {
+  it("calls onClose when the header close button is clicked", () => {
     const { onClose } = renderView();
-    fireEvent.click(screen.getByRole("button", { name: /cerrar/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("calls onClose when the Cerrar ventana action button is clicked", () => {
+    const { onClose } = renderView();
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar ventana" }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 

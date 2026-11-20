@@ -324,10 +324,6 @@ export default function EstadoCuentaProyectadoDetalleView({
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-md border border-clean-white/25 px-2.5 py-1 font-inter text-[10px] text-clean-white/90">
-              <FileText size={13} aria-hidden="true" />
-              Proyección {catalogos.fechaProyectada}
-            </span>
             <button
               type="button"
               onClick={onClose}
@@ -507,6 +503,14 @@ export default function EstadoCuentaProyectadoDetalleView({
                 <Search size={14} aria-hidden="true" />
               )}
               {procesando ? "Procesando..." : "Mostrar"}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="ml-2 inline-flex min-h-10 items-center gap-1.5 rounded-md border border-sat-navy/25 bg-clean-white px-4 py-2 text-[11px] font-semibold text-sat-navy shadow-sm transition hover:bg-sat-navy/5 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
+            >
+              <X size={14} aria-hidden="true" />
+              Cerrar ventana
             </button>
           </div>
         </form>

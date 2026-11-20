@@ -328,7 +328,7 @@ describe("EstadoCuentaProyectadoPage", () => {
     renderDetailPage();
     await screen.findByText("JUAN PEREZ");
 
-    fireEvent.click(screen.getByRole("button", { name: /cerrar/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
 
     expect(nav.push).toHaveBeenCalledWith(
       "/dashboard/administracion-tributaria/estado-cuenta-proyectado",
