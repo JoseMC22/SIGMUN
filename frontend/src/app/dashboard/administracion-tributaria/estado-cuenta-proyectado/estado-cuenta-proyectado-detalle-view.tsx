@@ -439,14 +439,14 @@ export default function EstadoCuentaProyectadoDetalleView({
               options={CONCEPTOS}
               selected={tipos}
               onToggle={(value) => setTipos((current) => toggleValue(current, value))}
-              containerClass="max-h-[5.6rem] min-w-[11.73rem]"
+              containerClass="max-h-[5.6rem] min-w-[10.557rem]"
             />
             <CheckboxGroup
               legend="Arbitrio"
               options={ARBITRIOS}
               selected={tiporec}
               onToggle={(value) => setTiporec((current) => toggleValue(current, value))}
-              containerClass="max-h-[5.6rem] min-w-[11.73rem]"
+              containerClass="max-h-[5.6rem] min-w-[10.557rem]"
             />
             <CheckboxGroup
               legend="Período"

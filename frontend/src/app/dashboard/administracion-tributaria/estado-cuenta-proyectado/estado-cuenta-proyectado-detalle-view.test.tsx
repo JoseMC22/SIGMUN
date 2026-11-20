@@ -180,7 +180,7 @@ describe("EstadoCuentaProyectadoDetalleView", () => {
       screen.getByRole("group", { name: legend }).querySelector("div")?.className ?? "";
 
     for (const legend of ["Concepto", "Arbitrio"]) {
-      expect(classesFor(legend)).toContain("min-w-[11.73rem]");
+      expect(classesFor(legend)).toContain("min-w-[10.557rem]");
       expect(classesFor(legend)).toContain("max-h-[5.6rem]");
     }
     for (const legend of ["Período", "Año"]) {
