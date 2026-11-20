@@ -200,8 +200,8 @@ function CheckboxGroup({
     <fieldset className="min-w-0">
       <legend className={`mb-[6px] ${LEGEND_CLASS}`}>{legend}</legend>
       <div
-        className={`max-h-32 space-y-[3px] overflow-y-auto rounded-md border border-sat-navy/10 bg-sat-navy/[0.03] p-2 ${
-          wide ? "min-w-[16rem]" : ""
+        className={`space-y-[3px] overflow-y-auto rounded-md border border-sat-navy/10 bg-sat-navy/[0.03] p-2 ${
+          wide ? "max-h-32 min-w-[16rem]" : "max-h-[5.6rem] min-w-[13.8rem]"
         }`}
       >
         {options.length === 0 ? (

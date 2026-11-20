@@ -173,6 +173,24 @@ describe("EstadoCuentaProyectadoDetalleView", () => {
     ).toBeInTheDocument();
   });
 
+  it("uses the agreed 13.8rem by 5.6rem containers for concept, arbitrio, period and year", () => {
+    renderView();
+
+    for (const legend of ["Concepto", "Arbitrio", "Período", "Año"]) {
+      const container = screen
+        .getByRole("group", { name: legend })
+        .querySelector("div");
+      expect(container?.className).toContain("min-w-[13.8rem]");
+      expect(container?.className).toContain("max-h-[5.6rem]");
+    }
+
+    const predioContainer = screen
+      .getByRole("group", { name: "Predio" })
+      .querySelector("div");
+    expect(predioContainer?.className).toContain("min-w-[16rem]");
+    expect(predioContainer?.className).toContain("max-h-32");
+  });
+
   it("uses unique keys for predios that share cod_pred but differ in anexo", () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const duplicateCodPred = "000164976";
