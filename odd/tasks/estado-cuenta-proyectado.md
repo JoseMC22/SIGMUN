@@ -126,6 +126,7 @@ Inspección de SOLO LECTURA autorizada por el usuario sobre `192.168.3.205:1433 
 - [x] **T10 — Estado "Procesando" del botón Mostrar**: al pulsar "Mostrar", el botón cambia su texto a "Procesando..." y queda deshabilitado (`aria-busy`) mientras `consultarDetalleProyectadoAction` está en vuelo; al culminar (éxito o error) vuelve a "Mostrar" y se habilita si hay conceptos. Estado `procesando` dedicado en `EstadoCuentaProyectadoDetalle` (separado del `loading` de carga inicial), propagado como prop a la vista. Tests de vista y de página con promesa controlada. Checks: Vitest frontend + typecheck frontend + `git diff --check`.
 - [x] **T11 — Dimensiones de los contenedores de filtros**: ampliar un 15% el ancho y reducir un 30% el espacio vertical de los contenedores de Concepto, Arbitrio, Período y Año (no Predio). El usuario eligió ancho fijo `13.8rem` (221px = 12rem × 1.15) y alto `5.6rem` (89.6px = 8rem × 0.7) para los cuatro grupos. Checks: Vitest frontend + typecheck frontend + `git diff --check`.
 - [x] **T12 — Interlineado de los registros**: reducir un 20% el espacio entre filas de checkboxes dentro de los contenedores (`space-y-[3px]` → `space-y-[2.4px]`), aplica a todos los grupos incluido Predio. Checks: Vitest frontend + typecheck frontend + `git diff --check`.
+- [x] **T13 — Interlineado, segunda reducción**: reducir otro 20% (`space-y-[2.4px]` → `space-y-[1.92px]`), aplica a los cinco grupos. Checks: Vitest frontend + typecheck frontend + `git diff --check`.
 
 ### Route declaration
 | Task | Route | Trigger |
@@ -192,6 +193,8 @@ Inspección de SOLO LECTURA autorizada por el usuario sobre `192.168.3.205:1433 
 - 2026-11-20: T11 inline (1 archivo de source + 1 test): `CheckboxGroup` aplica `max-h-[5.6rem] min-w-[13.8rem]` a los grupos no-`wide` y conserva `max-h-32 min-w-[16rem]` para Predio. Test de regresión que fija las cuatro dimensiones y verifica que Predio queda intacto. Verificación: suite del feature 38/38 (19 vista + 19 página), `tsc --noEmit` con solo las 12 bases preexistentes, `git diff --check` sin hallazgos. RDD `off (decided by global)`, sin revisión nativa.
 
 - 2026-11-20: el usuario pidió reducir un 20% el espacio interlineado entre registros de los contenedores. T12 creado antes del primer source write. Cambio inline en `CheckboxGroup`: `space-y-[3px]` → `space-y-[2.4px]` (3 × 0.8), aplica a los cinco grupos. Test de regresión que verifica la clase en Concepto, Arbitrio, Período, Año y Predio. Verificación: suite del feature 39/39 (20 vista + 19 página), `tsc --noEmit` con solo las 12 bases preexistentes, `git diff --check` sin hallazgos. RDD `off (decided by global)`, sin revisión nativa.
+
+- 2026-11-20: el usuario pidió reducir otro 20% el interlineado. T13 creado antes del primer source write. `space-y-[2.4px]` → `space-y-[1.92px]` en los cinco grupos; se actualizó el test de regresión. Verificación: suite del feature 39/39 (20 vista + 19 página), `tsc --noEmit` con solo las 12 bases preexistentes, `git diff --check` sin hallazgos. RDD `off (decided by global)`, sin revisión nativa.
 
 ### Próximo paso
 Decisión humana: push y PR del child, o continuar con la siguiente capa (PDF/generación de recibos), que requiere autorización adicional porque incluye acciones mutantes. Push/PR/merge requieren autorización explícita.

@@ -191,7 +191,7 @@ describe("EstadoCuentaProyectadoDetalleView", () => {
     expect(predioContainer?.className).toContain("max-h-32");
   });
 
-  it("uses 2.4px spacing between checkbox rows in every group", () => {
+  it("uses 1.92px spacing between checkbox rows in every group", () => {
     renderView();
 
     for (const legend of [
@@ -204,7 +204,7 @@ describe("EstadoCuentaProyectadoDetalleView", () => {
       const container = screen
         .getByRole("group", { name: legend })
         .querySelector("div");
-      expect(container?.className).toContain("space-y-[2.4px]");
+      expect(container?.className).toContain("space-y-[1.92px]");
     }
   });
 
