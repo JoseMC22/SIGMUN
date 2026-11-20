@@ -132,6 +132,7 @@ Inspección de SOLO LECTURA autorizada por el usuario sobre `192.168.3.205:1433 
 - [x] **T16 — Ancho de Predio**: reducir un 25% (`16rem` → `12rem`). Resto sin cambios. Checks: Vitest frontend + typecheck frontend + `git diff --check`.
 - [x] **T17 — Ancho de Predio, segunda reducción**: reducir otro 25% (`12rem` → `9rem`). Además, reemplazar `min-w-[12rem]` por `w-[9rem]` (ancho fijo): `min-width` solo fija un piso y el label de predio (`codigo · anexo1 · direccion`) puede estirar la caja, por lo que la reducción anterior no era visible. Checks: Vitest frontend + typecheck frontend + `git diff --check`.
 - [x] **T18 — Ancho de Predio, duplicación**: incrementar un 100% (`9rem` → `18rem`), manteniendo el ancho fijo. Checks: Vitest frontend + typecheck frontend + `git diff --check`.
+- [x] **T19 — Ancho de Predio, segunda duplicación**: incrementar otro 100% (`18rem` → `36rem`), manteniendo el ancho fijo. Checks: Vitest frontend + typecheck frontend + `git diff --check`.
 
 ### Route declaration
 | Task | Route | Trigger |
@@ -210,6 +211,8 @@ Inspección de SOLO LECTURA autorizada por el usuario sobre `192.168.3.205:1433 
 - 2026-11-20: el usuario repitió la reducción del 25% en Predio. Causa de que T16 no fuera visible: `min-w` solo establece un mínimo y el label (`codigo · anexo1 · direccion`) supera ese mínimo, por lo que la caja seguía dimensionada por su contenido. T17 creado antes del primer source write. `containerClass` de Predio pasa a `max-h-32 w-[9rem]` (ancho fijo); se actualizó el test. Verificación: suite del feature 39/39 (20 vista + 19 página), `tsc --noEmit` con solo las 12 bases preexistentes, `git diff --check` sin hallazgos. RDD `off (decided by global)`, sin revisión nativa.
 
 - 2026-11-20: el usuario pidió incrementar el ancho un 100%. Interpretación: aplicado al contenedor de Predio (único trabajado en los últimos turnos), `9rem` → `18rem`, manteniendo `w-` fijo. T18 creado antes del primer source write. Verificación: suite del feature 39/39 (20 vista + 19 página), `tsc --noEmit` con solo las 12 bases preexistentes, `git diff --check` sin hallazgos. RDD `off (decided by global)`, sin revisión nativa.
+
+- 2026-11-20: el usuario pidió incrementar otro 100% el ancho de Predio. T19 creado antes del primer source write. `w-[18rem]` → `w-[36rem]`; se actualizó el test. Verificación: suite del feature 39/39 (20 vista + 19 página), `tsc --noEmit` con solo las 12 bases preexistentes, `git diff --check` sin hallazgos. RDD `off (decided by global)`, sin revisión nativa.
 
 ### Próximo paso
 Decisión humana: push y PR del child, o continuar con la siguiente capa (PDF/generación de recibos), que requiere autorización adicional porque incluye acciones mutantes. Push/PR/merge requieren autorización explícita.
