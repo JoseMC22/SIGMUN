@@ -171,6 +171,41 @@ describe("EstadoCuentaProyectadoDetalleView", () => {
     ).toBeInTheDocument();
   });
 
+  it("uses unique keys for predios that share cod_pred but differ in anexo", () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const duplicateCodPred = "000164976";
+    renderView({
+      catalogos: {
+        ...CATALOGOS,
+        predios: [
+          {
+            cod_pred: duplicateCodPred,
+            anexo1: "01-00",
+            direccion: "AV. NORTE 45",
+            anno: "2024",
+          },
+          {
+            cod_pred: duplicateCodPred,
+            anexo1: "02-00",
+            direccion: "AV. SUR 12",
+            anno: "2024",
+          },
+        ],
+      },
+    });
+
+    const predioCheckboxes = screen.getAllByRole("checkbox", {
+      name: `Predio ${duplicateCodPred}`,
+    });
+    expect(predioCheckboxes).toHaveLength(2);
+    expect(
+      errorSpy.mock.calls.some((call) =>
+        String(call[0]).includes("same key"),
+      ),
+    ).toBe(false);
+    errorSpy.mockRestore();
+  });
+
   it("renders legacy concept and arbitrio values on accessible checkboxes", () => {
     renderView();
 

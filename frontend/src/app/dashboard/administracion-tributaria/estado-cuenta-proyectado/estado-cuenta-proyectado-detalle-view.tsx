@@ -28,6 +28,7 @@ interface CheckboxOption {
   value: string;
   label: string;
   ariaLabel: string;
+  key?: string;
 }
 
 interface CheckboxGroupProps {
@@ -207,7 +208,7 @@ function CheckboxGroup({
         ) : (
           options.map((option) => (
             <label
-              key={option.value}
+              key={option.key ?? option.value}
               className="flex min-h-8 cursor-pointer items-center gap-2 text-[11px] font-medium text-sat-navy/80"
             >
               <input
@@ -266,6 +267,7 @@ export default function EstadoCuentaProyectadoDetalleView({
     () =>
       catalogos.predios.map((item) => ({
         value: item.cod_pred,
+        key: `${item.cod_pred}::${item.anexo1}`,
         label: `${item.cod_pred} · ${item.anexo1} · ${item.direccion}`,
         ariaLabel: `Predio ${item.cod_pred}`,
       })),

@@ -122,6 +122,7 @@ Inspección de SOLO LECTURA autorizada por el usuario sobre `192.168.3.205:1433 
 - [x] **T06 — Integración del child**: verificación completa, diff de puentes, registro de evidencia y decisión de entrega (sin push/PR/merge sin autorización). Checks: cuatro checks aplicables + `git diff --check`.
 - [x] **T07 — Normalizar fecha de proyección en el boundary**: conservar `type="date"`; convertir `YYYY-MM-DD` → `DD/MM/YYYY` antes de enlazar `@fecha_proyectada` al SP (`DATEFORMAT dmy`) y `DD/MM/YYYY` → `YYYY-MM-DD` para el valor del input, validando ambos formatos en Zod. Tests de regresión backend y frontend. Checks: cuatro checks aplicables + `git diff --check`.
 - [x] **T08 — Default de fecha actual y guard de conceptos**: inicializar la fecha de proyección con la fecha local actual (ISO); deshabilitar "Mostrar" hasta que haya al menos un concepto seleccionado; rechazar `tipos` vacío en el DTO backend con envelope canónico para que el SP predecesor no reciba `@query` dinámico inválido. Tests backend y frontend. Checks: cuatro checks aplicables + `git diff --check`.
+- [x] **T09 — Keys únicas en checkboxes de predio**: el warning de React `Encountered two children with the same key, '000164976'` provenía del grupo "Predio", donde la key era `item.cod_pred` y el catálogo (`store_caja_framework @msquery=15`, agrupa por `codigo,cod_pred,anexo,sub_anexo`) puede repetir `cod_pred` con distinto anexo. La key de React pasa a ser compuesta `cod_pred::anexo1` (`anexo1 = anexo+'-'+sub_anexo`), mientras el `value` enlazado al SP sigue siendo `cod_pred` puro porque el filtro del SP es `a.cod_pred in(...)` y no usa anexo/sub_anexo en el WHERE. Test de regresión con dos predios que comparten `cod_pred` verificando dos checkboxes y ausencia del warning. Checks: Vitest frontend + typecheck frontend + `git diff --check`.
 
 ### Route declaration
 | Task | Route | Trigger |
@@ -131,6 +132,7 @@ Inspección de SOLO LECTURA autorizada por el usuario sobre `192.168.3.205:1433 
 | T06 | Inline (orquestador) | verificación centralizada y registro; sin puentes transversales |
 | T07 | Delegated direct (writer) | DTO + service + spec backend + vista + 2 tests frontend → writer trigger |
 | T08 | Delegated direct (writer) | DTO + spec backend + vista + 2 tests frontend → writer trigger |
+| T09 | Inline (orquestador) | fix local de 2 archivos, mechanical y ya entendido; sin investigación ni diseño pendiente |
 
 ### Checks aplicables
 - `pnpm --dir backend test -- --runInBand estado-cuenta-proyectado`
@@ -172,6 +174,10 @@ Inspección de SOLO LECTURA autorizada por el usuario sobre `192.168.3.205:1433 
 - 2026-11-19: spot check del orquestador: backend `4 passed, 4 total` / `71 passed, 71 total`; frontend `2 passed (2)` / `32 passed (32)`; `git diff --check` sin hallazgos. Typechecks solo con las bases conocidas (25 backend, 12 frontend), cero errores nuevos. RDD `off (decided by global)`, sin revisión nativa.
 - 2026-11-19: work unit T08 commiteado como `cdbdee34fcd1ca340f45756cd20de9b09347c2ce` (`fix(estado-cuenta-proyectado): default projection date and require concept`), 6 archivos, 130 inserciones y 42 borrados. Pre-commit `gga` devolvió `STATUS: PASSED`, sin `--no-verify`.
 - 2026-11-19: verificación del guard de "Mostrar": se agregó el test `does not process or show the detail grid when Mostrar is pressed without a concept`, que clickea el botón deshabilitado y confirma `onMostrar` NO llamado (sin POST a `/consulta`, `detalle` intacto, grilla sin filas). `estado-cuenta-proyectado-detalle-view.test.tsx` 15/15. Work unit `9d3bee21f52039bbe4ce331f4eb60efffabadd45` (`test(estado-cuenta-proyectado): assert disabled Mostrar does not process`).
+
+- 2026-11-20: el usuario reportó el warning de React `Encountered two children with the same key, '000164976'`. Causa verificada: `CheckboxGroup` usaba `key={option.value}` y las opciones de predio usaban `value = item.cod_pred`; el catálogo (`dbo.store_caja_framework @msquery=15`) agrupa por `codigo,cod_pred,anexo,sub_anexo`, por lo que un mismo `cod_pred` aparece con varios anexos. Confirmado en la definición de `sp_EstCta_Rentas_predecesor_proyectado`: el filtro de predio es `a.cod_pred in('',@codigo,@predio)` (solo `cod_pred`, sin anexo/sub_anexo en el WHERE). T09 resuelto inline.
+
+- 2026-11-20: T09 (inline del orquestador, 2 archivos): `CheckboxOption` acepta `key?`; `predioOptions` entrega `key: ${cod_pred}::${anexo1}` (anexo1 ya incluye anexo-sub_anexo) y `CheckboxGroup` usa `key={option.key ?? option.value}`. El `value` enlazado sigue siendo `cod_pred` para no romper el filtro del SP. Test de regresión `uses unique keys for predios that share cod_pred but differ in anexo` (dos predios `000164976`, distinto anexo1 → 2 checkboxes, sin console.error de "same key"). Verificación: `estado-cuenta-proyectado-detalle-view.test.tsx` 16/16, suite del feature 34/34 (18 page + 16 view), `tsc --noEmit` sin errores nuevos en el feature (bases preexistentes: 9 baja-alcabala + 3 mantenimiento-uit), `git diff --check` sin hallazgos. RDD `off (decided by global)`, sin revisión nativa.
 
 ### Próximo paso
 Decisión humana: push y PR del child, o continuar con la siguiente capa (PDF/generación de recibos), que requiere autorización adicional porque incluye acciones mutantes. Push/PR/merge requieren autorización explícita.
