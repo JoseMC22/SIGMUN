@@ -191,6 +191,23 @@ describe("EstadoCuentaProyectadoDetalleView", () => {
     expect(predioContainer?.className).toContain("max-h-32");
   });
 
+  it("uses 2.4px spacing between checkbox rows in every group", () => {
+    renderView();
+
+    for (const legend of [
+      "Concepto",
+      "Arbitrio",
+      "Período",
+      "Año",
+      "Predio",
+    ]) {
+      const container = screen
+        .getByRole("group", { name: legend })
+        .querySelector("div");
+      expect(container?.className).toContain("space-y-[2.4px]");
+    }
+  });
+
   it("uses unique keys for predios that share cod_pred but differ in anexo", () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const duplicateCodPred = "000164976";
