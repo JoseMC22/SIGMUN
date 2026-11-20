@@ -136,6 +136,7 @@ Inspección de SOLO LECTURA autorizada por el usuario sobre `192.168.3.205:1433 
 - [x] **T20 — Altura uniforme de los contenedores**: incrementar el alto de Concepto, Arbitrio, Período y Año para igualar el de Predio (`max-h-[5.6rem]` → `max-h-32` / 8rem), conservando el ancho de cada grupo. Checks: Vitest frontend + typecheck frontend + `git diff --check`.
 - [x] **T21 — Ajustes directos del usuario en la vista**: el usuario editó `estado-cuenta-proyectado-detalle-view.tsx` con `space-y-[0px]`, `bg-sat-navy/[0.01]`, `gap-x-2` y anchos Concepto `5.557rem`, Período `3.9rem`, Año `4.9rem` (Arbitrio y Predio sin cambios). Se actualizan las aserciones de test que fijaban los valores anteriores y se commitean ambos archivos sin alterar los cambios del usuario. Checks: Vitest frontend + typecheck frontend + `git diff --check`.
 - [x] **T22 — Ocultar columna Descripción**: quitar "Descripción" de `DETALLE_COLUMNS` y su `<td>` (`des_cabecera`) del cuerpo de la grilla; el `colSpan` de la fila TOTAL y del estado vacío se ajusta automáticamente al nuevo largo del arreglo. Checks: Vitest frontend + typecheck frontend + `git diff --check`.
+- [x] **T23 — Botón "Est. de cuenta" (PDF local)**: implementar el control legacy `btnEstCta` omitido en T05. El usuario eligió generar el PDF localmente con `ReporteViewerModal` + `reporte-service.ts`, usando los datos ya consultados (sin servidor de reportes externo). El botón usa los mismos filtros que "Mostrar" y abre una vista previa del estado de cuenta con impresión y descarga PDF. Checks: Vitest frontend + typecheck frontend + `git diff --check`.
 
 ### Route declaration
 | Task | Route | Trigger |
@@ -147,6 +148,8 @@ Inspección de SOLO LECTURA autorizada por el usuario sobre `192.168.3.205:1433 
 | T08 | Delegated direct (writer) | DTO + spec backend + vista + 2 tests frontend → writer trigger |
 | T09 | Inline (orquestador) | fix local de 2 archivos, mechanical y ya entendido; sin investigación ni diseño pendiente |
 | T10 | Delegated direct (writer) | page + vista + 2 tests → writer trigger (2+ archivos no triviales) |
+| T11–T22 | Inline (orquestador) | cambios CSS/test de alcance local, sin decisiones pendientes |
+| T23 | Delegated direct (writer) | vista + componente de reporte + builder + tests → writer trigger |
 
 ### Checks aplicables
 - `pnpm --dir backend test -- --runInBand estado-cuenta-proyectado`
@@ -221,5 +224,10 @@ Inspección de SOLO LECTURA autorizada por el usuario sobre `192.168.3.205:1433 
 
 - 2026-11-20: el usuario pidió ocultar la primera columna "Descripción" de la grilla de resultados. T22 creado antes del primer source write. Se quitó "Descripción" de `DETALLE_COLUMNS` (13 → 12 columnas) y el `<td>` de `des_cabecera`; `colSpan` de TOTAL y del estado vacío se deriva del arreglo, por lo que quedó coherente sin cambios extra. Se actualizaron los tests de vista y página que esperaban el texto de descripción. Verificación: suite del feature 39/39 (20 vista + 19 página), `tsc --noEmit` con solo las 12 bases preexistentes, `git diff --check` sin hallazgos. RDD `off (decided by global)`, sin revisión nativa.
 
+- 2026-11-20: el usuario pidió implementar "el botón estado cuenta" según el legacy. Exploración read-only: el control faltante es `btnEstCta` / "Est. de cuenta" en `Z:\application\views\scripts\rentascajaproyec\index.phtml:237`, enlazado a `imprimeCuentaPdf()` (`js_Rentascajaproyec.js:374-431`), que abre un reporte externo `rptEstCtaMaestroContrib_proy` en un iframe. La acción de la grilla de búsqueda ya estaba implementada (T02). El servidor de reportes legacy no está portado; el usuario eligió PDF local con `ReporteViewerModal`. T23 creado antes del primer source write; RDD sigue `off (decided by global)`.
+- 2026-11-20: T23 (delegado a un único writer): nuevo componente `reportes/estado-cuenta-proyectado-reporte.tsx` que construye el HTML en cliente (`escapeHtml` + `llenarPlantilla` + `reemplazarBloques`), mismas 12 columnas de la grilla sin Descripción, fila de totales, `.conv-footer` con dos spans y `pdfConfig` landscape; la vista agrega el botón `type="button"` "Est. de cuenta" junto a "Mostrar" con el mismo guard `tipos.length === 0 || procesando` y renderiza el modal. Estilos del usuario intactos.
+- 2026-11-20: T23 con TDD estricto: RED `Tests 3 failed | 39 passed (42)` (los 3 tests nuevos no encontraban el botón) → GREEN `Test Files 2 passed (2)` / `Tests 42 passed (42)`.
+- 2026-11-20: spot check del orquestador: réplica del runner `2 passed (2)` / `42 passed (42)`. `gentle-ai review assess` sobre el candidate con archivo nuevo sin trackear dio `unassessable`; tras stagear, `risk: medium`, `review_due: false`, `review_due_reason: under_budget` (4 paths, 487 líneas). Sin review nativo por RDD off. `tsc --noEmit`: solo las 12 bases preexistentes, cero errores nuevos. `git diff --check` sin hallazgos.
+
 ### Próximo paso
-Decisión humana: push y PR del child, o continuar con la siguiente capa (PDF/generación de recibos), que requiere autorización adicional porque incluye acciones mutantes. Push/PR/merge requieren autorización explícita.
+Decisión humana: push y PR del child, o continuar con las acciones mutantes del legacy (anular/pagar/fraccionar), que requieren autorización explícita. Push/PR/merge requieren autorización explícita.

@@ -104,6 +104,7 @@ const TODAY_ISO = "2026-11-19";
 const TODAY_LEGACY = "19/11/2026";
 
 interface HarnessOverrides {
+  cabecera?: CabeceraProyectado;
   catalogos?: CatalogosProyectado;
   detalle?: DetalleReciboProyectado[];
   recibos?: ReciboEmitidoProyectado[];
@@ -117,7 +118,7 @@ function renderView(overrides: HarnessOverrides = {}) {
   render(
     <EstadoCuentaProyectadoDetalleView
       codigo="0000123"
-      cabecera={CABECERA}
+      cabecera={overrides.cabecera ?? CABECERA}
       catalogos={overrides.catalogos ?? CATALOGOS}
       detalle={overrides.detalle ?? DETALLE_ROWS}
       recibos={overrides.recibos ?? RECIBOS}
@@ -435,5 +436,53 @@ describe("EstadoCuentaProyectadoDetalleView", () => {
     expect(mostrar).toHaveTextContent("Mostrar");
     expect(mostrar).toBeEnabled();
     expect(mostrar).toHaveAttribute("aria-busy", "false");
+  });
+
+  it("opens the local PDF viewer with the current data when Est. de cuenta is pressed", () => {
+    renderView();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Predial" }));
+    fireEvent.click(screen.getByRole("button", { name: /^est\. de cuenta$/i }));
+
+    expect(
+      screen.getByRole("heading", { name: /vista previa del reporte/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /guardar en la pc/i }),
+    ).toBeEnabled();
+
+    const impreso = document.getElementById("reporte-print");
+    expect(impreso).not.toBeNull();
+    const reporte = impreso as HTMLElement;
+    expect(within(reporte).getByText("JUAN PEREZ")).toBeInTheDocument();
+    expect(within(reporte).getByText("0000123")).toBeInTheDocument();
+    expect(reporte.textContent).toContain("PREDIAL");
+  });
+
+  it("keeps Est. de cuenta disabled until a concept is selected", () => {
+    renderView();
+
+    const reporte = screen.getByRole("button", { name: /^est\. de cuenta$/i });
+    expect(reporte).toHaveAttribute("type", "button");
+    expect(reporte).toBeDisabled();
+    expect(reporte).toHaveAttribute("aria-describedby", "mostrar-hint");
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Predial" }));
+    expect(reporte).toBeEnabled();
+  });
+
+  it("escapes backend-derived text in the generated report HTML", () => {
+    const payload = "<script>alert('xss')</script>";
+    renderView({ cabecera: { ...CABECERA, nombre: payload } });
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Predial" }));
+    fireEvent.click(screen.getByRole("button", { name: /^est\. de cuenta$/i }));
+
+    const impreso = document.getElementById("reporte-print");
+    expect(impreso).not.toBeNull();
+    const reporte = impreso as HTMLElement;
+    expect(reporte.querySelector("script")).toBeNull();
+    expect(reporte.innerHTML).not.toContain("<script>");
+    expect(reporte.textContent).toContain(payload);
   });
 });
