@@ -173,22 +173,22 @@ describe("EstadoCuentaProyectadoDetalleView", () => {
     ).toBeInTheDocument();
   });
 
-  it("uses the agreed 13.8rem by 5.6rem containers for concept, arbitrio, period and year", () => {
+  it("uses the agreed container widths for each filter group", () => {
     renderView();
 
-    for (const legend of ["Concepto", "Arbitrio", "Período", "Año"]) {
-      const container = screen
-        .getByRole("group", { name: legend })
-        .querySelector("div");
-      expect(container?.className).toContain("min-w-[13.8rem]");
-      expect(container?.className).toContain("max-h-[5.6rem]");
-    }
+    const classesFor = (legend: string): string =>
+      screen.getByRole("group", { name: legend }).querySelector("div")?.className ?? "";
 
-    const predioContainer = screen
-      .getByRole("group", { name: "Predio" })
-      .querySelector("div");
-    expect(predioContainer?.className).toContain("min-w-[16rem]");
-    expect(predioContainer?.className).toContain("max-h-32");
+    for (const legend of ["Concepto", "Arbitrio"]) {
+      expect(classesFor(legend)).toContain("min-w-[11.73rem]");
+      expect(classesFor(legend)).toContain("max-h-[5.6rem]");
+    }
+    for (const legend of ["Período", "Año"]) {
+      expect(classesFor(legend)).toContain("min-w-[6.9rem]");
+      expect(classesFor(legend)).toContain("max-h-[5.6rem]");
+    }
+    expect(classesFor("Predio")).toContain("min-w-[16rem]");
+    expect(classesFor("Predio")).toContain("max-h-32");
   });
 
   it("uses 1.92px spacing between checkbox rows in every group", () => {

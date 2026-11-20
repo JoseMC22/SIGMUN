@@ -37,7 +37,7 @@ interface CheckboxGroupProps {
   options: readonly CheckboxOption[];
   selected: string[];
   onToggle: (value: string) => void;
-  wide?: boolean;
+  containerClass?: string;
 }
 
 const PANEL_CLASS =
@@ -194,15 +194,13 @@ function CheckboxGroup({
   options,
   selected,
   onToggle,
-  wide = false,
+  containerClass = "max-h-[5.6rem] min-w-[13.8rem]",
 }: CheckboxGroupProps) {
   return (
     <fieldset className="min-w-0">
       <legend className={`mb-[6px] ${LEGEND_CLASS}`}>{legend}</legend>
       <div
-        className={`space-y-[1.92px] overflow-y-auto rounded-md border border-sat-navy/10 bg-sat-navy/[0.03] p-2 ${
-          wide ? "max-h-32 min-w-[16rem]" : "max-h-[5.6rem] min-w-[13.8rem]"
-        }`}
+        className={`space-y-[1.92px] overflow-y-auto rounded-md border border-sat-navy/10 bg-sat-navy/[0.03] p-2 ${containerClass}`}
       >
         {options.length === 0 ? (
           <p className="font-inter text-[11px] text-sat-navy/70">Sin opciones</p>
@@ -441,31 +439,35 @@ export default function EstadoCuentaProyectadoDetalleView({
               options={CONCEPTOS}
               selected={tipos}
               onToggle={(value) => setTipos((current) => toggleValue(current, value))}
+              containerClass="max-h-[5.6rem] min-w-[11.73rem]"
             />
             <CheckboxGroup
               legend="Arbitrio"
               options={ARBITRIOS}
               selected={tiporec}
               onToggle={(value) => setTiporec((current) => toggleValue(current, value))}
+              containerClass="max-h-[5.6rem] min-w-[11.73rem]"
             />
             <CheckboxGroup
               legend="Período"
               options={periodoOptions}
               selected={perio}
               onToggle={(value) => setPerio((current) => toggleValue(current, value))}
+              containerClass="max-h-[5.6rem] min-w-[6.9rem]"
             />
             <CheckboxGroup
               legend="Año"
               options={annoOptions}
               selected={annos}
               onToggle={(value) => setAnnos((current) => toggleValue(current, value))}
+              containerClass="max-h-[5.6rem] min-w-[6.9rem]"
             />
             <CheckboxGroup
               legend="Predio"
               options={predioOptions}
               selected={predio}
               onToggle={(value) => setPredio((current) => toggleValue(current, value))}
-              wide
+              containerClass="max-h-32 min-w-[16rem]"
             />
           </div>
 
