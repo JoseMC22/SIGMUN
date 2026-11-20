@@ -179,19 +179,18 @@ describe("EstadoCuentaProyectadoDetalleView", () => {
     const classesFor = (legend: string): string =>
       screen.getByRole("group", { name: legend }).querySelector("div")?.className ?? "";
 
-    for (const legend of ["Concepto", "Arbitrio"]) {
-      expect(classesFor(legend)).toContain("min-w-[10.557rem]");
-      expect(classesFor(legend)).toContain("max-h-32");
-    }
-    for (const legend of ["Período", "Año"]) {
-      expect(classesFor(legend)).toContain("min-w-[6.9rem]");
+    expect(classesFor("Concepto")).toContain("min-w-[5.557rem]");
+    expect(classesFor("Arbitrio")).toContain("min-w-[10.557rem]");
+    expect(classesFor("Período")).toContain("min-w-[3.9rem]");
+    expect(classesFor("Año")).toContain("min-w-[4.9rem]");
+    for (const legend of ["Concepto", "Arbitrio", "Período", "Año"]) {
       expect(classesFor(legend)).toContain("max-h-32");
     }
     expect(classesFor("Predio")).toContain("w-[36rem]");
     expect(classesFor("Predio")).toContain("max-h-32");
   });
 
-  it("uses 1.92px spacing between checkbox rows in every group", () => {
+  it("uses 0px spacing between checkbox rows in every group", () => {
     renderView();
 
     for (const legend of [
@@ -204,7 +203,7 @@ describe("EstadoCuentaProyectadoDetalleView", () => {
       const container = screen
         .getByRole("group", { name: legend })
         .querySelector("div");
-      expect(container?.className).toContain("space-y-[1.92px]");
+      expect(container?.className).toContain("space-y-[0px]");
     }
   });
 

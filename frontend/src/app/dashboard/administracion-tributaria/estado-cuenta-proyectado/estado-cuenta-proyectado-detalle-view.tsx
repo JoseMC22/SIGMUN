@@ -200,7 +200,7 @@ function CheckboxGroup({
     <fieldset className="min-w-0">
       <legend className={`mb-[6px] ${LEGEND_CLASS}`}>{legend}</legend>
       <div
-        className={`space-y-[1.92px] overflow-y-auto rounded-md border border-sat-navy/10 bg-sat-navy/[0.03] p-2 ${containerClass}`}
+        className={`space-y-[0px] overflow-y-auto rounded-md border border-sat-navy/10 bg-sat-navy/[0.01] p-2 ${containerClass}`}
       >
         {options.length === 0 ? (
           <p className="font-inter text-[11px] text-sat-navy/70">Sin opciones</p>
@@ -433,13 +433,13 @@ export default function EstadoCuentaProyectadoDetalleView({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-start gap-x-4 gap-y-[11px]">
+          <div className="flex flex-wrap items-start gap-x-2 gap-y-[11px]">
             <CheckboxGroup
               legend="Concepto"
               options={CONCEPTOS}
               selected={tipos}
               onToggle={(value) => setTipos((current) => toggleValue(current, value))}
-              containerClass="max-h-32 min-w-[10.557rem]"
+              containerClass="max-h-32 min-w-[5.557rem]"
             />
             <CheckboxGroup
               legend="Arbitrio"
@@ -453,14 +453,14 @@ export default function EstadoCuentaProyectadoDetalleView({
               options={periodoOptions}
               selected={perio}
               onToggle={(value) => setPerio((current) => toggleValue(current, value))}
-              containerClass="max-h-32 min-w-[6.9rem]"
+              containerClass="max-h-32 min-w-[3.9rem]"
             />
             <CheckboxGroup
               legend="Año"
               options={annoOptions}
               selected={annos}
               onToggle={(value) => setAnnos((current) => toggleValue(current, value))}
-              containerClass="max-h-32 min-w-[6.9rem]"
+              containerClass="max-h-32 min-w-[4.9rem]"
             />
             <CheckboxGroup
               legend="Predio"
