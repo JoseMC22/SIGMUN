@@ -459,7 +459,7 @@ describe("EstadoCuentaProyectadoPage", () => {
 
     const grid = await screen.findByRole("table", { name: /detalle de recibos/i });
     await vi.waitFor(() =>
-      expect(within(grid).getByText("PREDIAL 2024")).toBeInTheDocument(),
+      expect(within(grid).getByText("01-00")).toBeInTheDocument(),
     );
     const totalRow = within(grid)
       .getByRole("rowheader", { name: "TOTAL" })

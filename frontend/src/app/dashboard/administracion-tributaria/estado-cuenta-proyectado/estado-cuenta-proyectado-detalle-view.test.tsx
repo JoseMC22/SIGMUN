@@ -342,13 +342,12 @@ describe("EstadoCuentaProyectadoDetalleView", () => {
     expect(onMostrar).toHaveBeenCalledWith(expected);
   });
 
-  it("renders the detail grid in legacy order with derived totals", () => {
+  it("renders the detail grid without the description column with derived totals", () => {
     renderView();
 
     const grid = screen.getByRole("table", { name: /detalle de recibos/i });
     const headers = within(grid).getAllByRole("columnheader");
     expect(headers.map((header) => header.textContent)).toEqual([
-      "Descripción",
       "Tributo",
       "Año",
       "Predio",
@@ -362,8 +361,8 @@ describe("EstadoCuentaProyectadoDetalleView", () => {
       "(Bnf)",
       "Total",
     ]);
-    expect(within(grid).getByText("PREDIAL 2024")).toBeInTheDocument();
-    expect(within(grid).getByText("ARBITRIO 2023")).toBeInTheDocument();
+    expect(within(grid).queryByText("PREDIAL 2024")).not.toBeInTheDocument();
+    expect(within(grid).queryByText("ARBITRIO 2023")).not.toBeInTheDocument();
     expect(within(grid).getByText("01-00")).toBeInTheDocument();
 
     const totalRow = within(grid)

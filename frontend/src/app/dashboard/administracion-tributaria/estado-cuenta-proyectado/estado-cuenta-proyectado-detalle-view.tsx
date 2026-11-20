@@ -101,7 +101,6 @@ const ESTADOS: readonly { value: EstadoDetalleProyectado; label: string }[] = [
 ];
 
 const DETALLE_COLUMNS: readonly string[] = [
-  "Descripción",
   "Tributo",
   "Año",
   "Predio",
@@ -546,7 +545,6 @@ export default function EstadoCuentaProyectadoDetalleView({
                       key={`${row.idrecibo}-${index}`}
                       className="transition hover:bg-sat-navy/5"
                     >
-                      <td className={TD_CLASS}>{formatCell(row.des_cabecera)}</td>
                       <td className={TD_CLASS}>{formatCell(row.des_tipo)}</td>
                       <td className={`${TD_CLASS} tabular-nums`}>{formatCell(row.anno)}</td>
                       <td className={`${TD_CLASS} tabular-nums`}>{formatCell(row.cod_pred)}</td>

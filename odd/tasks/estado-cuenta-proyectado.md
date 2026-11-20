@@ -135,7 +135,7 @@ Inspección de SOLO LECTURA autorizada por el usuario sobre `192.168.3.205:1433 
 - [x] **T19 — Ancho de Predio, segunda duplicación**: incrementar otro 100% (`18rem` → `36rem`), manteniendo el ancho fijo. Checks: Vitest frontend + typecheck frontend + `git diff --check`.
 - [x] **T20 — Altura uniforme de los contenedores**: incrementar el alto de Concepto, Arbitrio, Período y Año para igualar el de Predio (`max-h-[5.6rem]` → `max-h-32` / 8rem), conservando el ancho de cada grupo. Checks: Vitest frontend + typecheck frontend + `git diff --check`.
 - [x] **T21 — Ajustes directos del usuario en la vista**: el usuario editó `estado-cuenta-proyectado-detalle-view.tsx` con `space-y-[0px]`, `bg-sat-navy/[0.01]`, `gap-x-2` y anchos Concepto `5.557rem`, Período `3.9rem`, Año `4.9rem` (Arbitrio y Predio sin cambios). Se actualizan las aserciones de test que fijaban los valores anteriores y se commitean ambos archivos sin alterar los cambios del usuario. Checks: Vitest frontend + typecheck frontend + `git diff --check`.
-- [ ] **T22 — Ocultar columna Descripción**: quitar "Descripción" de `DETALLE_COLUMNS` y su `<td>` (`des_cabecera`) del cuerpo de la grilla; el `colSpan` de la fila TOTAL y del estado vacío se ajusta automáticamente al nuevo largo del arreglo. Checks: Vitest frontend + typecheck frontend + `git diff --check`.
+- [x] **T22 — Ocultar columna Descripción**: quitar "Descripción" de `DETALLE_COLUMNS` y su `<td>` (`des_cabecera`) del cuerpo de la grilla; el `colSpan` de la fila TOTAL y del estado vacío se ajusta automáticamente al nuevo largo del arreglo. Checks: Vitest frontend + typecheck frontend + `git diff --check`.
 
 ### Route declaration
 | Task | Route | Trigger |
@@ -218,6 +218,8 @@ Inspección de SOLO LECTURA autorizada por el usuario sobre `192.168.3.205:1433 
 - 2026-11-20: el usuario pidió incrementar otro 100% el ancho de Predio. T19 creado antes del primer source write. `w-[18rem]` → `w-[36rem]`; se actualizó el test. Verificación: suite del feature 39/39 (20 vista + 19 página), `tsc --noEmit` con solo las 12 bases preexistentes, `git diff --check` sin hallazgos. RDD `off (decided by global)`, sin revisión nativa.
 
 - 2026-11-20: el usuario pidió igualar el alto de los cuatro contenedores al de Predio. T20 creado antes del primer source write. `max-h-[5.6rem]` → `max-h-32` (8rem) en Concepto, Arbitrio, Período y Año (y en el default de `CheckboxGroup`), conservando cada ancho: 10.557rem / 10.557rem / 6.9rem / 6.9rem. Verificación: suite del feature 39/39 (20 vista + 19 página), `tsc --noEmit` con solo las 12 bases preexistentes, `git diff --check` sin hallazgos. RDD `off (decided by global)`, sin revisión nativa.
+
+- 2026-11-20: el usuario pidió ocultar la primera columna "Descripción" de la grilla de resultados. T22 creado antes del primer source write. Se quitó "Descripción" de `DETALLE_COLUMNS` (13 → 12 columnas) y el `<td>` de `des_cabecera`; `colSpan` de TOTAL y del estado vacío se deriva del arreglo, por lo que quedó coherente sin cambios extra. Se actualizaron los tests de vista y página que esperaban el texto de descripción. Verificación: suite del feature 39/39 (20 vista + 19 página), `tsc --noEmit` con solo las 12 bases preexistentes, `git diff --check` sin hallazgos. RDD `off (decided by global)`, sin revisión nativa.
 
 ### Próximo paso
 Decisión humana: push y PR del child, o continuar con la siguiente capa (PDF/generación de recibos), que requiere autorización adicional porque incluye acciones mutantes. Push/PR/merge requieren autorización explícita.
