@@ -467,7 +467,7 @@ export default function EstadoCuentaProyectadoDetalleView({
               options={predioOptions}
               selected={predio}
               onToggle={(value) => setPredio((current) => toggleValue(current, value))}
-              containerClass="max-h-32 min-w-[12rem]"
+              containerClass="max-h-32 w-[9rem]"
             />
           </div>
 
