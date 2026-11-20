@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { AlertCircle, FileText, Search, SearchX, X } from "lucide-react";
+import { AlertCircle, FileText, Loader2, Search, SearchX, X } from "lucide-react";
 import type {
   CabeceraProyectado,
   CatalogosProyectado,
@@ -20,6 +20,7 @@ export interface EstadoCuentaProyectadoDetalleViewProps {
   detalle: DetalleReciboProyectado[];
   recibos: ReciboEmitidoProyectado[];
   error: string | null;
+  procesando: boolean;
   onMostrar: (filters: DetalleEstadoCuentaFilters) => void;
   onClose: () => void;
 }
@@ -234,6 +235,7 @@ export default function EstadoCuentaProyectadoDetalleView({
   catalogos,
   detalle,
   error,
+  procesando,
   onMostrar,
   onClose,
 }: EstadoCuentaProyectadoDetalleViewProps) {
@@ -478,12 +480,17 @@ export default function EstadoCuentaProyectadoDetalleView({
           <div className="flex justify-end border-t border-sat-navy/10 pt-[8px]">
             <button
               type="submit"
-              disabled={tipos.length === 0}
+              disabled={tipos.length === 0 || procesando}
+              aria-busy={procesando}
               aria-describedby={tipos.length === 0 ? "mostrar-hint" : undefined}
               className="inline-flex min-h-10 items-center gap-1.5 rounded-md bg-sat-cyan px-4 py-2 text-[11px] font-semibold text-sat-navy shadow-sm transition hover:bg-sat-cyan/90 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <Search size={14} aria-hidden="true" />
-              Mostrar
+              {procesando ? (
+                <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+              ) : (
+                <Search size={14} aria-hidden="true" />
+              )}
+              {procesando ? "Procesando..." : "Mostrar"}
             </button>
           </div>
         </form>

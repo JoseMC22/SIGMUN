@@ -108,6 +108,7 @@ interface HarnessOverrides {
   detalle?: DetalleReciboProyectado[];
   recibos?: ReciboEmitidoProyectado[];
   error?: string | null;
+  procesando?: boolean;
 }
 
 function renderView(overrides: HarnessOverrides = {}) {
@@ -121,6 +122,7 @@ function renderView(overrides: HarnessOverrides = {}) {
       detalle={overrides.detalle ?? DETALLE_ROWS}
       recibos={overrides.recibos ?? RECIBOS}
       error={overrides.error ?? null}
+      procesando={overrides.procesando ?? false}
       onMostrar={onMostrar}
       onClose={onClose}
     />,
@@ -381,5 +383,24 @@ describe("EstadoCuentaProyectadoDetalleView", () => {
     const { onClose } = renderView();
     fireEvent.click(screen.getByRole("button", { name: /cerrar/i }));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows Procesando... and disables Mostrar while the consultation is in flight", () => {
+    renderView({ procesando: true });
+
+    const mostrar = screen.getByRole("button", { name: /procesando/i });
+    expect(mostrar).toHaveTextContent("Procesando...");
+    expect(mostrar).toBeDisabled();
+    expect(mostrar).toHaveAttribute("aria-busy", "true");
+  });
+
+  it("restores Mostrar and re-enables the button when processing finishes", () => {
+    renderView({ procesando: false });
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Predial" }));
+    const mostrar = screen.getByRole("button", { name: /^mostrar$/i });
+    expect(mostrar).toHaveTextContent("Mostrar");
+    expect(mostrar).toBeEnabled();
+    expect(mostrar).toHaveAttribute("aria-busy", "false");
   });
 });

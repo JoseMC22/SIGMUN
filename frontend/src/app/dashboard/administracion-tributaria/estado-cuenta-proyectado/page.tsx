@@ -74,6 +74,7 @@ function EstadoCuentaProyectadoDetalle({
   const [carga, setCarga] = useState<DetalleCarga | null>(null);
   const [detalle, setDetalle] = useState<DetalleReciboProyectado[]>([]);
   const [loading, setLoading] = useState(true);
+  const [procesando, setProcesando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -116,7 +117,7 @@ function EstadoCuentaProyectadoDetalle({
   const handleMostrar = useCallback(
     (filters: DetalleEstadoCuentaFilters) => {
       setError(null);
-      setLoading(true);
+      setProcesando(true);
       void consultarDetalleProyectadoAction(codigo, filters)
         .then((result) => {
           if (result.success) {
@@ -126,7 +127,7 @@ function EstadoCuentaProyectadoDetalle({
           }
         })
         .catch(() => setError("Error de conexión"))
-        .finally(() => setLoading(false));
+        .finally(() => setProcesando(false));
     },
     [codigo],
   );
@@ -157,6 +158,7 @@ function EstadoCuentaProyectadoDetalle({
       recibos={carga.recibos}
       detalle={detalle}
       error={error}
+      procesando={procesando}
       onMostrar={handleMostrar}
       onClose={onClose}
     />

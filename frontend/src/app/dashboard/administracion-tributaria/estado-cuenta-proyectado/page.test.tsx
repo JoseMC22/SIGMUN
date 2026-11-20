@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 
 const nav = vi.hoisted(() => ({
   push: vi.fn(),
@@ -509,5 +509,35 @@ describe("EstadoCuentaProyectadoPage", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Base de datos no disponible",
     );
+  });
+
+  it("shows Procesando... while the consultation is in flight and restores Mostrar on success", async () => {
+    type FetchResponse = { ok: boolean; json: () => Promise<unknown> };
+    let resolveFetch: (value: FetchResponse) => void = () => {};
+    fetchMock.mockImplementationOnce(
+      () =>
+        new Promise<FetchResponse>((resolve) => {
+          resolveFetch = resolve;
+        }),
+    );
+    renderDetailPage();
+    await screen.findByText("JUAN PEREZ");
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Predial" }));
+    fireEvent.click(screen.getByRole("button", { name: /^mostrar$/i }));
+
+    const procesandoButton = await screen.findByRole("button", {
+      name: /procesando/i,
+    });
+    expect(procesandoButton).toBeDisabled();
+    expect(procesandoButton).toHaveAttribute("aria-busy", "true");
+
+    await act(async () => {
+      resolveFetch({ ok: true, json: async () => [] });
+    });
+
+    expect(
+      await screen.findByRole("button", { name: /^mostrar$/i }),
+    ).toBeEnabled();
   });
 });
