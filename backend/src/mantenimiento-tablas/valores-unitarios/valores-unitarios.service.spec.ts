@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  Logger,
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
@@ -26,6 +27,10 @@ async function captureError(promise: Promise<unknown>): Promise<unknown> {
 describe('ValoresUnitariosService', () => {
   let service: ValoresUnitariosService;
   let queryWithParams: jest.Mock;
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
 
   const persistedRow: ValorUnitarioRow = {
     region: '1',
@@ -83,6 +88,27 @@ describe('ValoresUnitariosService', () => {
         code: 'database_unavailable',
         message: 'Base de datos no disponible',
       });
+    });
+
+    it('registra el motivo del fallo sin exponer SQL ni credenciales', async () => {
+      const logError = jest
+        .spyOn(Logger.prototype, 'error')
+        .mockImplementation(() => undefined);
+      const dbError = Object.assign(new Error('Invalid column name'), {
+        code: 'EREQUEST',
+        number: 207,
+        state: 1,
+      });
+      queryWithParams.mockRejectedValueOnce(dbError);
+
+      await captureError(service.years());
+
+      expect(logError).toHaveBeenCalledTimes(1);
+      const logged = String(logError.mock.calls[0][0]);
+      expect(logged).toContain('Invalid column name');
+      expect(logged).toContain('EREQUEST');
+      expect(logged).toContain('207');
+      expect(logged).not.toContain('DB_PASSWORD');
     });
   });
 

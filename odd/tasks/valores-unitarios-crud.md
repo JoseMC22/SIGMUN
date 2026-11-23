@@ -200,11 +200,29 @@ las 10 filas y el orden exacto de los 70 `aria-label`. Spot check del
 orquestador: 1 archivo / 6 tests OK, `VITEST_EXIT=0`. Sin cambios en el
 contrato ni en el payload; no se requirió correr la suite de backend.
 
+### Diagnóstico del 503 en `POST /bulk`
+
+El usuario reportó `Fallo de base de datos en valores-unitarios` al ejecutar la
+carga masiva. Con autorización explícita para consultar la BD remota **solo en
+lectura** se verificó: login `sa` con SELECT/INSERT/UPDATE/DELETE sobre
+`Calculo.Tblvaluni`, esquema acorde, sin triggers, enlace de parámetros correcto
+y compilación de la `MERGE` de 70 items y del `INSERT` individual con
+`SET NOEXEC ON`. No había rastro del error en los logs del motor.
+
+La causa sigue sin identificarse porque `throwDatabaseError` descartaba el
+error original. Se agregó un log sanitizado con `name`, `message` truncado y
+`code`/`number`/`state` cuando existen, sin SQL, parámetros ni credenciales
+(se enmascaran `password`/`pwd`/`token`/`secret`). TDD observado: RED con el
+nuevo aserto del logger, GREEN con 2 suites / 27 tests OK y build de backend
+exitoso. Falta reiniciar el proceso que corre `dist/main` y repetir el bulk
+para capturar el mensaje real.
+
 ## Próximo paso
 
-Feature cerrada con T01–T05 completos. Recomendación antes de desplegar: probar
-la carga masiva contra la BD real con un año de prueba, porque el `MERGE` no
-tiene cobertura integrations. Push, PR y merge quedan bajo decisión del
-usuario. La fila del menú en BD es externa al repo y debe cargarla el
-usuario/DBA (`Acceso.sp_LogOut`, campo `doform2`). Sin despliegue por parte de
-este trabajo.
+Feature cerrada con T01–T05 completos. Paso inmediato: reiniciar el backend
+para que cargue el logging mejorado y repetir `POST /bulk`; el nuevo log dirá
+la causa exacta. Después, probar la carga masiva contra la BD real con un año
+de prueba, porque el `MERGE` no tiene cobertura de integración. Push, PR y
+merge quedan bajo decisión del usuario. La fila del menú en BD es externa al
+repo y debe cargarla el usuario/DBA (`Acceso.sp_LogOut`, campo `doform2`). Sin
+despliegue por parte de este trabajo.

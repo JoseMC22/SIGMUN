@@ -25,6 +25,37 @@ const TABLE = 'Calculo.Tblvaluni';
 const COLUMNS =
   'region, [año] AS anno, codi, valor, operador, estacion, fechor_ing';
 const KEY_WHERE = 'region = @region AND [año] = @anno AND codi = @codi';
+const MAX_LOG_MESSAGE = 500;
+
+/** Solo metadatos acotados: nunca SQL, parámetros ni credenciales. */
+function databaseErrorDetails(error: unknown): Record<string, string | number> {
+  if (!(error instanceof Error)) {
+    return { reason: String(error).slice(0, MAX_LOG_MESSAGE) };
+  }
+
+  const metadata = error as Error & {
+    code?: unknown;
+    number?: unknown;
+    state?: unknown;
+  };
+  const message = metadata.message
+    .replace(/(password|pwd|token|secret)\s*[=:]\s*\S+/gi, '$1=[redacted]')
+    .slice(0, MAX_LOG_MESSAGE);
+  const details: Record<string, string | number> = {
+    name: metadata.name,
+    message,
+  };
+  if (typeof metadata.code === 'string' || typeof metadata.code === 'number') {
+    details.code = metadata.code;
+  }
+  if (typeof metadata.number === 'number') {
+    details.number = metadata.number;
+  }
+  if (typeof metadata.state === 'number') {
+    details.state = metadata.state;
+  }
+  return details;
+}
 
 @Injectable()
 export class ValoresUnitariosService {
@@ -226,7 +257,11 @@ OUTPUT INSERTED.region, INSERTED.[año] AS anno, INSERTED.codi, INSERTED.valor, 
     if (error instanceof HttpException) {
       throw error;
     }
-    this.logger.error('Fallo de base de datos en valores-unitarios');
+    this.logger.error(
+      `Fallo de base de datos en valores-unitarios: ${JSON.stringify(
+        databaseErrorDetails(error),
+      )}`,
+    );
     throw databaseUnavailableError();
   }
 }
