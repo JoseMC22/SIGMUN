@@ -26,6 +26,7 @@ export interface MantenimientoIngresoRow {
   partida: string;
   nombre: string;
   ftefin: string;
+  tupa: string;
   valor: number;
 }
 

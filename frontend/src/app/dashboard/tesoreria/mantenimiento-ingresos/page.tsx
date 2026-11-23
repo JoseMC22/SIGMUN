@@ -41,10 +41,11 @@ interface ColumnDef {
 
 const columns: ColumnDef[] = [
   { key: "codigo", label: "Código", mono: true, width: "3.67%" },
-  { key: "concepto", label: "Concepto", width: "50%" },
-  { key: "partida", label: "Partida", mono: true, width: "6.67%" },
+  { key: "concepto", label: "Concepto", width: "42.60%" },
+  { key: "partida", label: "Partida", mono: true, width: "8.07%" },
   { key: "nombre", label: "Gerencia", width: "26.67%"  },
   { key: "ftefin", label: "Rubro", mono: true, width: "3.33%" },
+  { key: "tupa", label: "Tupa", mono: true, width: "6%" },
   { key: "valor", label: "Valor", align: "right", numeric: true, strong: true },
 ];
 
@@ -64,8 +65,8 @@ function TableSkeleton() {
       <div className="animate-pulse">
         {/* Header */}
         <div className="bg-slate-100 border-b border-slate-200 px-3 py-2.5">
-          <div className="grid grid-cols-6 gap-4">
-            {[...Array(6)].map((_, i) => (
+          <div className="grid grid-cols-7 gap-4">
+            {[...Array(7)].map((_, i) => (
               <div key={i} className="h-3 bg-slate-200 rounded w-3/4" />
             ))}
           </div>
@@ -78,8 +79,8 @@ function TableSkeleton() {
               i === 4 ? "border-b-0" : ""
             }`}
           >
-            <div className="grid grid-cols-6 gap-4">
-              {[...Array(6)].map((_, j) => (
+            <div className="grid grid-cols-7 gap-4">
+              {[...Array(7)].map((_, j) => (
                 <div
                   key={j}
                   className="h-3.5 bg-slate-100 rounded"
@@ -194,6 +195,7 @@ export default function MantenimientoIngresosPage() {
           "Partida": r.partida,
           "Gerencia": r.nombre,
           "Rubro": r.ftefin,
+          "Tupa": r.tupa,
           "Valor": r.valor,
         })),
       );
