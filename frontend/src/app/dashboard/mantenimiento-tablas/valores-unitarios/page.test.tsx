@@ -123,7 +123,7 @@ describe("ValoresUnitariosPage", () => {
     ).toHaveLength(0);
   });
 
-  it("renderiza las 70 cajas de los códigos A1 a J7", async () => {
+  it("renderiza 70 cajas en 10 filas de 7 códigos, una por letra de A a J", async () => {
     render(<ValoresUnitariosPage />);
     await screen.findByTestId("valores-unitarios-grid");
 
@@ -132,10 +132,21 @@ describe("ValoresUnitariosPage", () => {
     const grid = within(dialog).getByTestId("valores-unitarios-bulk-grid");
 
     expect(within(grid).getAllByRole("spinbutton")).toHaveLength(70);
+    const rows = within(grid).getAllByTestId("valores-unitarios-bulk-row");
+    expect(rows).toHaveLength(10);
+    expect(
+      rows.map((row) =>
+        within(row)
+          .getAllByRole("spinbutton")
+          .map((input) => input.getAttribute("aria-label")),
+      ),
+    ).toEqual(
+      ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"].map((letter) =>
+        Array.from({ length: 7 }, (_, index) => `Valor ${letter}${index + 1}`),
+      ),
+    );
     expect(within(grid).getByLabelText("Valor A1")).toBeInTheDocument();
     expect(within(grid).getByLabelText("Valor J7")).toBeInTheDocument();
-    expect(within(grid).getByText("A1")).toBeInTheDocument();
-    expect(within(grid).getByText("J7")).toBeInTheDocument();
   });
 
   it("envía el payload correcto al editar con claves de solo lectura", async () => {

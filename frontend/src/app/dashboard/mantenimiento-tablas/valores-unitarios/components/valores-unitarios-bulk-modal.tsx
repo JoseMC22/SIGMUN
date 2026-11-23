@@ -27,6 +27,11 @@ type ErrorBody = {
   details?: { errors?: Array<{ message?: string }> };
 };
 
+/** Una fila por letra: A1..A7, B1..B7, ..., J1..J7. */
+const CODE_ROWS: string[][] = Array.from({ length: 10 }, (_, letterIndex) =>
+  VALORES_UNITARIOS_CODES.slice(letterIndex * 7, letterIndex * 7 + 7),
+);
+
 /** Espejo client-side de SaveValoresUnitariosBulkSchema (Zod del backend). */
 function validate(
   region: string,
@@ -220,35 +225,43 @@ export default function ValoresUnitariosBulkModal({
             </div>
             <div
               data-testid="valores-unitarios-bulk-grid"
-              className="grid grid-cols-10 gap-1 rounded-lg border border-slate-200 bg-slate-50/60 p-2"
+              className="flex flex-col gap-1 rounded-lg border border-slate-200 bg-slate-50/60 p-2"
             >
-              {VALORES_UNITARIOS_CODES.map((codi) => (
-                <label
-                  key={codi}
-                  htmlFor={`vu-bulk-${codi}`}
-                  className="flex flex-col items-center gap-0.5 rounded-md border border-slate-200 bg-white px-1 py-1 shadow-sm transition focus-within:border-sat-cyan focus-within:ring-2 focus-within:ring-sat-cyan/20"
+              {CODE_ROWS.map((codes) => (
+                <div
+                  key={codes[0]}
+                  data-testid="valores-unitarios-bulk-row"
+                  className="grid grid-cols-7 gap-1"
                 >
-                  <span className="font-mono text-[9px] font-semibold uppercase tracking-wider text-slate-500">
-                    {codi}
-                  </span>
-                  <input
-                    id={`vu-bulk-${codi}`}
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max={VALOR_MAX}
-                    aria-label={`Valor ${codi}`}
-                    value={values[codi] ?? ""}
-                    onChange={(event) =>
-                      setValues((current) => ({
-                        ...current,
-                        [codi]: event.target.value,
-                      }))
-                    }
-                    placeholder="—"
-                    className="w-full min-w-0 border-0 bg-transparent px-0.5 py-0.5 text-center font-mono text-[11px] text-slate-700 tabular-nums outline-none placeholder:text-slate-300 focus:outline-none"
-                  />
-                </label>
+                  {codes.map((codi) => (
+                    <label
+                      key={codi}
+                      htmlFor={`vu-bulk-${codi}`}
+                      className="flex flex-col items-center gap-0.5 rounded-md border border-slate-200 bg-white px-1 py-1 shadow-sm transition focus-within:border-sat-cyan focus-within:ring-2 focus-within:ring-sat-cyan/20"
+                    >
+                      <span className="font-mono text-[9px] font-semibold uppercase tracking-wider text-slate-500">
+                        {codi}
+                      </span>
+                      <input
+                        id={`vu-bulk-${codi}`}
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max={VALOR_MAX}
+                        aria-label={`Valor ${codi}`}
+                        value={values[codi] ?? ""}
+                        onChange={(event) =>
+                          setValues((current) => ({
+                            ...current,
+                            [codi]: event.target.value,
+                          }))
+                        }
+                        placeholder="—"
+                        className="w-full min-w-0 border-0 bg-transparent px-0.5 py-0.5 text-center font-mono text-[11px] text-slate-700 tabular-nums outline-none placeholder:text-slate-300 focus:outline-none"
+                      />
+                    </label>
+                  ))}
+                </div>
               ))}
             </div>
           </div>

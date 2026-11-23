@@ -190,6 +190,16 @@ mockeado; no se ejecutó contra SQL Server real. Tampoco se corrieron `tsc`,
 build, lint ni suites completas. El hook `gga` sigue fuera de servicio por
 créditos del proveedor, así que estos commits también van con `--no-verify`.
 
+### Ajuste de layout del modal masivo
+
+El usuario pidió que el ancho vaya por letras: una fila `A1`…`A7`, otra
+`B1`…`B7`, hasta `J1`…`J7`. El modal pasó de una grilla plana de 10 columnas a
+diez filas explícitas de 7 columnas (`grid-cols-7`), derivadas de
+`VALORES_UNITARIOS_CODES` en grupos de siete. El test de frontend ahora verifica
+las 10 filas y el orden exacto de los 70 `aria-label`. Spot check del
+orquestador: 1 archivo / 6 tests OK, `VITEST_EXIT=0`. Sin cambios en el
+contrato ni en el payload; no se requirió correr la suite de backend.
+
 ## Próximo paso
 
 Feature cerrada con T01–T05 completos. Recomendación antes de desplegar: probar
