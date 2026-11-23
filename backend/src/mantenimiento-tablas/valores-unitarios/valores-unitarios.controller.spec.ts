@@ -25,6 +25,7 @@ describe('ValoresUnitariosController', () => {
     create: jest.fn(),
     update: jest.fn(),
     remove: jest.fn(),
+    upsertMany: jest.fn(),
   };
 
   type CreateArgs = Parameters<ValoresUnitariosController['create']>;
@@ -151,6 +152,87 @@ describe('ValoresUnitariosController', () => {
         },
       });
       expect(mockService.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('POST bulk', () => {
+    const bulkBody = {
+      region: '1',
+      anno: '2027',
+      items: [{ codi: 'A1', valor: 123.45 }],
+    };
+
+    it('parsea el body y delega en upsertMany con operador JWT y estación del proxy', async () => {
+      mockService.upsertMany.mockResolvedValueOnce({
+        message: 'ok',
+        rows: [],
+        affected: 0,
+      });
+
+      await expect(
+        controller.bulk(bulkBody, requestWith('mvaez', '10.0.0.1, 10.0.0.2')),
+      ).resolves.toEqual({ message: 'ok', rows: [], affected: 0 });
+
+      expect(mockService.upsertMany).toHaveBeenCalledWith(
+        bulkBody,
+        'mvaez',
+        '10.0.0.1',
+      );
+    });
+
+    it('rechaza códigos repetidos con el envelope canónico', async () => {
+      const error = await captureError(
+        controller.bulk(
+          {
+            ...bulkBody,
+            items: [
+              { codi: 'A1', valor: 1 },
+              { codi: 'A1', valor: 2 },
+            ],
+          },
+          requestWith('mvaez'),
+        ),
+      );
+
+      expect(error).toBeInstanceOf(BadRequestException);
+      expect((error as BadRequestException).getResponse()).toMatchObject({
+        code: 'validation_error',
+        message: 'Validation failed',
+        details: { errors: [{ path: 'items' }] },
+      });
+      expect(mockService.upsertMany).not.toHaveBeenCalled();
+    });
+
+    it('rechaza un código fuera de A1..J7 con el envelope canónico', async () => {
+      const error = await captureError(
+        controller.bulk(
+          { ...bulkBody, items: [{ codi: 'A8', valor: 1 }] },
+          requestWith('mvaez'),
+        ),
+      );
+
+      expect(error).toBeInstanceOf(BadRequestException);
+      expect((error as BadRequestException).getResponse()).toMatchObject({
+        code: 'validation_error',
+        details: { errors: [{ path: 'items.0.codi' }] },
+      });
+      expect(mockService.upsertMany).not.toHaveBeenCalled();
+    });
+
+    it('rechaza un valor fuera de rango con el envelope canónico', async () => {
+      const error = await captureError(
+        controller.bulk(
+          { ...bulkBody, items: [{ codi: 'A1', valor: 100000 }] },
+          requestWith('mvaez'),
+        ),
+      );
+
+      expect(error).toBeInstanceOf(BadRequestException);
+      expect((error as BadRequestException).getResponse()).toMatchObject({
+        code: 'validation_error',
+        details: { errors: [{ path: 'items.0.valor' }] },
+      });
+      expect(mockService.upsertMany).not.toHaveBeenCalled();
     });
   });
 

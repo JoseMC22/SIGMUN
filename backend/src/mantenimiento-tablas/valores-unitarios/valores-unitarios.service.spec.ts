@@ -127,7 +127,7 @@ describe('ValoresUnitariosService', () => {
       expect(queryWithParams).toHaveBeenCalledTimes(1); // solo el chequeo
     });
 
-    it('inserta con auditoría, sin idsigma, y relee la fila por clave', async () => {
+    it('inserta con auditoría, idsigma = 0, y relee la fila por clave', async () => {
       queryWithParams
         .mockResolvedValueOnce({ recordset: [] })
         .mockResolvedValueOnce({ rowsAffected: [1] })
@@ -138,7 +138,8 @@ describe('ValoresUnitariosService', () => {
       const insertCall = queryWithParams.mock.calls[1] as [string, object];
       expect(insertCall[0]).toContain('INSERT INTO Calculo.Tblvaluni');
       expect(insertCall[0]).toContain('GETDATE()');
-      expect(insertCall[0]).not.toContain('idsigma');
+      expect(insertCall[0]).toContain('fechor_ing, idsigma');
+      expect(insertCall[0]).toContain('GETDATE(), 0)');
       expect(insertCall[1]).toEqual({
         region: '1',
         anno: '2027',
@@ -219,6 +220,103 @@ describe('ValoresUnitariosService', () => {
       expect(responseOf(error)).toEqual({
         code: 'not_found',
         message: 'No se encontró la fila',
+      });
+    });
+  });
+
+  describe('upsertMany', () => {
+    const bulkDto = {
+      region: '1',
+      anno: '2027',
+      items: [
+        { codi: 'A1', valor: 123.45 },
+        { codi: 'I7', valor: 99.9 },
+      ],
+    };
+
+    const bulkRow: ValorUnitarioRow = {
+      ...persistedRow,
+      codi: 'I7',
+      valor: 99.9,
+    };
+
+    it('envía un único MERGE con parámetros generados, sin valores literales del usuario', async () => {
+      queryWithParams.mockResolvedValueOnce({
+        recordset: [persistedRow, bulkRow],
+      });
+
+      const result = await service.upsertMany(bulkDto, 'mvaez', '10.0.0.1');
+
+      expect(queryWithParams).toHaveBeenCalledTimes(1);
+      const [sql, params] = queryWithParams.mock.calls[0] as [
+        string,
+        Record<string, unknown>,
+      ];
+      expect(sql).toContain('MERGE INTO Calculo.Tblvaluni AS T');
+      expect(sql).toContain(
+        'USING (VALUES (@codi0, CAST(@valor0 AS decimal(7,2))), (@codi1, CAST(@valor1 AS decimal(7,2))))',
+      );
+      expect(sql).toContain('ON T.region = @region AND T.[año] = @anno');
+      expect(sql).toContain('WHEN MATCHED THEN UPDATE SET');
+      expect(sql).toContain('WHEN NOT MATCHED THEN INSERT');
+      expect(sql).toContain('fechor_ing, idsigma');
+      expect(sql).toContain('GETDATE(), 0)');
+      expect(sql).toContain('OUTPUT INSERTED.region, INSERTED.[año] AS anno');
+      expect(sql).not.toContain("'A1'");
+      expect(sql).not.toContain("'I7'");
+      expect(sql).not.toContain('123.45');
+      expect(sql).not.toContain('99.9');
+      expect(params).toEqual({
+        region: '1',
+        anno: '2027',
+        operador: 'mvaez',
+        estacion: '10.0.0.1',
+        codi0: 'A1',
+        valor0: 123.45,
+        codi1: 'I7',
+        valor1: 99.9,
+      });
+      expect(result).toEqual({
+        message: expect.any(String),
+        rows: [persistedRow, bulkRow],
+        affected: 2,
+      });
+    });
+
+    it('devuelve affected 0 cuando la base no devuelve recordset', async () => {
+      queryWithParams.mockResolvedValueOnce({});
+
+      const result = await service.upsertMany(
+        { region: '1', anno: '2027', items: [{ codi: 'J7', valor: 0 }] },
+        'mvaez',
+        '10.0.0.1',
+      );
+
+      const [sql, params] = queryWithParams.mock.calls[0] as [
+        string,
+        Record<string, unknown>,
+      ];
+      expect(sql).toContain('(@codi0, CAST(@valor0 AS decimal(7,2)))');
+      expect(sql).not.toContain('@codi1');
+      expect(params).toMatchObject({ codi0: 'J7', valor0: 0 });
+      expect(result).toEqual({
+        message: expect.any(String),
+        rows: [],
+        affected: 0,
+      });
+    });
+
+    it('envuelve errores de base de datos como database_unavailable', async () => {
+      queryWithParams.mockRejectedValueOnce(new Error('login failed'));
+
+      const error = await captureError(
+        service.upsertMany(bulkDto, 'mvaez', '10.0.0.1'),
+      );
+
+      expect(error).toBeInstanceOf(ServiceUnavailableException);
+      expect(responseOf(error)).toEqual({
+        code: 'database_unavailable',
+        message: 'Base de datos no disponible',
       });
     });
   });

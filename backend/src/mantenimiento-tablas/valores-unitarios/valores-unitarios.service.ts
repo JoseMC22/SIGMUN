@@ -4,8 +4,10 @@ import {
   SaveValorUnitarioDto,
   ValorUnitarioKeyDto,
 } from './dto/save-valor-unitario.dto';
+import { SaveValoresUnitariosBulkDto } from './dto/save-valores-unitarios-bulk.dto';
 import { SearchValoresUnitariosDto } from './dto/search-valores-unitarios.dto';
 import {
+  ValoresUnitariosBulkResponse,
   ValoresUnitariosDeleteResponse,
   ValoresUnitariosMutationResponse,
   ValoresUnitariosSearchResponse,
@@ -80,8 +82,8 @@ export class ValoresUnitariosService {
       }
 
       await this.db.queryWithParams(
-        `INSERT INTO ${TABLE} (region, [año], codi, valor, operador, estacion, fechor_ing)
-         VALUES (@region, @anno, @codi, @valor, @operador, @estacion, GETDATE())`,
+        `INSERT INTO ${TABLE} (region, [año], codi, valor, operador, estacion, fechor_ing, idsigma)
+         VALUES (@region, @anno, @codi, @valor, @operador, @estacion, GETDATE(), 0)`,
         {
           region: dto.region,
           anno: dto.anno,
@@ -95,6 +97,51 @@ export class ValoresUnitariosService {
       return {
         message: 'Registro creado exitosamente',
         row: await this.readCreatedRow(dto),
+      };
+    } catch (error) {
+      this.throwDatabaseError(error);
+    }
+  }
+
+  /**
+   * Upsert masivo en una sola sentencia atómica. El texto SQL solo contiene
+   * marcadores generados; cada codi/valor viaja como parámetro ligado.
+   */
+  async upsertMany(
+    dto: SaveValoresUnitariosBulkDto,
+    operador: string,
+    estacion: string,
+  ): Promise<ValoresUnitariosBulkResponse> {
+    try {
+      const values: string[] = [];
+      const params: Record<string, string | number> = {
+        region: dto.region,
+        anno: dto.anno,
+        operador,
+        estacion,
+      };
+
+      dto.items.forEach((item, index) => {
+        values.push(`(@codi${index}, CAST(@valor${index} AS decimal(7,2)))`);
+        params[`codi${index}`] = item.codi;
+        params[`valor${index}`] = item.valor;
+      });
+
+      const sql = `MERGE INTO ${TABLE} AS T
+USING (VALUES ${values.join(', ')}) AS S (codi, valor)
+ON T.region = @region AND T.[año] = @anno AND T.codi = S.codi
+WHEN MATCHED THEN UPDATE SET valor = S.valor, operador = @operador, estacion = @estacion, fechor_ing = GETDATE()
+WHEN NOT MATCHED THEN INSERT (region, [año], codi, valor, operador, estacion, fechor_ing, idsigma)
+VALUES (@region, @anno, S.codi, S.valor, @operador, @estacion, GETDATE(), 0)
+OUTPUT INSERTED.region, INSERTED.[año] AS anno, INSERTED.codi, INSERTED.valor, INSERTED.operador, INSERTED.estacion, INSERTED.fechor_ing;`;
+
+      const result = await this.db.queryWithParams<ValorUnitarioRow>(sql, params);
+      const rows = result.recordset ?? [];
+
+      return {
+        message: 'Valores unitarios guardados exitosamente',
+        rows,
+        affected: rows.length,
       };
     } catch (error) {
       this.throwDatabaseError(error);

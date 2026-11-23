@@ -22,6 +22,13 @@ export interface ValoresUnitariosMutationResponse {
   row: ValorUnitarioRow;
 }
 
+/** Respuesta del upsert masivo: una fila por código afectado, vía OUTPUT. */
+export interface ValoresUnitariosBulkResponse {
+  message: string;
+  rows: ValorUnitarioRow[];
+  affected: number;
+}
+
 export interface ValoresUnitariosDeleteResponse {
   message: string;
 }

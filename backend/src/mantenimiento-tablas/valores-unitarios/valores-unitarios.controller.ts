@@ -16,8 +16,10 @@ import {
   SaveValorUnitarioSchema,
   ValorUnitarioKeySchema,
 } from './dto/save-valor-unitario.dto';
+import { SaveValoresUnitariosBulkSchema } from './dto/save-valores-unitarios-bulk.dto';
 import { SearchValoresUnitariosSchema } from './dto/search-valores-unitarios.dto';
 import {
+  ValoresUnitariosBulkResponse,
   ValoresUnitariosDeleteResponse,
   ValoresUnitariosMutationResponse,
   ValoresUnitariosSearchResponse,
@@ -58,6 +60,19 @@ export class ValoresUnitariosController {
     @Query() query: Record<string, unknown>,
   ): Promise<ValoresUnitariosSearchResponse> {
     return this.service.search(parseOrThrow(SearchValoresUnitariosSchema, query));
+  }
+
+  /** Declarada antes de `@Post()` para que `/bulk` no caiga en la ruta base. */
+  @Post('bulk')
+  async bulk(
+    @Body() body: unknown,
+    @Req() req: AuthRequest,
+  ): Promise<ValoresUnitariosBulkResponse> {
+    return this.service.upsertMany(
+      parseOrThrow(SaveValoresUnitariosBulkSchema, body),
+      audit(req.user?.username),
+      station(req),
+    );
   }
 
   @Post()
