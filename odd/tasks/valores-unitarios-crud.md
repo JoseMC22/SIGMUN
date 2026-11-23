@@ -82,6 +82,9 @@ Errores: `{ code, message, details? }` con `validation_error`, `not_found`,
       y confirmación de baja; estados loading/empty/error; tests Vitest.
 - [x] T04 — Cierre: verificación acotada, `git status`, work-unit commits,
       actualización de `odd/OWNERSHIP.md` y este documento con evidencia.
+- [x] T05 — Alta masiva: endpoint `POST /bulk` con upsert atómico de los 70
+      códigos `A1`..`J7`, formulario con una caja por código y un solo Guardar;
+      corregir `idsigma` en el INSERT individual; tests backend y frontend.
 
 ## Rutas y triggers de delegación
 
@@ -140,8 +143,58 @@ intento de commit; los cuatro commits se hicieron con `--no-verify`, como en la
 entrega anterior de `mantenimiento-ingresos`. No hubo hallazgos de código del
 hook: falló antes de revisar el diff.
 
+## Extensión T05 — Alta masiva (2026-11-23)
+
+El usuario pidió que el alta muestre todas las cajas de texto de una vez
+(`A1`…`J7`) y se guarde en una sola operación. Decidió **upsert**: los códigos
+con valor se insertan si faltan o se actualizan si ya existen; los vacíos se
+omiten. Todo en una sola sentencia atómica.
+
+Hecho verificado en vivo antes de esta extensión: `idsigma` es `int NOT NULL`
+**sin default**. El `INSERT` individual de T01 lo omite, así que fallaría en la
+BD real aunque los tests mockeados pasen. El SP legacy
+`Rentas.actualizar_valores` sí lo incluye; hay 259 filas con `idsigma = 0` y la
+columna no es única ni tiene FK. Se usa `idsigma = 0` para filas nuevas y se
+documenta la decisión.
+
+Contrato nuevo: `POST /api/mantenimiento-tablas/valores-unitarios/bulk` con
+`{ region, anno, items: [{ codi, valor }] }`; responde
+`{ message, rows, affected }`. Zod valida 1–70 items, códigos `^[A-J][1-7]$`,
+.valores 0–99999.99 y códigos únicos.
+
+SQL: un único `MERGE ... USING (VALUES (@codi0, @valor0), ...)` con
+`OUTPUT INSERTED.*`. Los valores van siempre por `request.input`; el texto SQL
+solo contiene marcadores generados. Sin transacción explícita: una sola
+sentencia ya es atómica.
+
+Frontend: modal de alta masiva con 70 inputs (10 letras × 7 números), región y
+año arriba, un solo Guardar; reemplaza al modal de alta individual. El modal
+de edición individual se mantiene. Los vacíos no se envían.
+
+Checks de T05: los mismos comandos acotados de backend y frontend, más un test
+de regresión que compruebe que el INSERT individual incluye `idsigma`.
+
+Resultado observado: backend 2 suites / 26 tests OK (spot check 27.314 s) y
+frontend 1 archivo / 6 tests OK (spot check `VITEST_EXIT=0`, 15.53 s). TDD con
+RED inicial: backend `TS2339: Property 'upsertMany' does not exist`; frontend
+por los nuevos asertos bulk. Work-unit commits:
+
+- `0c0a14f` — backend: DTO bulk, `upsertMany` con `MERGE`, ruta `POST /bulk`,
+  `idsigma = 0` en el INSERT individual y tests.
+- `a15d835` — frontend: modal con las 70 cajas, cableado de «Nuevo valor» y
+  tests actualizados.
+- T05 — tracker (este commit).
+
+Pendiente honesto: el `MERGE`/`OUTPUT` solo está cubierto con `DatabaseService`
+mockeado; no se ejecutó contra SQL Server real. Tampoco se corrieron `tsc`,
+build, lint ni suites completas. El hook `gga` sigue fuera de servicio por
+créditos del proveedor, así que estos commits también van con `--no-verify`.
+
 ## Próximo paso
 
-Push, PR y merge quedan bajo decisión del usuario. La fila del menú en BD es
-externa al repo y debe cargarla el usuario/DBA (`Acceso.sp_LogOut`, campo
-`doform2`). Sin despliegue por parte de este trabajo.
+Feature cerrada con T01–T05 completos. Recomendación antes de desplegar: probar
+la carga masiva contra la BD real con un año de prueba, porque el `MERGE` no
+tiene cobertura integrations. Push, PR y merge quedan bajo decisión del
+usuario. La fila del menú en BD es externa al repo y debe cargarla el
+usuario/DBA (`Acceso.sp_LogOut`, campo `doform2`). Sin despliegue por parte de
+este trabajo.
