@@ -1,6 +1,6 @@
 // ── Resultado crudo del SP dbo.t_tipo_sing @msquery=15 ──
 // Columnas reales del SP (evidencia del usuario): Tipo, Nombre_Tipo,
-// Partida, Nombre, Ftefin, Valor, ROW. Se aceptan variantes de casing
+// Partida, Nombre, FteFin, Tupa, Valor, ROW. Se aceptan variantes de casing
 // por robustez ante el driver.
 
 export interface SpMantenimientoIngresoRow {
@@ -12,8 +12,11 @@ export interface SpMantenimientoIngresoRow {
   PARTIDA?: string | null;
   Nombre?: string | null;
   NOMBRE?: string | null;
-  Ftefin?: string | null;
+  FteFin?: string | null;
   FTEFIN?: string | null;
+  Ftefin?: string | null;
+  Tupa?: string | null;
+  TUPA?: string | null;
   Valor?: number | null;
   VALOR?: number | null;
   ROW?: number | null;
@@ -27,6 +30,7 @@ export interface MantenimientoIngresoRow {
   partida: string;
   nombre: string;
   ftefin: string;
+  tupa: string;
   valor: number;
 }
 

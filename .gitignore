@@ -116,6 +116,11 @@ coverage/
 !frontend/src/app/dashboard/notificaciones/constancia-exigibilidad/*.test.ts
 !frontend/src/app/dashboard/notificaciones/constancia-exigibilidad/*.test.tsx
 
+# Excepcion: el spec de mantenimiento-ingresos SI se versiona. El SP
+# (dbo.t_tipo_sing @msquery=15) cambio su resultado (FteFin/Tupa) y este test
+# es la red que evita que Rubro vuelva a salir vacio.
+!backend/src/tesoreria/mantenimiento-ingresos/mantenimiento-ingresos.service.spec.ts
+
 # Auto-generated / workspace
 pnpm-lock.yaml
 frontend/pnpm-lock.yaml
