@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import ConfirmDeleteModal from "./components/confirm-delete-modal";
 import ValorUnitarioFormModal from "./components/valor-unitario-form-modal";
+import ValoresUnitariosBulkModal from "./components/valores-unitarios-bulk-modal";
 import ValoresUnitariosGrid from "./components/valores-unitarios-grid";
 import { ValorUnitarioRow } from "./types";
 
@@ -36,7 +37,7 @@ export default function ValoresUnitariosPage() {
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
 
-  const [formMode, setFormMode] = useState<"create" | "edit" | null>(null);
+  const [formMode, setFormMode] = useState<"bulk" | "edit" | null>(null);
   const [editRow, setEditRow] = useState<ValorUnitarioRow | null>(null);
   const [deleteRow, setDeleteRow] = useState<ValorUnitarioRow | null>(null);
 
@@ -183,7 +184,7 @@ export default function ValoresUnitariosPage() {
         <div className="flex items-center justify-end">
           <button
             type="button"
-            onClick={() => setFormMode("create")}
+            onClick={() => setFormMode("bulk")}
             className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
           >
             <Plus size={14} />
@@ -264,11 +265,21 @@ export default function ValoresUnitariosPage() {
         />
       )}
 
-      {formMode && (
+      {formMode === "bulk" && (
+        <ValoresUnitariosBulkModal
+          isOpen
+          defaultAnno={selectedYear}
+          endpoint={BASE}
+          onClose={() => setFormMode(null)}
+          onSuccess={handleMutationSuccess}
+        />
+      )}
+
+      {formMode === "edit" && (
         <ValorUnitarioFormModal
           isOpen
-          mode={formMode}
-          row={formMode === "edit" ? editRow : null}
+          mode="edit"
+          row={editRow}
           endpoint={BASE}
           onClose={() => {
             setFormMode(null);

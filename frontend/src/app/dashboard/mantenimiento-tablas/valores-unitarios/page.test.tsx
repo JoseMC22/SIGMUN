@@ -62,30 +62,41 @@ describe("ValoresUnitariosPage", () => {
     expect(mockFetch).toHaveBeenCalledWith(`${BASE}?anno=2027`);
   });
 
-  it("envía el payload correcto al crear y relanza la búsqueda", async () => {
+  it("envía un único POST bulk con los códigos completados y refresca la grilla", async () => {
     render(<ValoresUnitariosPage />);
     await screen.findByTestId("valores-unitarios-grid");
 
     await userEvent.click(screen.getByRole("button", { name: "Nuevo valor" }));
     const dialog = screen.getByRole("dialog");
-    await userEvent.type(within(dialog).getByLabelText("Región"), "1");
-    await userEvent.type(within(dialog).getByLabelText("Año"), "2027");
-    await userEvent.type(within(dialog).getByLabelText("Código"), "A1");
-    await userEvent.type(within(dialog).getByLabelText("Valor"), "123.45");
+    expect(
+      within(dialog).getByTestId("valores-unitarios-bulk-grid"),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("Región")).toHaveValue("1");
+    expect(within(dialog).getByLabelText("Año")).toHaveValue("2027");
+
+    await userEvent.type(within(dialog).getByLabelText("Valor A1"), "123.45");
+    await userEvent.type(within(dialog).getByLabelText("Valor I7"), "99.9");
     await userEvent.click(within(dialog).getByRole("button", { name: "Guardar" }));
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith(BASE, {
+      expect(mockFetch).toHaveBeenCalledWith(`${BASE}/bulk`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           region: "1",
           anno: "2027",
-          codi: "A1",
-          valor: 123.45,
+          items: [
+            { codi: "A1", valor: 123.45 },
+            { codi: "I7", valor: 99.9 },
+          ],
         }),
       });
     });
+    expect(
+      mockFetch.mock.calls.filter(
+        (call) => String(call[0]).endsWith("/bulk") && call[1]?.method === "POST",
+      ),
+    ).toHaveLength(1);
     expect(mockFetch).toHaveBeenCalledWith(`${BASE}?anno=2027`);
   });
 
@@ -98,11 +109,33 @@ describe("ValoresUnitariosPage", () => {
     await userEvent.click(within(dialog).getByRole("button", { name: "Guardar" }));
 
     expect(
+      within(dialog).getByText("Ingrese al menos un valor"),
+    ).toBeInTheDocument();
+
+    await userEvent.clear(within(dialog).getByLabelText("Región"));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Guardar" }));
+
+    expect(
       within(dialog).getByText("La región debe tener 1 dígito"),
     ).toBeInTheDocument();
     expect(
       mockFetch.mock.calls.filter((call) => call[1]?.method === "POST"),
     ).toHaveLength(0);
+  });
+
+  it("renderiza las 70 cajas de los códigos A1 a J7", async () => {
+    render(<ValoresUnitariosPage />);
+    await screen.findByTestId("valores-unitarios-grid");
+
+    await userEvent.click(screen.getByRole("button", { name: "Nuevo valor" }));
+    const dialog = screen.getByRole("dialog");
+    const grid = within(dialog).getByTestId("valores-unitarios-bulk-grid");
+
+    expect(within(grid).getAllByRole("spinbutton")).toHaveLength(70);
+    expect(within(grid).getByLabelText("Valor A1")).toBeInTheDocument();
+    expect(within(grid).getByLabelText("Valor J7")).toBeInTheDocument();
+    expect(within(grid).getByText("A1")).toBeInTheDocument();
+    expect(within(grid).getByText("J7")).toBeInTheDocument();
   });
 
   it("envía el payload correcto al editar con claves de solo lectura", async () => {
