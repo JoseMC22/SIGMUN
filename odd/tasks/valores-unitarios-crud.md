@@ -52,7 +52,7 @@ verificada en datos reales es `(region, año, codi)`.
 | `operador` | `varchar(50)` | NO | Default `USER_NAME()`; se sobreescribe con el usuario JWT |
 | `estacion` | `varchar(50)` | NO | Default `HOST_NAME()`; se sobreescribe con la IP del cliente |
 | `fechor_ing` | `datetime` | NO | Default `GETDATE()`; se actualiza en cada escritura |
-| `idsigma` | `int` | NO | No único; se omite en altas y no identifica filas |
+| `idsigma` | `int` | NO | IDENTITY (seed 1, increment 1); no se escribe ni se expone |
 
 Datos reales: 2390 filas, años 1992–2027, años recientes con 70 filas,
 `(region, año, codi)` sin duplicados, `idsigma` con duplicados. No hay FK ni PK.
@@ -150,12 +150,13 @@ El usuario pidió que el alta muestre todas las cajas de texto de una vez
 con valor se insertan si faltan o se actualizan si ya existen; los vacíos se
 omiten. Todo en una sola sentencia atómica.
 
-Hecho verificado en vivo antes de esta extensión: `idsigma` es `int NOT NULL`
-**sin default**. El `INSERT` individual de T01 lo omite, así que fallaría en la
-BD real aunque los tests mockeados pasen. El SP legacy
-`Rentas.actualizar_valores` sí lo incluye; hay 259 filas con `idsigma = 0` y la
-columna no es única ni tiene FK. Se usa `idsigma = 0` para filas nuevas y se
-documenta la decisión.
+Se verificó en vivo que `idsigma` es `int IDENTITY` (seed 1, increment 1,
+último valor 2077) y no es único: hay 259 filas históricas con `idsigma = 0`.
+Por error se interpretó que era `NOT NULL` sin default y se agregó
+`idsigma = 0` a los `INSERT`; eso provoca el error 544
+(`Cannot insert explicit value for identity column ... IDENTITY_INSERT is set
+to OFF`). La corrección definitiva omite la columna en el `INSERT` individual y
+en el `WHEN NOT MATCHED` del `MERGE`, para que SQL Server genere el valor.
 
 Contrato nuevo: `POST /api/mantenimiento-tablas/valores-unitarios/bulk` con
 `{ region, anno, items: [{ codi, valor }] }`; responde
@@ -214,15 +215,17 @@ error original. Se agregó un log sanitizado con `name`, `message` truncado y
 `code`/`number`/`state` cuando existen, sin SQL, parámetros ni credenciales
 (se enmascaran `password`/`pwd`/`token`/`secret`). TDD observado: RED con el
 nuevo aserto del logger, GREEN con 2 suites / 27 tests OK y build de backend
-exitoso. Falta reiniciar el proceso que corre `dist/main` y repetir el bulk
-para capturar el mensaje real.
+exitoso. El reintento del usuario produjo el error 544: `idsigma` es IDENTITY,
+así que el `idsigma = 0` agregado antes era la causa. Se corrigió omitiendo la
+columna en ambos INSERT (TDD: RED en los dos asertos de regresión, GREEN con
+2 suites / 27 tests OK). Falta recompilar y reiniciar el backend que corre
+`dist/main` antes de repetir el bulk.
 
 ## Próximo paso
 
-Feature cerrada con T01–T05 completos. Paso inmediato: reiniciar el backend
-para que cargue el logging mejorado y repetir `POST /bulk`; el nuevo log dirá
-la causa exacta. Después, probar la carga masiva contra la BD real con un año
-de prueba, porque el `MERGE` no tiene cobertura de integración. Push, PR y
-merge quedan bajo decisión del usuario. La fila del menú en BD es externa al
-repo y debe cargarla el usuario/DBA (`Acceso.sp_LogOut`, campo `doform2`). Sin
-despliegue por parte de este trabajo.
+Feature cerrada con T01–T05 completos. Paso inmediato: ejecutar `npm run build`
+en `backend`, reiniciar el proceso que corre `dist/main` y repetir
+`POST /bulk` para confirmar el fix contra la BD real. Push, PR y merge quedan
+bajo decisión del usuario. La fila del menú en BD es externa al repo y debe
+cargarla el usuario/DBA (`Acceso.sp_LogOut`, campo `doform2`). Sin despliegue
+por parte de este trabajo.

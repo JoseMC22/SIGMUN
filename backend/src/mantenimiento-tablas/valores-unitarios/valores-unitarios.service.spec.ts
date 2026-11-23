@@ -153,7 +153,7 @@ describe('ValoresUnitariosService', () => {
       expect(queryWithParams).toHaveBeenCalledTimes(1); // solo el chequeo
     });
 
-    it('inserta con auditoría, idsigma = 0, y relee la fila por clave', async () => {
+    it('inserta con auditoría sin escribir el IDENTITY y relee la fila por clave', async () => {
       queryWithParams
         .mockResolvedValueOnce({ recordset: [] })
         .mockResolvedValueOnce({ rowsAffected: [1] })
@@ -164,8 +164,9 @@ describe('ValoresUnitariosService', () => {
       const insertCall = queryWithParams.mock.calls[1] as [string, object];
       expect(insertCall[0]).toContain('INSERT INTO Calculo.Tblvaluni');
       expect(insertCall[0]).toContain('GETDATE()');
-      expect(insertCall[0]).toContain('fechor_ing, idsigma');
-      expect(insertCall[0]).toContain('GETDATE(), 0)');
+      expect(insertCall[0]).toContain('fechor_ing)');
+      expect(insertCall[0]).not.toContain('idsigma');
+      expect(insertCall[0]).not.toContain('GETDATE(), 0)');
       expect(insertCall[1]).toEqual({
         region: '1',
         anno: '2027',
@@ -285,8 +286,9 @@ describe('ValoresUnitariosService', () => {
       expect(sql).toContain('ON T.region = @region AND T.[año] = @anno');
       expect(sql).toContain('WHEN MATCHED THEN UPDATE SET');
       expect(sql).toContain('WHEN NOT MATCHED THEN INSERT');
-      expect(sql).toContain('fechor_ing, idsigma');
-      expect(sql).toContain('GETDATE(), 0)');
+      expect(sql).toContain('fechor_ing)');
+      expect(sql).not.toContain('idsigma');
+      expect(sql).not.toContain('GETDATE(), 0)');
       expect(sql).toContain('OUTPUT INSERTED.region, INSERTED.[año] AS anno');
       expect(sql).not.toContain("'A1'");
       expect(sql).not.toContain("'I7'");

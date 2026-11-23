@@ -20,7 +20,7 @@ import {
   notFoundError,
 } from './valores-unitarios.errors';
 
-/** El año se expone como `anno`; `idsigma` no identifica filas y nunca se expone. */
+/** El año se expone como `anno`; `idsigma` es IDENTITY: no se expone ni se escribe. */
 const TABLE = 'Calculo.Tblvaluni';
 const COLUMNS =
   'region, [año] AS anno, codi, valor, operador, estacion, fechor_ing';
@@ -113,8 +113,8 @@ export class ValoresUnitariosService {
       }
 
       await this.db.queryWithParams(
-        `INSERT INTO ${TABLE} (region, [año], codi, valor, operador, estacion, fechor_ing, idsigma)
-         VALUES (@region, @anno, @codi, @valor, @operador, @estacion, GETDATE(), 0)`,
+        `INSERT INTO ${TABLE} (region, [año], codi, valor, operador, estacion, fechor_ing)
+         VALUES (@region, @anno, @codi, @valor, @operador, @estacion, GETDATE())`,
         {
           region: dto.region,
           anno: dto.anno,
@@ -162,8 +162,8 @@ export class ValoresUnitariosService {
 USING (VALUES ${values.join(', ')}) AS S (codi, valor)
 ON T.region = @region AND T.[año] = @anno AND T.codi = S.codi
 WHEN MATCHED THEN UPDATE SET valor = S.valor, operador = @operador, estacion = @estacion, fechor_ing = GETDATE()
-WHEN NOT MATCHED THEN INSERT (region, [año], codi, valor, operador, estacion, fechor_ing, idsigma)
-VALUES (@region, @anno, S.codi, S.valor, @operador, @estacion, GETDATE(), 0)
+WHEN NOT MATCHED THEN INSERT (region, [año], codi, valor, operador, estacion, fechor_ing)
+VALUES (@region, @anno, S.codi, S.valor, @operador, @estacion, GETDATE())
 OUTPUT INSERTED.region, INSERTED.[año] AS anno, INSERTED.codi, INSERTED.valor, INSERTED.operador, INSERTED.estacion, INSERTED.fechor_ing;`;
 
       const result = await this.db.queryWithParams<ValorUnitarioRow>(sql, params);
