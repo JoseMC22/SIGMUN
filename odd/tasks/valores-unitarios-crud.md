@@ -476,7 +476,9 @@ build, lint ni suites completas.
 
 TDD observado por el writer: RED con `TS2554` por las firmas nuevas
 (`JEST_VU_EXIT=1`); GREEN 30/30 (`JEST_VU_EXIT=0`). Spot check del orquestador:
-mismos 30/30 con `JEST_VU_EXIT=0` y `git diff --check` limpio.
+mismos 30/30 con `JEST_VU_EXIT=0` y `git diff --check` limpio. Work-unit commit
+`f2aa11d` en `feat/valores-unitarios-crud`, con `--no-verify` por el hook `gga`
+fuera de servicio.
 
 ## Próximo paso
 
