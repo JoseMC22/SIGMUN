@@ -6,21 +6,25 @@ import {
 } from '@nestjs/common';
 import * as mssql from 'mssql';
 
-@Injectable()
-export class DatabaseService implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(DatabaseService.name);
-  private pool!: mssql.ConnectionPool;
-
-  private readonly config: mssql.config = {
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    server: process.env.DB_SERVER || 'localhost',
-    database: process.env.DB_DATABASE,
-    port: parseInt(process.env.DB_PORT || '1433', 10),
+/**
+ * Construye la configuración del pool de SQL Server a partir del entorno.
+ * useUTC: false evita que tedious interprete la hora local de GETDATE() como
+ * UTC y que el navegador la desplace al renderizarla.
+ */
+export function buildMssqlConfig(
+  env: NodeJS.ProcessEnv = process.env,
+): mssql.config {
+  return {
+    user: env.DB_USER,
+    password: env.DB_PASSWORD,
+    server: env.DB_SERVER || 'localhost',
+    database: env.DB_DATABASE,
+    port: parseInt(env.DB_PORT || '1433', 10),
     options: {
-      encrypt: process.env.DB_ENCRYPT === 'true',
+      encrypt: env.DB_ENCRYPT === 'true',
       trustServerCertificate: true,
       enableArithAbort: true,
+      useUTC: false,
     },
     pool: {
       max: 20,
@@ -28,11 +32,16 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       idleTimeoutMillis: 30000,
     },
     requestTimeout: 60000,
-    connectionTimeout: parseInt(
-      process.env.DB_CONNECTION_TIMEOUT || '15000',
-      10,
-    ),
+    connectionTimeout: parseInt(env.DB_CONNECTION_TIMEOUT || '15000', 10),
   };
+}
+
+@Injectable()
+export class DatabaseService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(DatabaseService.name);
+  private pool!: mssql.ConnectionPool;
+
+  private readonly config: mssql.config = buildMssqlConfig();
 
   async onModuleInit() {
     try {

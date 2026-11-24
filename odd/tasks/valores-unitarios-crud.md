@@ -99,6 +99,9 @@ Errores: `{ code, message, details? }` con `validation_error`, `not_found`,
       agregar categorías a una lista con «Agregar» y «Grabar» registra la lista;
       las categorías no agregadas se envían con valor 0. `/bulk` pasa a insertar
       solo las filas faltantes, conservando las existentes.
+- [x] T10 — Corregir el desfasaje de 5 horas de `fechor_ing`: configurar
+      `useUTC: false` en el pool de SQL Server y agregar test de regresión;
+      alcance global del backend, decidido por el usuario.
 
 ## Rutas y triggers de delegación
 
@@ -354,9 +357,38 @@ autorización de BD era solo de lectura. Work-unit commit `d69d345` en
 `feat/valores-unitarios-crud`, con `--no-verify` por el hook `gga` fuera de
 servicio.
 
+### T10 — Hora de ingreso sin desfasaje (2026-11-24)
+
+El usuario reportó que la fecha mostrada no coincidía con la del servidor. Una
+consulta de solo lectura confirmó que el almacenamiento es correcto: `GETDATE()`
+dio 12:36 local, `SYSUTCDATETIME()` 17:36Z (offset -300 min) y el último
+`fechor_ing` guardado era 12:31. El desfasaje ocurría al leer: tedious viene con
+`useUTC: true` y `database.service.ts` no lo sobrescribía, así que la hora local
+de SQL se serializaba como `...T12:31:53.273Z` y el navegador en `America/Lima`
+la mostraba a las 07:31. El usuario eligió corregirlo en el backend, con alcance
+global.
+
+Se extrajo `buildMssqlConfig(env)` como fábrica pura y se agregó
+`options.useUTC: false`; `DatabaseService` consume esa fábrica sin otros cambios
+de configuración. El nuevo spec cubre la opción y preserva el mapeo de
+credenciales, pool y timeouts. Con la misma consulta de solo lectura usando
+`useUTC: false`, el último `fechor_ing` pasó a `2026-11-24T17:31:53.273Z` y se
+muestra `24/11/2026, 12:31 p. m.` en Lima. La corrección depende de que el
+proceso Node corra en la misma zona horaria que SQL Server (verificada localmente
+como `America/Lima`, UTC-5); no se tocó `TZ` ni el frontend.
+
+Ruta de implementación: delegated direct (un único writer, writer trigger por
+dos archivos no triviales), con `interface-design` y `work-unit-commits`
+inyectados. Sin `tsc`, build, lint ni suites completas.
+
+TDD observado por el writer: RED con `TS2305` por el export ausente
+(`JEST_DB_EXIT=1`); GREEN 3/3 en el spec nuevo y 28/28 en valores-unitarios.
+Spot check del orquestador: `JEST_DB_EXIT=0` y `JEST_VU_EXIT=0`. El spec nuevo
+está ignorado por `.gitignore` (`*.spec.ts`), así que se incluyó con `git add -f`.
+
 ## Próximo paso
 
-Feature cerrada con T01–T09 completos. «Nuevo valor» registra un año completo:
+Feature cerrada con T01–T10 completos. «Nuevo valor» registra un año completo:
 las categorías agregadas con su valor y el resto en 0, insertando solo las
 filas faltantes. La edición individual sigue disponible desde la grilla, con
 región por defecto `1`, categoría `A1..J7` en mayúsculas, año numérico y
