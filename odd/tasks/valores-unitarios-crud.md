@@ -350,7 +350,9 @@ fallido / 27 OK (28); GREEN final frontend 12/12 y backend 28/28. Spot check
 del orquestador: mismos comandos acotados, frontend `VITEST_EXIT=0`, backend
 `JEST_EXIT=0`. Los warnings `act(...)` siguen siendo ruido conocido de stderr.
 La verificación es estructural: no hubo escritura real en SQL Server porque la
-autorización de BD era solo de lectura.
+autorización de BD era solo de lectura. Work-unit commit `d69d345` en
+`feat/valores-unitarios-crud`, con `--no-verify` por el hook `gga` fuera de
+servicio.
 
 ## Próximo paso
 
