@@ -25,6 +25,12 @@ const TABLE = 'Calculo.Tblvaluni';
 const COLUMNS =
   'region, [año] AS anno, codi, valor, operador, estacion, fechor_ing';
 const KEY_WHERE = 'region = @region AND [año] = @anno AND codi = @codi';
+/** Un solo batch: el trigger lee el contexto en la misma sesión que el DELETE. */
+const DELETE_WITH_SESSION_CONTEXT = `SET NOCOUNT ON;
+EXEC sys.sp_set_session_context @key = N'valuni_usuario', @value = @operador;
+EXEC sys.sp_set_session_context @key = N'valuni_estacion', @value = @estacion;
+DELETE FROM ${TABLE} WHERE ${KEY_WHERE};
+SELECT @@ROWCOUNT AS affected;`;
 const MAX_LOG_MESSAGE = 500;
 
 /** Solo metadatos acotados: nunca SQL, parámetros ni credenciales. */
@@ -216,14 +222,16 @@ OUTPUT INSERTED.region, INSERTED.[año] AS anno, INSERTED.codi, INSERTED.valor, 
     region: string,
     anno: string,
     codi: string,
+    operador: string,
+    estacion: string,
   ): Promise<ValoresUnitariosDeleteResponse> {
     try {
-      const result = await this.db.queryWithParams(
-        `DELETE FROM ${TABLE} WHERE ${KEY_WHERE}`,
-        { region, anno, codi },
+      const result = await this.db.queryWithParams<{ affected: number }>(
+        DELETE_WITH_SESSION_CONTEXT,
+        { region, anno, codi, operador, estacion },
       );
 
-      if (result.rowsAffected?.[0] === 0) {
+      if (result.recordset?.[0]?.affected === 0) {
         notFoundError('No se encontró la fila');
       }
 

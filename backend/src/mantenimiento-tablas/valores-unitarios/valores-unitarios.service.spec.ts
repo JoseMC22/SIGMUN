@@ -258,18 +258,46 @@ describe('ValoresUnitariosService', () => {
   });
 
   describe('remove', () => {
-    it('elimina físicamente por clave natural sin escribir el historial', async () => {
-      queryWithParams.mockResolvedValueOnce({ rowsAffected: [1] });
+    it('elimina en un único batch con SESSION_CONTEXT y parámetros ligados', async () => {
+      queryWithParams.mockResolvedValueOnce({ recordset: [{ affected: 1 }] });
 
-      const result = await service.remove('1', '2027', 'A1');
+      const result = await service.remove(
+        '1',
+        '2027',
+        'A1',
+        'mvaez',
+        'SERVIDOR-01',
+      );
 
       expect(queryWithParams).toHaveBeenCalledTimes(1);
-      const [sql, params] = queryWithParams.mock.calls[0] as [string, object];
-      expect(sql).toContain('DELETE FROM Calculo.Tblvaluni');
+      const [sql, params] = queryWithParams.mock.calls[0] as [
+        string,
+        Record<string, unknown>,
+      ];
+      expect(sql).toContain('SET NOCOUNT ON;');
+      const contextUser = sql.indexOf(
+        "EXEC sys.sp_set_session_context @key = N'valuni_usuario', @value = @operador;",
+      );
+      const contextStation = sql.indexOf(
+        "EXEC sys.sp_set_session_context @key = N'valuni_estacion', @value = @estacion;",
+      );
+      const deleteAt = sql.indexOf('DELETE FROM Calculo.Tblvaluni');
+      const rowCountAt = sql.indexOf('SELECT @@ROWCOUNT AS affected;');
+      expect(contextUser).toBeGreaterThan(-1);
+      expect(contextStation).toBeGreaterThan(contextUser);
+      expect(deleteAt).toBeGreaterThan(contextStation);
+      expect(rowCountAt).toBeGreaterThan(deleteAt);
       expect(sql).toContain('region = @region AND [año] = @anno AND codi = @codi');
       expect(sql).not.toContain('Historial');
       expect(sql).not.toContain('sp_Valuni_LogCambio');
-      expect(params).toEqual({ region: '1', anno: '2027', codi: 'A1' });
+      expect(sql).not.toContain("'A1'");
+      expect(params).toEqual({
+        region: '1',
+        anno: '2027',
+        codi: 'A1',
+        operador: 'mvaez',
+        estacion: 'SERVIDOR-01',
+      });
       expect(result).toEqual({ message: 'Registro eliminado exitosamente' });
     });
 
@@ -277,9 +305,11 @@ describe('ValoresUnitariosService', () => {
       const logError = jest
         .spyOn(Logger.prototype, 'error')
         .mockImplementation(() => undefined);
-      queryWithParams.mockResolvedValueOnce({ rowsAffected: [0] });
+      queryWithParams.mockResolvedValueOnce({ recordset: [{ affected: 0 }] });
 
-      const error = await captureError(service.remove('1', '2027', 'A1'));
+      const error = await captureError(
+        service.remove('1', '2027', 'A1', 'mvaez', 'SERVIDOR-01'),
+      );
 
       expect(error).toBeInstanceOf(NotFoundException);
       expect(responseOf(error)).toEqual({
@@ -300,7 +330,9 @@ describe('ValoresUnitariosService', () => {
       });
       queryWithParams.mockRejectedValueOnce(dbError);
 
-      const error = await captureError(service.remove('1', '2027', 'A1'));
+      const error = await captureError(
+        service.remove('1', '2027', 'A1', 'mvaez', 'SERVIDOR-01'),
+      );
 
       expect(error).toBeInstanceOf(ServiceUnavailableException);
       expect(responseOf(error)).toEqual({

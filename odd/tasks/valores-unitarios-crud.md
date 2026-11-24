@@ -109,6 +109,8 @@ Errores: `{ code, message, details? }` con `validation_error`, `not_found`,
 - [x] T13 — Reemplazar el SP por un trigger `AFTER UPDATE, DELETE` en
       `Calculo.Tblvaluni`; volver al DML directo en el backend y retirar el
       mapeo del error 50004.
+- [x] T14 — Identificar a quien elimina: setear `SESSION_CONTEXT` en el mismo
+      batch del DELETE y que el trigger lo use para `usu_act`/`pc_act`.
 
 ## Rutas y triggers de delegación
 
@@ -480,9 +482,33 @@ mismos 30/30 con `JEST_VU_EXIT=0` y `git diff --check` limpio. Work-unit commit
 `f2aa11d` en `feat/valores-unitarios-crud`, con `--no-verify` por el hook `gga`
 fuera de servicio.
 
+### T14 — Usuario que elimina vía SESSION_CONTEXT (2026-11-24)
+
+Para que el trigger sepa quién borra, se actualizó el script del trigger para
+leer `SESSION_CONTEXT(N'valuni_usuario')` y `SESSION_CONTEXT(N'valuni_estacion')`
+en la rama DELETE, con `ISNULL(..., deleted.operador/estacion)` como fallback
+para borrados hechos fuera de la app. El usuario ejecuta el script en la BD.
+
+En el backend, `remove` volvió a recibir `operador` y `estacion` (el controller
+reenvía usuario JWT y hostname) y ejecuta un único batch parametrizado:
+`SET NOCOUNT ON`, dos `sp_set_session_context`, el `DELETE` por clave natural y
+`SELECT @@ROWCOUNT AS affected`. Es obligatorio que el contexto y el DELETE
+estén en el mismo request porque el pool de conexiones puede entregar otra
+sesión. Con `SET NOCOUNT ON`, `rowsAffected` no sirve: el 404 se detecta desde
+`recordset[0].affected === 0`. El `UPDATE` no necesita contexto porque la fila
+ya contiene operador/estación actualizados y el trigger los lee de `inserted`.
+
+Ruta de implementación: delegated direct (un único writer, writer trigger por
+cuatro archivos no triviales), con `work-unit-commits` inyectado. Sin `tsc`,
+build, lint ni suites completas, y sin escrituras en SQL Server.
+
+TDD observado por el writer: RED con `TS2554` por las firmas nuevas
+(`JEST_VU_EXIT=1`); GREEN 30/30 (`JEST_VU_EXIT=0`). Spot check del orquestador:
+mismos 30/30 con `JEST_VU_EXIT=0`.
+
 ## Próximo paso
 
-Feature cerrada con T01–T13 completos. «Nuevo valor» registra un año completo:
+Feature cerrada con T01–T14 completos. «Nuevo valor» registra un año completo:
 las categorías agregadas con su valor y el resto en 0, insertando solo las
 filas faltantes. La edición individual sigue disponible desde la grilla, con
 región por defecto `1`, categoría `A1..J7` en mayúsculas, año numérico y
