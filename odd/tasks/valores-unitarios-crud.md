@@ -104,6 +104,8 @@ Errores: `{ code, message, details? }` con `validation_error`, `not_found`,
       alcance global del backend, decidido por el usuario.
 - [x] T11 — Integrar `Calculo.sp_Valuni_LogCambio` en update y delete para grabar
       la imagen anterior en `Historial.TBLVALUNI`; el SP ya está creado en la BD.
+- [x] T12 — Grabar la acción (`MODIFICACION`/`ELIMINACION`) en la nueva columna
+      `Historial.TBLVALUNI.accion`; actualizar el SP y los tokens del backend.
 
 ## Rutas y triggers de delegación
 
@@ -416,9 +418,35 @@ orquestador: mismos 30/30 con `JEST_VU_EXIT=0`; `git diff --check` sin errores
 de whitespace. Work-unit commit `0ef8754` en `feat/valores-unitarios-crud`, con
 `--no-verify` por el hook `gga` fuera de servicio.
 
+### T12 — Columna `accion` en el historial (2026-11-24)
+
+El usuario agregó `accion varchar(20) NULL` a `Historial.TBLVALUNI`. Consulta de
+solo lectura confirmó que era la columna 12 y que el SP seguía insertando solo
+11 columnas. Se entregó al usuario un `CREATE OR ALTER` del SP que normaliza la
+entrada a `MODIFICACION` o `ELIMINACION` y la escribe en la columna nueva;
+acepta además los tokens viejos `UPDATE`/`DELETE` para no romper el backend aún
+no reconstruido. El usuario ejecuta el script en la BD; este trabajo no escribió
+en SQL Server.
+
+En el backend se definieron `LOG_ACTION_MODIFICACION` y
+`LOG_ACTION_ELIMINACION` como constantes de módulo y se usaron en las llamadas
+al SP. El resto del contrato (auditoría, tipos, 50004 → 404, relectura) quedó
+intacto. Las filas de historial anteriores siguen con `accion` en `NULL`: no es
+posible inferir la acción desde los datos ya grabados.
+
+Ruta de implementación: delegated direct (un único writer, writer trigger por
+dos archivos no triviales), con `work-unit-commits` inyectado. Sin `tsc`, build,
+lint ni suites completas.
+
+TDD observado por el writer: RED con 2 tests fallidos por los tokens
+(`JEST_VU_EXIT=1`); GREEN 30/30 (`JEST_VU_EXIT=0`). Spot check del orquestador:
+mismos 30/30 con `JEST_VU_EXIT=0`. Despliegue: el SP nuevo debe quedar activo
+antes o junto con el backend, porque el SP actual declara `@Accion varchar(10)`
+y truncaría `MODIFICACION`, disparando el error 50002.
+
 ## Próximo paso
 
-Feature cerrada con T01–T11 completos. «Nuevo valor» registra un año completo:
+Feature cerrada con T01–T12 completos. «Nuevo valor» registra un año completo:
 las categorías agregadas con su valor y el resto en 0, insertando solo las
 filas faltantes. La edición individual sigue disponible desde la grilla, con
 región por defecto `1`, categoría `A1..J7` en mayúsculas, año numérico y

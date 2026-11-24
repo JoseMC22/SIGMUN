@@ -30,6 +30,9 @@ const MAX_LOG_MESSAGE = 500;
 
 /** El SP graba la imagen anterior en Historial.TBLVALUNI antes de escribir. */
 const LOG_CAMBIO_PROCEDURE = '[Calculo].[sp_Valuni_LogCambio]';
+/** Tokens normalizados que el SP escribe en Historial.TBLVALUNI.accion. */
+const LOG_ACTION_MODIFICACION = 'MODIFICACION';
+const LOG_ACTION_ELIMINACION = 'ELIMINACION';
 /** THROW 50004 del SP = clave natural no encontrada. */
 const NOT_FOUND_ERROR_NUMBER = 50004;
 
@@ -202,7 +205,7 @@ OUTPUT INSERTED.region, INSERTED.[año] AS anno, INSERTED.codi, INSERTED.valor, 
       await this.db.executeProcedure(
         LOG_CAMBIO_PROCEDURE,
         {
-          Accion: 'UPDATE',
+          Accion: LOG_ACTION_MODIFICACION,
           region: dto.region,
           anno: dto.anno,
           codi: dto.codi,
@@ -233,7 +236,7 @@ OUTPUT INSERTED.region, INSERTED.[año] AS anno, INSERTED.codi, INSERTED.valor, 
       await this.db.executeProcedure(
         LOG_CAMBIO_PROCEDURE,
         {
-          Accion: 'DELETE',
+          Accion: LOG_ACTION_ELIMINACION,
           region,
           anno,
           codi,

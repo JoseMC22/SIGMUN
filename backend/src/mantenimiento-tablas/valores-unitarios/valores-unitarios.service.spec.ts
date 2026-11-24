@@ -206,7 +206,7 @@ describe('ValoresUnitariosService', () => {
       expect(executeProcedure).toHaveBeenCalledWith(
         logCambioProcedure,
         {
-          Accion: 'UPDATE',
+          Accion: 'MODIFICACION',
           region: '1',
           anno: '2027',
           codi: 'A1',
@@ -268,7 +268,7 @@ describe('ValoresUnitariosService', () => {
   });
 
   describe('remove', () => {
-    it('invoca el SP con Accion DELETE, valor null y auditoría', async () => {
+    it('invoca el SP con Accion ELIMINACION, valor null y auditoría', async () => {
       executeProcedure.mockResolvedValueOnce({ rowsAffected: [0] });
 
       const result = await service.remove(
@@ -283,7 +283,7 @@ describe('ValoresUnitariosService', () => {
       expect(executeProcedure).toHaveBeenCalledWith(
         logCambioProcedure,
         {
-          Accion: 'DELETE',
+          Accion: 'ELIMINACION',
           region: '1',
           anno: '2027',
           codi: 'A1',
