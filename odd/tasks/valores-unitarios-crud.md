@@ -385,6 +385,8 @@ TDD observado por el writer: RED con `TS2305` por el export ausente
 (`JEST_DB_EXIT=1`); GREEN 3/3 en el spec nuevo y 28/28 en valores-unitarios.
 Spot check del orquestador: `JEST_DB_EXIT=0` y `JEST_VU_EXIT=0`. El spec nuevo
 está ignorado por `.gitignore` (`*.spec.ts`), así que se incluyó con `git add -f`.
+Work-unit commit `76bd447` en `feat/valores-unitarios-crud`, con `--no-verify`
+por el hook `gga` fuera de servicio.
 
 ## Próximo paso
 
