@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import * as os from 'os';
 import { BadRequestException } from '@nestjs/common';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -30,18 +31,18 @@ describe('ValoresUnitariosController', () => {
 
   type CreateArgs = Parameters<ValoresUnitariosController['create']>;
 
-  const requestWith = (username: string | undefined, forwardedFor?: string): CreateArgs[1] =>
+  const requestWith = (username: string | undefined): CreateArgs[1] =>
     ({
       user: username === undefined ? undefined : { username },
-      headers:
-        forwardedFor === undefined
-          ? {}
-          : { 'x-forwarded-for': forwardedFor },
-      ip: '192.168.0.1',
     }) as unknown as CreateArgs[1];
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    jest.spyOn(os, 'hostname').mockReturnValue('SERVIDOR-01');
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ValoresUnitariosController],
@@ -106,19 +107,20 @@ describe('ValoresUnitariosController', () => {
   describe('POST y PUT', () => {
     const body = { region: '1', anno: '2027', codi: 'A1', valor: 123.45 };
 
-    it('crea con datos parseados, operador JWT y estación del proxy', async () => {
+    it('crea con datos parseados, operador JWT y estación del servidor', async () => {
       mockService.create.mockResolvedValueOnce({ message: 'ok', row: {} });
 
-      await controller.create(body, requestWith('mvaez', '10.0.0.1, 10.0.0.2'));
+      await controller.create(body, requestWith('mvaez'));
 
       expect(mockService.create).toHaveBeenCalledWith(
         body,
         'mvaez',
-        '10.0.0.1',
+        'SERVIDOR-01',
       );
+      expect(os.hostname).toHaveBeenCalledTimes(1);
     });
 
-    it('usa req.ip como estación y limita la auditoría a 50 caracteres', async () => {
+    it('usa el hostname como estación y limita la auditoría a 50 caracteres', async () => {
       mockService.update.mockResolvedValueOnce({ message: 'ok', row: {} });
 
       await controller.update(body, requestWith('u'.repeat(60)));
@@ -126,8 +128,9 @@ describe('ValoresUnitariosController', () => {
       expect(mockService.update).toHaveBeenCalledWith(
         body,
         'u'.repeat(50),
-        '192.168.0.1',
+        'SERVIDOR-01',
       );
+      expect(os.hostname).toHaveBeenCalledTimes(1);
     });
 
     it('rechaza body inválido con el envelope canónico', async () => {
@@ -186,7 +189,7 @@ describe('ValoresUnitariosController', () => {
       items: [{ codi: 'A1', valor: 123.45 }],
     };
 
-    it('parsea el body y delega en upsertMany con operador JWT y estación del proxy', async () => {
+    it('parsea el body y delega en upsertMany con operador JWT y estación del servidor', async () => {
       mockService.upsertMany.mockResolvedValueOnce({
         message: 'ok',
         rows: [],
@@ -194,14 +197,15 @@ describe('ValoresUnitariosController', () => {
       });
 
       await expect(
-        controller.bulk(bulkBody, requestWith('mvaez', '10.0.0.1, 10.0.0.2')),
+        controller.bulk(bulkBody, requestWith('mvaez')),
       ).resolves.toEqual({ message: 'ok', rows: [], affected: 0 });
 
       expect(mockService.upsertMany).toHaveBeenCalledWith(
         bulkBody,
         'mvaez',
-        '10.0.0.1',
+        'SERVIDOR-01',
       );
+      expect(os.hostname).toHaveBeenCalledTimes(1);
     });
 
     it('rechaza códigos repetidos con el envelope canónico', async () => {

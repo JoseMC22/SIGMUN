@@ -186,7 +186,7 @@ export default function ValorUnitarioFormModal({
                 maxLength={4}
                 value={anno}
                 readOnly={isEdit}
-                onChange={(event) => setAnno(event.target.value)}
+                onChange={(event) => setAnno(event.target.value.replace(/\D/g, ""))}
                 className={isEdit ? readOnlyClass : inputClass}
               />
             </div>
@@ -203,7 +203,7 @@ export default function ValorUnitarioFormModal({
                 maxLength={2}
                 value={codi}
                 readOnly={isEdit}
-                onChange={(event) => setCodi(event.target.value)}
+                onChange={(event) => setCodi(event.target.value.toUpperCase())}
                 className={isEdit ? readOnlyClass : inputClass}
               />
             </div>

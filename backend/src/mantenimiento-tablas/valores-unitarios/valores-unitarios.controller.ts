@@ -10,6 +10,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { hostname } from 'os';
 import { Request } from 'express';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import {
@@ -38,11 +39,8 @@ function audit(value: string | undefined): string {
   return (value ?? '').slice(0, AUDIT_MAX_LENGTH);
 }
 
-function station(req: AuthRequest): string {
-  const forwarded = req.headers?.['x-forwarded-for'];
-  const raw = Array.isArray(forwarded) ? forwarded[0] : forwarded;
-  const first = raw?.split(',')[0]?.trim();
-  return audit(first || req.ip || '');
+function station(): string {
+  return audit(hostname());
 }
 
 @Controller('mantenimiento-tablas/valores-unitarios')
@@ -71,7 +69,7 @@ export class ValoresUnitariosController {
     return this.service.upsertMany(
       parseOrThrow(SaveValoresUnitariosBulkSchema, body),
       audit(req.user?.username),
-      station(req),
+      station(),
     );
   }
 
@@ -83,7 +81,7 @@ export class ValoresUnitariosController {
     return this.service.create(
       parseOrThrow(SaveValorUnitarioSchema, body),
       audit(req.user?.username),
-      station(req),
+      station(),
     );
   }
 
@@ -95,7 +93,7 @@ export class ValoresUnitariosController {
     return this.service.update(
       parseOrThrow(SaveValorUnitarioSchema, body),
       audit(req.user?.username),
-      station(req),
+      station(),
     );
   }
 

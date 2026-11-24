@@ -291,4 +291,62 @@ describe("ValoresUnitariosPage", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(refreshes()).toHaveLength(1);
   });
+
+  it("convierte la categoría a mayúsculas al escribir y envía ese valor", async () => {
+    render(<ValoresUnitariosPage />);
+    await screen.findByTestId("valores-unitarios-grid");
+
+    await userEvent.click(screen.getByRole("button", { name: "Nuevo valor" }));
+    const dialog = screen.getByRole("dialog");
+    const categoria = within(dialog).getByLabelText("Categoría");
+
+    await userEvent.type(within(dialog).getByLabelText("Año"), "2027");
+    await userEvent.type(categoria, "a2");
+    expect(categoria).toHaveValue("A2");
+
+    await userEvent.type(within(dialog).getByLabelText("Valor"), "99.9");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Guardar" }));
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(BASE, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          region: "1",
+          anno: "2027",
+          codi: "A2",
+          valor: 99.9,
+        }),
+      });
+    });
+  });
+
+  it("descarta caracteres no numéricos del año y envía solo los dígitos", async () => {
+    render(<ValoresUnitariosPage />);
+    await screen.findByTestId("valores-unitarios-grid");
+
+    await userEvent.click(screen.getByRole("button", { name: "Nuevo valor" }));
+    const dialog = screen.getByRole("dialog");
+    const anno = within(dialog).getByLabelText("Año");
+
+    await userEvent.type(anno, "20ab27");
+    expect(anno).toHaveValue("2027");
+
+    await userEvent.type(within(dialog).getByLabelText("Categoría"), "A2");
+    await userEvent.type(within(dialog).getByLabelText("Valor"), "10");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Guardar" }));
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(BASE, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          region: "1",
+          anno: "2027",
+          codi: "A2",
+          valor: 10,
+        }),
+      });
+    });
+  });
 });

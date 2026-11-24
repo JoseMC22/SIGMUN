@@ -92,6 +92,9 @@ Errores: `{ code, message, details? }` con `validation_error`, `not_found`,
       «Categoría» en formulario y grilla, validación `A1..J7` en boundary
       frontend y Zod, y verificación de clave única `región+año+categoría`
       (409 del backend ya existente, con test de regresión en frontend).
+- [x] T08 — Normalizar la entrada: categoría en mayúsculas, año solo dígitos
+      y `estacion` con `os.hostname()` del backend en alta/edición/bulk;
+      tests de frontend y controller actualizados.
 
 ## Rutas y triggers de delegación
 
@@ -285,12 +288,40 @@ orquestador: mismos comandos acotados, frontend `VITEST_EXIT=0`, backend
 Work-unit commit `30aef96` en `feat/valores-unitarios-crud`, con `--no-verify`
 por el hook `gga` fuera de servicio.
 
+### T08 — Mayúsculas, año numérico y estación del servidor (2026-11-24)
+
+El usuario pidió que la categoría se ingrese en mayúsculas, que el año solo
+aceptara valores numéricos y que se verificara que se almacena el nombre del
+equipo de cómputo. Como el navegador no puede informar de manera confiable el
+nombre de la PC del usuario, se le presentaron tres orígenes y eligió
+**`os.hostname()` del backend**.
+
+`ValorUnitarioFormModal` transforma la categoría con `.toUpperCase()` y filtra
+el año con `replace(/\D/g, "")` en `onChange`, antes de validar y de construir
+el payload. En el controller, `station()` ahora devuelve `audit(hostname())` y
+se usa en `create`, `update` y `bulk`; se eliminó el uso de `x-forwarded-for` y
+`req.ip`, y se conserva el límite de 50 caracteres. El `@Req()` sigue siendo
+necesario para el usuario JWT. El service no cambió: sus `INSERT`/`UPDATE`/
+`MERGE` ya ligan `@estacion`, y sus tests verifican ese parámetro.
+
+Ruta de implementación: delegated direct (un único writer, writer trigger por
+cuatro archivos no triviales), con `interface-design` y `work-unit-commits`
+inyectados. Sin `tsc`, build, lint ni suites completas.
+
+TDD observado por el writer: RED frontend 2 fallidos / 8 OK (10), backend 3
+fallidos / 25 OK (28); GREEN final frontend 10/10 y backend 28/28. Spot check
+del orquestador: frontend `VITEST_EXIT=0`, backend `JEST_EXIT=0`. Los tests del
+controller espyan `os.hostname` y comprueban `'SERVIDOR-01'` en las tres
+operaciones. No se hizo una escritura real en SQL Server: la autorización de BD
+era solo lectura; la verificación es estructural (parámetro ligado en el SQL).
+
 ## Próximo paso
 
-Feature cerrada con T01–T07 completos. El alta individual ya está restituida en
-la UI, con región por defecto `1`, categoría `A1..J7` y control de duplicados
-por el 409 del backend. El fix de `idsigma` para `POST /bulk` sigue pendiente de
-confirmación en
+Feature cerrada con T01–T08 completos. El alta individual ya está restituida en
+la UI, con región por defecto `1`, categoría `A1..J7` en mayúsculas, año
+numérico y `estacion` con el hostname del servidor. El control de duplicados
+sigue a cargo del 409 del backend. El fix de `idsigma` para `POST /bulk` sigue
+pendiente de confirmación en
 el entorno corriente: ejecutar `npm run build` en `backend`, reiniciar el
 proceso que corre `dist/main` y repetir el bulk solo si se vuelve a habilitar.
 Push, PR y merge quedan bajo decisión del usuario. La fila del menú en BD es
