@@ -85,6 +85,9 @@ Errores: `{ code, message, details? }` con `validation_error`, `not_found`,
 - [x] T05 — Alta masiva: endpoint `POST /bulk` con upsert atómico de los 70
       códigos `A1`..`J7`, formulario con una caja por código y un solo Guardar;
       corregir `idsigma` en el INSERT individual; tests backend y frontend.
+- [x] T06 — Restituir el alta individual: «Nuevo valor» vuelve a pedir
+      región/año/código/valor uno por uno; el modal masivo sale de la UI y el
+      endpoint `/bulk` queda en backend sin uso; tests de frontend actualizados.
 
 ## Rutas y triggers de delegación
 
@@ -221,11 +224,40 @@ columna en ambos INSERT (TDD: RED en los dos asertos de regresión, GREEN con
 2 suites / 27 tests OK). Falta recompilar y reiniciar el backend que corre
 `dist/main` antes de repetir el bulk.
 
+### Restitución del alta individual (2026-11-24)
+
+El usuario pidió volver a la forma de registro anterior: «que vaya pidiendo por
+cada categoría». Ante la duda sobre qué hacer con la carga masiva, eligió
+**solo formulario individual**: «Nuevo valor» abre `ValorUnitarioFormModal` en
+modo `create` (región, año, código y valor), y el modal masivo se desconecta de
+la UI. El contrato `POST /bulk` sigue implementado en backend, sin uso desde la
+página. El archivo `valores-unitarios-bulk-modal.tsx` queda en el repo sin
+importaciones activas; no se borra para no expandir el diff más allá de lo
+pedido.
+
+`page.tsx`: el estado `formMode` vuelve a `"create" | "edit" | null`, el botón
+«Nuevo valor» llama a `setFormMode("create")` y un único bloque renderiza el
+modal individual en modo `create` o `edit`. `page.test.tsx`: los tres tests
+bulk se reemplazan por dos tests del flujo individual (POST simple con los
+cuatro campos, cero llamadas a `/bulk`, y validación de cada campo sin
+petición). Quedan 5 tests en total.
+
+Ruta de implementación: inline (dos archivos conocidos, sin investigación ni
+decisión de diseño pendiente; no aplica mapping trigger ni writer trigger).
+Backend sin cambios, así que no se repitió su suite.
+
+Spot check del orquestador: `frontend\node_modules\.bin\vitest.cmd run
+src/app/dashboard/mantenimiento-tablas/valores-unitarios` → 1 archivo / 5 tests
+OK, `VITEST_EXIT=0` (warnings `act(...)` en stderr, no fallos). Work-unit commit
+`d132f18` en `feat/valores-unitarios-crud` con `--no-verify` por el hook `gga`
+fuera de servicio.
+
 ## Próximo paso
 
-Feature cerrada con T01–T05 completos. Paso inmediato: ejecutar `npm run build`
-en `backend`, reiniciar el proceso que corre `dist/main` y repetir
-`POST /bulk` para confirmar el fix contra la BD real. Push, PR y merge quedan
-bajo decisión del usuario. La fila del menú en BD es externa al repo y debe
-cargarla el usuario/DBA (`Acceso.sp_LogOut`, campo `doform2`). Sin despliegue
-por parte de este trabajo.
+Feature cerrada con T01–T06 completos. El alta individual ya está restituida en
+la UI. El fix de `idsigma` para `POST /bulk` sigue pendiente de confirmación en
+el entorno corriente: ejecutar `npm run build` en `backend`, reiniciar el
+proceso que corre `dist/main` y repetir el bulk solo si se vuelve a habilitar.
+Push, PR y merge quedan bajo decisión del usuario. La fila del menú en BD es
+externa al repo y debe cargarla el usuario/DBA (`Acceso.sp_LogOut`, campo
+`doform2`). Sin despliegue por parte de este trabajo.

@@ -62,33 +62,32 @@ describe("ValoresUnitariosPage", () => {
     expect(mockFetch).toHaveBeenCalledWith(`${BASE}?anno=2027`);
   });
 
-  it("envía un único POST bulk con los códigos completados y refresca la grilla", async () => {
+  it("abre el formulario individual y envía un POST por categoría", async () => {
     render(<ValoresUnitariosPage />);
     await screen.findByTestId("valores-unitarios-grid");
 
     await userEvent.click(screen.getByRole("button", { name: "Nuevo valor" }));
     const dialog = screen.getByRole("dialog");
-    expect(
-      within(dialog).getByTestId("valores-unitarios-bulk-grid"),
-    ).toBeInTheDocument();
-    expect(within(dialog).getByLabelText("Región")).toHaveValue("1");
-    expect(within(dialog).getByLabelText("Año")).toHaveValue("2027");
+    expect(within(dialog).queryByTestId("valores-unitarios-bulk-grid")).toBeNull();
+    expect(within(dialog).getByLabelText("Región")).toHaveValue("");
+    expect(within(dialog).getByLabelText("Año")).toHaveValue("");
+    expect(within(dialog).getByLabelText("Código")).toHaveValue("");
 
-    await userEvent.type(within(dialog).getByLabelText("Valor A1"), "123.45");
-    await userEvent.type(within(dialog).getByLabelText("Valor I7"), "99.9");
+    await userEvent.type(within(dialog).getByLabelText("Región"), "1");
+    await userEvent.type(within(dialog).getByLabelText("Año"), "2027");
+    await userEvent.type(within(dialog).getByLabelText("Código"), "A2");
+    await userEvent.type(within(dialog).getByLabelText("Valor"), "99.9");
     await userEvent.click(within(dialog).getByRole("button", { name: "Guardar" }));
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith(`${BASE}/bulk`, {
+      expect(mockFetch).toHaveBeenCalledWith(BASE, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           region: "1",
           anno: "2027",
-          items: [
-            { codi: "A1", valor: 123.45 },
-            { codi: "I7", valor: 99.9 },
-          ],
+          codi: "A2",
+          valor: 99.9,
         }),
       });
     });
@@ -96,57 +95,44 @@ describe("ValoresUnitariosPage", () => {
       mockFetch.mock.calls.filter(
         (call) => String(call[0]).endsWith("/bulk") && call[1]?.method === "POST",
       ),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
     expect(mockFetch).toHaveBeenCalledWith(`${BASE}?anno=2027`);
   });
 
-  it("muestra error de validación sin enviar la petición", async () => {
+  it("valida cada campo del formulario individual sin enviar la petición", async () => {
     render(<ValoresUnitariosPage />);
     await screen.findByTestId("valores-unitarios-grid");
 
     await userEvent.click(screen.getByRole("button", { name: "Nuevo valor" }));
     const dialog = screen.getByRole("dialog");
-    await userEvent.click(within(dialog).getByRole("button", { name: "Guardar" }));
+    const guardar = () =>
+      userEvent.click(within(dialog).getByRole("button", { name: "Guardar" }));
 
-    expect(
-      within(dialog).getByText("Ingrese al menos un valor"),
-    ).toBeInTheDocument();
-
-    await userEvent.clear(within(dialog).getByLabelText("Región"));
-    await userEvent.click(within(dialog).getByRole("button", { name: "Guardar" }));
-
+    await guardar();
     expect(
       within(dialog).getByText("La región debe tener 1 dígito"),
+    ).toBeInTheDocument();
+
+    await userEvent.type(within(dialog).getByLabelText("Región"), "1");
+    await guardar();
+    expect(
+      within(dialog).getByText("El año debe tener 4 dígitos"),
+    ).toBeInTheDocument();
+
+    await userEvent.type(within(dialog).getByLabelText("Año"), "2027");
+    await guardar();
+    expect(
+      within(dialog).getByText("El código debe tener entre 1 y 2 caracteres"),
+    ).toBeInTheDocument();
+
+    await userEvent.type(within(dialog).getByLabelText("Código"), "A2");
+    await guardar();
+    expect(
+      within(dialog).getByText("El valor debe estar entre 0 y 99999.99"),
     ).toBeInTheDocument();
     expect(
       mockFetch.mock.calls.filter((call) => call[1]?.method === "POST"),
     ).toHaveLength(0);
-  });
-
-  it("renderiza 70 cajas en 10 filas de 7 códigos, una por letra de A a J", async () => {
-    render(<ValoresUnitariosPage />);
-    await screen.findByTestId("valores-unitarios-grid");
-
-    await userEvent.click(screen.getByRole("button", { name: "Nuevo valor" }));
-    const dialog = screen.getByRole("dialog");
-    const grid = within(dialog).getByTestId("valores-unitarios-bulk-grid");
-
-    expect(within(grid).getAllByRole("spinbutton")).toHaveLength(70);
-    const rows = within(grid).getAllByTestId("valores-unitarios-bulk-row");
-    expect(rows).toHaveLength(10);
-    expect(
-      rows.map((row) =>
-        within(row)
-          .getAllByRole("spinbutton")
-          .map((input) => input.getAttribute("aria-label")),
-      ),
-    ).toEqual(
-      ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"].map((letter) =>
-        Array.from({ length: 7 }, (_, index) => `Valor ${letter}${index + 1}`),
-      ),
-    );
-    expect(within(grid).getByLabelText("Valor A1")).toBeInTheDocument();
-    expect(within(grid).getByLabelText("Valor J7")).toBeInTheDocument();
   });
 
   it("envía el payload correcto al editar con claves de solo lectura", async () => {
