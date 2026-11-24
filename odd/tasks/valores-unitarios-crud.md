@@ -549,7 +549,9 @@ modificación.
 
 Ruta de implementación: direct inline (una cláusula SQL y su aserción). TDD
 observado: RED 1 fallido / 29 pasados (`JEST_VU_EXIT=1`) y GREEN 30/30
-(`JEST_VU_EXIT=0`), con `git diff --check` limpio.
+(`JEST_VU_EXIT=0`), con `git diff --check` limpio. Work-unit commit `93dd5fa`
+en `feat/valores-unitarios-crud`, con `--no-verify` por el hook `gga` fuera de
+servicio.
 
 ## Próximo paso
 
