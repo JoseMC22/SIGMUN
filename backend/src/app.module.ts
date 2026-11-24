@@ -36,6 +36,7 @@ import { CertificadoNoAdeudoModule } from './cobranza/certificado-no-adeudo/cert
 import { ReporteFraccDetalladoModule } from './cobranza/reporte-fracc-detallado/reporte-fracc-detallado.module';
 import { ReportesModule } from './reportes-gerenciales/reportes-gerenciales.module';
 import { MantenimientoUitModule } from './mantenimiento-tablas/mantenimiento-uit/mantenimiento-uit.module';
+import { ValoresUnitariosModule } from './mantenimiento-tablas/valores-unitarios/valores-unitarios.module';
 import { ConvenioEstadoModule } from './mantenimiento-tablas/mantenimiento-estado-convenios/convenio-estado.module';
 import { OrdenanzasModule } from './mantenimiento-tablas/ordenanzas/ordenanzas.module';
 import { PapeletaTransitoModule } from './papeleta-transito/papeleta-transito.module';
@@ -137,6 +138,8 @@ import { StorageModule } from './storage/storage.module';
     InconsistenciaModule,
     // Módulo de mantenimiento de tablas - UIT
     MantenimientoUitModule,
+    // Módulo de mantenimiento de tablas - valores unitarios (Calculo.Tblvaluni)
+    ValoresUnitariosModule,
     // Módulo de mantenimiento - estados de convenio
     ConvenioEstadoModule,
     // Módulo de mantenimiento de tablas - ordenanzas de caja (listado)
