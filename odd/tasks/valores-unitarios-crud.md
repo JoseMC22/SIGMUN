@@ -249,7 +249,7 @@ Backend sin cambios, así que no se repitió su suite.
 Spot check del orquestador: `frontend\node_modules\.bin\vitest.cmd run
 src/app/dashboard/mantenimiento-tablas/valores-unitarios` → 1 archivo / 5 tests
 OK, `VITEST_EXIT=0` (warnings `act(...)` en stderr, no fallos). Work-unit commit
-`d132f18` en `feat/valores-unitarios-crud` con `--no-verify` por el hook `gga`
+`77caed1` en `feat/valores-unitarios-crud` con `--no-verify` por el hook `gga`
 fuera de servicio.
 
 ## Próximo paso
