@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, Loader2, AlertCircle } from "lucide-react";
+import { X, Plus, Loader2, AlertCircle } from "lucide-react";
 import {
   SaveValoresUnitariosBulkPayload,
   VALORES_UNITARIOS_CODES,
@@ -12,7 +12,12 @@ interface Props {
   defaultAnno: string;
   endpoint: string;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (anno: string) => void;
+}
+
+interface AddedItem {
+  codi: string;
+  valor: number;
 }
 
 const VALOR_MAX = 99999.99;
@@ -27,16 +32,11 @@ type ErrorBody = {
   details?: { errors?: Array<{ message?: string }> };
 };
 
-/** Una fila por letra: A1..A7, B1..B7, ..., J1..J7. */
-const CODE_ROWS: string[][] = Array.from({ length: 10 }, (_, letterIndex) =>
-  VALORES_UNITARIOS_CODES.slice(letterIndex * 7, letterIndex * 7 + 7),
-);
-
-/** Espejo client-side de SaveValoresUnitariosBulkSchema (Zod del backend). */
-function validate(
+function validateEntry(
   region: string,
   anno: string,
-  values: Record<string, string>,
+  codi: string,
+  valor: string,
 ): string | null {
   if (!/^\d$/.test(region.trim())) {
     return "La región debe tener 1 dígito";
@@ -44,32 +44,14 @@ function validate(
   if (!/^\d{4}$/.test(anno.trim())) {
     return "El año debe tener 4 dígitos";
   }
-
-  const items = buildItems(values);
-  if (items.length === 0) {
-    return "Ingrese al menos un valor";
+  if (!/^[A-J][1-7]$/.test(codi.trim())) {
+    return "La categoría debe estar entre A1 y J7";
   }
-
-  for (const item of items) {
-    if (
-      !Number.isFinite(item.valor) ||
-      item.valor < 0 ||
-      item.valor > VALOR_MAX
-    ) {
-      return `El valor de ${item.codi} debe estar entre 0 y 99999.99`;
-    }
+  const parsed = valor.trim() === "" ? Number.NaN : Number(valor);
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > VALOR_MAX) {
+    return "El valor debe estar entre 0 y 99999.99";
   }
   return null;
-}
-
-/** Solo se envían las cajas completadas; el orden es el de los 70 códigos. */
-function buildItems(
-  values: Record<string, string>,
-): Array<{ codi: string; valor: number }> {
-  return VALORES_UNITARIOS_CODES.flatMap((codi) => {
-    const raw = (values[codi] ?? "").trim();
-    return raw === "" ? [] : [{ codi, valor: Number(raw) }];
-  });
 }
 
 export default function ValoresUnitariosBulkModal({
@@ -81,7 +63,9 @@ export default function ValoresUnitariosBulkModal({
 }: Props) {
   const [region, setRegion] = useState("1");
   const [anno, setAnno] = useState(defaultAnno);
-  const [values, setValues] = useState<Record<string, string>>({});
+  const [codi, setCodi] = useState("");
+  const [valor, setValor] = useState("");
+  const [items, setItems] = useState<AddedItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -89,7 +73,9 @@ export default function ValoresUnitariosBulkModal({
     if (isOpen) {
       setRegion("1");
       setAnno(defaultAnno);
-      setValues({});
+      setCodi("");
+      setValor("");
+      setItems([]);
       setError(null);
     }
   }, [isOpen, defaultAnno]);
@@ -98,20 +84,52 @@ export default function ValoresUnitariosBulkModal({
 
   const titleId = "valores-unitarios-bulk-title";
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
+  const handleAdd = () => {
     setError(null);
 
-    const validationMessage = validate(region, anno, values);
+    const validationMessage = validateEntry(region, anno, codi, valor);
     if (validationMessage) {
       setError(validationMessage);
       return;
     }
 
+    const normalizedCodi = codi.trim();
+    if (items.some((item) => item.codi === normalizedCodi)) {
+      setError("La categoría ya fue agregada");
+      return;
+    }
+
+    const parsed = Number(valor);
+    setItems((current) => [...current, { codi: normalizedCodi, valor: parsed }]);
+    setCodi("");
+    setValor("");
+  };
+
+  const handleRemove = (removedCodi: string) => {
+    setItems((current) => current.filter((item) => item.codi !== removedCodi));
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError(null);
+
+    if (!/^\d$/.test(region.trim())) {
+      setError("La región debe tener 1 dígito");
+      return;
+    }
+    if (!/^\d{4}$/.test(anno.trim())) {
+      setError("El año debe tener 4 dígitos");
+      return;
+    }
+
+    const entered = new Map(items.map((item) => [item.codi, item.valor]));
     const payload: SaveValoresUnitariosBulkPayload = {
       region: region.trim(),
       anno: anno.trim(),
-      items: buildItems(values),
+      items: VALORES_UNITARIOS_CODES.map((code) => ({
+        codi: code,
+        valor: entered.get(code) ?? 0,
+      })),
     };
 
     setSaving(true);
@@ -138,7 +156,7 @@ export default function ValoresUnitariosBulkModal({
         return;
       }
 
-      onSuccess();
+      onSuccess(anno.trim());
     } catch {
       setError("Error de conexión");
     } finally {
@@ -149,20 +167,20 @@ export default function ValoresUnitariosBulkModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
       <div
-        className="flex w-full max-w-3xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl"
+        className="flex w-full max-w-lg flex-col overflow-hidden rounded-xl bg-white shadow-2xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
       >
-        <div className="flex items-center justify-between border-b border-white/5 bg-gradient-to-r from-sat-navy to-sat-navy/90 px-5 py-3">
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
           <div>
             <h2
               id={titleId}
-              className="font-outfit text-sm font-semibold tracking-tight text-white"
+              className="font-outfit text-sm font-semibold tracking-tight text-slate-800"
             >
-              Carga masiva de valores unitarios
+              Registro de valores unitarios
             </h2>
-            <p className="mt-0.5 font-inter text-[10px] text-white/60">
+            <p className="mt-0.5 font-inter text-[10px] text-slate-400">
               Región {region.trim() || "—"} · Año {anno.trim() || "—"}
             </p>
           </div>
@@ -170,13 +188,13 @@ export default function ValoresUnitariosBulkModal({
             type="button"
             onClick={onClose}
             aria-label="Cerrar"
-            className="rounded-md p-1 text-white/60 transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-sat-cyan/40"
+            className="rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/20"
           >
             <X size={16} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3 p-4">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3 p-5">
           {error && (
             <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
               <AlertCircle size={14} className="shrink-0 text-red-400" />
@@ -210,59 +228,93 @@ export default function ValoresUnitariosBulkModal({
                 inputMode="numeric"
                 maxLength={4}
                 value={anno}
-                onChange={(event) => setAnno(event.target.value)}
+                onChange={(event) =>
+                  setAnno(event.target.value.replace(/\D/g, ""))
+                }
                 className={inputClass}
               />
             </div>
           </div>
 
+          <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
+            <div>
+              <label htmlFor="vu-bulk-codi" className={labelClass}>
+                Categoría
+              </label>
+              <input
+                id="vu-bulk-codi"
+                type="text"
+                maxLength={2}
+                value={codi}
+                onChange={(event) => setCodi(event.target.value.toUpperCase())}
+                className={inputClass}
+                placeholder="A1"
+              />
+            </div>
+            <div>
+              <label htmlFor="vu-bulk-valor" className={labelClass}>
+                Valor
+              </label>
+              <input
+                id="vu-bulk-valor"
+                type="number"
+                step="0.01"
+                min="0"
+                max={VALOR_MAX}
+                value={valor}
+                onChange={(event) => setValor(event.target.value)}
+                className={inputClass}
+                placeholder="0.00"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleAdd}
+              className="inline-flex items-center gap-1 rounded-md border border-sat-cyan/40 px-3 py-1.5 text-xs font-medium text-sat-cyan transition hover:bg-sat-cyan/10 focus:outline-none focus:ring-2 focus:ring-sat-cyan/30 active:scale-[0.98]"
+            >
+              <Plus size={13} />
+              Agregar
+            </button>
+          </div>
+
           <div>
             <div className="mb-1 flex items-baseline justify-between gap-2">
-              <span className={labelClass}>Valores por código</span>
+              <span className={labelClass}>Categorías agregadas</span>
               <span className="text-[10px] text-slate-400">
-                Dejá vacío el código que no quieras modificar.
+                Las demás se registran con valor 0.
               </span>
             </div>
             <div
-              data-testid="valores-unitarios-bulk-grid"
-              className="flex flex-col gap-1 rounded-lg border border-slate-200 bg-slate-50/60 p-2"
+              data-testid="valores-unitarios-added-list"
+              className="max-h-44 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/60 p-2"
             >
-              {CODE_ROWS.map((codes) => (
-                <div
-                  key={codes[0]}
-                  data-testid="valores-unitarios-bulk-row"
-                  className="grid grid-cols-7 gap-1"
-                >
-                  {codes.map((codi) => (
-                    <label
-                      key={codi}
-                      htmlFor={`vu-bulk-${codi}`}
-                      className="flex flex-col items-center gap-0.5 rounded-md border border-slate-200 bg-white px-1 py-1 shadow-sm transition focus-within:border-sat-cyan focus-within:ring-2 focus-within:ring-sat-cyan/20"
+              {items.length > 0 && (
+                <ul className="flex flex-col gap-1">
+                  {items.map((item) => (
+                    <li
+                      key={item.codi}
+                      className="flex items-center justify-between rounded-md border border-slate-200 bg-white px-2 py-1"
                     >
-                      <span className="font-mono text-[9px] font-semibold uppercase tracking-wider text-slate-500">
-                        {codi}
+                      <span className="font-mono text-[11px] font-semibold text-slate-600">
+                        {item.codi}
                       </span>
-                      <input
-                        id={`vu-bulk-${codi}`}
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max={VALOR_MAX}
-                        aria-label={`Valor ${codi}`}
-                        value={values[codi] ?? ""}
-                        onChange={(event) =>
-                          setValues((current) => ({
-                            ...current,
-                            [codi]: event.target.value,
-                          }))
-                        }
-                        placeholder="—"
-                        className="w-full min-w-0 border-0 bg-transparent px-0.5 py-0.5 text-center font-mono text-[11px] text-slate-700 tabular-nums outline-none placeholder:text-slate-300 focus:outline-none"
-                      />
-                    </label>
+                      <span className="flex items-center gap-2">
+                        <span className="font-mono text-[11px] text-slate-700 tabular-nums">
+                          {item.valor}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemove(item.codi)}
+                          aria-label={`Quitar ${item.codi}`}
+                          className="rounded p-0.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/20"
+                        >
+                          <X size={12} />
+                        </button>
+                      </span>
+                    </li>
                   ))}
-                </div>
-              ))}
+                </ul>
+              )}
             </div>
           </div>
 
@@ -280,7 +332,7 @@ export default function ValoresUnitariosBulkModal({
               className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-4 py-1.5 text-xs font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98] disabled:opacity-50"
             >
               {saving && <Loader2 size={12} className="animate-spin" />}
-              {saving ? "Guardando..." : "Guardar"}
+              {saving ? "Grabando..." : "Grabar"}
             </button>
           </div>
         </form>

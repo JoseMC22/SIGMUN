@@ -135,8 +135,9 @@ export class ValoresUnitariosService {
   }
 
   /**
-   * Upsert masivo en una sola sentencia atómica. El texto SQL solo contiene
-   * marcadores generados; cada codi/valor viaja como parámetro ligado.
+   * Inserts only the missing rows in a single atomic statement. Existing rows
+   * are never updated. The SQL text contains only generated markers; every
+   * codi/value is passed as a bound parameter.
    */
   async upsertMany(
     dto: SaveValoresUnitariosBulkDto,
@@ -161,7 +162,6 @@ export class ValoresUnitariosService {
       const sql = `MERGE INTO ${TABLE} AS T
 USING (VALUES ${values.join(', ')}) AS S (codi, valor)
 ON T.region = @region AND T.[año] = @anno AND T.codi = S.codi
-WHEN MATCHED THEN UPDATE SET valor = S.valor, operador = @operador, estacion = @estacion, fechor_ing = GETDATE()
 WHEN NOT MATCHED THEN INSERT (region, [año], codi, valor, operador, estacion, fechor_ing)
 VALUES (@region, @anno, S.codi, S.valor, @operador, @estacion, GETDATE())
 OUTPUT INSERTED.region, INSERTED.[año] AS anno, INSERTED.codi, INSERTED.valor, INSERTED.operador, INSERTED.estacion, INSERTED.fechor_ing;`;

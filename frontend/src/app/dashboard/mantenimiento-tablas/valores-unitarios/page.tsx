@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import ConfirmDeleteModal from "./components/confirm-delete-modal";
 import ValorUnitarioFormModal from "./components/valor-unitario-form-modal";
+import ValoresUnitariosBulkModal from "./components/valores-unitarios-bulk-modal";
 import ValoresUnitariosGrid from "./components/valores-unitarios-grid";
 import { ValorUnitarioRow } from "./types";
 
@@ -36,7 +37,8 @@ export default function ValoresUnitariosPage() {
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
 
-  const [formMode, setFormMode] = useState<"create" | "edit" | null>(null);
+  const [formMode, setFormMode] = useState<"edit" | null>(null);
+  const [bulkOpen, setBulkOpen] = useState(false);
   const [editRow, setEditRow] = useState<ValorUnitarioRow | null>(null);
   const [deleteRow, setDeleteRow] = useState<ValorUnitarioRow | null>(null);
 
@@ -91,6 +93,12 @@ export default function ValoresUnitariosPage() {
     setFormMode(null);
     setEditRow(null);
     void executeSearch(selectedYear);
+  };
+
+  const handleBulkSuccess = (anno: string) => {
+    setSelectedYear(anno);
+    setBulkOpen(false);
+    void executeSearch(anno);
   };
 
   const handleDeleteConfirm = async () => {
@@ -183,7 +191,7 @@ export default function ValoresUnitariosPage() {
         <div className="flex items-center justify-end">
           <button
             type="button"
-            onClick={() => setFormMode("create")}
+            onClick={() => setBulkOpen(true)}
             className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
           >
             <Plus size={14} />
@@ -248,7 +256,7 @@ export default function ValoresUnitariosPage() {
             No se encontraron valores para el año {selectedYear}
           </p>
           <p className="mt-1 text-xs text-slate-400">
-            Use «Nuevo valor» para agregar un registro.
+            Use «Nuevo valor» para registrar los valores del año.
           </p>
         </div>
       )}
@@ -264,11 +272,11 @@ export default function ValoresUnitariosPage() {
         />
       )}
 
-      {formMode && (
+      {formMode === "edit" && (
         <ValorUnitarioFormModal
           isOpen
-          mode={formMode}
-          row={formMode === "edit" ? editRow : null}
+          mode="edit"
+          row={editRow}
           endpoint={BASE}
           onClose={() => {
             setFormMode(null);
@@ -277,6 +285,14 @@ export default function ValoresUnitariosPage() {
           onSuccess={handleMutationSuccess}
         />
       )}
+
+      <ValoresUnitariosBulkModal
+        isOpen={bulkOpen}
+        defaultAnno={selectedYear}
+        endpoint={BASE}
+        onClose={() => setBulkOpen(false)}
+        onSuccess={handleBulkSuccess}
+      />
 
       <ConfirmDeleteModal
         isOpen={deleteRow !== null}

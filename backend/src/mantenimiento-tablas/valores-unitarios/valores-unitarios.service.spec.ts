@@ -267,7 +267,7 @@ describe('ValoresUnitariosService', () => {
       valor: 99.9,
     };
 
-    it('envía un único MERGE con parámetros generados, sin valores literales del usuario', async () => {
+    it('envía un único MERGE insert-only con parámetros generados, sin valores literales del usuario', async () => {
       queryWithParams.mockResolvedValueOnce({
         recordset: [persistedRow, bulkRow],
       });
@@ -284,7 +284,8 @@ describe('ValoresUnitariosService', () => {
         'USING (VALUES (@codi0, CAST(@valor0 AS decimal(7,2))), (@codi1, CAST(@valor1 AS decimal(7,2))))',
       );
       expect(sql).toContain('ON T.region = @region AND T.[año] = @anno');
-      expect(sql).toContain('WHEN MATCHED THEN UPDATE SET');
+      expect(sql).not.toContain('WHEN MATCHED');
+      expect(sql).not.toContain('UPDATE SET');
       expect(sql).toContain('WHEN NOT MATCHED THEN INSERT');
       expect(sql).toContain('fechor_ing)');
       expect(sql).not.toContain('idsigma');

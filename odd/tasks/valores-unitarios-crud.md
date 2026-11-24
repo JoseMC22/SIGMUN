@@ -95,6 +95,10 @@ Errores: `{ code, message, details? }` con `validation_error`, `not_found`,
 - [x] T08 — Normalizar la entrada: categoría en mayúsculas, año solo dígitos
       y `estacion` con `os.hostname()` del backend en alta/edición/bulk;
       tests de frontend y controller actualizados.
+- [x] T09 — Modal de registro por año: reemplaza el alta individual, permite
+      agregar categorías a una lista con «Agregar» y «Grabar» registra la lista;
+      las categorías no agregadas se envían con valor 0. `/bulk` pasa a insertar
+      solo las filas faltantes, conservando las existentes.
 
 ## Rutas y triggers de delegación
 
@@ -317,13 +321,47 @@ era solo lectura; la verificación es estructural (parámetro ligado en el SQL).
 Work-unit commit `4361e9c` en `feat/valores-unitarios-crud`, con `--no-verify`
 por el hook `gga` fuera de servicio.
 
+### T09 — Registro por año con lista de categorías (2026-11-24)
+
+El usuario pidió que «Nuevo valor» abra un modal que solicite el año y las
+categorías, que permita ir agregando categorías a una lista con un botón
+«Agregar», y que «Grabar» registre la lista; las categorías no agregadas deben
+registrarse automáticamente con valor 0. Ante la duda sobre filas ya existentes
+para ese año, eligió **reemplazar el alta y conservar las existentes**.
+
+`ValoresUnitariosBulkModal` se reconvirtió en ese modal: región por defecto
+`1`, año numérico, categoría en mayúsculas con rango `A1..J7`, valor válido,
+botón «Agregar» con lista visible y removible, y «Grabar». El payload envía las
+70 categorías en orden, con las no agregadas en `0`. `page.tsx` abre este modal
+desde «Nuevo valor» y deja `ValorUnitarioFormModal` solo para edición; al
+grabar con éxito selecciona el año informado y refresca la grilla.
+
+En el backend `upsertMany` conserva un único `MERGE` atómico y parameterizado,
+pero sin cláusula `WHEN MATCHED`: el `WHEN NOT MATCHED THEN INSERT` agrega solo
+las filas ausentes y nunca sobrescribe las existentes. No se tocaron DTOs ni el
+controller; el esquema Zod ya acepta los 70 ítems.
+
+Ruta de implementación: delegated direct (un único writer, writer trigger por
+cinco archivos no triviales), con `interface-design` y `work-unit-commits`
+inyectados desde el registry. Sin `tsc`, build, lint ni suites completas.
+
+TDD observado por el writer: RED frontend 8 fallidos / 4 OK (12), backend 1
+fallido / 27 OK (28); GREEN final frontend 12/12 y backend 28/28. Spot check
+del orquestador: mismos comandos acotados, frontend `VITEST_EXIT=0`, backend
+`JEST_EXIT=0`. Los warnings `act(...)` siguen siendo ruido conocido de stderr.
+La verificación es estructural: no hubo escritura real en SQL Server porque la
+autorización de BD era solo de lectura.
+
 ## Próximo paso
 
-Feature cerrada con T01–T08 completos. El alta individual ya está restituida en
-la UI, con región por defecto `1`, categoría `A1..J7` en mayúsculas, año
-numérico y `estacion` con el hostname del servidor. El control de duplicados
-sigue a cargo del 409 del backend. El fix de `idsigma` para `POST /bulk` sigue
-pendiente de confirmación en
+Feature cerrada con T01–T09 completos. «Nuevo valor» registra un año completo:
+las categorías agregadas con su valor y el resto en 0, insertando solo las
+filas faltantes. La edición individual sigue disponible desde la grilla, con
+región por defecto `1`, categoría `A1..J7` en mayúsculas, año numérico y
+`estacion` con el hostname del servidor. El control de duplicados de la alta
+individual sigue a cargo del 409 del backend. El renombraje de `upsertMany` a
+`insertManyIfMissing` quedó fuera de alcance. El fix de `idsigma` para
+`POST /bulk` sigue pendiente de confirmación en
 el entorno corriente: ejecutar `npm run build` en `backend`, reiniciar el
 proceso que corre `dist/main` y repetir el bulk solo si se vuelve a habilitar.
 Push, PR y merge quedan bajo decisión del usuario. La fila del menú en BD es
