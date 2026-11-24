@@ -111,6 +111,8 @@ Errores: `{ code, message, details? }` con `validation_error`, `not_found`,
       mapeo del error 50004.
 - [x] T14 — Identificar a quien elimina: setear `SESSION_CONTEXT` en el mismo
       batch del DELETE y que el trigger lo use para `usu_act`/`pc_act`.
+- [x] T15 — No refrescar `fechor_ing` en el `UPDATE`; conservar la fecha original
+      de la fila y dejar que el historial copie ese valor.
 
 ## Rutas y triggers de delegación
 
@@ -508,9 +510,24 @@ mismos 30/30 con `JEST_VU_EXIT=0`. Work-unit commit `fa493ee` en
 `feat/valores-unitarios-crud`, con `--no-verify` por el hook `gga` fuera de
 servicio.
 
+### T15 — Conservar `fechor_ing` original (2026-11-24)
+
+El `UPDATE` del service seguía escribiendo `fechor_ing = GETDATE()`, así que
+toda edición refrescaba la fecha de alta de la fila. Se quitó esa asignación:
+ahora solo cambian `valor`, `operador` y `estacion`. `create` y `upsertMany`
+siguen asignando `GETDATE()` porque insertan filas nuevas, y el `MERGE` es
+insert-only. El trigger ya copiaba `d.fechor_ing` al historial, así que no
+requiere cambios para este punto; se entrega un script final que además incluye
+`fechor_ing` en la comparación del `WHERE`, porque ese motivo para excluirlo
+desapareció.
+
+Ruta de implementación: direct inline (un cambio de una línea y su aserción).
+TDD observado: RED 1 fallido / 29 pasados (`JEST_VU_EXIT=1`) y GREEN 30/30
+(`JEST_VU_EXIT=0`), con `git diff --check` limpio.
+
 ## Próximo paso
 
-Feature cerrada con T01–T14 completos. «Nuevo valor» registra un año completo:
+Feature cerrada con T01–T15 completos. «Nuevo valor» registra un año completo:
 las categorías agregadas con su valor y el resto en 0, insertando solo las
 filas faltantes. La edición individual sigue disponible desde la grilla, con
 región por defecto `1`, categoría `A1..J7` en mayúsculas, año numérico y

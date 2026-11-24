@@ -193,7 +193,7 @@ OUTPUT INSERTED.region, INSERTED.[año] AS anno, INSERTED.codi, INSERTED.valor, 
     try {
       const result = await this.db.queryWithParams(
         `UPDATE ${TABLE}
-         SET valor = @valor, operador = @operador, estacion = @estacion, fechor_ing = GETDATE()
+         SET valor = @valor, operador = @operador, estacion = @estacion
          WHERE ${KEY_WHERE}`,
         {
           region: dto.region,
