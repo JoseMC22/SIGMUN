@@ -504,7 +504,9 @@ build, lint ni suites completas, y sin escrituras en SQL Server.
 
 TDD observado por el writer: RED con `TS2554` por las firmas nuevas
 (`JEST_VU_EXIT=1`); GREEN 30/30 (`JEST_VU_EXIT=0`). Spot check del orquestador:
-mismos 30/30 con `JEST_VU_EXIT=0`.
+mismos 30/30 con `JEST_VU_EXIT=0`. Work-unit commit `fa493ee` en
+`feat/valores-unitarios-crud`, con `--no-verify` por el hook `gga` fuera de
+servicio.
 
 ## Próximo paso
 
