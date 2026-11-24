@@ -27,17 +27,6 @@ async function captureError(promise: Promise<unknown>): Promise<unknown> {
 describe('ValoresUnitariosService', () => {
   let service: ValoresUnitariosService;
   let queryWithParams: jest.Mock;
-  let executeProcedure: jest.Mock;
-
-  const logCambioProcedure = '[Calculo].[sp_Valuni_LogCambio]';
-  const decimalValorType = expect.objectContaining({ precision: 7, scale: 2 });
-
-  /** Error de SQL Server con el número que el SP usa para "fila no encontrada". */
-  function sqlError(number: number): Error {
-    return Object.assign(new Error('Mensaje de error de SQL Server'), {
-      number,
-    });
-  }
 
   afterEach(() => {
     jest.restoreAllMocks();
@@ -62,12 +51,11 @@ describe('ValoresUnitariosService', () => {
 
   beforeEach(async () => {
     queryWithParams = jest.fn();
-    executeProcedure = jest.fn();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ValoresUnitariosService,
-        { provide: DatabaseService, useValue: { queryWithParams, executeProcedure } },
+        { provide: DatabaseService, useValue: { queryWithParams } },
       ],
     }).compile();
 
@@ -195,43 +183,42 @@ describe('ValoresUnitariosService', () => {
   });
 
   describe('update', () => {
-    it('invoca el SP con auditoría y relee la fila aunque rowsAffected sea 0', async () => {
-      // SET NOCOUNT ON del SP: rowsAffected no debe interpretarse como "no encontrado".
-      executeProcedure.mockResolvedValueOnce({ rowsAffected: [0] });
-      queryWithParams.mockResolvedValueOnce({ recordset: [persistedRow] });
+    it('actualiza valor y auditoría por clave natural y relee la fila', async () => {
+      queryWithParams
+        .mockResolvedValueOnce({ rowsAffected: [1] })
+        .mockResolvedValueOnce({ recordset: [persistedRow] });
 
       const result = await service.update(saveDto, 'mvaez', '10.0.0.1');
 
-      expect(executeProcedure).toHaveBeenCalledTimes(1);
-      expect(executeProcedure).toHaveBeenCalledWith(
-        logCambioProcedure,
-        {
-          Accion: 'MODIFICACION',
-          region: '1',
-          anno: '2027',
-          codi: 'A1',
-          valor: 123.45,
-          operador: 'mvaez',
-          estacion: '10.0.0.1',
-        },
-        { valor: decimalValorType },
+      expect(queryWithParams).toHaveBeenCalledTimes(2);
+      const [sql, params] = queryWithParams.mock.calls[0] as [string, object];
+      expect(sql).toContain('UPDATE Calculo.Tblvaluni');
+      expect(sql).toContain(
+        'SET valor = @valor, operador = @operador, estacion = @estacion, fechor_ing = GETDATE()',
       );
-      expect(queryWithParams).toHaveBeenCalledTimes(1);
-      expect(queryWithParams).toHaveBeenCalledWith(
-        expect.stringContaining('Calculo.Tblvaluni'),
-        { region: '1', anno: '2027', codi: 'A1' },
-      );
+      expect(sql).toContain('region = @region AND [año] = @anno AND codi = @codi');
+      expect(sql).not.toContain('Historial');
+      expect(sql).not.toContain('sp_Valuni_LogCambio');
+      expect(sql).not.toContain("'A1'");
+      expect(params).toEqual({
+        region: '1',
+        anno: '2027',
+        codi: 'A1',
+        valor: 123.45,
+        operador: 'mvaez',
+        estacion: '10.0.0.1',
+      });
       expect(result).toEqual({
         message: 'Registro actualizado exitosamente',
         row: persistedRow,
       });
     });
 
-    it('lanza not_found cuando el SP informa el error 50004', async () => {
+    it('lanza not_found cuando rowsAffected es 0', async () => {
       const logError = jest
         .spyOn(Logger.prototype, 'error')
         .mockImplementation(() => undefined);
-      executeProcedure.mockRejectedValueOnce(sqlError(50004));
+      queryWithParams.mockResolvedValueOnce({ rowsAffected: [0] });
 
       const error = await captureError(
         service.update(saveDto, 'mvaez', '10.0.0.1'),
@@ -243,15 +230,18 @@ describe('ValoresUnitariosService', () => {
         message: 'No se encontró la fila',
       });
       expect(logError).not.toHaveBeenCalled();
-      expect(queryWithParams).not.toHaveBeenCalled();
+      expect(queryWithParams).toHaveBeenCalledTimes(1);
     });
 
-    it('envuelve otros errores del SP como database_unavailable', async () => {
+    it('envuelve otros errores de base de datos como database_unavailable', async () => {
       const logError = jest
         .spyOn(Logger.prototype, 'error')
         .mockImplementation(() => undefined);
-      const dbError = Object.assign(sqlError(4060), { code: 'ELOGIN' });
-      executeProcedure.mockRejectedValueOnce(dbError);
+      const dbError = Object.assign(new Error('login failed'), {
+        code: 'ELOGIN',
+        number: 4060,
+      });
+      queryWithParams.mockRejectedValueOnce(dbError);
 
       const error = await captureError(
         service.update(saveDto, 'mvaez', '10.0.0.1'),
@@ -268,44 +258,28 @@ describe('ValoresUnitariosService', () => {
   });
 
   describe('remove', () => {
-    it('invoca el SP con Accion ELIMINACION, valor null y auditoría', async () => {
-      executeProcedure.mockResolvedValueOnce({ rowsAffected: [0] });
+    it('elimina físicamente por clave natural sin escribir el historial', async () => {
+      queryWithParams.mockResolvedValueOnce({ rowsAffected: [1] });
 
-      const result = await service.remove(
-        '1',
-        '2027',
-        'A1',
-        'mvaez',
-        '10.0.0.1',
-      );
+      const result = await service.remove('1', '2027', 'A1');
 
-      expect(executeProcedure).toHaveBeenCalledTimes(1);
-      expect(executeProcedure).toHaveBeenCalledWith(
-        logCambioProcedure,
-        {
-          Accion: 'ELIMINACION',
-          region: '1',
-          anno: '2027',
-          codi: 'A1',
-          valor: null,
-          operador: 'mvaez',
-          estacion: '10.0.0.1',
-        },
-        { valor: decimalValorType },
-      );
-      expect(queryWithParams).not.toHaveBeenCalled();
+      expect(queryWithParams).toHaveBeenCalledTimes(1);
+      const [sql, params] = queryWithParams.mock.calls[0] as [string, object];
+      expect(sql).toContain('DELETE FROM Calculo.Tblvaluni');
+      expect(sql).toContain('region = @region AND [año] = @anno AND codi = @codi');
+      expect(sql).not.toContain('Historial');
+      expect(sql).not.toContain('sp_Valuni_LogCambio');
+      expect(params).toEqual({ region: '1', anno: '2027', codi: 'A1' });
       expect(result).toEqual({ message: 'Registro eliminado exitosamente' });
     });
 
-    it('lanza not_found cuando el SP informa el error 50004', async () => {
+    it('lanza not_found cuando no hay fila que borrar', async () => {
       const logError = jest
         .spyOn(Logger.prototype, 'error')
         .mockImplementation(() => undefined);
-      executeProcedure.mockRejectedValueOnce(sqlError(50004));
+      queryWithParams.mockResolvedValueOnce({ rowsAffected: [0] });
 
-      const error = await captureError(
-        service.remove('1', '2027', 'A1', 'mvaez', '10.0.0.1'),
-      );
+      const error = await captureError(service.remove('1', '2027', 'A1'));
 
       expect(error).toBeInstanceOf(NotFoundException);
       expect(responseOf(error)).toEqual({
@@ -313,18 +287,20 @@ describe('ValoresUnitariosService', () => {
         message: 'No se encontró la fila',
       });
       expect(logError).not.toHaveBeenCalled();
-      expect(queryWithParams).not.toHaveBeenCalled();
+      expect(queryWithParams).toHaveBeenCalledTimes(1);
     });
 
-    it('envuelve otros errores del SP como database_unavailable', async () => {
+    it('envuelve otros errores de base de datos como database_unavailable', async () => {
       const logError = jest
         .spyOn(Logger.prototype, 'error')
         .mockImplementation(() => undefined);
-      executeProcedure.mockRejectedValueOnce(sqlError(547));
+      const dbError = Object.assign(new Error('login failed'), {
+        code: 'ELOGIN',
+        number: 547,
+      });
+      queryWithParams.mockRejectedValueOnce(dbError);
 
-      const error = await captureError(
-        service.remove('1', '2027', 'A1', 'mvaez', '10.0.0.1'),
-      );
+      const error = await captureError(service.remove('1', '2027', 'A1'));
 
       expect(error).toBeInstanceOf(ServiceUnavailableException);
       expect(responseOf(error)).toEqual({

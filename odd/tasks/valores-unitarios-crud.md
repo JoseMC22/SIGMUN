@@ -106,6 +106,9 @@ Errores: `{ code, message, details? }` con `validation_error`, `not_found`,
       la imagen anterior en `Historial.TBLVALUNI`; el SP ya está creado en la BD.
 - [x] T12 — Grabar la acción (`MODIFICACION`/`ELIMINACION`) en la nueva columna
       `Historial.TBLVALUNI.accion`; actualizar el SP y los tokens del backend.
+- [x] T13 — Reemplazar el SP por un trigger `AFTER UPDATE, DELETE` en
+      `Calculo.Tblvaluni`; volver al DML directo en el backend y retirar el
+      mapeo del error 50004.
 
 ## Rutas y triggers de delegación
 
@@ -446,9 +449,38 @@ y truncaría `MODIFICACION`, disparando el error 50002. Work-unit commit
 `9021f4a` en `feat/valores-unitarios-crud`, con `--no-verify` por el hook `gga`
 fuera de servicio.
 
+### T13 — Auditoría por trigger en lugar de SP (2026-11-24)
+
+El usuario pidió reemplazar el procedimiento por un trigger. Consulta de solo
+lectura confirmó que `Calculo.Tblvaluni` no tenía triggers. Se entregó un
+`CREATE OR ALTER TRIGGER Calculo.tr_Tblvaluni_Auditoria ... AFTER UPDATE, DELETE`
+que graba la imagen anterior en `Historial.TBLVALUNI` con
+`accion = 'MODIFICACION'` o `'ELIMINACION'`. La rama UPDATE une `deleted` con
+`inserted` por `idsigma` (IDENTITY, inmutable) para soportar varias filas por
+sentencia; la rama DELETE usa `deleted` porque `inserted` está vacío. El usuario
+ejecuta el script; este trabajo no escribió en SQL Server.
+
+El backend volvió al DML directo parametrizado: `update` y `remove` usan
+`queryWithParams` y el check `rowsAffected === 0` para el 404. Se retiraron el
+nombre del SP, los tokens de acción, `NOT_FOUND_ERROR_NUMBER`,
+`isMissingRowError`, `throwLogCambioError` y el import de `mssql`. El controller
+de DELETE perdió `@Req()` porque el trigger obtiene la auditoría de la propia
+fila. En delete, `usu_act`/`pc_act` son los últimos valores de la fila, no
+necesariamente quien borra; identificar al que borra exigiría
+`CONTEXT_INFO`/`SESSION_CONTEXT`. Si el SP viejo sigue activo y alguien lo llama,
+el trigger también dispara y genera historial duplicado: hay que retirarlo.
+
+Ruta de implementación: delegated direct (un único writer, writer trigger por
+cuatro archivos no triviales), con `work-unit-commits` inyectado. Sin `tsc`,
+build, lint ni suites completas.
+
+TDD observado por el writer: RED con `TS2554` por las firmas nuevas
+(`JEST_VU_EXIT=1`); GREEN 30/30 (`JEST_VU_EXIT=0`). Spot check del orquestador:
+mismos 30/30 con `JEST_VU_EXIT=0` y `git diff --check` limpio.
+
 ## Próximo paso
 
-Feature cerrada con T01–T12 completos. «Nuevo valor» registra un año completo:
+Feature cerrada con T01–T13 completos. «Nuevo valor» registra un año completo:
 las categorías agregadas con su valor y el resto en 0, insertando solo las
 filas faltantes. La edición individual sigue disponible desde la grilla, con
 región por defecto `1`, categoría `A1..J7` en mayúsculas, año numérico y

@@ -265,32 +265,19 @@ describe('ValoresUnitariosController', () => {
   });
 
   describe('DELETE :region/:anno/:codi', () => {
-    it('valida la clave natural y reenvía operador JWT y estación del servidor', async () => {
+    it('valida la clave natural y delega en remove', async () => {
       mockService.remove.mockResolvedValueOnce({ message: 'ok' });
 
       await expect(
-        controller.remove(
-          { region: '1', anno: '2027', codi: 'A1' },
-          requestWith('mvaez'),
-        ),
+        controller.remove({ region: '1', anno: '2027', codi: 'A1' }),
       ).resolves.toEqual({ message: 'ok' });
 
-      expect(mockService.remove).toHaveBeenCalledWith(
-        '1',
-        '2027',
-        'A1',
-        'mvaez',
-        'SERVIDOR-01',
-      );
-      expect(os.hostname).toHaveBeenCalledTimes(1);
+      expect(mockService.remove).toHaveBeenCalledWith('1', '2027', 'A1');
     });
 
     it('rechaza una clave inválida con el envelope canónico', async () => {
       const error = await captureError(
-        controller.remove(
-          { region: '1', anno: '27', codi: 'A1' },
-          requestWith('mvaez'),
-        ),
+        controller.remove({ region: '1', anno: '27', codi: 'A1' }),
       );
 
       expect(error).toBeInstanceOf(BadRequestException);

@@ -100,15 +100,8 @@ export class ValoresUnitariosController {
   @Delete(':region/:anno/:codi')
   async remove(
     @Param() params: Record<string, string>,
-    @Req() req: AuthRequest,
   ): Promise<ValoresUnitariosDeleteResponse> {
     const key = parseOrThrow(ValorUnitarioKeySchema, params);
-    return this.service.remove(
-      key.region,
-      key.anno,
-      key.codi,
-      audit(req.user?.username),
-      station(),
-    );
+    return this.service.remove(key.region, key.anno, key.codi);
   }
 }

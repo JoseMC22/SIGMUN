@@ -1,5 +1,4 @@
 import { HttpException, Injectable, Logger } from '@nestjs/common';
-import * as mssql from 'mssql';
 import { DatabaseService } from '../../database/database.service';
 import {
   SaveValorUnitarioDto,
@@ -27,22 +26,6 @@ const COLUMNS =
   'region, [año] AS anno, codi, valor, operador, estacion, fechor_ing';
 const KEY_WHERE = 'region = @region AND [año] = @anno AND codi = @codi';
 const MAX_LOG_MESSAGE = 500;
-
-/** El SP graba la imagen anterior en Historial.TBLVALUNI antes de escribir. */
-const LOG_CAMBIO_PROCEDURE = '[Calculo].[sp_Valuni_LogCambio]';
-/** Tokens normalizados que el SP escribe en Historial.TBLVALUNI.accion. */
-const LOG_ACTION_MODIFICACION = 'MODIFICACION';
-const LOG_ACTION_ELIMINACION = 'ELIMINACION';
-/** THROW 50004 del SP = clave natural no encontrada. */
-const NOT_FOUND_ERROR_NUMBER = 50004;
-
-/** Con SET NOCOUNT ON, rowsAffected no sirve: solo el número de error identifica el 404. */
-function isMissingRowError(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    (error as Error & { number?: unknown }).number === NOT_FOUND_ERROR_NUMBER
-  );
-}
 
 /** Solo metadatos acotados: nunca SQL, parámetros ni credenciales. */
 function databaseErrorDetails(error: unknown): Record<string, string | number> {
@@ -202,10 +185,11 @@ OUTPUT INSERTED.region, INSERTED.[año] AS anno, INSERTED.codi, INSERTED.valor, 
     estacion: string,
   ): Promise<ValoresUnitariosMutationResponse> {
     try {
-      await this.db.executeProcedure(
-        LOG_CAMBIO_PROCEDURE,
+      const result = await this.db.queryWithParams(
+        `UPDATE ${TABLE}
+         SET valor = @valor, operador = @operador, estacion = @estacion, fechor_ing = GETDATE()
+         WHERE ${KEY_WHERE}`,
         {
-          Accion: LOG_ACTION_MODIFICACION,
           region: dto.region,
           anno: dto.anno,
           codi: dto.codi,
@@ -213,15 +197,18 @@ OUTPUT INSERTED.region, INSERTED.[año] AS anno, INSERTED.codi, INSERTED.valor, 
           operador,
           estacion,
         },
-        { valor: mssql.Decimal(7, 2) },
       );
+
+      if (result.rowsAffected?.[0] === 0) {
+        notFoundError('No se encontró la fila');
+      }
 
       return {
         message: 'Registro actualizado exitosamente',
         row: await this.readCreatedRow(dto),
       };
     } catch (error) {
-      this.throwLogCambioError(error);
+      this.throwDatabaseError(error);
     }
   }
 
@@ -229,27 +216,20 @@ OUTPUT INSERTED.region, INSERTED.[año] AS anno, INSERTED.codi, INSERTED.valor, 
     region: string,
     anno: string,
     codi: string,
-    operador: string,
-    estacion: string,
   ): Promise<ValoresUnitariosDeleteResponse> {
     try {
-      await this.db.executeProcedure(
-        LOG_CAMBIO_PROCEDURE,
-        {
-          Accion: LOG_ACTION_ELIMINACION,
-          region,
-          anno,
-          codi,
-          valor: null,
-          operador,
-          estacion,
-        },
-        { valor: mssql.Decimal(7, 2) },
+      const result = await this.db.queryWithParams(
+        `DELETE FROM ${TABLE} WHERE ${KEY_WHERE}`,
+        { region, anno, codi },
       );
+
+      if (result.rowsAffected?.[0] === 0) {
+        notFoundError('No se encontró la fila');
+      }
 
       return { message: 'Registro eliminado exitosamente' };
     } catch (error) {
-      this.throwLogCambioError(error);
+      this.throwDatabaseError(error);
     }
   }
 
@@ -270,14 +250,6 @@ OUTPUT INSERTED.region, INSERTED.[año] AS anno, INSERTED.codi, INSERTED.valor, 
       throw databaseUnavailableError();
     }
     return row;
-  }
-
-  /** Solo 50004 se traduce a 404; cualquier otro fallo de BD conserva su envelope canónico. */
-  private throwLogCambioError(error: unknown): never {
-    if (isMissingRowError(error)) {
-      notFoundError('No se encontró la fila');
-    }
-    this.throwDatabaseError(error);
   }
 
   /** Los HttpException del dominio se preservan; el resto nunca filtra SQL ni credenciales. */
