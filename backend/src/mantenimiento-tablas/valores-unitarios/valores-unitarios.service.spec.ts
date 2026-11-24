@@ -194,10 +194,10 @@ describe('ValoresUnitariosService', () => {
       const [sql, params] = queryWithParams.mock.calls[0] as [string, object];
       expect(sql).toContain('UPDATE Calculo.Tblvaluni');
       expect(sql).toContain(
-        'SET valor = @valor, operador = @operador, estacion = @estacion',
+        'SET valor = @valor, operador = @operador, estacion = @estacion, ' +
+          'usu_act = @operador, pc_act = @estacion, fecha_act = GETDATE()',
       );
       expect(sql).not.toContain('fechor_ing');
-      expect(sql).not.toContain('GETDATE()');
       expect(sql).toContain('region = @region AND [año] = @anno AND codi = @codi');
       expect(sql).not.toContain('Historial');
       expect(sql).not.toContain('sp_Valuni_LogCambio');

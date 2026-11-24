@@ -113,6 +113,9 @@ Errores: `{ code, message, details? }` con `validation_error`, `not_found`,
       batch del DELETE y que el trigger lo use para `usu_act`/`pc_act`.
 - [x] T15 — No refrescar `fechor_ing` en el `UPDATE`; conservar la fecha original
       de la fila y dejar que el historial copie ese valor.
+- [x] T16 — Escribir `usu_act`, `pc_act` y `fecha_act` en el `UPDATE` de la tabla
+      origen; el trigger debe reflejarlos en el historial y registrar también
+      quién y cuándo elimina.
 
 ## Rutas y triggers de delegación
 
@@ -527,9 +530,30 @@ TDD observado: RED 1 fallido / 29 pasados (`JEST_VU_EXIT=1`) y GREEN 30/30
 en `feat/valores-unitarios-crud`, con `--no-verify` por el hook `gga` fuera de
 servicio.
 
+### T16 — Auditoría en la tabla origen (2026-11-24)
+
+Consulta de solo lectura confirmó que `Calculo.Tblvaluni` agregó `usu_act`,
+`pc_act` y `fecha_act`, todos nullable, y que `Historial.TBLVALUNI` no tiene
+`fecha_act` (sí `hora_act varchar(50)`). El backend ahora escribe en el UPDATE
+`usu_act = @operador`, `pc_act = @estacion` y `fecha_act = GETDATE()`; el test
+afirma esa cláusula y que `fechor_ing` no aparece.
+
+El trigger se entrega para que la rama UPDATE copie esos tres valores desde
+`inserted` al historial, con fallback a `operador`/`estacion` y a la hora actual.
+La rama DELETE no puede actualizar la fila origen porque desaparece: graba al
+eliminador desde `SESSION_CONTEXT` y la hora del borrado en la fila del
+historial. Se entrega además un `ALTER TABLE` para agregar `fecha_act datetime`
+al historial; el usuario ejecuta ambos scripts. Los campos de auditoría siguen
+fuera del `WHERE` de comparación para no convertir cada guardado en una
+modificación.
+
+Ruta de implementación: direct inline (una cláusula SQL y su aserción). TDD
+observado: RED 1 fallido / 29 pasados (`JEST_VU_EXIT=1`) y GREEN 30/30
+(`JEST_VU_EXIT=0`), con `git diff --check` limpio.
+
 ## Próximo paso
 
-Feature cerrada con T01–T15 completos. «Nuevo valor» registra un año completo:
+Feature cerrada con T01–T16 completos. «Nuevo valor» registra un año completo:
 las categorías agregadas con su valor y el resto en 0, insertando solo las
 filas faltantes. La edición individual sigue disponible desde la grilla, con
 región por defecto `1`, categoría `A1..J7` en mayúsculas, año numérico y
