@@ -153,6 +153,30 @@ describe('ValoresUnitariosController', () => {
       });
       expect(mockService.create).not.toHaveBeenCalled();
     });
+
+    it('rechaza una categoría fuera de A1..J7 con el envelope canónico', async () => {
+      const error = await captureError(
+        controller.create(
+          { ...body, codi: 'A8' },
+          requestWith('mvaez'),
+        ),
+      );
+
+      expect(error).toBeInstanceOf(BadRequestException);
+      expect((error as BadRequestException).getResponse()).toMatchObject({
+        code: 'validation_error',
+        message: 'Validation failed',
+        details: {
+          errors: [
+            {
+              path: 'codi',
+              message: 'La categoría debe estar entre A1 y J7',
+            },
+          ],
+        },
+      });
+      expect(mockService.create).not.toHaveBeenCalled();
+    });
   });
 
   describe('POST bulk', () => {

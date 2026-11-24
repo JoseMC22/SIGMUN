@@ -31,8 +31,8 @@ function validate(values: SaveValorUnitarioPayload): string | null {
     return "El año debe tener 4 dígitos";
   }
   const codi = values.codi.trim();
-  if (codi.length < 1 || codi.length > 2) {
-    return "El código debe tener entre 1 y 2 caracteres";
+  if (!/^[A-J][1-7]$/.test(codi)) {
+    return "La categoría debe estar entre A1 y J7";
   }
   if (
     !Number.isFinite(values.valor) ||
@@ -61,13 +61,13 @@ export default function ValorUnitarioFormModal({
 
   useEffect(() => {
     if (isOpen) {
-      setRegion(row?.region ?? "");
+      setRegion(mode === "create" ? "1" : (row?.region ?? ""));
       setAnno(row?.anno ?? "");
       setCodi(row?.codi ?? "");
       setValor(row ? String(row.valor) : "");
       setError(null);
     }
-  }, [isOpen, row]);
+  }, [isOpen, mode, row]);
 
   if (!isOpen) return null;
 
@@ -195,7 +195,7 @@ export default function ValorUnitarioFormModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label htmlFor="vu-codi" className={labelClass}>
-                Código
+                Categoría
               </label>
               <input
                 id="vu-codi"

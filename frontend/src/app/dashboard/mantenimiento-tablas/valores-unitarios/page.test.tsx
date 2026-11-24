@@ -69,13 +69,12 @@ describe("ValoresUnitariosPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Nuevo valor" }));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).queryByTestId("valores-unitarios-bulk-grid")).toBeNull();
-    expect(within(dialog).getByLabelText("Región")).toHaveValue("");
+    expect(within(dialog).getByLabelText("Región")).toHaveValue("1");
     expect(within(dialog).getByLabelText("Año")).toHaveValue("");
-    expect(within(dialog).getByLabelText("Código")).toHaveValue("");
+    expect(within(dialog).getByLabelText("Categoría")).toHaveValue("");
 
-    await userEvent.type(within(dialog).getByLabelText("Región"), "1");
     await userEvent.type(within(dialog).getByLabelText("Año"), "2027");
-    await userEvent.type(within(dialog).getByLabelText("Código"), "A2");
+    await userEvent.type(within(dialog).getByLabelText("Categoría"), "A2");
     await userEvent.type(within(dialog).getByLabelText("Valor"), "99.9");
     await userEvent.click(within(dialog).getByRole("button", { name: "Guardar" }));
 
@@ -108,6 +107,7 @@ describe("ValoresUnitariosPage", () => {
     const guardar = () =>
       userEvent.click(within(dialog).getByRole("button", { name: "Guardar" }));
 
+    await userEvent.clear(within(dialog).getByLabelText("Región"));
     await guardar();
     expect(
       within(dialog).getByText("La región debe tener 1 dígito"),
@@ -122,10 +122,10 @@ describe("ValoresUnitariosPage", () => {
     await userEvent.type(within(dialog).getByLabelText("Año"), "2027");
     await guardar();
     expect(
-      within(dialog).getByText("El código debe tener entre 1 y 2 caracteres"),
+      within(dialog).getByText("La categoría debe estar entre A1 y J7"),
     ).toBeInTheDocument();
 
-    await userEvent.type(within(dialog).getByLabelText("Código"), "A2");
+    await userEvent.type(within(dialog).getByLabelText("Categoría"), "A2");
     await guardar();
     expect(
       within(dialog).getByText("El valor debe estar entre 0 y 99999.99"),
@@ -143,8 +143,12 @@ describe("ValoresUnitariosPage", () => {
       screen.getByRole("button", { name: "Editar fila 2027-1-A1" }),
     );
     const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByLabelText("Región")).toHaveValue("1");
+    expect(within(dialog).getByLabelText("Región")).toHaveAttribute("readonly");
     expect(within(dialog).getByLabelText("Año")).toHaveAttribute("readonly");
-    expect(within(dialog).getByLabelText("Código")).toHaveAttribute("readonly");
+    expect(within(dialog).getByLabelText("Categoría")).toHaveAttribute(
+      "readonly",
+    );
 
     await userEvent.clear(within(dialog).getByLabelText("Valor"));
     await userEvent.type(within(dialog).getByLabelText("Valor"), "200.50");
@@ -184,5 +188,107 @@ describe("ValoresUnitariosPage", () => {
       });
     });
     expect(mockFetch).toHaveBeenCalledWith(`${BASE}?anno=2027`);
+  });
+
+  it("inicializa la región en 1 al crear y conserva la de la fila al editar", async () => {
+    render(<ValoresUnitariosPage />);
+    await screen.findByTestId("valores-unitarios-grid");
+
+    await userEvent.click(screen.getByRole("button", { name: "Nuevo valor" }));
+    let dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByLabelText("Región")).toHaveValue("1");
+    expect(within(dialog).getByLabelText("Región")).not.toHaveAttribute(
+      "readonly",
+    );
+
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Cancelar" }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Editar fila 2027-1-A1" }),
+    );
+    dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByLabelText("Región")).toHaveValue("1");
+    expect(within(dialog).getByLabelText("Región")).toHaveAttribute("readonly");
+  });
+
+  it("rechaza K1 y A8 pero acepta J7 como categoría", async () => {
+    render(<ValoresUnitariosPage />);
+    await screen.findByTestId("valores-unitarios-grid");
+
+    await userEvent.click(screen.getByRole("button", { name: "Nuevo valor" }));
+    const dialog = screen.getByRole("dialog");
+    const categoria = () => within(dialog).getByLabelText("Categoría");
+    const guardar = () =>
+      userEvent.click(within(dialog).getByRole("button", { name: "Guardar" }));
+
+    await userEvent.type(within(dialog).getByLabelText("Año"), "2027");
+    await userEvent.type(within(dialog).getByLabelText("Valor"), "10");
+
+    for (const invalida of ["K1", "A8"]) {
+      await userEvent.type(categoria(), invalida);
+      await guardar();
+      expect(
+        within(dialog).getByText("La categoría debe estar entre A1 y J7"),
+      ).toBeInTheDocument();
+      await userEvent.clear(categoria());
+    }
+
+    await userEvent.type(categoria(), "J7");
+    await guardar();
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(BASE, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          region: "1",
+          anno: "2027",
+          codi: "J7",
+          valor: 10,
+        }),
+      });
+    });
+    expect(
+      within(dialog).queryByText("La categoría debe estar entre A1 y J7"),
+    ).toBeNull();
+    expect(
+      mockFetch.mock.calls.filter((call) => call[1]?.method === "POST"),
+    ).toHaveLength(1);
+  });
+
+  it("muestra el conflicto 409 sin cerrar el formulario ni refrescar la grilla", async () => {
+    render(<ValoresUnitariosPage />);
+    await screen.findByTestId("valores-unitarios-grid");
+    const refreshes = () =>
+      mockFetch.mock.calls.filter((call) => String(call[0]).includes("?anno="));
+
+    expect(refreshes()).toHaveLength(1);
+
+    mockFetch.mockImplementation(
+      (input: unknown, init?: { method?: string }) => {
+        if (String(input) === BASE && init?.method === "POST") {
+          return Promise.resolve(
+            jsonResponse({ code: "conflict", message: "La fila ya existe" }, 409),
+          );
+        }
+        return Promise.resolve(jsonResponse({ data: [row] }));
+      },
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Nuevo valor" }));
+    const dialog = screen.getByRole("dialog");
+    await userEvent.type(within(dialog).getByLabelText("Año"), "2027");
+    await userEvent.type(within(dialog).getByLabelText("Categoría"), "A1");
+    await userEvent.type(within(dialog).getByLabelText("Valor"), "10");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Guardar" }),
+    );
+
+    await waitFor(() => {
+      expect(within(dialog).getByText("La fila ya existe")).toBeInTheDocument();
+    });
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(refreshes()).toHaveLength(1);
   });
 });

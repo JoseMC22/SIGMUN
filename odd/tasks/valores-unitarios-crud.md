@@ -88,6 +88,10 @@ Errores: `{ code, message, details? }` con `validation_error`, `not_found`,
 - [x] T06 — Restituir el alta individual: «Nuevo valor» vuelve a pedir
       región/año/código/valor uno por uno; el modal masivo sale de la UI y el
       endpoint `/bulk` queda en backend sin uso; tests de frontend actualizados.
+- [x] T07 — Formulario individual: región por defecto `1`, etiqueta
+      «Categoría» en formulario y grilla, validación `A1..J7` en boundary
+      frontend y Zod, y verificación de clave única `región+año+categoría`
+      (409 del backend ya existente, con test de regresión en frontend).
 
 ## Rutas y triggers de delegación
 
@@ -252,10 +256,39 @@ OK, `VITEST_EXIT=0` (warnings `act(...)` en stderr, no fallos). Work-unit commit
 `77caed1` en `feat/valores-unitarios-crud` con `--no-verify` por el hook `gga`
 fuera de servicio.
 
+### T07 — Región por defecto, categoría y clave única (2026-11-24)
+
+El usuario pidió que al grabar la región por defecto sea `1`, que el campo
+«Código» se llame «Categoría» y que se verifique que `región+año+categoría` no
+se repita, con categorías en los rangos `A1..A7` … `I1..I7`. Como el contrato
+verificado y los datos reales llegan hasta `J7`, se planteó la contradicción y
+el usuario eligió **A..J (70 categorías)**. Se mantuvieron las claves del API y
+de BD como `codi`; solo cambiaron las etiquetas visibles.
+
+`ValorUnitarioFormModal`: en `create` la región se inicializa en `"1"`; en
+`edit` se conserva la de la fila (sigue readonly). La validación client-side
+usa `/^[A-J][1-7]$/` con el mensaje `La categoría debe estar entre A1 y J7`.
+`SaveValorUnitarioSchema` replica exactamente esa regla; `ValorUnitarioKeySchema`
+sigue derivando del mismo esquema. La grilla muestra «Categoría» como encabezado.
+No se agregó una nueva verificación de duplicados: `create()` ya llama a
+`findByKey()` y responde 409; se conservó ese test y se sumó uno de frontend que
+confirma que el conflicto muestra el error sin cerrar el modal ni refrescar.
+
+Ruta de implementación: delegated direct (un único writer, writer trigger por
+cinco archivos no triviales), con `interface-design` y `work-unit-commits` como
+skills inyectados desde el registry. Sin `tsc`, build, lint ni suites completas.
+
+TDD observado por el writer: RED frontend 6 fallidos / 2 OK (8), backend 1
+fallido / 27 OK (28); GREEN final frontend 8/8 y backend 28/28. Spot check del
+orquestador: mismos comandos acotados, frontend `VITEST_EXIT=0`, backend
+`JEST_EXIT=0`. Los warnings `act(...)` siguen siendo ruido conocido de stderr.
+
 ## Próximo paso
 
-Feature cerrada con T01–T06 completos. El alta individual ya está restituida en
-la UI. El fix de `idsigma` para `POST /bulk` sigue pendiente de confirmación en
+Feature cerrada con T01–T07 completos. El alta individual ya está restituida en
+la UI, con región por defecto `1`, categoría `A1..J7` y control de duplicados
+por el 409 del backend. El fix de `idsigma` para `POST /bulk` sigue pendiente de
+confirmación en
 el entorno corriente: ejecutar `npm run build` en `backend`, reiniciar el
 proceso que corre `dist/main` y repetir el bulk solo si se vuelve a habilitar.
 Push, PR y merge quedan bajo decisión del usuario. La fila del menú en BD es

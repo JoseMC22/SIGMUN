@@ -10,8 +10,7 @@ export const SaveValorUnitarioSchema = z.object({
   codi: z
     .string()
     .trim()
-    .min(1, 'El código debe tener entre 1 y 2 caracteres')
-    .max(2, 'El código debe tener entre 1 y 2 caracteres'),
+    .regex(/^[A-J][1-7]$/, 'La categoría debe estar entre A1 y J7'),
   valor: z.coerce
     .number()
     .min(0, 'El valor debe estar entre 0 y 99999.99')

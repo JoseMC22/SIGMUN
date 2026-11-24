@@ -59,7 +59,7 @@ export default function ValoresUnitariosGrid({ data, onEdit, onDelete }: Props) 
               </th>
               <th className="w-[8%] border-b border-white/5 px-3 py-2.5 text-left text-[11px] font-semibold uppercase text-white/90">
                 <span className="flex items-center gap-1.5">
-                  <Hash size={11} className="text-white/50" /> Código
+                  <Hash size={11} className="text-white/50" /> Categoría
                 </span>
               </th>
               <th className="w-[12%] border-b border-white/5 px-3 py-2.5 text-right text-[11px] font-semibold uppercase text-white/90">
