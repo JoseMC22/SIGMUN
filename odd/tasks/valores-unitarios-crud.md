@@ -282,6 +282,8 @@ TDD observado por el writer: RED frontend 6 fallidos / 2 OK (8), backend 1
 fallido / 27 OK (28); GREEN final frontend 8/8 y backend 28/28. Spot check del
 orquestador: mismos comandos acotados, frontend `VITEST_EXIT=0`, backend
 `JEST_EXIT=0`. Los warnings `act(...)` siguen siendo ruido conocido de stderr.
+Work-unit commit `30aef96` en `feat/valores-unitarios-crud`, con `--no-verify`
+por el hook `gga` fuera de servicio.
 
 ## Próximo paso
 
