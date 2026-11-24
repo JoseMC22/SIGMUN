@@ -102,6 +102,8 @@ Errores: `{ code, message, details? }` con `validation_error`, `not_found`,
 - [x] T10 — Corregir el desfasaje de 5 horas de `fechor_ing`: configurar
       `useUTC: false` en el pool de SQL Server y agregar test de regresión;
       alcance global del backend, decidido por el usuario.
+- [x] T11 — Integrar `Calculo.sp_Valuni_LogCambio` en update y delete para grabar
+      la imagen anterior en `Historial.TBLVALUNI`; el SP ya está creado en la BD.
 
 ## Rutas y triggers de delegación
 
@@ -388,9 +390,34 @@ está ignorado por `.gitignore` (`*.spec.ts`), así que se incluyó con `git add
 Work-unit commit `76bd447` en `feat/valores-unitarios-crud`, con `--no-verify`
 por el hook `gga` fuera de servicio.
 
+### T11 — Auditoría de modificaciones y eliminaciones (2026-11-24)
+
+El usuario creó en la BD `Calculo.sp_Valuni_LogCambio`, verificado por consulta de
+solo lectura: misma firma y cuerpo entregados, con `SET NOCOUNT ON`, OUTPUT de
+`deleted.*` hacia `Historial.TBLVALUNI` y `THROW 50004` cuando la clave natural
+no existe. Se integró en `update` y `remove` del service, y el `@Delete()` del
+controller ahora reenvía `operador` y `estacion` como hacían el alta y la edición.
+No se tocaron `create` ni `upsertMany`.
+
+Punto delicado: con `SET NOCOUNT ON`, `rowsAffected` queda vacío y el check
+anterior de 404 daba falsos `not_found`. Se reemplazó por el mapeo del error SQL
+`50004` a `notFoundError`, dejando cualquier otro error en
+`database_unavailable` con el envelope canónico. `@valor` se envía explícitamente
+en las dos acciones (`null` para DELETE) tipado como `mssql.Decimal(7, 2)`.
+`idsigma` no se envía: es IDENTITY.
+
+Ruta de implementación: delegated direct (un único writer, writer trigger por
+cuatro archivos no triviales), con `work-unit-commits` inyectado. Sin `tsc`,
+build, lint ni suites completas, y sin escrituras reales en SQL Server.
+
+TDD observado por el writer: RED con `TS2554` por las firmas nuevas
+(`JEST_VU_EXIT=1`); GREEN 30/30 en dos suites (`JEST_VU_EXIT=0`). Spot check del
+orquestador: mismos 30/30 con `JEST_VU_EXIT=0`; `git diff --check` sin errores
+de whitespace.
+
 ## Próximo paso
 
-Feature cerrada con T01–T10 completos. «Nuevo valor» registra un año completo:
+Feature cerrada con T01–T11 completos. «Nuevo valor» registra un año completo:
 las categorías agregadas con su valor y el resto en 0, insertando solo las
 filas faltantes. La edición individual sigue disponible desde la grilla, con
 región por defecto `1`, categoría `A1..J7` en mayúsculas, año numérico y
