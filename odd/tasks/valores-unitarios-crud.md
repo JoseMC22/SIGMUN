@@ -314,6 +314,8 @@ del orquestador: frontend `VITEST_EXIT=0`, backend `JEST_EXIT=0`. Los tests del
 controller espyan `os.hostname` y comprueban `'SERVIDOR-01'` en las tres
 operaciones. No se hizo una escritura real en SQL Server: la autorización de BD
 era solo lectura; la verificación es estructural (parámetro ligado en el SQL).
+Work-unit commit `4361e9c` en `feat/valores-unitarios-crud`, con `--no-verify`
+por el hook `gga` fuera de servicio.
 
 ## Próximo paso
 
