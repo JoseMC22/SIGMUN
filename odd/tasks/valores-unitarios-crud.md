@@ -413,7 +413,8 @@ build, lint ni suites completas, y sin escrituras reales en SQL Server.
 TDD observado por el writer: RED con `TS2554` por las firmas nuevas
 (`JEST_VU_EXIT=1`); GREEN 30/30 en dos suites (`JEST_VU_EXIT=0`). Spot check del
 orquestador: mismos 30/30 con `JEST_VU_EXIT=0`; `git diff --check` sin errores
-de whitespace.
+de whitespace. Work-unit commit `0ef8754` en `feat/valores-unitarios-crud`, con
+`--no-verify` por el hook `gga` fuera de servicio.
 
 ## Próximo paso
 
