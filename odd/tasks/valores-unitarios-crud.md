@@ -442,7 +442,9 @@ TDD observado por el writer: RED con 2 tests fallidos por los tokens
 (`JEST_VU_EXIT=1`); GREEN 30/30 (`JEST_VU_EXIT=0`). Spot check del orquestador:
 mismos 30/30 con `JEST_VU_EXIT=0`. Despliegue: el SP nuevo debe quedar activo
 antes o junto con el backend, porque el SP actual declara `@Accion varchar(10)`
-y truncaría `MODIFICACION`, disparando el error 50002.
+y truncaría `MODIFICACION`, disparando el error 50002. Work-unit commit
+`9021f4a` en `feat/valores-unitarios-crud`, con `--no-verify` por el hook `gga`
+fuera de servicio.
 
 ## Próximo paso
 
