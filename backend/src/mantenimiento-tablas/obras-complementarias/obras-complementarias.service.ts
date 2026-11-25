@@ -1,4 +1,5 @@
 import { HttpException, Injectable, Logger } from '@nestjs/common';
+import * as mssql from 'mssql';
 import { DatabaseService } from '../../database/database.service';
 import {
   CreateObraComplementariaDto,
@@ -19,26 +20,29 @@ import {
   notFoundError,
 } from './obras-complementarias.errors';
 
-const TABLE = 'Calculo.TblInstala';
-const COLUMNS =
-  'id_instala, anno, instala, uni_med, valor, descri_gener, nestado, vhostnm, vusernm, ddatetm, categ';
+const SP_NAME = '[Calculo].[sp_MInstala]';
 const MAX_LOG_MESSAGE = 500;
 
-type QueryParams = Record<string, string | number | null>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const SP_TYPES: Record<string, any> = {
+  Accion: mssql.VarChar(20),
+  id_instala: mssql.Char(3),
+  anno: mssql.Char(4),
+  categ: mssql.NChar(2),
+  FiltroCateg: mssql.Bit,
+  instala: mssql.VarChar(200),
+  uni_med: mssql.VarChar(15),
+  valor: mssql.Decimal(12, 2),
+  descri_gener: mssql.VarChar(200),
+  nestado: mssql.TinyInt,
+  vusernm: mssql.VarChar(25),
+  vhostnm: mssql.VarChar(25),
+};
 
-function keyParams(key: ObraComplementariaKeyDto): QueryParams {
-  return {
-    id_instala: key.id_instala,
-    anno: key.anno,
-    categ: key.categ,
-  };
-}
-
-/** La categoría anulable exige IS NULL: `= NULL` nunca coincide en SQL Server. */
-function keyWhere(categ: string | null): string {
-  return `id_instala = @id_instala AND anno = @anno AND ${
-    categ === null ? 'categ IS NULL' : 'categ = @categ'
-  }`;
+function isMssqlError(
+  error: unknown,
+): error is Error & { number?: number; code?: string | number } {
+  return error instanceof Error && typeof (error as { number?: unknown }).number === 'number';
 }
 
 function databaseErrorDetails(error: unknown): Record<string, string | number> {
@@ -77,9 +81,10 @@ export class ObrasComplementariasService {
 
   async years(): Promise<ObrasComplementariasYearsResponse> {
     try {
-      const result = await this.db.queryWithParams<{ anno: string }>(
-        `SELECT DISTINCT anno FROM ${TABLE} ORDER BY anno DESC`,
-        {},
+      const result = await this.db.executeProcedure<{ anno: string }>(
+        SP_NAME,
+        { Accion: 'ANIOS', vusernm: '', vhostnm: '' },
+        SP_TYPES,
       );
       return {
         years: (result.recordset ?? []).map((row) => String(row.anno)),
@@ -93,15 +98,21 @@ export class ObrasComplementariasService {
     dto: SearchObrasComplementariasDto,
   ): Promise<ObrasComplementariasSearchResponse> {
     try {
-      const params: QueryParams = { anno: dto.anno };
-      let sql = `SELECT ${COLUMNS} FROM ${TABLE} WHERE anno = @anno AND nestado = 1`;
+      const params: Record<string, unknown> = {
+        Accion: 'CONSULTA',
+        anno: dto.anno,
+        FiltroCateg: dto.categ === undefined ? 0 : 1,
+        vusernm: '',
+        vhostnm: '',
+      };
       if (dto.categ !== undefined) {
-        sql += dto.categ === null ? ' AND categ IS NULL' : ' AND categ = @categ';
         params.categ = dto.categ;
       }
-      const result = await this.db.queryWithParams<ObraComplementariaRow>(
-        `${sql} ORDER BY id_instala, categ`,
+
+      const result = await this.db.executeProcedure<ObraComplementariaRow>(
+        SP_NAME,
         params,
+        SP_TYPES,
       );
       return { data: result.recordset ?? [] };
     } catch (error) {
@@ -115,30 +126,32 @@ export class ObrasComplementariasService {
     vhostnm: string,
   ): Promise<ObrasComplementariasMutationResponse> {
     try {
-      const existing = await this.findByKey(dto);
-      if (existing) {
-        conflictError('La fila ya existe');
-      }
-
-      await this.db.queryWithParams(
-        `INSERT INTO ${TABLE}
-         (id_instala, anno, instala, uni_med, valor, descri_gener, nestado, vhostnm, vusernm, ddatetm, categ)
-         VALUES (@id_instala, @anno, @instala, @uni_med, @valor, @descri_gener, @nestado, @vhostnm, @vusernm, GETDATE(), @categ)`,
+      const result = await this.db.executeProcedure<ObraComplementariaRow>(
+        SP_NAME,
         {
-          ...keyParams(dto),
+          Accion: 'ALTA',
+          id_instala: dto.id_instala,
+          anno: dto.anno,
+          categ: dto.categ,
           instala: dto.instala,
           uni_med: dto.uni_med,
           valor: dto.valor,
           descri_gener: dto.descri_gener,
           nestado: 1,
-          vhostnm,
           vusernm,
+          vhostnm,
         },
+        SP_TYPES,
       );
+
+      const row = result.recordset?.[0];
+      if (!row) {
+        databaseUnavailableError();
+      }
 
       return {
         message: 'Registro creado exitosamente',
-        row: await this.readPersistedRow(dto),
+        row,
       };
     } catch (error) {
       this.throwDatabaseError(error);
@@ -151,25 +164,31 @@ export class ObrasComplementariasService {
     vhostnm: string,
   ): Promise<ObrasComplementariasMutationResponse> {
     try {
-      const result = await this.db.queryWithParams(
-        `UPDATE ${TABLE}
-         SET instala = @instala, uni_med = @uni_med, valor = @valor,
-             descri_gener = @descri_gener, vusernm = @vusernm,
-             vhostnm = @vhostnm, ddatetm = GETDATE()
-         WHERE ${keyWhere(dto.key.categ)}`,
+      const result = await this.db.executeProcedure<ObraComplementariaRow>(
+        SP_NAME,
         {
-          ...keyParams(dto.key),
-          ...dto.data,
+          Accion: 'MODIFICACION',
+          id_instala: dto.key.id_instala,
+          anno: dto.key.anno,
+          categ: dto.key.categ,
+          instala: dto.data.instala,
+          uni_med: dto.data.uni_med,
+          valor: dto.data.valor,
+          descri_gener: dto.data.descri_gener,
           vusernm,
           vhostnm,
         },
+        SP_TYPES,
       );
-      if (result.rowsAffected?.[0] === 0) {
-        notFoundError('No se encontró la fila');
+
+      const row = result.recordset?.[0];
+      if (!row) {
+        databaseUnavailableError();
       }
+
       return {
         message: 'Registro actualizado exitosamente',
-        row: await this.readPersistedRow(dto.key),
+        row,
       };
     } catch (error) {
       this.throwDatabaseError(error);
@@ -182,46 +201,39 @@ export class ObrasComplementariasService {
     vhostnm: string,
   ): Promise<ObrasComplementariasDeleteResponse> {
     try {
-      const result = await this.db.queryWithParams(
-        `UPDATE ${TABLE}
-         SET nestado = 0, vusernm = @vusernm, vhostnm = @vhostnm,
-             ddatetm = GETDATE()
-         WHERE ${keyWhere(key.categ)}`,
-        { ...keyParams(key), vusernm, vhostnm },
+      await this.db.executeProcedure<ObraComplementariaRow>(
+        SP_NAME,
+        {
+          Accion: 'BAJA',
+          id_instala: key.id_instala,
+          anno: key.anno,
+          categ: key.categ,
+          vusernm,
+          vhostnm,
+        },
+        SP_TYPES,
       );
-      if (result.rowsAffected?.[0] === 0) {
-        notFoundError('No se encontró la fila');
-      }
+
       return { message: 'Registro desactivado exitosamente' };
     } catch (error) {
       this.throwDatabaseError(error);
     }
   }
 
-  private async findByKey(
-    key: ObraComplementariaKeyDto,
-  ): Promise<ObraComplementariaRow | undefined> {
-    const result = await this.db.queryWithParams<ObraComplementariaRow>(
-      `SELECT TOP (1) ${COLUMNS} FROM ${TABLE} WHERE ${keyWhere(key.categ)}`,
-      keyParams(key),
-    );
-    return result.recordset?.[0];
-  }
-
-  private async readPersistedRow(
-    key: ObraComplementariaKeyDto,
-  ): Promise<ObraComplementariaRow> {
-    const row = await this.findByKey(key);
-    if (!row) {
-      databaseUnavailableError();
-    }
-    return row;
-  }
-
   private throwDatabaseError(error: unknown): never {
     if (error instanceof HttpException) {
       throw error;
     }
+
+    if (isMssqlError(error)) {
+      if (error.number === 50009) {
+        conflictError('La fila ya existe');
+      }
+      if (error.number === 50010) {
+        notFoundError('No se encontró la fila');
+      }
+    }
+
     this.logger.error(
       `Fallo de base de datos en obras-complementarias: ${JSON.stringify(
         databaseErrorDetails(error),
