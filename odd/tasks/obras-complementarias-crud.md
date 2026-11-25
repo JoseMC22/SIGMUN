@@ -27,11 +27,14 @@ S3. "index_name    index_description    index_keysClusteredIndex-20240103-125426
 
 S4. "Baja lógica: nestado = 0"
 
+S5. "haz un crud y dame el script para un procedimiento almacenado similar al de mantenimiento valores unitarios"
+
 ## Tasks
 
 T1 (backend: módulo, controller, service, DTOs, errores y tests) | S2-S4 | gentle-ai-worker | 2dacbff
 T2 (frontend: página, grilla, formulario, confirmación y tests) | S1-S4 | gentle-ai-worker | 693701d
 T3 (puente `app.module.ts`, cierre del tracker y verificación) | S1 | parent | 6f348cb
+T4 (script SQL del SP de CRUD con auditoría) | S5 | parent | pending
 
 ## Log
 
@@ -73,3 +76,13 @@ D6: Contrato acordado por el orquestador para que backend y frontend trabajen co
 E1: Verificación del orquestador: rerun de Jest (`npm test -- --runInBand mantenimiento-tablas/obras-complementarias`) 2 suites / 24 tests verdes; rerun de Vitest (`vitest run .../page.test.tsx`) 1 archivo / 4 tests verdes. El hook `pre-commit` falla porque `gga` no está instalado (`gga: command not found`), así que los commits se hicieron con `--no-verify`; ningún chequeo del hook llegó a ejecutarse.
 
 E2: Typecheck global (`npx tsc --noEmit -p backend/tsconfig.json`) terminó con exit 2 por errores preexistentes en specs de `notificaciones/mantenimiento-notificadores`; no hay errores en `obras-complementarias` ni en `app.module.ts`. `gentle_review.assess` devolvió riesgo medium con revisión nativa no disponible (`untracked files require an explicit declaration`), plan: verificación del writer, sin verificador independiente. `odd/tasks` está ignorado por `.gitignore`, así que el tracker se versiona con `git add -f`.
+
+L5: "haz un crud y dame el script para un procedimiento almacenado similar al de mantenimiento valores unitarios"
+
+L6: "CRUD + auditoría" — respuesta del usuario sobre qué tipo de procedimiento quiere.
+
+L7: "HISTORIAL.HTblInstala" — nombre de la tabla de historial.
+
+L8: "vuelve a revisar" y L9: "vuelve a conectar el backend y revisa la tabla" — el usuario pidió reintentar el relevamiento; se conectó con la configuración del backend en modo solo lectura.
+
+D7: Esquema real consultado en BD: `HISTORIAL.HTblInstala` replica las 11 columnas de `Calculo.TblInstala` y agrega `accion varchar(30) NULL`; `categ` es `nchar(1)` en el historial pero `nchar(2)` en la tabla origen, no tiene constraints y está vacía (0 filas vs 1746 en origen). Existen los triggers `3KStr_AudUpdTblInstala` y `3KStr_AudDelTblInstala` (2019, activos) con definición no legible (`sys.sql_modules.definition` = NULL); no se puede afirmar si escriben en esta misma tabla. El SP escribe el historial explícitamente y el script advierte verificar esos triggers para no duplicar filas. El SP de valores unitarios (`Calculo.sp_Valuni_LogCambio`) ya no existe en la BD, así que solo se conserva su convención `@Accion` con tokens `MODIFICACION`/`ELIMINACION`.
