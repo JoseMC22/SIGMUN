@@ -49,11 +49,12 @@ export default function ObrasComplementariasPage() {
     setError(null);
     setHasSearched(true);
     try {
-      const res = await fetch(
-        `${BASE}?anno=${encodeURIComponent(anno)}&categ=${encodeURIComponent(
-          categ.trim(),
-        )}`,
-      );
+      const params = new URLSearchParams({ anno });
+      const trimmedCateg = categ.trim();
+      if (trimmedCateg) {
+        params.set("categ", trimmedCateg);
+      }
+      const res = await fetch(`${BASE}?${params.toString()}`);
       if (!res.ok) throw new Error("Error al buscar");
       const json = (await res.json()) as { data?: ObraComplementariaRow[] };
       setData(Array.isArray(json.data) ? json.data : []);
