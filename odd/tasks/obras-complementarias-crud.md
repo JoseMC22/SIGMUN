@@ -34,7 +34,7 @@ S5. "haz un crud y dame el script para un procedimiento almacenado similar al de
 T1 (backend: módulo, controller, service, DTOs, errores y tests) | S2-S4 | gentle-ai-worker | 2dacbff
 T2 (frontend: página, grilla, formulario, confirmación y tests) | S1-S4 | gentle-ai-worker | 693701d
 T3 (puente `app.module.ts`, cierre del tracker y verificación) | S1 | parent | 6f348cb
-T4 (script SQL del SP de CRUD con auditoría) | S5 | parent | pending
+T4 (script SQL del SP de CRUD con auditoría) | S5 | parent | f0f0f73
 
 ## Log
 
@@ -86,3 +86,5 @@ L7: "HISTORIAL.HTblInstala" — nombre de la tabla de historial.
 L8: "vuelve a revisar" y L9: "vuelve a conectar el backend y revisa la tabla" — el usuario pidió reintentar el relevamiento; se conectó con la configuración del backend en modo solo lectura.
 
 D7: Esquema real consultado en BD: `HISTORIAL.HTblInstala` replica las 11 columnas de `Calculo.TblInstala` y agrega `accion varchar(30) NULL`; `categ` es `nchar(1)` en el historial pero `nchar(2)` en la tabla origen, no tiene constraints y está vacía (0 filas vs 1746 en origen). Existen los triggers `3KStr_AudUpdTblInstala` y `3KStr_AudDelTblInstala` (2019, activos) con definición no legible (`sys.sql_modules.definition` = NULL); no se puede afirmar si escriben en esta misma tabla. El SP escribe el historial explícitamente y el script advierte verificar esos triggers para no duplicar filas. El SP de valores unitarios (`Calculo.sp_Valuni_LogCambio`) ya no existe en la BD, así que solo se conserva su convención `@Accion` con tokens `MODIFICACION`/`ELIMINACION`.
+
+E3: Script `backend/sql/sp_MInstala-crud.sql` validado con `SET PARSEONLY ON` en una conexión dedicada (PARSE_OK): sintaxis válida para SQL Server, sin crear el objeto ni ejecutar DML. Acciones: ANIOS, CONSULTA, ALTA, MODIFICACION, BAJA/ELIMINACION; transacción explícita origen + historial; `THROW` 50001-50010; control de longitud de `categ` contra el historial. El backend sigue con DML parametrizado: migrarlo al SP sería un cambio de contrato separado.
