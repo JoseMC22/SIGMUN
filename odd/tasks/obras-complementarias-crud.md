@@ -32,7 +32,7 @@ S5. "haz un crud y dame el script para un procedimiento almacenado similar al de
 ## Tasks
 
 T1 (backend: módulo, controller, service, DTOs, errores y tests) | S2-S4 | gentle-ai-worker | 2dacbff, 2cb51de
-T2 (frontend: página, grilla, formulario, confirmación y tests) | S1-S4 | gentle-ai-worker | 693701d
+T2 (frontend: página, grilla, formulario, confirmación y tests) | S1-S4, L11 | gentle-ai-worker | 693701d, 94cbd6d
 T3 (puente `app.module.ts`, cierre del tracker y verificación) | S1 | parent | 6f348cb
 T4 (script SQL del SP de CRUD con auditoría) | S5 | parent | f0f0f73
 
