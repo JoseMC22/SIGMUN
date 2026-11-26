@@ -55,6 +55,11 @@ export class StorageController {
     const fullPath = this.storageService.resolveFullPath(decodedPath);
 
     if (!fs.existsSync(fullPath)) {
+      // Intentar reconectar el NAS si se desconectó la sesión de red en Windows
+      await this.storageService.ensureNasMounted();
+    }
+
+    if (!fs.existsSync(fullPath)) {
       throw new NotFoundException('El archivo adjunto no existe o no se encuentra disponible.');
     }
 

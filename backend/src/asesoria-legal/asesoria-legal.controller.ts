@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Put, Body, Query, Param, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Query, Param, UseGuards, Req, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import { AsesoriaLegalService } from './asesoria-legal.service';
 import { CrearSolicitudDto, ConsultarEstadoDto } from './solicitud/dto/solicitud.dto';
 import { RegistrarRespuestaDto } from './respuesta/dto/respuesta.dto';
@@ -70,5 +71,23 @@ export class AsesoriaLegalController {
   @Get('solicitud-oficina/:id/historial')
   async getHistorialRespuestas(@Param('id') id: string) {
     return this.asesoriaLegalService.getHistorialRespuestas(Number(id));
+  }
+
+  @Get('solicitud/:id/pdf-consolidado')
+  async getPdfConsolidado(@Param('id') id: string, @Res() res: Response) {
+    try {
+      const { buffer, filename } = await this.asesoriaLegalService.generarPdfConsolidado(Number(id));
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+      res.setHeader('Content-Length', buffer.length);
+      res.send(buffer);
+    } catch (err: any) {
+      console.error('*** ERROR DETALLADO EN PDF CONSOLIDADO ***:', err);
+      return res.status(500).json({
+        statusCode: 500,
+        message: 'Error al generar PDF: ' + (err?.message || err),
+        stack: err?.stack,
+      });
+    }
   }
 }
