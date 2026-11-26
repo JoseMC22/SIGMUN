@@ -206,6 +206,12 @@ export default function DeclaracionJuradaDetalleModal({
   // ── Determinación ──
   const [detModalOpen, setDetModalOpen] = useState(false);
   const [predioModalOpen, setPredioModalOpen] = useState(false);
+  // Predio seleccionado para edición (Características)
+  const [editPredio, setEditPredio] = useState<{
+    codPred: string;
+    anexo: string;
+    subAnexo: string;
+  } | null>(null);
 
   // ── Editar HR: carga la Hoja de Resumen existente y abre el modal ──
   const editarHojaResumen = async () => {
@@ -537,7 +543,16 @@ export default function DeclaracionJuradaDetalleModal({
                                 <button
                                   type="button"
                                   title="Características"
-                                  className="rounded p-[2px] text-slate-500 transition hover:bg-slate-200 hover:text-sat-navy"
+                                  onClick={() => {
+                                    if (!annoSeleccionado) return;
+                                    setEditPredio({
+                                      codPred: p.codPred,
+                                      anexo: p.anexo,
+                                      subAnexo: p.sub_anexo ?? "",
+                                    });
+                                    setPredioModalOpen(true);
+                                  }}
+                                  className="rounded p-[2px] text-slate-500 transition hover:bg-slate-200 hover:text-sat-navy cursor-pointer"
                                 >
                                   <Eye size={12} />
                                 </button>
@@ -741,15 +756,22 @@ export default function DeclaracionJuradaDetalleModal({
         annoSeleccionado={annoSeleccionado}
       />
 
-      {/* ── Modal Baja de Predio ── */}
+      {/* ── Modal Predio (1ra. Inscripción / Mantenimiento) ── */}
       <PrimeraInscripcionModal
         isOpen={predioModalOpen}
-        onClose={() => setPredioModalOpen(false)}
+        onClose={() => { setPredioModalOpen(false); setEditPredio(null); }}
         codigoContribuyente={contribuyente.codigo}
         razonSocial={contribuyente.nombre}
         annoSeleccionado={annoSeleccionado ?? ""}
-        tipoMov="N"
-        onSaved={() => { if (annoSeleccionado) loadDetalle(contribuyente.codigo, annoSeleccionado); setPredioModalOpen(false); }}
+        tipoMov={editPredio ? "E" : "N"}
+        codPred={editPredio?.codPred}
+        anexo={editPredio?.anexo}
+        subAnexo={editPredio?.subAnexo}
+        onSaved={() => {
+          if (annoSeleccionado) loadDetalle(contribuyente.codigo, annoSeleccionado);
+          setPredioModalOpen(false);
+          setEditPredio(null);
+        }}
       />
 
       {/* ── Modal Ver Baja Predio (btnCargabaja legacy) ── */}

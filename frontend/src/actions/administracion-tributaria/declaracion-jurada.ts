@@ -3196,3 +3196,131 @@ export async function getSubreporteInstalacionesAction(
     return { success: true, data: Array.isArray(body.data) ? body.data : [] };
   } catch (e) { return { success: false, data: [], error: String(e) }; }
 }
+
+// ═══ Predio — Mantenimiento (cargar datos existentes) ═══
+
+export interface PredioDataResult {
+  // Identificadores
+  codigo: string;
+  anno: string;
+  codPred: string;
+  anexo: string;
+  subAnexo: string;
+  // Ubicación
+  cbtipopredio: string;
+  txtCvia: string;
+  txtVia: string;
+  txtCp: string;
+  txtSector: string;
+  txtArancel: string;
+  txtDir: string;
+  txtNro: string;
+  txtDpto: string;
+  txtMza: string;
+  txtLte: string;
+  txtSubLte: string;
+  txtFrontis: string;
+  txtNro2: string;
+  txtLetra: string;
+  txtLetra2: string;
+  txtFondo: string;
+  // Características
+  cmbUso: string;
+  cmbTipPredio: string;
+  cmbEstadoConst: string;
+  cmbCondicion: string;
+  cmbCondicionpredio: string;
+  cmbInterior: string;
+  cmbSituacionPredio: string;
+  txtNroCond: string;
+  txtNroPiso: string;
+  txtAreaTerreno: string;
+  txtAreaComun: string;
+  txtPorcenPropiedad: string;
+  txtPorcenConstruccion: string;
+  txtAreaUso: string;
+  txtFecAdqui: string;
+  txtFecTrans: string;
+  txtLuz: string;
+  txtAgua: string;
+  txtObs: string;
+  txtObservacionPredio: string;
+  chAfectoPred: string;
+  chbVendido: string;
+  chbLicencia: string;
+  chbConformidad: string;
+  chbDeclaracionFab: string;
+  // Condición especial
+  txtDocEspecial: string;
+  txtNroDocEspecial: string;
+  txtFechDocEspecial: string;
+  txtFechDocEspecialInicial: string;
+  txtFechDocEspecialFinal: string;
+  // Situación / Fiscalización
+  txtSituacionDocumento: string;
+  txtSituacionNroDoc: string;
+  txtSituacionFechDoc: string;
+  txtFechaFisca: string;
+  txtNroFisca: string;
+  // Edificio / Ingreso / Agrupamiento
+  cmbTipoEdificio: string;
+  txtNomEdificio: string;
+  txtPiso: string;
+  txtNumeroInterno: string;
+  txtLetraInterno: string;
+  cmbTipoIngreso: string;
+  txtNomIngreso: string;
+  cmbTipoAgrupamiento: string;
+  txtNomAgrupamiento: string;
+  // Arbitrios
+  txtArbAfecto: string;
+  cbAfectMesDesde: string;
+  cbAfectMesHasta: string;
+  txtArbObs: string;
+  txtUbiPar: string;
+  cb_limpieza: string;
+  cb_barrido: string;
+  cb_parque: string;
+  cb_serenazgo: string;
+  // Resumen del predio (bloque superior, solo lectura)
+  txtTerreno: string;
+  txtConstruccion: string;
+  txtInstalaciones: string;
+  txtAutovaluo: string;
+  txtBarrido: string;
+  txtRecoleccion: string;
+  txtParques: string;
+  txtSerenazgo: string;
+  // Auditoría
+  usuario: string;
+  estacion: string;
+  fechmod: string;
+}
+
+export async function getPredioDataAction(
+  codigo: string,
+  anno: string,
+  codPred: string,
+  anexo: string,
+  subAnexo: string,
+): Promise<{ success: true; data: PredioDataResult } | { success: false; error: string }> {
+  try {
+    const params = new URLSearchParams({
+      codigo: codigo ?? '',
+      anno: anno ?? '',
+      cod_pred: codPred ?? '',
+      anexo: anexo ?? '',
+      sub_anexo: subAnexo ?? '',
+    });
+    const response = await authFetch(`/declaracion-jurada/predio/data?${params}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.error ?? errorData.message ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    if (!result.success) return { success: false as const, error: result.error ?? 'Error al cargar los datos del predio.' };
+    return { success: true as const, data: result.data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}

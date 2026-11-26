@@ -9,11 +9,13 @@ import {
   getPredioInstalacionesAction,
   getPredioDocumentosAction,
   getValorPisoAction,
+  getPredioDataAction,
   type PredioCombosData,
   type ValorPisoResult,
   type PredioPisoItem,
   type PredioInstalItem,
   type PredioDocItem,
+  type PredioDataResult,
   type MviaItem,
 } from "@/actions/administracion-tributaria/declaracion-jurada";
 import { getStoredUser } from "@/lib/api";
@@ -29,7 +31,11 @@ interface Props {
   codigoContribuyente: string;
   razonSocial: string;
   annoSeleccionado: string;
-  tipoMov?: "N" | "I";
+  tipoMov?: "N" | "I" | "E";
+  // Claves del predio para edición (tipoMov = 'E')
+  codPred?: string;
+  anexo?: string;
+  subAnexo?: string;
   onSaved?: () => void;
 }
 
@@ -535,8 +541,124 @@ export default function PrimeraInscripcionModal({
     }).finally(() => {
       if (!cancelled) setCombosLoading(false);
     });
+
+    // En modo edición (E), cargar datos del predio existente
+    if (tipoMov === "E" && codPred && anexo) {
+      const loadPredioData = async () => {
+        const res = await getPredioDataAction(
+          codigoContribuyente,
+          annoSeleccionado,
+          codPred,
+          anexo,
+          subAnexo ?? "",
+        );
+        if (cancelled) return;
+        if (res.success) {
+          const d = res.data;
+          // Establecer claves del predio
+          setCodPred(d.codPred);
+          setAnexo(d.anexo);
+          setSubAnexo(d.subAnexo);
+          setFechaMod(d.fechmod);
+          // Mapear datos al formulario
+          setF((prev) => ({
+            ...prev,
+            // Ubicación
+            cbtipopredio: d.cbtipopredio || "1",
+            txtCvia: d.txtCvia,
+            txtVia: d.txtVia,
+            txtCp: d.txtCp,
+            txtSector: d.txtSector,
+            txtArancel: d.txtArancel,
+            txtDir: d.txtDir,
+            txtNro: d.txtNro,
+            txtDpto: d.txtDpto,
+            txtMza: d.txtMza,
+            txtLte: d.txtLte,
+            txtSubLte: d.txtSubLte,
+            txtFrontis: d.txtFrontis,
+            txtNro2: d.txtNro2,
+            txtLetra: d.txtLetra,
+            txtLetra2: d.txtLetra2,
+            txtFondo: d.txtFondo,
+            // Características
+            cmbUso: d.cmbUso,
+            cmbTipPredio: d.cmbTipPredio,
+            cmbEstadoConst: d.cmbEstadoConst,
+            cmbCondicion: d.cmbCondicion,
+            cmbCondicionpredio: d.cmbCondicionpredio,
+            cmbInterior: d.cmbInterior,
+            cmbSituacionPredio: d.cmbSituacionPredio,
+            txtNroCond: d.txtNroCond,
+            txtNroPiso: d.txtNroPiso,
+            txtAreaTerreno: d.txtAreaTerreno,
+            txtAreaComun: d.txtAreaComun,
+            txtPorcenPropiedad: d.txtPorcenPropiedad,
+            txtPorcenConstruccion: d.txtPorcenConstruccion,
+            txtAreaUso: d.txtAreaUso,
+            txtFecAdqui: d.txtFecAdqui,
+            txtFecTrans: d.txtFecTrans,
+            txtLuz: d.txtLuz,
+            txtAgua: d.txtAgua,
+            txtObs: d.txtObs,
+            txtObservacionPredio: d.txtObservacionPredio,
+            chAfectoPred: d.chAfectoPred === "1",
+            chbVendido: d.chbVendido === "1",
+            chbLicencia: d.chbLicencia === "1",
+            chbConformidad: d.chbConformidad === "1",
+            chbDeclaracionFab: d.chbDeclaracionFab === "1",
+            // Condición especial
+            txtDocEspecial: d.txtDocEspecial,
+            txtNroDocEspecial: d.txtNroDocEspecial,
+            txtFechDocEspecial: d.txtFechDocEspecial,
+            txtFechDocEspecialInicial: d.txtFechDocEspecialInicial,
+            txtFechDocEspecialFinal: d.txtFechDocEspecialFinal,
+            // Situación / Fiscalización
+            txtSituacionDocumento: d.txtSituacionDocumento,
+            txtSituacionNroDoc: d.txtSituacionNroDoc,
+            txtSituacionFechDoc: d.txtSituacionFechDoc,
+            txtFechaFisca: d.txtFechaFisca,
+            txtNroFisca: d.txtNroFisca,
+            // Edificio / Ingreso / Agrupamiento
+            cmbTipoEdificio: d.cmbTipoEdificio,
+            txtNomEdificio: d.txtNomEdificio,
+            txtPiso: d.txtPiso,
+            txtNumeroInterno: d.txtNumeroInterno,
+            txtLetraInterno: d.txtLetraInterno,
+            cmbTipoIngreso: d.cmbTipoIngreso,
+            txtNomIngreso: d.txtNomIngreso,
+            cmbTipoAgrupamiento: d.cmbTipoAgrupamiento,
+            txtNomAgrupamiento: d.txtNomAgrupamiento,
+            // Arbitrios
+            txtArbAfecto: d.txtArbAfecto === "1",
+            cbAfectMesDesde: d.cbAfectMesDesde,
+            cbAfectMesHasta: d.cbAfectMesHasta,
+            txtArbObs: d.txtArbObs,
+            txtUbiPar: d.txtUbiPar,
+            cb_limpieza: d.cb_limpieza,
+            cb_barrido: d.cb_barrido,
+            cb_parque: d.cb_parque,
+            cb_serenazgo: d.cb_serenazgo,
+            // Resumen del predio (bloque superior, solo lectura)
+            txtTerreno: d.txtTerreno,
+            txtConstruccion: d.txtConstruccion,
+            txtInstalaciones: d.txtInstalaciones,
+            txtAutovaluo: d.txtAutovaluo,
+            txtBarrido: d.txtBarrido,
+            txtRecoleccion: d.txtRecoleccion,
+            txtParques: d.txtParques,
+            txtSerenazgo: d.txtSerenazgo,
+          }));
+          // Cargar grillas
+          await loadGrids(codigoContribuyente, d.codPred, d.anexo, d.subAnexo);
+        } else {
+          setSaveMessage({ type: "error", text: res.error });
+        }
+      };
+      loadPredioData();
+    }
     return () => { cancelled = true; };
-  }, [isOpen, annoSeleccionado]);
+  }, [isOpen, annoSeleccionado, tipoMov, codPred, anexo, subAnexo]);
 
   // Ocultar tab Construcciones si el predio es sin construcción (estado = '01')
   useEffect(() => {
@@ -861,7 +983,7 @@ export default function PrimeraInscripcionModal({
             <div className="h-3.5 w-0.5 rounded-full bg-sat-cyan" />
             <FileText size={14} className="text-sat-cyan" />
             <h2 className="font-outfit text-sm font-bold tracking-tight text-white">
-              1ra. Inscripción — Predio Nuevo
+              {tipoMov === "E" ? "Mantenimiento de Predio" : "1ra. Inscripción — Predio Nuevo"}
             </h2>
             <span className="ml-1 text-[10px] text-white/50">— {codigoContribuyente}</span>
           </div>
