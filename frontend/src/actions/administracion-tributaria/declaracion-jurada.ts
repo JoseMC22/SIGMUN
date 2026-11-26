@@ -681,6 +681,38 @@ export async function obtenerRepresentantesAction(
   }
 }
 
+// ─── Obtener propietarios del predio (modal Propietarios) ──
+// Llama a Rentas.sp_rentasmain @buscar=6, @cod_pred (equivalente legacy
+// gridpropietariosAction). Devuelve filas con codigo, Porcen, Nombre, fec_venta.
+
+export interface PropietarioGridData {
+  codigo: string;
+  Porcen: string;
+  Nombre: string;
+  fec_venta: string;
+}
+
+export interface ObtenerPropietariosData {
+  propietarios: PropietarioGridData[];
+}
+
+export async function obtenerPropietariosAction(
+  cod_pred: string,
+): Promise<{ success: true; data: ObtenerPropietariosData } | { success: false; error: string }> {
+  try {
+    const params = new URLSearchParams({ cod_pred });
+    const response = await authFetch(`/declaracion-jurada/propietarios?${params}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false as const, error: errorData.message ?? `Error ${response.status}` };
+    }
+    const result = await response.json();
+    return { success: true as const, ...result };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : 'Error de conexión' };
+  }
+}
+
 // ─── Obtener representante por id (modal Editar Representante) ──
 // Llama a Rentas.sp_Mrepresentante @busc=6, @id. Devuelve los datos para
 // precargar el formulario del representante.

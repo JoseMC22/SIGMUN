@@ -29,6 +29,8 @@ import {
   ObtenerRepresentantesResult,
   EditarRepresentanteResult,
   EliminarRepresentanteResult,
+  ObtenerPropietariosResult,
+  PropietarioGridItem,
   EstadoCuentaFiltrosResult,
   EstadoCuentaPredioOption,
   EstadoCuentaReciboRow,
@@ -733,6 +735,44 @@ export class DeclaracionJuradaService {
     });
 
     return { datos, representantes };
+  }
+
+  // ── Propietarios del predio (Rentas.sp_rentasmain @buscar=6, @cod_pred) ──
+  // Equivalente al legacy PHP gridpropietariosAction:
+  // Mapeo posicional: 0 codigo, 2 Porcen, 3 Nombre, 4 fec_venta
+  async obtenerPropietarios(codPred: string): Promise<ObtenerPropietariosResult> {
+    if (!codPred || !codPred.trim()) {
+      throw new Error('Código de predio no válido.');
+    }
+
+    const result = await this.db.executeProcedure<any>(this.SP_RENTASMAIN, {
+      buscar: 6,
+      cod_pred: codPred.trim(),
+    });
+
+    let rows: any[] = [];
+    if (result.recordset && result.recordset.length > 0) {
+      rows = result.recordset;
+    } else if (
+      result.recordsets &&
+      (result.recordsets as any[]).length > 0 &&
+      (result.recordsets as any[])[0].length > 0
+    ) {
+      rows = (result.recordsets as any[])[0];
+    }
+
+    const propietarios: PropietarioGridItem[] = rows.map((row: any) => {
+      const v = Object.values(row).map((x) => String(x ?? '').trim());
+      const get = (i: number) => v[i] ?? '';
+      return {
+        codigo: get(0),
+        Porcen: get(2),
+        Nombre: get(3),
+        fec_venta: get(4),
+      };
+    });
+
+    return { propietarios };
   }
 
   // ── Eliminar contribuyente (sp_Mcontribuyente @busc=3) ──
