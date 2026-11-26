@@ -50,6 +50,7 @@ import {
   GuardarPredioResult,
   PredioComboOption,
   PredioCombosResult,
+  PredioDataResult,
   VerBajaPredioItem,
   ReporteDescargoData,
   ValorPisoResult,
@@ -3823,6 +3824,137 @@ export class DeclaracionJuradaService {
       cb_clasifica: map(clasifica.recordset),
       cb_unidad_medida: map(unidad.recordset),
       detalle_inst: map(detInst.recordset),
+    };
+  }
+
+  /**
+   * Obtener datos completos de un predio para edición (Mantenimiento de Predios).
+   * Legacy: Rentas.sp_VistaPred @msquery=1 (prediosAction).
+   * Mapea el resultado posicional del SP (índices 0-89).
+   */
+  async getPredioData(
+    codigo: string,
+    anno: string,
+    codPred: string,
+    anexo: string,
+    subAnexo: string,
+  ): Promise<PredioDataResult> {
+    const result = await this.db.executeProcedure<any>('[Rentas].[sp_VistaPred]', {
+      msquery: 1,
+      codigo: codigo ?? '',
+      anno: anno ?? '',
+      cod_pred: codPred ?? '',
+      anexo: anexo ?? '',
+      sub_anexo: subAnexo ?? '',
+    });
+
+    const row = result.recordset?.[0] as { [key: string]: unknown } | undefined;
+    if (!row) {
+      throw new Error('Predio no encontrado.');
+    }
+
+    const v = Object.values(row).map((x) => String(x ?? '').trim());
+    const get = (i: number) => v[i] ?? '';
+
+    // Helper para fechas 01/01/1900 -> vacío
+    const fixDate = (val: string) => (val === '01/01/1900' ? '' : val);
+
+    return {
+      // Identificadores
+      codigo: get(1),
+      anno: get(2),
+      codPred: get(3),
+      anexo: get(4),
+      subAnexo: get(5),
+      // Ubicación (índices según legacy prediosAction)
+      cbtipopredio: get(17),
+      txtCvia: get(7),
+      txtVia: get(54),
+      txtCp: get(55),
+      txtSector: get(64),
+      txtArancel: get(33),
+      txtDir: get(13),
+      txtNro: get(11),
+      txtDpto: get(12),
+      txtMza: get(8),
+      txtLte: get(9),
+      txtSubLte: get(10),
+      txtFrontis: get(29),
+      txtNro2: get(60),
+      txtLetra: get(61),
+      txtLetra2: get(62),
+      txtFondo: get(65),
+      // Características
+      cmbUso: get(15),
+      cmbTipPredio: get(17),
+      cmbEstadoConst: get(16),
+      cmbCondicion: get(14),
+      cmbCondicionpredio: get(67),
+      cmbInterior: get(63),
+      cmbSituacionPredio: get(68),
+      txtNroCond: get(24),
+      txtNroPiso: get(23),
+      txtAreaTerreno: get(31),
+      txtAreaComun: get(32),
+      txtPorcenPropiedad: get(38),
+      txtPorcenConstruccion: get(88),
+      txtAreaUso: get(59),
+      txtFecAdqui: fixDate(get(52)),
+      txtFecTrans: fixDate(get(53)),
+      txtLuz: get(18),
+      txtAgua: get(19),
+      txtObs: get(47),
+      txtObservacionPredio: get(89),
+      chAfectoPred: get(40),
+      chbVendido: get(27),
+      chbLicencia: get(20),
+      chbConformidad: get(21),
+      chbDeclaracionFab: get(22),
+      // Condición especial
+      txtDocEspecial: get(69),
+      txtNroDocEspecial: get(70),
+      txtFechDocEspecial: fixDate(get(71)),
+      txtFechDocEspecialInicial: fixDate(get(72)),
+      txtFechDocEspecialFinal: fixDate(get(73)),
+      // Situación / Fiscalización
+      txtSituacionDocumento: get(74),
+      txtSituacionNroDoc: get(75),
+      txtSituacionFechDoc: fixDate(get(76)),
+      txtFechaFisca: get(77),
+      txtNroFisca: get(78),
+      // Edificio / Ingreso / Agrupamiento
+      cmbTipoEdificio: get(79),
+      txtNomEdificio: get(80),
+      txtPiso: get(81),
+      txtNumeroInterno: get(82),
+      txtLetraInterno: get(83),
+      cmbTipoIngreso: get(84),
+      txtNomIngreso: get(85),
+      cmbTipoAgrupamiento: get(86),
+      txtNomAgrupamiento: get(87),
+      // Arbitrios
+      txtArbAfecto: get(41),
+      cbAfectMesDesde: get(42),
+      cbAfectMesHasta: get(43),
+      txtArbObs: get(56),
+      txtUbiPar: '',
+      cb_limpieza: '',
+      cb_barrido: '',
+      cb_parque: '',
+      cb_serenazgo: '',
+      // Resumen del predio (bloque superior, solo lectura)
+      txtTerreno: get(34),
+      txtConstruccion: get(35),
+      txtInstalaciones: get(36),
+      txtAutovaluo: get(37),
+      txtBarrido: '',
+      txtRecoleccion: '',
+      txtParques: '',
+      txtSerenazgo: '',
+      // Auditoría
+      usuario: get(49),
+      estacion: get(50),
+      fechmod: get(51),
     };
   }
 
