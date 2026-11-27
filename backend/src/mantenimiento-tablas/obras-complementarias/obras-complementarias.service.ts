@@ -2,6 +2,7 @@ import { HttpException, Injectable, Logger } from '@nestjs/common';
 import * as mssql from 'mssql';
 import { DatabaseService } from '../../database/database.service';
 import {
+  CopyYearObrasComplementariasDto,
   CreateObraComplementariaDto,
   ObraComplementariaKeyDto,
   SearchObrasComplementariasDto,
@@ -9,12 +10,14 @@ import {
 } from './dto/obras-complementarias.dto';
 import {
   ObraComplementariaRow,
+  ObrasComplementariasCopyYearResponse,
   ObrasComplementariasDeleteResponse,
   ObrasComplementariasMutationResponse,
   ObrasComplementariasSearchResponse,
   ObrasComplementariasYearsResponse,
 } from './dto/obras-complementarias.types';
 import {
+  badRequestError,
   conflictError,
   databaseUnavailableError,
   notFoundError,
@@ -35,6 +38,8 @@ const SP_TYPES: Record<string, any> = {
   valor: mssql.Decimal(12, 2),
   descri_gener: mssql.VarChar(200),
   nestado: mssql.TinyInt,
+  anno_origen: mssql.Char(4),
+  anno_destino: mssql.Char(4),
   vusernm: mssql.VarChar(25),
   vhostnm: mssql.VarChar(25),
 };
@@ -220,6 +225,37 @@ export class ObrasComplementariasService {
     }
   }
 
+  async copyYear(
+    dto: CopyYearObrasComplementariasDto,
+    vusernm: string,
+    vhostnm: string,
+  ): Promise<ObrasComplementariasCopyYearResponse> {
+    try {
+      const result = await this.db.executeProcedure<ObraComplementariaRow>(
+        SP_NAME,
+        {
+          Accion: 'COPIAR_ANIO',
+          anno_origen: dto.anno_origen,
+          anno_destino: dto.anno_destino,
+          vusernm,
+          vhostnm,
+        },
+        SP_TYPES,
+      );
+
+      const data = result.recordset ?? [];
+      return {
+        message: `Año copiado exitosamente: ${data.length} registro${
+          data.length === 1 ? '' : 's'
+        }`,
+        copied: data.length,
+        data,
+      };
+    } catch (error) {
+      this.throwDatabaseError(error);
+    }
+  }
+
   private throwDatabaseError(error: unknown): never {
     if (error instanceof HttpException) {
       throw error;
@@ -231,6 +267,12 @@ export class ObrasComplementariasService {
       }
       if (error.number === 50010) {
         notFoundError('No se encontró la fila');
+      }
+      if (error.number === 50011 || error.number === 50012 || error.number === 50013 || error.number === 50014) {
+        badRequestError(error.message);
+      }
+      if (error.number === 50015) {
+        conflictError('El año destino ya tiene registros');
       }
     }
 

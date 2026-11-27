@@ -28,3 +28,9 @@ export interface ObrasComplementariasMutationResponse {
 export interface ObrasComplementariasDeleteResponse {
   message: string;
 }
+
+export interface ObrasComplementariasCopyYearResponse {
+  message: string;
+  copied: number;
+  data: ObraComplementariaRow[];
+}

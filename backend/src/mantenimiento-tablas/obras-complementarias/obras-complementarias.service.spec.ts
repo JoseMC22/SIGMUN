@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   NotFoundException,
   ServiceUnavailableException,
@@ -290,6 +291,79 @@ describe('ObrasComplementariasService', () => {
     expect(responseOf(error)).toEqual({
       code: 'not_found',
       message: 'No se encontró la fila',
+    });
+  });
+
+  it('copia todos los registros activos de un año a otro año vacío', async () => {
+    const copiedRow: ObraComplementariaRow = {
+      ...persistedRow,
+      anno: '2028',
+    };
+    executeProcedure.mockResolvedValueOnce({ recordset: [copiedRow] });
+
+    await expect(
+      service.copyYear(
+        { anno_origen: '2027', anno_destino: '2028' },
+        'mvaez',
+        'SERVIDOR-01',
+      ),
+    ).resolves.toEqual({
+      message: 'Año copiado exitosamente: 1 registro',
+      copied: 1,
+      data: [copiedRow],
+    });
+
+    const [name, params] = executeProcedure.mock.calls[0] as [
+      string,
+      Record<string, unknown>,
+    ];
+    expect(name).toBe(SP_NAME);
+    expect(params).toEqual({
+      Accion: 'COPIAR_ANIO',
+      anno_origen: '2027',
+      anno_destino: '2028',
+      vusernm: 'mvaez',
+      vhostnm: 'SERVIDOR-01',
+    });
+  });
+
+  it('rechaza copia cuando el año destino ya tiene registros', async () => {
+    executeProcedure.mockRejectedValueOnce(
+      mssqlError(50015, 'El anno destino ya tiene registros.'),
+    );
+
+    const error = await captureError(
+      service.copyYear(
+        { anno_origen: '2027', anno_destino: '2028' },
+        'mvaez',
+        'SERVIDOR-01',
+      ),
+    );
+
+    expect(error).toBeInstanceOf(ConflictException);
+    expect(responseOf(error)).toEqual({
+      code: 'conflict',
+      message: 'El año destino ya tiene registros',
+    });
+  });
+
+  it('rechaza copia cuando el año origen no tiene registros activos', async () => {
+    executeProcedure.mockRejectedValueOnce(
+      mssqlError(50014, 'El anno origen no tiene registros activos.'),
+    );
+
+    const error = await captureError(
+      service.copyYear(
+        { anno_origen: '2027', anno_destino: '2028' },
+        'mvaez',
+        'SERVIDOR-01',
+      ),
+    );
+
+    expect(error).toBeInstanceOf(BadRequestException);
+    expect(responseOf(error)).toEqual({
+      code: 'bad_request',
+      message: 'El anno origen no tiene registros activos.',
     });
   });
 

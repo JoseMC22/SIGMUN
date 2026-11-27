@@ -13,12 +13,14 @@ import { Request } from 'express';
 import { hostname } from 'os';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import {
+  CopyYearObrasComplementariasSchema,
   CreateObraComplementariaSchema,
   DeleteObraComplementariaSchema,
   SearchObrasComplementariasSchema,
   UpdateObraComplementariaSchema,
 } from './dto/obras-complementarias.dto';
 import {
+  ObrasComplementariasCopyYearResponse,
   ObrasComplementariasDeleteResponse,
   ObrasComplementariasMutationResponse,
   ObrasComplementariasSearchResponse,
@@ -88,6 +90,18 @@ export class ObrasComplementariasController {
     const { key } = parseOrThrow(DeleteObraComplementariaSchema, body);
     return this.service.remove(
       key,
+      audit(req.user?.username),
+      audit(hostname()),
+    );
+  }
+
+  @Post('copy-year')
+  async copyYear(
+    @Body() body: unknown,
+    @Req() req: AuthRequest,
+  ): Promise<ObrasComplementariasCopyYearResponse> {
+    return this.service.copyYear(
+      parseOrThrow(CopyYearObrasComplementariasSchema, body),
       audit(req.user?.username),
       audit(hostname()),
     );

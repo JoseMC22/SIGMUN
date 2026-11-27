@@ -30,6 +30,10 @@ export function parseOrThrow<Output, Input>(
   }
 }
 
+export function badRequestError(message: string): never {
+  throw new BadRequestException({ code: 'bad_request', message });
+}
+
 export function conflictError(message: string): never {
   throw new ConflictException({ code: 'conflict', message });
 }

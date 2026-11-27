@@ -5,13 +5,15 @@
    un único procedimiento con @Accion y tokens en mayúsculas.
 
    Acciones:
-     ANIOS        -> años distinct, orden descendente
-     CONSULTA     -> filas activas (nestado = 1) de @anno; @FiltroCateg = 1
-                     filtra por @categ (NULL = categoría nula)
-     ALTA         -> insert en TblInstala + fila de historial con accion = 'ALTA'
-     MODIFICACION -> update de datos + fila de historial con accion = 'MODIFICACION'
-     BAJA         -> update nestado = 0 + historial con accion = 'BAJA'
-     ELIMINACION  -> alias de BAJA, historial con accion = 'ELIMINACION'
+     ANIOS         -> años distinct, orden descendente
+     CONSULTA      -> filas activas (nestado = 1) de @anno; @FiltroCateg = 1
+                      filtra por @categ (NULL = categoría nula)
+     ALTA          -> insert en TblInstala + fila de historial con accion = 'ALTA'
+     MODIFICACION  -> update de datos + fila de historial con accion = 'MODIFICACION'
+     BAJA          -> update nestado = 0 + historial con accion = 'BAJA'
+     ELIMINACION   -> alias de BAJA, historial con accion = 'ELIMINACION'
+     COPIAR_ANIO   -> copia todos los registros activos de @anno_origen a
+                      @anno_destino, si @anno_destino no tiene filas.
 
    La baja es lógica: el SP nunca ejecuta DELETE sobre TblInstala.
    La clave natural es (id_instala, anno, categ); categ es anulable.
@@ -22,8 +24,7 @@
    duplicará el historial. Verificar antes de desplegar y deshabilitar el
    trigger o quitar el INSERT de auditoría de este procedimiento.
 
-   El backend SIGMUN sigue usando DML parametrizado; este SP es el script
-   de despliegue en BD y no está conectado todavía desde NestJS.
+   El backend SIGMUN usa este SP para todas las operaciones.
    ============================================================================ */
 
 CREATE OR ALTER PROCEDURE [Calculo].[sp_MInstala]
@@ -37,6 +38,8 @@ CREATE OR ALTER PROCEDURE [Calculo].[sp_MInstala]
     @valor         decimal(12,2) = NULL,
     @descri_gener  varchar(200)  = NULL,
     @nestado       tinyint       = 1,
+    @anno_origen   char(4)       = NULL,
+    @anno_destino  char(4)       = NULL,
     @vusernm       varchar(25),
     @vhostnm       varchar(25)
 AS
@@ -82,8 +85,74 @@ BEGIN
             RETURN;
         END
 
-        IF @Accion NOT IN ('ALTA', 'MODIFICACION', 'BAJA', 'ELIMINACION')
-            THROW 50003, 'Accion no reconocida. Use ALTA, MODIFICACION, BAJA o ELIMINACION.', 1;
+        IF @Accion NOT IN ('ALTA', 'MODIFICACION', 'BAJA', 'ELIMINACION', 'COPIAR_ANIO')
+            THROW 50003, 'Accion no reconocida. Use ALTA, MODIFICACION, BAJA, ELIMINACION o COPIAR_ANIO.', 1;
+
+        /* ---------- copiar año ---------- */
+        IF @Accion = 'COPIAR_ANIO'
+        BEGIN
+            IF @anno_origen IS NULL OR LEN(LTRIM(RTRIM(@anno_origen))) <> 4
+                THROW 50011, 'anno_origen debe tener 4 digitos.', 1;
+
+            IF @anno_destino IS NULL OR LEN(LTRIM(RTRIM(@anno_destino))) <> 4
+                THROW 50012, 'anno_destino debe tener 4 digitos.', 1;
+
+            IF @anno_origen = @anno_destino
+                THROW 50013, 'anno_origen y anno_destino deben ser distintos.', 1;
+
+            IF NOT EXISTS (
+                SELECT 1 FROM [Calculo].[TblInstala]
+                WHERE anno = @anno_origen AND nestado = 1
+            )
+                THROW 50014, 'El anno origen no tiene registros activos.', 1;
+
+            IF EXISTS (
+                SELECT 1 FROM [Calculo].[TblInstala]
+                WHERE anno = @anno_destino
+            )
+                THROW 50015, 'El anno destino ya tiene registros.', 1;
+
+            SELECT @histCategLen = CHARACTER_MAXIMUM_LENGTH
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = 'Historial'
+              AND TABLE_NAME = 'HTblInstala'
+              AND COLUMN_NAME = 'categ';
+
+            BEGIN TRAN;
+                INSERT INTO [Calculo].[TblInstala]
+                    (id_instala, anno, instala, uni_med, valor, descri_gener,
+                     nestado, vhostnm, vusernm, ddatetm, categ)
+                SELECT id_instala, @anno_destino, instala, uni_med, valor, descri_gener,
+                       1, @vhostnm, @vusernm, @ddatetm, categ
+                FROM [Calculo].[TblInstala]
+                WHERE anno = @anno_origen
+                  AND nestado = 1;
+
+                INSERT INTO [Historial].[HTblInstala]
+                    (id_instala, anno, instala, uni_med, valor, descri_gener,
+                     nestado, vhostnm, vusernm, ddatetm, categ, accion)
+                SELECT id_instala, @anno_destino, instala, uni_med, valor, descri_gener,
+                       1, @vhostnm, @vusernm, @ddatetm,
+                       CASE
+                           WHEN categ IS NULL THEN NULL
+                           WHEN LEN(LTRIM(RTRIM(categ))) > ISNULL(@histCategLen, 1)
+                               THEN CAST(LEFT(LTRIM(RTRIM(categ)), ISNULL(@histCategLen, 1)) AS nchar(2))
+                           ELSE categ
+                       END,
+                       'COPIA'
+                FROM [Calculo].[TblInstala]
+                WHERE anno = @anno_origen
+                  AND nestado = 1;
+            COMMIT TRAN;
+
+            SELECT id_instala, anno, instala, uni_med, valor, descri_gener,
+                   nestado, vhostnm, vusernm, ddatetm, categ
+            FROM [Calculo].[TblInstala]
+            WHERE anno = @anno_destino
+              AND nestado = 1
+            ORDER BY id_instala, categ;
+            RETURN;
+        END
 
         /* ---------- validación de clave ---------- */
         IF @id_instala IS NULL OR LEN(LTRIM(RTRIM(@id_instala))) <> 3

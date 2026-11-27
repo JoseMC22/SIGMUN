@@ -71,6 +71,15 @@ export const DeleteObraComplementariaSchema = z.object({
   key: ObraComplementariaKeySchema,
 });
 
+export const CopyYearObrasComplementariasSchema = z.object({
+  anno_origen: z
+    .string()
+    .regex(/^\d{4}$/, 'El año origen debe tener 4 dígitos'),
+  anno_destino: z
+    .string()
+    .regex(/^\d{4}$/, 'El año destino debe tener 4 dígitos'),
+});
+
 export const SearchObrasComplementariasSchema = z.object({
   anno: z.string().regex(/^\d{4}$/, 'El año debe tener 4 dígitos'),
   categ: SearchCategSchema,
@@ -90,4 +99,7 @@ export type UpdateObraComplementariaDto = z.infer<
 >;
 export type SearchObrasComplementariasDto = z.infer<
   typeof SearchObrasComplementariasSchema
+>;
+export type CopyYearObrasComplementariasDto = z.infer<
+  typeof CopyYearObrasComplementariasSchema
 >;
