@@ -109,3 +109,5 @@ L12: "si vamos por la opción A" — el usuario confirma el diseño para el bot�
 E6: Implementación del botón "Copiar año". SP `backend/sql/sp_MInstala-crud.sql` actualizado con acción `COPIAR_ANIO`, parámetros `@anno_origen`/`@anno_destino` y validaciones (años de 4 dígitos, distintos, origen con activos, destino vacío). Backend: nuevo endpoint `POST /copy-year` en controller, DTO Zod, método en service y tests (27 verdes). Frontend: modal `copy-year-modal.tsx`, botón en `page.tsx` y tests en `page.test.tsx` (6 verdes). Typecheck backend y frontend solo reportan errores preexistentes en otros módulos.
 
 E7: SP actualizado para insertar también en `Calculo.Tbldinstala` (`id_instala`, `anno`, `valor = 1.00`, `operador`, `estacion`, `fech_ing`) tanto en la acción `ALTA` como en `COPIAR_ANIO`. `id_tbl` es autoincremental; `operador` y `estacion` son nullable varchar(50).
+
+E8: Ajustes UI finales: botones "Copiar año" y "Nueva obra" agrupados sin separación (esquinas redondeadas compartidas) en `page.tsx`; campo "Instalación" del modal convertido a `<textarea rows={5}>` en `obra-complementaria-form-modal.tsx`.

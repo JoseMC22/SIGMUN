@@ -229,22 +229,24 @@ export default function ObrasComplementariasPage() {
           <p className="text-xs text-slate-600" role="status">
             {data.length} {data.length === 1 ? "registro activo" : "registros activos"}
           </p>
-          <button
-            type="button"
-            onClick={() => setCopyYearOpen(true)}
-            className={`inline-flex min-h-9 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 active:scale-[0.98] ${focusClass}`}
-          >
-            <Copy size={14} aria-hidden="true" />
-            Copiar año
-          </button>
-          <button
-            type="button"
-            onClick={() => setFormMode("create")}
-            className={`inline-flex min-h-9 items-center gap-1.5 rounded-md bg-sat-navy px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-slate-800 active:scale-[0.98] ${focusClass}`}
-          >
-            <Plus size={14} aria-hidden="true" />
-            Nueva obra
-          </button>
+          <div className="flex items-center">
+            <button
+              type="button"
+              onClick={() => setCopyYearOpen(true)}
+              className={`inline-flex min-h-9 items-center gap-1.5 rounded-l-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 active:scale-[0.98] ${focusClass}`}
+            >
+              <Copy size={14} aria-hidden="true" />
+              Copiar año
+            </button>
+            <button
+              type="button"
+              onClick={() => setFormMode("create")}
+              className={`inline-flex min-h-9 items-center gap-1.5 rounded-r-md border border-l-0 border-sat-navy bg-sat-navy px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-slate-800 active:scale-[0.98] ${focusClass}`}
+            >
+              <Plus size={14} aria-hidden="true" />
+              Nueva obra
+            </button>
+          </div>
         </div>
       )}
 

@@ -242,13 +242,13 @@ export default function ObraComplementariaFormModal({
             <label htmlFor="oc-instala" className={labelClass}>
               Instalación
             </label>
-            <input
+            <textarea
               id="oc-instala"
-              type="text"
+              rows={5}
               maxLength={200}
               value={instala}
               onChange={(event) => setInstala(event.target.value)}
-              className={inputClass}
+              className={`${inputClass} resize-none`}
               autoFocus={isEdit}
               required
             />
