@@ -37,6 +37,7 @@ import { ReporteFraccDetalladoModule } from './cobranza/reporte-fracc-detallado/
 import { ReportesModule } from './reportes-gerenciales/reportes-gerenciales.module';
 import { MantenimientoUitModule } from './mantenimiento-tablas/mantenimiento-uit/mantenimiento-uit.module';
 import { ValoresUnitariosModule } from './mantenimiento-tablas/valores-unitarios/valores-unitarios.module';
+import { ObrasComplementariasModule } from './mantenimiento-tablas/obras-complementarias/obras-complementarias.module';
 import { ConvenioEstadoModule } from './mantenimiento-tablas/mantenimiento-estado-convenios/convenio-estado.module';
 import { OrdenanzasModule } from './mantenimiento-tablas/ordenanzas/ordenanzas.module';
 import { PapeletaTransitoModule } from './papeleta-transito/papeleta-transito.module';
@@ -140,6 +141,8 @@ import { StorageModule } from './storage/storage.module';
     MantenimientoUitModule,
     // Módulo de mantenimiento de tablas - valores unitarios (Calculo.Tblvaluni)
     ValoresUnitariosModule,
+    // Módulo de mantenimiento de tablas - obras complementarias (Calculo.TblInstala)
+    ObrasComplementariasModule,
     // Módulo de mantenimiento - estados de convenio
     ConvenioEstadoModule,
     // Módulo de mantenimiento de tablas - ordenanzas de caja (listado)
