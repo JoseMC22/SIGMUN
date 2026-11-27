@@ -49,6 +49,7 @@ import {
   PredioPisoGridItem,
   PredioInstalGridItem,
   PredioDocGridItem,
+  PredioDataResult,
   ValorPisoResult,
 } from './dto/declaracion-jurada.types';
 import {
@@ -1582,6 +1583,31 @@ export class DeclaracionJuradaController {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Error al cargar combos del predio.',
+      };
+    }
+  }
+
+  @Get('predio/data')
+  async getPredioData(
+    @Query('codigo') codigo: string,
+    @Query('anno') anno: string,
+    @Query('cod_pred') codPred: string,
+    @Query('anexo') anexo: string,
+    @Query('sub_anexo') subAnexo: string,
+  ): Promise<{ success: true; data: PredioDataResult } | { success: false; error: string }> {
+    try {
+      const data = await this.service.getPredioData(
+        codigo ?? '',
+        anno ?? '',
+        codPred ?? '',
+        anexo ?? '',
+        subAnexo ?? '',
+      );
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error al cargar los datos del predio.',
       };
     }
   }

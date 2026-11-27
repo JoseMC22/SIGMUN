@@ -48,18 +48,17 @@ export default function AdquirienteBusquedaModal({ isOpen, onClose, onSelect }: 
   // Register in the modal stack: ESC must close ONLY the topmost modal,
   // never the parent baja-predio modal underneath (project convention).
   const modalId = useModalStack(isOpen);
-  const topModal = isTopModal(modalId);
 
   // Escape closes this modal only when it is the top of the stack.
   useEffect(() => {
-    if (!isOpen || !topModal) return;
+    if (!isOpen) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") handleClose();
+      if (e.key === "Escape" && isTopModal(modalId)) handleClose();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, topModal]);
+  }, [isOpen, modalId]);
 
   // Legacy zero-pads the código criterion to 7 digits on Enter/blur before
   // searching ('0000000'.substring(0, 7 - len) + valor).

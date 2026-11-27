@@ -53,14 +53,13 @@ export default function HistorialPredioModal({
 
   const rootRef = useRef<HTMLDivElement>(null);
   const modalId = useModalStack(isOpen);
-  const topModal = isTopModal(modalId);
 
   useEffect(() => {
-    if (!isOpen || !topModal) return;
-    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    if (!isOpen) return;
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape" && isTopModal(modalId)) onClose(); };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [isOpen, topModal, onClose]);
+  }, [isOpen, modalId, onClose]);
 
   useEffect(() => {
     if (!isOpen) {

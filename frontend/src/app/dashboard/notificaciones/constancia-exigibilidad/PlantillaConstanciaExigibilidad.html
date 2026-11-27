@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Constancia de Exigibilidad N&deg; {{nroconstancia}}</title>
+<!--
+  PlantillaConstanciaExigibilidad.html — S8 de odd/tasks/constancia-exigibilidad.md
+  Documento legal A4 SIN QR. Relleno por placeholders de doble llave (split/join,
+  convencion reporte-service.llenarPlantilla) y render via iframe de impresion.
+  Placeholders (contrato S8, NO renombrar):
+    {{nombre}}          Administrado
+    {{nroconstancia}}   Nro. de constancia (NUMEXIG-ANOEXIG)
+    {{valor_completo}}  Valor completo (tipo + ano + numero)
+    {{fnotifica}}       Fecha de notificacion (dd/MM/yyyy)
+    {{nrocargo}}        Nro. de cargo de notificacion
+    {{dia}} {{mes}} {{anio}}  Fecha de emision (DD / MMMM es-ES / AAAA)
+-->
+<style>
+  @page { size: A4; margin: 18mm 21mm; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Times New Roman", Times, serif;
+    font-size: 12pt;
+    color: #111;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .doc { min-height: 261mm; display: flex; flex-direction: column; }
+
+  /* ---- Encabezado institucional ---- */
+  .cabecera {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16pt;
+    padding-bottom: 10pt;
+    border-bottom: 2.5pt solid #1f4e79;
+  }
+  .cabecera .logo { width: 150pt; height: auto; }
+  .cabecera .muni {
+    text-align: right;
+    font-size: 12.5pt;
+    font-weight: bold;
+    color: #1f4e79;
+    line-height: 1.25;
+  }
+  .cabecera .muni .sat-line {
+    font-size: 9.5pt;
+    font-weight: normal;
+    letter-spacing: 0.4pt;
+    color: #444;
+  }
+
+  /* ---- Titulo ---- */
+  .titulo {
+    margin: 22pt 0 6pt;
+    text-align: center;
+    font-size: 15.5pt;
+    font-weight: bold;
+    letter-spacing: 0.5pt;
+    color: #1f4e79;
+    text-transform: uppercase;
+  }
+  .titulo-sub {
+    text-align: center;
+    font-size: 10pt;
+    color: #555;
+    margin-bottom: 20pt;
+  }
+
+  /* ---- Cuerpo legal ---- */
+  .cuerpo { text-align: justify; line-height: 1.55; }
+  .cuerpo p { margin-bottom: 12pt; }
+  .cuerpo .hace-constar { font-weight: bold; }
+  .dato { font-weight: bold; }
+  .exigible {
+    font-weight: bold;
+    text-transform: uppercase;
+  }
+
+  /* ---- Fecha de emision ---- */
+  .fecha-emision {
+    margin-top: 26pt;
+    text-align: right;
+  }
+
+  /* ---- Firmas ---- */
+  .firmas {
+    margin-top: 72pt;
+    display: flex;
+    justify-content: space-around;
+    gap: 48pt;
+  }
+  .firma { width: 200pt; text-align: center; }
+  .firma .linea { border-top: 1pt solid #111; margin-bottom: 4pt; }
+  .firma .rol { font-size: 10.5pt; font-weight: bold; }
+  .firma .area { font-size: 9.5pt; color: #444; }
+
+  /* ---- Pie ---- */
+  .pie {
+    margin-top: auto;
+    padding-top: 8pt;
+    border-top: 1pt solid #1f4e79;
+    text-align: center;
+    font-size: 8.5pt;
+    color: #555;
+  }
+</style>
+</head>
+<body>
+  <div class="doc">
+
+    <div class="cabecera">
+      <img class="logo" src="/logo_sat_2026.jpeg" alt="SAT ICA"
+           onerror="this.style.display='none'">
+      <div class="muni">
+        Municipalidad Provincial de Ica
+        <div class="sat-line">SERVICIO DE ADMINISTRACI&Oacute;N TRIBUTARIA DE ICA</div>
+      </div>
+    </div>
+
+    <h1 class="titulo">Constancia de Exigibilidad N&deg; {{nroconstancia}}</h1>
+    <div class="titulo-sub">&Aacute;rea de Notificaciones &mdash; Ejecutor Coactivo</div>
+
+    <div class="cuerpo">
+      <p>
+        <span class="hace-constar">EL SERVICIO DE ADMINISTRACI&Oacute;N TRIBUTARIA DE
+        ICA &mdash; SAT ICA</span>, en uso de sus facultades y en el marco del
+        procedimiento de notificaciones, <span class="hace-constar">HACE
+        CONSTAR QUE:</span>
+      </p>
+      <p>
+        El valor <span class="dato">{{valor_completo}}</span>, girado a cargo del
+        administrado <span class="dato">{{nombre}}</span>, fue notificado conforme a
+        ley con Cargo de Notificaci&oacute;n N&deg; <span class="dato">{{nrocargo}}</span>,
+        de fecha <span class="dato">{{fnotifica}}</span>.
+      </p>
+      <p>
+        Habiendo transcurrido los siete (7) d&iacute;as h&aacute;biles siguientes a la
+        fecha de notificaci&oacute;n sin que el administrado acreditara el pago
+        correspondiente, el referido valor ha quedado
+        <span class="exigible">exigible</span>, habilit&aacute;ndose el inicio del
+        procedimiento de ejecuci&oacute;n coactiva conforme a lo dispuesto en la
+        normativa tributaria vigente.
+      </p>
+      <p>
+        En constancia de lo expuesto, se emite el presente documento.
+      </p>
+    </div>
+
+    <div class="fecha-emision">
+      Ica, a los {{dia}} d&iacute;as del mes de {{mes}} de {{anio}}.
+    </div>
+
+    <div class="firmas">
+      <div class="firma">
+        <div class="linea"></div>
+        <div class="rol">Notificador(a)</div>
+        <div class="area">&Aacute;rea de Notificaciones</div>
+      </div>
+      <div class="firma">
+        <div class="linea"></div>
+        <div class="rol">Jefe(a) de Notificaciones</div>
+        <div class="area">SAT ICA</div>
+      </div>
+    </div>
+
+    <div class="pie">
+      Servicio de Administraci&oacute;n Tributaria de Ica &mdash; SAT ICA &middot;
+      Constancia de Exigibilidad N&deg; {{nroconstancia}}
+    </div>
+
+  </div>
+</body>
+</html>

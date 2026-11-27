@@ -90,10 +90,42 @@ coverage/
 # decode base64->Blob que comparten consulta-valores e imprimir la OP.
 !frontend/src/lib/op-pdf.test.ts
 
+# Excepcion: los tests frontend de reporte-fracc-detallado SI se versionan
+# (casing del DTO, semantica LIKE del codigo, espejo COLUMNAS/WS_COLUMNS).
+!frontend/src/actions/cobranza/reporte-fracc-detallado.test.ts
+!frontend/src/app/dashboard/cobranza/reporte-fracc-detallado/*.test.ts
+!frontend/src/app/dashboard/cobranza/reporte-fracc-detallado/*.test.tsx
+
 # Excepcion: los specs de cobranza/certificado-no-adeudo SI se versionan. El
 # contrato de los SP (nombre exacto y parametros), la regla del recibo cancelado
 # y la estructura de la URL del QR solo quedan cubiertos por estos tests.
 !backend/src/cobranza/certificado-no-adeudo/**/*.spec.ts
+
+# Excepcion: los specs de reporte-fracc-detallado SI se versionan. El SP
+# (@BUSC=40) tiene semantica de filtros medida —CODIGO con LIKE contiene y sin
+# padding, ANNO e id_mes exactos y obligatorios, id_mes sin ceros a la
+# izquierda— y estos tests son la unica red que la mantiene bajo control.
+!backend/src/cobranza/reporte-fracc-detallado/**/*.spec.ts
+
+# Excepcion: los specs/tests de constancia-exigibilidad SI se versionan. La
+# regla de emision (>= 7 dias habiles desde FNotifica, S10), los mensajes
+# verbatim de validacion (S2/S3/S4/S6/S8) y el contrato de placeholders del
+# PDF sin QR solo quedan cubiertos por estos tests.
+!backend/src/notificaciones/constancia-exigibilidad/**/*.spec.ts
+!frontend/src/actions/notificaciones/constancia-exigibilidad.test.ts
+!frontend/src/app/dashboard/notificaciones/constancia-exigibilidad/*.test.ts
+!frontend/src/app/dashboard/notificaciones/constancia-exigibilidad/*.test.tsx
+
+# Excepcion: el spec de mantenimiento-ingresos SI se versiona. El SP
+# (dbo.t_tipo_sing @msquery=15) cambio su resultado (FteFin/Tupa) y este test
+# es la red que evita que Rubro vuelva a salir vacio.
+!backend/src/tesoreria/mantenimiento-ingresos/mantenimiento-ingresos.service.spec.ts
+
+# Excepcion: valores-unitarios (CRUD de Calculo.Tblvaluni) versiona sus specs
+# porque la clave natural (region, año, codi) y el envelope canonico son la
+# unica red contra regresiones de SQL parametrizado y auditoria.
+!backend/src/mantenimiento-tablas/valores-unitarios/**/*.spec.ts
+!frontend/src/app/dashboard/mantenimiento-tablas/valores-unitarios/**/*.test.tsx
 
 # Auto-generated / workspace
 pnpm-lock.yaml

@@ -676,6 +676,109 @@ export interface PredioCombosResult {
   /** Valor viene como "codigo|unid-medida" para autocompletar med., como el legado. */
 }
 
+/**
+ * Datos completos de un predio para edición (Mantenimiento de Predios).
+ * Mapea el resultado de Rentas.sp_VistaPred @msquery=1 (legacy prediosAction).
+ * Los índices coinciden con el array posicional del SP legacy.
+ */
+export interface PredioDataResult {
+  // Identificadores
+  codigo: string;
+  anno: string;
+  codPred: string;
+  anexo: string;
+  subAnexo: string;
+  // Ubicación
+  cbtipopredio: string;
+  txtCvia: string;
+  txtVia: string;
+  txtCp: string;
+  txtSector: string;
+  txtArancel: string;
+  txtDir: string;
+  txtNro: string;
+  txtDpto: string;
+  txtMza: string;
+  txtLte: string;
+  txtSubLte: string;
+  txtFrontis: string;
+  txtNro2: string;
+  txtLetra: string;
+  txtLetra2: string;
+  txtFondo: string;
+  // Características
+  cmbUso: string;
+  cmbTipPredio: string;
+  cmbEstadoConst: string;
+  cmbCondicion: string;
+  cmbCondicionpredio: string;
+  cmbInterior: string;
+  cmbSituacionPredio: string;
+  txtNroCond: string;
+  txtNroPiso: string;
+  txtAreaTerreno: string;
+  txtAreaComun: string;
+  txtPorcenPropiedad: string;
+  txtPorcenConstruccion: string;
+  txtAreaUso: string;
+  txtFecAdqui: string;
+  txtFecTrans: string;
+  txtLuz: string;
+  txtAgua: string;
+  txtObs: string;
+  txtObservacionPredio: string;
+  chAfectoPred: string;
+  chbVendido: string;
+  chbLicencia: string;
+  chbConformidad: string;
+  chbDeclaracionFab: string;
+  // Condición especial
+  txtDocEspecial: string;
+  txtNroDocEspecial: string;
+  txtFechDocEspecial: string;
+  txtFechDocEspecialInicial: string;
+  txtFechDocEspecialFinal: string;
+  // Situación / Fiscalización
+  txtSituacionDocumento: string;
+  txtSituacionNroDoc: string;
+  txtSituacionFechDoc: string;
+  txtFechaFisca: string;
+  txtNroFisca: string;
+  // Edificio / Ingreso / Agrupamiento
+  cmbTipoEdificio: string;
+  txtNomEdificio: string;
+  txtPiso: string;
+  txtNumeroInterno: string;
+  txtLetraInterno: string;
+  cmbTipoIngreso: string;
+  txtNomIngreso: string;
+  cmbTipoAgrupamiento: string;
+  txtNomAgrupamiento: string;
+  // Arbitrios
+  txtArbAfecto: string;
+  cbAfectMesDesde: string;
+  cbAfectMesHasta: string;
+  txtArbObs: string;
+  txtUbiPar: string;
+  cb_limpieza: string;
+  cb_barrido: string;
+  cb_parque: string;
+  cb_serenazgo: string;
+  // Resumen del predio (bloque superior, solo lectura)
+  txtTerreno: string;
+  txtConstruccion: string;
+  txtInstalaciones: string;
+  txtAutovaluo: string;
+  txtBarrido: string;
+  txtRecoleccion: string;
+  txtParques: string;
+  txtSerenazgo: string;
+  // Auditoría
+  usuario: string;
+  estacion: string;
+  fechmod: string;
+}
+
 // ── Baja de Predio (descargo) — [Rentas].[BajasPredio] ──
 export interface BajaPredioResult {
   success: boolean;

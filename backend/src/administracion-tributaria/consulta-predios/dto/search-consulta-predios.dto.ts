@@ -1,0 +1,81 @@
+import { z } from 'zod';
+
+/** Optional filters stay valid as empty strings; otherwise digits only. */
+const DIGITS_ONLY = /^\d*$/;
+const DIGITS_ONLY_MESSAGE = { message: 'Only digits are allowed' };
+
+/**
+ * The SP interpolates @anno into dynamic SQL, so a four-digit year is the only
+ * accepted format. Empty stays valid and is defaulted to the current year.
+ */
+const YEAR_OR_EMPTY = /^(?:\d{4})?$/;
+const YEAR_MESSAGE = { message: 'Year must be four digits' };
+
+/** Uppercases the six free-text location filters at the API boundary. */
+function uppercase(value: string): string {
+  return value.toUpperCase();
+}
+
+/**
+ * Reproduce el padding legacy de js_consultapred.js L39-52: un código numérico
+ * no vacío se rellena con ceros a la izquierda hasta 7 caracteres; los códigos
+ * ya más largos y los no numéricos se dejan intactos.
+ */
+function padCodigo(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed.length === 0 || !/^\d+$/.test(trimmed)) {
+    return trimmed;
+  }
+  const zeros = '0000000';
+  if (trimmed.length >= zeros.length) {
+    return trimmed;
+  }
+  return zeros.substring(0, zeros.length - trimmed.length) + trimmed;
+}
+
+/**
+ * El SP interpola @anno en SQL dinámico en @busc=19; con el año vacío genera
+ * `get_instalaciones(c.codigo, , ...)` y falla con error 102. La rama de conteo
+ * del propio SP usa year(getdate()), así que el boundary aplica el mismo default.
+ */
+function defaultAnnoToCurrentYear(value: string): string {
+  return value.length === 0 ? String(new Date().getFullYear()) : value;
+}
+
+/** Los 10 filtros compartidos por los branches @busc=19/20 y @busc=21. */
+export const ConsultaPrediosFiltersSchema = z.object({
+  codigo: z.coerce
+    .string()
+    .trim()
+    .regex(DIGITS_ONLY, DIGITS_ONLY_MESSAGE)
+    .default('')
+    .transform(padCodigo),
+  codPred: z.coerce
+    .string()
+    .trim()
+    .regex(DIGITS_ONLY, DIGITS_ONLY_MESSAGE)
+    .default(''),
+  anno: z.coerce
+    .string()
+    .trim()
+    .regex(YEAR_OR_EMPTY, YEAR_MESSAGE)
+    .default('')
+    .transform(defaultAnnoToCurrentYear),
+  codVia: z.coerce.string().trim().default('').transform(uppercase),
+  urbBus: z.coerce.string().trim().default('').transform(uppercase),
+  nro: z.coerce.string().trim().default(''),
+  dpto: z.coerce.string().trim().default('').transform(uppercase),
+  mza: z.coerce.string().trim().default('').transform(uppercase),
+  lte: z.coerce.string().trim().default('').transform(uppercase),
+  sublote: z.coerce.string().trim().default('').transform(uppercase),
+});
+
+/** Filtros del branch @busc=19/20 más paginación 1-based. */
+export const SearchConsultaPrediosSchema = ConsultaPrediosFiltersSchema.extend({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).default(20),
+});
+
+export type SearchConsultaPrediosDto = z.infer<
+  typeof SearchConsultaPrediosSchema
+>;
