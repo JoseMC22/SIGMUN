@@ -9,11 +9,13 @@
      CONSULTA      -> filas activas (nestado = 1) de @anno; @FiltroCateg = 1
                       filtra por @categ (NULL = categoría nula)
      ALTA          -> insert en TblInstala + fila de historial con accion = 'ALTA'
+                      + fila en Tbldinstala con valor = 1
      MODIFICACION  -> update de datos + fila de historial con accion = 'MODIFICACION'
      BAJA          -> update nestado = 0 + historial con accion = 'BAJA'
      ELIMINACION   -> alias de BAJA, historial con accion = 'ELIMINACION'
      COPIAR_ANIO   -> copia todos los registros activos de @anno_origen a
-                      @anno_destino, si @anno_destino no tiene filas.
+                      @anno_destino, si @anno_destino no tiene filas;
+                      inserta también en Tbldinstala con valor = 1.
 
    La baja es lógica: el SP nunca ejecuta DELETE sobre TblInstala.
    La clave natural es (id_instala, anno, categ); categ es anulable.
@@ -143,6 +145,13 @@ BEGIN
                 FROM [Calculo].[TblInstala]
                 WHERE anno = @anno_origen
                   AND nestado = 1;
+
+                INSERT INTO [Calculo].[Tbldinstala]
+                    (id_instala, anno, valor, operador, estacion, fech_ing)
+                SELECT id_instala, @anno_destino, 1.00, @vusernm, @vhostnm, @ddatetm
+                FROM [Calculo].[TblInstala]
+                WHERE anno = @anno_origen
+                  AND nestado = 1;
             COMMIT TRAN;
 
             SELECT id_instala, anno, instala, uni_med, valor, descri_gener,
@@ -212,6 +221,11 @@ BEGIN
                 VALUES
                     (@id_instala, @anno, @instala, @uni_med, @valor, @descri_gener,
                      @nestado, @vhostnm, @vusernm, @ddatetm, @categHist, 'ALTA');
+
+                INSERT INTO [Calculo].[Tbldinstala]
+                    (id_instala, anno, valor, operador, estacion, fech_ing)
+                VALUES
+                    (@id_instala, @anno, 1.00, @vusernm, @vhostnm, @ddatetm);
             COMMIT TRAN;
 
             SELECT id_instala, anno, instala, uni_med, valor, descri_gener,

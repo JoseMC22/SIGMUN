@@ -31,6 +31,8 @@ S5. "haz un crud y dame el script para un procedimiento almacenado similar al de
 
 S6. "se debe agregar un nuevo boton que permita copiar los registros de un año a otro, validando que el año no se encuentre registrado"
 
+S7. "al momento de grabar un nuevo valor en tblinstala, se debe registrar en tbldintala, con el valor 1" — y aplica también a la copia de año.
+
 ## Tasks
 
 T1 (backend: módulo, controller, service, DTOs, errores y tests) | S2-S4 | gentle-ai-worker | 2dacbff, 2cb51de
@@ -105,3 +107,5 @@ E5: Causa del bug: el frontend siempre enviaba `categ=` (cadena vacía) en la UR
 L12: "si vamos por la opción A" — el usuario confirma el diseño para el botón "Copiar año": copiar registros activos del año origen a un año destino, validando que el año destino no tenga ningún registro en `Calculo.TblInstala`.
 
 E6: Implementación del botón "Copiar año". SP `backend/sql/sp_MInstala-crud.sql` actualizado con acción `COPIAR_ANIO`, parámetros `@anno_origen`/`@anno_destino` y validaciones (años de 4 dígitos, distintos, origen con activos, destino vacío). Backend: nuevo endpoint `POST /copy-year` en controller, DTO Zod, método en service y tests (27 verdes). Frontend: modal `copy-year-modal.tsx`, botón en `page.tsx` y tests en `page.test.tsx` (6 verdes). Typecheck backend y frontend solo reportan errores preexistentes en otros módulos.
+
+E7: SP actualizado para insertar también en `Calculo.Tbldinstala` (`id_instala`, `anno`, `valor = 1.00`, `operador`, `estacion`, `fech_ing`) tanto en la acción `ALTA` como en `COPIAR_ANIO`. `id_tbl` es autoincremental; `operador` y `estacion` son nullable varchar(50).
