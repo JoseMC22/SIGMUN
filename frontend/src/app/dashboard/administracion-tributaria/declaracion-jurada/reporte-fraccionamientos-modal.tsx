@@ -46,7 +46,6 @@ const inputClass =
  */
 export default function ReporteFraccionamientosModal({ isOpen, onClose }: Props) {
   const modalId = useModalStack(isOpen);
-  const topModal = isTopModal(modalId);
 
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -93,13 +92,13 @@ export default function ReporteFraccionamientosModal({ isOpen, onClose }: Props)
 
   // Cierra con Escape (solo si este modal es el tope de la pila).
   useEffect(() => {
-    if (!isOpen || !topModal) return;
+    if (!isOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape" && isTopModal(modalId)) onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [isOpen, topModal, onClose]);
+  }, [isOpen, modalId, onClose]);
 
   // ── Buscar ──
   const handleBuscar = useCallback(async () => {

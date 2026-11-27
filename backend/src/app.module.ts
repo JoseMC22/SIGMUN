@@ -18,6 +18,7 @@ import { DeclaracionJuradaModule } from './administracion-tributaria/declaracion
 import { MaestroContribuyentesModule } from './administracion-tributaria/maestro-contribuyentes/maestro-contribuyentes.module';
 import { PrediosContribuyentesModule } from './administracion-tributaria/predios-contribuyentes/predios-contribuyentes.module';
 import { ConsultaPrediosModule } from './administracion-tributaria/consulta-predios/consulta-predios.module';
+import { EstadoCuentaProyectadoModule } from './administracion-tributaria/estado-cuenta-proyectado/estado-cuenta-proyectado.module';
 import { ReporteDeudaUsoModule } from './administracion-tributaria/reporte-deuda-uso/reporte-deuda-uso.module';
 import { ReporteInafectosModule } from './administracion-tributaria/reporte-inafectos/reporte-inafectos.module';
 import { ReporteIngresosCajeroModule } from './administracion-tributaria/reporte-ingresos-cajero/reporte-ingresos-cajero.module';
@@ -35,6 +36,8 @@ import { CertificadoNoAdeudoModule } from './cobranza/certificado-no-adeudo/cert
 import { ReporteFraccDetalladoModule } from './cobranza/reporte-fracc-detallado/reporte-fracc-detallado.module';
 import { ReportesModule } from './reportes-gerenciales/reportes-gerenciales.module';
 import { MantenimientoUitModule } from './mantenimiento-tablas/mantenimiento-uit/mantenimiento-uit.module';
+import { ValoresUnitariosModule } from './mantenimiento-tablas/valores-unitarios/valores-unitarios.module';
+import { ObrasComplementariasModule } from './mantenimiento-tablas/obras-complementarias/obras-complementarias.module';
 import { ConvenioEstadoModule } from './mantenimiento-tablas/mantenimiento-estado-convenios/convenio-estado.module';
 import { OrdenanzasModule } from './mantenimiento-tablas/ordenanzas/ordenanzas.module';
 import { PapeletaTransitoModule } from './papeleta-transito/papeleta-transito.module';
@@ -90,6 +93,8 @@ import { StorageModule } from './storage/storage.module';
     PrediosContribuyentesModule,
     // Módulo de administración tributaria - consulta de predios
     ConsultaPrediosModule,
+    // Módulo de administración tributaria - estado de cuenta proyectado (búsqueda)
+    EstadoCuentaProyectadoModule,
     // Módulo de administración tributaria - reporte de deuda por uso
     ReporteDeudaUsoModule,
     // Módulo de administración tributaria - reporte de inafectos
@@ -134,6 +139,10 @@ import { StorageModule } from './storage/storage.module';
     InconsistenciaModule,
     // Módulo de mantenimiento de tablas - UIT
     MantenimientoUitModule,
+    // Módulo de mantenimiento de tablas - valores unitarios (Calculo.Tblvaluni)
+    ValoresUnitariosModule,
+    // Módulo de mantenimiento de tablas - obras complementarias (Calculo.TblInstala)
+    ObrasComplementariasModule,
     // Módulo de mantenimiento - estados de convenio
     ConvenioEstadoModule,
     // Módulo de mantenimiento de tablas - ordenanzas de caja (listado)

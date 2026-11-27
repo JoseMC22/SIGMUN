@@ -55,7 +55,6 @@ function toSPDate(value: string): string {
 
 export default function BajaPredioModal({ isOpen, onClose, predio, onSaved }: Props) {
   const modalId = useModalStack(isOpen);
-  const topModal = isTopModal(modalId);
   const rootRef = useRef<HTMLDivElement>(null);
 
   // Combos
@@ -104,13 +103,13 @@ export default function BajaPredioModal({ isOpen, onClose, predio, onSaved }: Pr
 
   // Escape
   useEffect(() => {
-    if (!isOpen || !topModal) return;
+    if (!isOpen) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !saving) onClose();
+      if (e.key === "Escape" && isTopModal(modalId) && !saving) onClose();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [isOpen, topModal, saving, onClose]);
+  }, [isOpen, modalId, saving, onClose]);
 
   // Load combos + reset form on open
   useEffect(() => {

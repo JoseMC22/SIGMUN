@@ -147,7 +147,6 @@ export default function HojaResumenFormModal({
   onSaved,
 }: Props) {
   const modalId = useModalStack(isOpen);
-  const topModal = isTopModal(modalId);
 
   const esEdicion = !!hrExistente;
 
@@ -189,13 +188,13 @@ export default function HojaResumenFormModal({
 
   // Cierra con Escape (solo si este modal es el tope de la pila).
   useEffect(() => {
-    if (!isOpen || !topModal) return;
+    if (!isOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !combosLoading && !saving) onClose();
+      if (e.key === "Escape" && isTopModal(modalId) && !combosLoading && !saving) onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [isOpen, topModal, combosLoading, saving, onClose]);
+  }, [isOpen, modalId, combosLoading, saving, onClose]);
 
   // ── Reset + load combos on open ──
   useEffect(() => {

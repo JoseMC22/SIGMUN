@@ -231,6 +231,21 @@ export interface ObtenerRepresentantesResult {
   representantes: RepresentanteGridItem[];
 }
 
+// ── SP Rentas.sp_rentasmain @buscar=6 (Modal Propietarios del predio — grid) ──
+// Mapeo posicional del legacy PHP gridpropietariosAction:
+// 0 codigo, 2 Porcen, 3 Nombre, 4 fec_venta
+
+export interface PropietarioGridItem {
+  codigo: string;
+  Porcen: string;
+  Nombre: string;
+  fec_venta: string;
+}
+
+export interface ObtenerPropietariosResult {
+  propietarios: PropietarioGridItem[];
+}
+
 // ── SP Rentas.sp_Mrepresentante @busc=6 (Editar representante — carga el form) ──
 // Mapeo posicional del legacy PHP:
 // 0 id, 1 codigo, 2 id_docu, 3 num_doc, 4 nombres, 5 paterno, 6 materno,

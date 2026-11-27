@@ -116,6 +116,17 @@ coverage/
 !frontend/src/app/dashboard/notificaciones/constancia-exigibilidad/*.test.ts
 !frontend/src/app/dashboard/notificaciones/constancia-exigibilidad/*.test.tsx
 
+# Excepcion: el spec de mantenimiento-ingresos SI se versiona. El SP
+# (dbo.t_tipo_sing @msquery=15) cambio su resultado (FteFin/Tupa) y este test
+# es la red que evita que Rubro vuelva a salir vacio.
+!backend/src/tesoreria/mantenimiento-ingresos/mantenimiento-ingresos.service.spec.ts
+
+# Excepcion: valores-unitarios (CRUD de Calculo.Tblvaluni) versiona sus specs
+# porque la clave natural (region, año, codi) y el envelope canonico son la
+# unica red contra regresiones de SQL parametrizado y auditoria.
+!backend/src/mantenimiento-tablas/valores-unitarios/**/*.spec.ts
+!frontend/src/app/dashboard/mantenimiento-tablas/valores-unitarios/**/*.test.tsx
+
 # Auto-generated / workspace
 pnpm-lock.yaml
 frontend/pnpm-lock.yaml

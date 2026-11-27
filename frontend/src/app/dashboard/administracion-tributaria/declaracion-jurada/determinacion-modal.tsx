@@ -38,7 +38,6 @@ export default function DeterminacionModal({
   annoSeleccionado,
 }: Props) {
   const modalId = useModalStack(isOpen);
-  const topModal = isTopModal(modalId);
   const modalRef = useRef<HTMLDivElement>(null);
 
   const [tipoDeterminacion, setTipoDeterminacion] = useState("1");
@@ -93,13 +92,13 @@ export default function DeterminacionModal({
 
   // Escape solo si este modal es el tope y no hay confirm/cálculo pendiente
   useEffect(() => {
-    if (!isOpen || !topModal) return;
+    if (!isOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !procesando && !confirmAccion) onClose();
+      if (e.key === "Escape" && isTopModal(modalId) && !procesando && !confirmAccion) onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [isOpen, topModal, procesando, confirmAccion, onClose]);
+  }, [isOpen, modalId, procesando, confirmAccion, onClose]);
 
   const togglePredio = (p: PredioDJItemData) => {
     const key = rowKey(p);

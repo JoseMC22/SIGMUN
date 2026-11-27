@@ -8,31 +8,6 @@ import {
   type ReportePdfConfig,
 } from "@/lib/reportes/reporte-service";
 
-// CSS que aísla SOLO el contenido del reporte (#reporte-print) al imprimir,
-// ocultando el resto de la aplicación (dashboard + modal).
-const PRINT_CSS = `
-@media print {
-  body * {
-    visibility: hidden !important;
-  }
-  #reporte-print,
-  #reporte-print * {
-    visibility: visible !important;
-  }
-  #reporte-print {
-    position: absolute !important;
-    inset: 0 !important;
-    width: 100% !important;
-    max-height: none !important;
-    overflow: visible !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    box-shadow: none !important;
-    border: none !important;
-  }
-}
-`;
-
 interface Props {
   isOpen: boolean;
   onClose: () => void;
@@ -46,6 +21,7 @@ export default function ReporteViewerModal({ isOpen, onClose, html, pdfConfig }:
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
     if (isOpen) rootRef.current?.focus();
@@ -75,6 +51,14 @@ export default function ReporteViewerModal({ isOpen, onClose, html, pdfConfig }:
     }
   };
 
+  const handlePrint = () => {
+    if (iframeRef.current) {
+      // Enfocar el iframe y disparar print
+      iframeRef.current.contentWindow?.focus();
+      iframeRef.current.contentWindow?.print();
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -83,8 +67,6 @@ export default function ReporteViewerModal({ isOpen, onClose, html, pdfConfig }:
       className="fixed inset-0 z-[100] flex flex-col bg-slate-100 animate-fade-in"
       tabIndex={-1}
     >
-      <style>{PRINT_CSS}</style>
-
       {/* ── Header ── */}
       <div className="flex items-center justify-between rounded-t-xl bg-gradient-to-r from-sat-navy via-[#1b2b4a] to-slate-800 px-4 py-2 shrink-0">
         <div className="flex items-center gap-2">
@@ -96,7 +78,7 @@ export default function ReporteViewerModal({ isOpen, onClose, html, pdfConfig }:
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => window.print()}
+            onClick={handlePrint}
             className="inline-flex items-center gap-1.5 rounded-md bg-sat-cyan px-4 py-1.5 text-xs font-medium text-white transition hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-sat-cyan/40 active:scale-[0.98]"
           >
             <Printer size={13} />
@@ -131,18 +113,19 @@ export default function ReporteViewerModal({ isOpen, onClose, html, pdfConfig }:
         </div>
       </div>
 
-      {/* ── Body: vista previa del reporte ── */}
-      <div className="flex-1 overflow-auto p-6">
+      {/* ── Body: vista previa del reporte via iframe (impresión multi-página nativa) ── */}
+      <div className="flex-1 overflow-hidden p-6">
         {error && (
           <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-medium text-red-600">
             {error}
           </div>
         )}
-        <div
-          id="reporte-print"
-          className="mx-auto max-w-[210mm] bg-white p-6 shadow-lg text-slate-800"
-          style={{ colorScheme: "light" }}
-          dangerouslySetInnerHTML={{ __html: html }}
+        <iframe
+          ref={iframeRef}
+          srcDoc={html}
+          title="Vista Previa del Reporte"
+          className="w-full h-full border-0 bg-white"
+          style={{ minHeight: "600px" }}
         />
       </div>
     </div>

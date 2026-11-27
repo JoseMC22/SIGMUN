@@ -16,6 +16,8 @@ export class MantenimientoIngresosService {
    * - `@nombre` no vacío → ROMPE (`TI.nombre` no existe en `t_tiposing`,
    *   la columna es `concepto`): nunca se envía con contenido.
    * - `@area` fijo ''.
+   * - Recordset real: Tipo, Nombre_Tipo, Partida, Nombre, FteFin, Tupa,
+   *   Valor, ROW (FteFin y Tupa se leen con esa casing).
    * Por eso: criterio `C` → `@tipo=valor`; criterio `N` → se trae el listado
    * y se filtra en memoria por `Nombre_Tipo` (contiene, case-insensitive),
    * igual que la paginación en memoria del patrón del repo.
@@ -70,7 +72,8 @@ export class MantenimientoIngresosService {
         concepto: ((row.Nombre_Tipo ?? row.NOMBRE_TIPO ?? '') as string) ?? '',
         partida: ((row.Partida ?? row.PARTIDA ?? '') as string) ?? '',
         nombre: ((row.Nombre ?? row.NOMBRE ?? '') as string) ?? '',
-        ftefin: ((row.Ftefin ?? row.FTEFIN ?? '') as string) ?? '',
+        ftefin: ((row.FteFin ?? row.FTEFIN ?? row.Ftefin ?? '') as string) ?? '',
+        tupa: ((row.Tupa ?? row.TUPA ?? '') as string) ?? '',
         valor: (row.Valor ?? row.VALOR ?? 0) as number,
       }),
     );

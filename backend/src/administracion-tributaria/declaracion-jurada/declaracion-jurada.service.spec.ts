@@ -343,3 +343,87 @@ describe('DeclaracionJuradaService — getPredioData', () => {
     expect(result.fechmod).toBe('2026-01-15');
   });
 });
+
+// ── Propietarios del predio (Rentas.sp_rentasmain @buscar=6, @cod_pred) ──
+// Mapeo posicional del legacy: 0 codigo, 2 Porcen, 3 Nombre, 4 fec_venta
+
+describe("DeclaracionJuradaService — obtenerPropietarios", () => {
+  let db: jest.Mocked<Pick<DatabaseService, 'executeProcedure'>>;
+  let service: DeclaracionJuradaService;
+
+  beforeEach(() => {
+    db = {
+      executeProcedure: jest.fn().mockResolvedValue({ recordset: [], recordsets: [] } as any),
+    };
+    service = new DeclaracionJuradaService(db as unknown as DatabaseService);
+  });
+
+  const conRecordset = (rows: unknown[][]): void => {
+    db.executeProcedure.mockResolvedValue({
+      recordset: rows,
+      recordsets: [],
+    } as any);
+  };
+
+  it("ejecuta Rentas.sp_rentasmain con buscar=6 y cod_pred", async () => {
+    conRecordset([[]]);
+
+    await service.obtenerPropietarios("000172956");
+
+    const [procedure, params] = db.executeProcedure.mock.calls[0] as unknown[];
+    expect(procedure).toBe("Rentas.sp_rentasmain");
+    expect(params).toMatchObject({ buscar: 6, cod_pred: "000172956" });
+  });
+
+  it("mapea las filas del recordset a PropietarioGridItem", async () => {
+    conRecordset([
+      ["000172956", "x", "50", "PEREZ JUAN", "15/03/2024"],
+      ["000172956", "x", "50", "GOMEZ MARIA", "01/01/2023"],
+    ]);
+
+    const result = await service.obtenerPropietarios("000172956");
+
+    expect(result.propietarios).toEqual([
+      {
+        codigo: "000172956",
+        Porcen: "50",
+        Nombre: "PEREZ JUAN",
+        fec_venta: "15/03/2024",
+      },
+      {
+        codigo: "000172956",
+        Porcen: "50",
+        Nombre: "GOMEZ MARIA",
+        fec_venta: "01/01/2023",
+      },
+    ]);
+  });
+
+  it("devuelve array vacio cuando el recordset esta vacio", async () => {
+    conRecordset([]);
+
+    const result = await service.obtenerPropietarios("000172956");
+
+    expect(result.propietarios).toEqual([]);
+  });
+
+  it("trima espacios de los valores devueltos por el SP", async () => {
+    conRecordset([[" 000172956 ", "x", " 50 ", " PEREZ JUAN ", " 15/03/2024 "]]);
+
+    const result = await service.obtenerPropietarios("000172956");
+
+    expect(result.propietarios[0]).toEqual({
+      codigo: "000172956",
+      Porcen: "50",
+      Nombre: "PEREZ JUAN",
+      fec_venta: "15/03/2024",
+    });
+  });
+
+  it("lanza error cuando cod_pred esta vacio", async () => {
+    await expect(service.obtenerPropietarios("")).rejects.toThrow(
+      "Código de predio no válido.",
+    );
+    expect(db.executeProcedure).not.toHaveBeenCalled();
+  });
+});

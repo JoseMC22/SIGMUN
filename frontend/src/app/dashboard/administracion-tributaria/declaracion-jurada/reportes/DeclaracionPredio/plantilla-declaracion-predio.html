@@ -7,27 +7,85 @@
 </head>
 <body>
 <div class="page">
-  <header class="header">
-    <img class="logo" src="/logo_sat_2026.jpeg" alt="Logo SAT">
-    <div class="header-text">
-      <h2>Servicio de Administración Tributaria de ICA</h2>
-      <h1>Declaración Jurada Predial {{anno}}</h1>
-      <p>Nro: <span>{{dj_nro}}</span></p>
+  <!-- === CONTENIDO DESDE ARTBOARD: MUNICIPALIDAD DE ICA HASTA ABAJO === -->
+  <div class="reporte">
+    <!-- Header del reporte (MUNICIPALIDAD DE ICA) con logo a la izquierda -->
+    <div class="reporte-header">
+      <img class="logo" src="/logo_sat_2026.jpeg" alt="Logo SAT">
+      <div class="reporte-header-text">
+        <h1>MUNICIPALIDAD DE ICA</h1>
+        <h2>DECLARACIÓN JURADA PREDIAL</h2>
+        <div class="meta">
+          <span>Código: {{codigo}}</span> •
+          <span>Predio: {{cod_pred}}-{{anexo}}-{{sub_anexo}}</span> •
+          <span>Año: {{anno}}</span> •
+          <span>N° Declaración: {{dj_nro}}</span>
+        </div>
+      </div>
     </div>
-  </header>
 
-  <section class="section">
-    <h3>DATOS DEL CONTRIBUYENTE</h3>
-    <table class="data-table">
-      <tr><th>Código</th><td>{{codigo}}</td></tr>
-      <tr><th>Nombre</th><td>{{nombre}}</td></tr>
-      <tr><th>Tipo Doc.</th><td>{{tipo_doc}}</td><th>Nro. Doc.</th><td>{{dni}}</td></tr>
-      <tr><th>Tipo Contribuyente</th><td>{{tipo_contri}}</td>
-          <th>Subtipo</th><td>{{subtipo_contri}}</td></tr>
-      <tr><th>Domicilio Fiscal</th><td colspan="3">{{direcion_fiscal}}</td></tr>
-    </table>
-  </section>
+    <!-- 1. DATOS DEL CONTRIBUYENTE -->
+    <div class="reporte-section">
+      <h3>1. DATOS DEL CONTRIBUYENTE</h3>
+      <div class="reporte-grid">
+        <div class="reporte-field"><span class="reporte-label">Tipo Documento:</span><span class="reporte-value">{{tipo_doc}}</span></div>
+        <div class="reporte-field"><span class="reporte-label">N° Documento:</span><span class="reporte-value">{{dni}}</span></div>
+        <div class="reporte-field"><span class="reporte-label">Apellidos y Nombres:</span><span class="reporte-value">{{nombre}}</span></div>
+        <div class="reporte-field"><span class="reporte-label">Tipo Contribuyente:</span><span class="reporte-value">{{tipo_contri}}</span></div>
+        <div class="reporte-field"><span class="reporte-label">Subtipo:</span><span class="reporte-value">{{subtipo_contri}}</span></div>
+        <div class="reporte-field full"><span class="reporte-label">Dirección Fiscal:</span><span class="reporte-value">{{direccion_fiscal}}</span></div>
+      </div>
+    </div>
 
+    <!-- 2. DATOS DEL PREDIO -->
+    <div class="reporte-section">
+      <h3>2. DATOS DEL PREDIO</h3>
+      <div class="reporte-grid">
+        <div class="reporte-field"><span class="reporte-label">Tipo Predio:</span><span class="reporte-value">{{tipo_predio}}</span></div>
+        <div class="reporte-field"><span class="reporte-label">Código Predio:</span><span class="reporte-value">{{cod_pred}}</span></div>
+        <div class="reporte-field"><span class="reporte-label">Anexo:</span><span class="reporte-value">{{anexo}}</span></div>
+        <div class="reporte-field"><span class="reporte-label">Sub Anexo:</span><span class="reporte-value">{{sub_anexo}}</span></div>
+        <div class="reporte-field"><span class="reporte-label">Estado:</span><span class="reporte-value">{{estado}}</span></div>
+        <div class="reporte-field"><span class="reporte-label">Condición:</span><span class="reporte-value">{{condicion}}</span></div>
+        <div class="reporte-field"><span class="reporte-label">Tipo Adquisición:</span><span class="reporte-value">{{tipo_adquisicion}}</span></div>
+        <div class="reporte-field"><span class="reporte-label">% Propiedad:</span><span class="reporte-value">{{porcen_propiedad}} %</span></div>
+        <div class="reporte-field"><span class="reporte-label">Fecha Adquisición:</span><span class="reporte-value">{{fecha_adquisicion}}</span></div>
+        <div class="reporte-field"><span class="reporte-label">Fecha Afectación:</span><span class="reporte-value">{{fecha_afectacion}}</span></div>
+        <div class="reporte-field"><span class="reporte-label">Arancel:</span><span class="reporte-value">{{arancel}}</span></div>
+        <div class="reporte-field"><span class="reporte-label">Área Terreno:</span><span class="reporte-value">{{area_terreno}} m²</span></div>
+        <div class="reporte-field"><span class="reporte-label">Área Común:</span><span class="reporte-value">{{area_comun}} m²</span></div>
+        <div class="reporte-field"><span class="reporte-label">Frente:</span><span class="reporte-value">{{Frente}} m</span></div>
+        <div class="reporte-field"><span class="reporte-label">Ubicación Predio:</span><span class="reporte-value">{{Ubicacion_predio}}</span></div>
+        <div class="reporte-field"><span class="reporte-label">Uso:</span><span class="reporte-value">{{uso}}</span></div>
+        <div class="reporte-field"><span class="reporte-label">Área Uso:</span><span class="reporte-value">{{Area_uso}} m²</span></div>
+        <div class="reporte-field"><span class="reporte-label">Mes Inicio Arbitrios:</span><span class="reporte-value">{{Mes_inicio}}</span></div>
+        <div class="reporte-field"><span class="reporte-label">Mes Fin Arbitrios:</span><span class="reporte-value">{{Mes_hasta}}</span></div>
+      </div>
+    </div>
+
+    <!-- 3. VALUACIÓN DEL PREDIO -->
+    <div class="reporte-section">
+      <h3>3. VALUACIÓN DEL PREDIO</h3>
+      <div class="reporte-grid">
+        <div class="reporte-field"><span class="reporte-label">Valor Total Terreno:</span><span class="reporte-value">{{val_total_terreno}}</span></div>
+        <div class="reporte-field"><span class="reporte-label">Valor Total Construcción:</span><span class="reporte-value">{{val_total_constru}}</span></div>
+        <div class="reporte-field"><span class="reporte-label">Valor Total Instalaciones:</span><span class="reporte-value">{{val_total_instala}}</span></div>
+        <div class="reporte-field"><span class="reporte-label"><strong>Total Autovalúo:</strong></span><span class="reporte-value"><strong>{{total_autoavaluo}}</strong></span></div>
+      </div>
+    </div>
+
+    <!-- 4. DETALLE DE CONSTRUCCIONES (PISOS) -->
+    <div class="reporte-section">
+      <h3>4. DETALLE DE CONSTRUCCIONES (PISOS)</h3>
+      {{pisos_table}}
+    </div>
+
+    <!-- 5. INSTALACIONES -->
+    <div class="reporte-section">
+      <h3>5. INSTALACIONES</h3>
+      {{instalaciones_table}}
+    </div>
+  
   <section class="section">
     <h3>DATOS DEL PREDIO</h3>
     <table class="data-table">
@@ -51,43 +109,52 @@
     </table>
   </section>
 
-  <section class="section">
-    <h3>CARACTERÍSTICAS DEL PREDIO</h3>
-    <table class="data-table">
-      <tr><th>Área Terreno (m²)</th><td>{{area_terreno}}</td></tr>
-      <tr><th>Frente (mt)</th><td>{{Frente}}</td></tr>
-      <tr><th>Fondo (mt)</th><td>{{fondo}}</td></tr>
-      <tr><th>Uso(s) Predio</th><td colspan="3">{{uso}} — Área Uso: {{Area_uso}} m²</td></tr>
-    </table>
-  </section>
+    <!-- 6. DOCUMENTOS ANEXOS -->
+    <div class="reporte-section docs-table">
+      <h3>6. DOCUMENTOS ANEXOS</h3>
+      {{docs_table}}
+    </div>
 
-  <section class="section" style="margin-top:16px;">
-    <h3>DOCUMENTOS ANEXOS</h3>
-    <table class="sub-table">
-      <thead>
-        <tr><th>Tipo Documento</th><th>Referencia</th></tr>
-      </thead>
-      <tbody>
-        {{docs_table}}
-      </tbody>
-    </table>
-  </section>
+    <!-- 7. DATOS ADICIONALES -->
+    <div class="reporte-section">
+      <h3>7. DATOS ADICIONALES</h3>
+      <div class="reporte-field full">
+        <span class="reporte-label">Observación:</span>
+        <span class="reporte-value">{{observacion}}</span>
+      </div>
+      <div class="reporte-field full">
+        <span class="reporte-label">Glosa:</span>
+        <span class="reporte-value">{{glosa}}</span>
+      </div>
+      <div class="reporte-field full">
+        <span class="reporte-label">Fecha Fiscalización:</span>
+        <span class="reporte-value">{{fecha_fiscalizacion}}</span>
+      </div>
+      <div class="reporte-field full">
+        <span class="reporte-label">Glosa Fiscalización:</span>
+        <span class="reporte-value">{{glosa_fiscalizacion}}</span>
+      </div>
+      <div class="declaracion-jurada">
+        <span class="reporte-value">Declaro bajo juramento que los datos proporcionados a la administración tributaria son correctos, por lo que en señal de conformidad firmo al pie.</span>
+      </div>
+    </div>
 
-  <section class="section">
-    <h3>DATOS ADICIONALES</h3>
-    <table class="data-table">
-      <tr><th>Glosa Fiscalización</th><td>{{fecha_fiscalizacion}} — Ficha: {{nro_ficha_fizcalizacion}}</td></tr>
-      <tr><th>Glosa Motivo Registro</th><td>{{Motivo_Registro}}</td></tr>
-      <tr><th>Glosa</th><td>{{Glosa}}</td></tr>
-      <tr><th>Operador</th><td>{{operador}}</td></tr>
-      <tr><th>Situación Predio</th><td>{{situacion_predio}}</td></tr>
-      <tr><th>Condición Especial</th><td>{{condicion_especial}}</td></tr>
-    </table>
-  </section>
+    <!-- Footer -->
+    <div class="reporte-footer">
+      <div><strong>Operador:</strong> {{operador}}</div>
+      <div><strong>Fecha Impresión:</strong> {{fecha_impresion}}</div>
+    </div>
 
-  <footer class="footer">
-    <p>Reporte generado por SP [Historial].[Reporte] @busc=1 — {{fecha_impresion}}</p>
-  </footer>
+    <!-- Firma -->
+    <div class="reporte-signature">
+      <div class="line">
+        {{nombre_declarante}}<br>
+        {{dni_declarante}}<br>
+        Contribuyente / Declarante
+      </div>
+    </div>
+  </div>
+  <!-- === FIN CONTENIDO ARTBOARD === -->
 </div>
 </body>
 </html>

@@ -18,6 +18,15 @@ async function authFetch(path: string, options?: RequestInit) {
   return fetch(`${API_BASE}${path}`, { ...options, headers });
 }
 
+export interface TramiteTributoItem {
+  iCodTramiteTributo?: number;
+  iCodTramite?: number;
+  codigo?: string;
+  cTipoTributo: string;
+  nAnoDesde: number;
+  nAnoHasta?: number | null;
+}
+
 export interface TramiteBomberosRow {
   iCodTramite: number;
   cCodificacion: string;
@@ -32,6 +41,7 @@ export interface TramiteBomberosRow {
   nombre_contribuyente: string;
   doc_contribuyente: string;
   cEstadoSolicitudLegal?: string;
+  tributos?: TramiteTributoItem[];
 }
 
 export interface OficinaDestinoItem {
@@ -59,6 +69,8 @@ export interface EstadoSolicitudRow {
   cObservacionLegal: string;
   fFecSolicitud: string;
   cEstadoCabecera: string;
+  nombre_contribuyente?: string;
+  cAsunto?: string;
   iCodSolicitudOficina: number;
   iCodOficina?: number;
   cCodAreaDestino: string;
@@ -67,11 +79,16 @@ export interface EstadoSolicitudRow {
   nFlgEstado?: number;
   cNotaObservacion?: string;
   fFecEnvio: string;
+  fFecDesde?: string;
+  fFecHasta?: string;
+  AnoDesde?: number | string;
+  AnoHasta?: number | string;
   fFecRespuesta?: string;
   cRespuesta?: string;
   cNombreArchivo?: string;
   cRutaArchivo?: string;
   cUsuarioRespuesta?: string;
+  tributos?: TramiteTributoItem[];
 }
 
 export async function fetchTramitesBomberos(
@@ -182,6 +199,7 @@ export interface HistorialRespuestaRow {
   cNombreArchivo?: string;
   cRutaArchivo?: string;
   cUsuarioRespuesta?: string;
+  tributos?: TramiteTributoItem[];
 }
 
 export async function fetchHistorialRespuestasAction(iCodSolicitudOficina: number): Promise<HistorialRespuestaRow[]> {

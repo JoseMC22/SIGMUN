@@ -490,7 +490,6 @@ export default function PrimeraInscripcionModal({
   onSaved,
 }: Props) {
   const modalId = useModalStack(isOpen);
-  const topModal = isTopModal(modalId);
   const rootRef = useRef<HTMLDivElement>(null);
 
   const [activeTab, setActiveTab] = useState(0);
@@ -669,13 +668,13 @@ export default function PrimeraInscripcionModal({
 
   // Escape cierra solo si este modal es el tope de la pila
   useEffect(() => {
-    if (!isOpen || !topModal) return;
+    if (!isOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !combosLoading && !saving) onClose();
+      if (e.key === "Escape" && isTopModal(modalId) && !combosLoading && !saving) onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [isOpen, topModal, combosLoading, saving, onClose]);
+  }, [isOpen, modalId, combosLoading, saving, onClose]);
 
   // Foco al abrirse
   useEffect(() => {
@@ -974,7 +973,6 @@ export default function PrimeraInscripcionModal({
     <div
       ref={rootRef}
       className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in p-4"
-      onKeyDown={(e) => { if (e.key === "Escape") { if (topModal && !combosLoading && !saving) onClose(); } }}
       tabIndex={-1}
     >
       <div className="relative flex max-h-[92vh] w-full max-w-[1200px] flex-col rounded-xl border border-slate-200 bg-white shadow-2xl">

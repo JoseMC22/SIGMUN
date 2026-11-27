@@ -1,7 +1,11 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs';
 import * as path from 'path';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 
 export interface UploadResult {
   cNombreArchivo: string;
@@ -18,9 +22,11 @@ export interface FileLike {
 }
 
 @Injectable()
-export class StorageService {
+export class StorageService implements OnModuleInit {
   private readonly logger = new Logger(StorageService.name);
   private readonly localBasePath: string;
+  private readonly nasUser?: string;
+  private readonly nasPassword?: string;
 
   constructor(private readonly configService: ConfigService) {
     // Lee la ruta base física del almacenamiento NAS desde variables de entorno
@@ -29,13 +35,43 @@ export class StorageService {
       this.configService.get<string>('NAS_LOCAL_PATH') ||
       '\\\\192.168.3.100\\digital';
 
-    // Crear carpeta base si no existe
-    if (!fs.existsSync(this.localBasePath)) {
-      try {
-        fs.mkdirSync(this.localBasePath, { recursive: true });
-      } catch (err) {
-        this.logger.warn(`No se pudo verificar o crear la ruta base de almacenamiento ${this.localBasePath}:`, err);
-      }
+    this.nasUser = this.configService.get<string>('NAS_USER');
+    this.nasPassword = this.configService.get<string>('NAS_PASSWORD');
+  }
+
+  async onModuleInit() {
+    await this.ensureNasMounted();
+  }
+
+  /**
+   * Conecta y autentica automáticamente el recurso compartido NAS de Windows al iniciar el servidor
+   */
+  async ensureNasMounted(): Promise<boolean> {
+    if (!this.localBasePath.startsWith('\\\\')) {
+      return true; // Es una ruta local común
+    }
+
+    // Si ya es accesible, no hace falta reconectar
+    if (fs.existsSync(this.localBasePath)) {
+      this.logger.log(`Conexión a NAS activa y disponible en: ${this.localBasePath}`);
+      return true;
+    }
+
+    if (!this.nasUser || !this.nasPassword) {
+      this.logger.warn(`Ruta NAS ${this.localBasePath} no accesible y no se configuraron NAS_USER/NAS_PASSWORD`);
+      return false;
+    }
+
+    try {
+      this.logger.log(`Autenticando automáticamente recurso NAS ${this.localBasePath}...`);
+      // Ejecutar net use para autenticar la sesión SMB en Windows
+      const cmd = `net use "${this.localBasePath}" /user:${this.nasUser} ${this.nasPassword} /persistent:yes`;
+      await execAsync(cmd);
+      this.logger.log(`Recurso NAS autenticado exitosamente en Windows.`);
+      return true;
+    } catch (err: any) {
+      this.logger.error(`No se pudo montar o autenticar el recurso NAS automáticamente: ${err?.message || err}`);
+      return false;
     }
   }
 
