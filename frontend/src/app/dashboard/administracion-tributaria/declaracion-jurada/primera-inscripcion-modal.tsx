@@ -973,7 +973,6 @@ export default function PrimeraInscripcionModal({
     <div
       ref={rootRef}
       className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in p-4"
-      onKeyDown={(e) => { if (e.key === "Escape") { if (isTopModal(modalId) && !combosLoading && !saving) onClose(); } }}
       tabIndex={-1}
     >
       <div className="relative flex max-h-[92vh] w-full max-w-[1200px] flex-col rounded-xl border border-slate-200 bg-white shadow-2xl">
