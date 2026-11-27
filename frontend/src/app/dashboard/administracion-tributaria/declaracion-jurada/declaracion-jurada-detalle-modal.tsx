@@ -31,6 +31,7 @@ import BajaPredioModal from "./baja-predio-modal";
 import VerBajaPredioModal from "./ver-baja-predio-modal";
 import HistorialPredioModal from "./historial-predio-modal";
 import PrimeraInscripcionModal from "./primera-inscripcion-modal";
+import PropietariosModal from "./propietarios-modal";
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -108,6 +109,10 @@ export default function DeclaracionJuradaDetalleModal({
     anexo: string;
     subAnexo: string;
   } | null>(null);
+
+  // ── Propietarios del predio (modal) ──
+  const [propietariosOpen, setPropietariosOpen] = useState(false);
+  const [propietariosCodPred, setPropietariosCodPred] = useState<string | null>(null);
 
   // ── Load periods on open ──
   useEffect(() => {
@@ -559,6 +564,10 @@ export default function DeclaracionJuradaDetalleModal({
                                 <button
                                   type="button"
                                   title="Propietarios"
+                                  onClick={() => {
+                                    setPropietariosCodPred(p.codPred);
+                                    setPropietariosOpen(true);
+                                  }}
                                   className="rounded p-[2px] text-slate-500 transition hover:bg-slate-200 hover:text-sat-navy"
                                 >
                                   <Users size={12} />
@@ -811,6 +820,11 @@ export default function DeclaracionJuradaDetalleModal({
           if (annoSeleccionado) loadDetalle(contribuyente.codigo, annoSeleccionado);
           setCheckedPredioKeys(new Set());
         }}
+      />
+      <PropietariosModal
+        isOpen={propietariosOpen}
+        onClose={() => { setPropietariosOpen(false); setPropietariosCodPred(null); }}
+        codPred={propietariosCodPred ?? ""}
       />
     </div>
   );

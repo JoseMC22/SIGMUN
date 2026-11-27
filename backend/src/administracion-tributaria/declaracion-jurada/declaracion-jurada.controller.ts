@@ -28,6 +28,7 @@ import {
   EditarContribuyenteResult,
   EliminarContribuyenteResult,
   ObtenerRepresentantesResult,
+  ObtenerPropietariosResult,
   EditarRepresentanteResult,
   EliminarRepresentanteResult,
   EstadoCuentaFiltrosResult,
@@ -410,6 +411,22 @@ export class DeclaracionJuradaController {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Error al obtener representantes.',
+      };
+    }
+  }
+
+  // ── Obtener propietarios del predio (modal Propietarios) ──
+  @Get('propietarios')
+  async propietarios(
+    @Query('cod_pred') cod_pred: string,
+  ): Promise<{ success: true; data: ObtenerPropietariosResult } | { success: false; error: string }> {
+    try {
+      const data = await this.service.obtenerPropietarios(cod_pred ?? '');
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error al obtener propietarios.',
       };
     }
   }
