@@ -36,7 +36,12 @@ describe("ObrasComplementariasPage", () => {
     mockFetch.mockImplementation((input: unknown) => {
       const url = String(input);
       if (url.includes("/years")) {
-        return Promise.resolve(jsonResponse({ years: ["2027", "2026"] }));
+        return Promise.resolve(jsonResponse({ years: ["2027", "2026", "2028"] }));
+      }
+      if (url.includes("/copy-year")) {
+        return Promise.resolve(
+          jsonResponse({ message: "Año copiado exitosamente: 1 registro", copied: 1, data: [{ ...row, anno: "2028" }] }),
+        );
       }
       if (url.includes("?anno=")) {
         return Promise.resolve(jsonResponse({ data: [row] }));
@@ -81,6 +86,79 @@ describe("ObrasComplementariasPage", () => {
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(`${BASE}?anno=2027&categ=A1`);
+    });
+  });
+
+  it("abre el modal de copiar año y envía POST a /copy-year", async () => {
+    render(<ObrasComplementariasPage />);
+    await screen.findByTestId("obras-complementarias-grid");
+
+    await userEvent.click(screen.getByRole("button", { name: "Copiar año" }));
+
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveAttribute("aria-labelledby", "copy-year-modal-title");
+
+    const destino = within(dialog).getByLabelText("Año destino");
+    await userEvent.type(destino, "2028");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Copiar" }));
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        `${BASE}/copy-year`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ anno_origen: "2027", anno_destino: "2028" }),
+        },
+      );
+    });
+  });
+
+  it("tras copiar exitosamente refresca años y busca el año destino", async () => {
+    render(<ObrasComplementariasPage />);
+    await screen.findByTestId("obras-complementarias-grid");
+
+    await userEvent.click(screen.getByRole("button", { name: "Copiar año" }));
+    const dialog = screen.getByRole("dialog");
+
+    const destino = within(dialog).getByLabelText("Año destino");
+    await userEvent.type(destino, "2028");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Copiar" }));
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(`${BASE}/years`);
+    });
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(`${BASE}?anno=2028`);
+    });
+  });
+
+  it("muestra error cuando el año destino ya tiene registros", async () => {
+    mockFetch.mockImplementation((input: unknown) => {
+      const url = String(input);
+      if (url.includes("/years")) {
+        return Promise.resolve(jsonResponse({ years: ["2027", "2026"] }));
+      }
+      if (url.includes("/copy-year")) {
+        return Promise.resolve(
+          jsonResponse({ code: "conflict", message: "El año destino ya tiene registros" }, 409),
+        );
+      }
+      return Promise.resolve(jsonResponse({ data: [row] }));
+    });
+
+    render(<ObrasComplementariasPage />);
+    await screen.findByRole("button", { name: "Copiar año" });
+
+    await userEvent.click(screen.getByRole("button", { name: "Copiar año" }));
+    const dialog = screen.getByRole("dialog");
+
+    const destino = within(dialog).getByLabelText("Año destino");
+    await userEvent.type(destino, "2026");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Copiar" }));
+
+    await waitFor(() => {
+      expect(within(dialog).getByText("El año destino ya tiene registros")).toBeInTheDocument();
     });
   });
 });

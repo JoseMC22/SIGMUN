@@ -29,12 +29,17 @@ S4. "Baja lógica: nestado = 0"
 
 S5. "haz un crud y dame el script para un procedimiento almacenado similar al de mantenimiento valores unitarios"
 
+S6. "se debe agregar un nuevo boton que permita copiar los registros de un año a otro, validando que el año no se encuentre registrado"
+
 ## Tasks
 
 T1 (backend: módulo, controller, service, DTOs, errores y tests) | S2-S4 | gentle-ai-worker | 2dacbff, 2cb51de
 T2 (frontend: página, grilla, formulario, confirmación y tests) | S1-S4, L11 | gentle-ai-worker | 693701d, 94cbd6d
 T3 (puente `app.module.ts`, cierre del tracker y verificación) | S1 | parent | 6f348cb
 T4 (script SQL del SP de CRUD con auditoría) | S5 | parent | f0f0f73
+T5 (SP: agregar acción `COPIAR_ANIO` que copie registros activos de año origen a año destino vacío) | S6 | parent |
+T6 (backend: endpoint POST `/copy-year`, DTO, service, controller y tests) | S6 | parent |
+T7 (frontend: botón "Copiar año", modal con año origen/destino, validación y tests) | S6 | parent |
 
 ## Log
 
@@ -96,3 +101,7 @@ E4: Backend migrado a `[Calculo].[sp_MInstala]` en `backend/src/mantenimiento-ta
 L11: "revisa cuando elijo el año 2026 y presiono buscar, no me arroja resultados" — reporte de bug por parte del usuario: la búsqueda por año no devuelve resultados.
 
 E5: Causa del bug: el frontend siempre enviaba `categ=` (cadena vacía) en la URL; el backend normalizaba eso a `null`, y el SP `CONSULTA` filtraba explícitamente por `categ IS NULL` en lugar de no filtrar por categoría. Corrección en `frontend/src/app/dashboard/mantenimiento-tablas/obras-complementarias/page.tsx`: la URL se construye ahora con `URLSearchParams` y solo incluye `categ` cuando el input tiene contenido. Se agregó test de regresión en `frontend/src/app/dashboard/mantenimiento-tablas/obras-complementarias/page.test.tsx` (3 tests verdes). Typecheck frontend sigue reportando errores preexistentes en `alcabala` y `mantenimiento-uit`.
+
+L12: "si vamos por la opción A" — el usuario confirma el diseño para el botón "Copiar año": copiar registros activos del año origen a un año destino, validando que el año destino no tenga ningún registro en `Calculo.TblInstala`.
+
+E6: Implementación del botón "Copiar año". SP `backend/sql/sp_MInstala-crud.sql` actualizado con acción `COPIAR_ANIO`, parámetros `@anno_origen`/`@anno_destino` y validaciones (años de 4 dígitos, distintos, origen con activos, destino vacío). Backend: nuevo endpoint `POST /copy-year` en controller, DTO Zod, método en service y tests (27 verdes). Frontend: modal `copy-year-modal.tsx`, botón en `page.tsx` y tests en `page.test.tsx` (6 verdes). Typecheck backend y frontend solo reportan errores preexistentes en otros módulos.

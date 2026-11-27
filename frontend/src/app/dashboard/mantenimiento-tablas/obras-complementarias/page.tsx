@@ -5,12 +5,14 @@ import {
   AlertCircle,
   Building2,
   Calendar,
+  Copy,
   Loader2,
   Plus,
   RotateCcw,
   Search,
 } from "lucide-react";
 import ConfirmDeleteModal from "./components/confirm-delete-modal";
+import CopyYearModal from "./components/copy-year-modal";
 import ObraComplementariaFormModal from "./components/obra-complementaria-form-modal";
 import ObrasComplementariasGrid from "./components/obras-complementarias-grid";
 import {
@@ -43,6 +45,7 @@ export default function ObrasComplementariasPage() {
   const [formMode, setFormMode] = useState<"create" | "edit" | null>(null);
   const [editRow, setEditRow] = useState<ObraComplementariaRow | null>(null);
   const [deleteRow, setDeleteRow] = useState<ObraComplementariaRow | null>(null);
+  const [copyYearOpen, setCopyYearOpen] = useState(false);
 
   const executeSearch = useCallback(async (anno: string, categ: string) => {
     setLoading(true);
@@ -100,6 +103,24 @@ export default function ObrasComplementariasPage() {
     setFormMode(null);
     setEditRow(null);
     void executeSearch(selectedYear, selectedCateg);
+  };
+
+  const handleCopyYearSuccess = async (targetAnno: string) => {
+    setCopyYearOpen(false);
+    try {
+      const res = await fetch(`${BASE}/years`);
+      if (res.ok) {
+        const json = (await res.json()) as { years?: unknown };
+        if (Array.isArray(json.years)) {
+          setYears(json.years.map(String));
+        }
+      }
+    } catch {
+      // Si falla el refresco de años, seguimos con el fallback/local.
+    }
+    setSelectedYear(targetAnno);
+    setSelectedCateg("");
+    await executeSearch(targetAnno, "");
   };
 
   const handleDeleteConfirm = async () => {
@@ -210,6 +231,14 @@ export default function ObrasComplementariasPage() {
           </p>
           <button
             type="button"
+            onClick={() => setCopyYearOpen(true)}
+            className={`inline-flex min-h-9 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 active:scale-[0.98] ${focusClass}`}
+          >
+            <Copy size={14} aria-hidden="true" />
+            Copiar año
+          </button>
+          <button
+            type="button"
             onClick={() => setFormMode("create")}
             className={`inline-flex min-h-9 items-center gap-1.5 rounded-md bg-sat-navy px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-slate-800 active:scale-[0.98] ${focusClass}`}
           >
@@ -294,6 +323,15 @@ export default function ObrasComplementariasPage() {
         row={deleteRow}
         onConfirm={handleDeleteConfirm}
         onCancel={() => setDeleteRow(null)}
+      />
+
+      <CopyYearModal
+        isOpen={copyYearOpen}
+        sourceAnno={selectedYear}
+        years={years}
+        endpoint={BASE}
+        onClose={() => setCopyYearOpen(false)}
+        onSuccess={(targetAnno) => void handleCopyYearSuccess(targetAnno)}
       />
     </div>
   );
