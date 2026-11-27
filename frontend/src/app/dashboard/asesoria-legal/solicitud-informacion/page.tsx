@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { Scale, Search, Loader2, PlusCircle, CheckCircle2, Clock, Send, Eye, X, FileText, FileSpreadsheet, Pencil, Save, AlertTriangle, History, ChevronLeft, ChevronRight } from "lucide-react";
+import { Scale, Search, Loader2, PlusCircle, CheckCircle2, Clock, Send, Eye, X, FileText, FileSpreadsheet, Pencil, Save, AlertTriangle, History, ChevronLeft, ChevronRight, BookOpen, Download } from "lucide-react";
 import {
   fetchTramitesBomberos,
   crearSolicitudLegal,
@@ -15,6 +15,7 @@ import {
 } from "@/actions/asesoria-legal";
 import { FileUploaderNAS } from "@/presentation/components/file-uploader-nas";
 import { FileViewerModal } from "@/presentation/components/file-viewer-modal";
+import { ManualUsuarioModal } from "../manual-usuario-modal";
 
 const inputClass =
   "w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-[11px] text-slate-700 placeholder-slate-400 transition focus:border-sat-cyan focus:ring-2 focus:ring-sat-cyan/20 focus:outline-none";
@@ -35,9 +36,9 @@ interface TramiteAgrupado {
   cObservacionLegal: string;
   fFecSolicitud: string;
   cEstadoCabecera: string;
-  cobranza: { enviado: boolean; respondido: boolean; detalle?: string; respuesta?: string; fechaRespuesta?: string; rutaArchivo?: string; nombreArchivo?: string };
-  registro: { enviado: boolean; respondido: boolean; detalle?: string; respuesta?: string; fechaRespuesta?: string; rutaArchivo?: string; nombreArchivo?: string };
-  coactivo: { enviado: boolean; respondido: boolean; detalle?: string; respuesta?: string; fechaRespuesta?: string; rutaArchivo?: string; nombreArchivo?: string };
+  cobranza: { enviado: boolean; respondido: boolean; estadoOficina?: string; detalle?: string; respuesta?: string; fechaRespuesta?: string; rutaArchivo?: string; nombreArchivo?: string; iCodSolicitudOficina?: number };
+  registro: { enviado: boolean; respondido: boolean; estadoOficina?: string; detalle?: string; respuesta?: string; fechaRespuesta?: string; rutaArchivo?: string; nombreArchivo?: string; iCodSolicitudOficina?: number };
+  coactivo: { enviado: boolean; respondido: boolean; estadoOficina?: string; detalle?: string; respuesta?: string; fechaRespuesta?: string; rutaArchivo?: string; nombreArchivo?: string; iCodSolicitudOficina?: number };
   rawItems: EstadoSolicitudRow[];
 }
 
@@ -70,6 +71,7 @@ export default function SolicitudInformacionPage() {
 
   // Formulario Solicitud
   const [observacionLegal, setObservacionLegal] = useState("");
+  const [comentarioGlobalOficinas, setComentarioGlobalOficinas] = useState("");
   const [selectedOficinas, setSelectedOficinas] = useState<{ cCodAreaDestino: string; cDetalleSolicitud: string }[]>([]);
   const [adjuntoSolicitud, setAdjuntoSolicitud] = useState<{ cNombreArchivo: string; cRutaArchivo: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -93,11 +95,32 @@ export default function SolicitudInformacionPage() {
   const [evaluandoOficinaId, setEvaluandoOficinaId] = useState<number | null>(null);
   const [observandoOficinaId, setObservandoOficinaId] = useState<number | null>(null);
   const [notaObservacionText, setNotaObservacionText] = useState("");
+  const [confirmarConformidad, setConfirmarConformidad] = useState<{
+    iCodSolicitudOficina: number;
+    ofiNombre: string;
+    cCodificacion: string;
+    item?: TramiteAgrupado;
+  } | null>(null);
 
   // Modal Historial de Envíos
   const [modalHistorial, setModalHistorial] = useState<{ ofiNombre: string; iCodSolicitudOficina: number } | null>(null);
   const [historialItems, setHistorialItems] = useState<HistorialRespuestaRow[]>([]);
   const [loadingHistorial, setLoadingHistorial] = useState(false);
+
+  // Modal Manual de Usuario
+  const [showManualModal, setShowManualModal] = useState(false);
+  const [downloadingPdfId, setDownloadingPdfId] = useState<number | null>(null);
+
+  const handleDescargarPdfConsolidado = async (iCodSolicitud: number) => {
+    setDownloadingPdfId(iCodSolicitud);
+    try {
+      window.open(`/api/asesoria-legal/solicitud/${iCodSolicitud}/pdf-consolidado`, '_blank');
+    } catch (err) {
+      console.error('Error al descargar PDF:', err);
+    } finally {
+      setTimeout(() => setDownloadingPdfId(null), 1000);
+    }
+  };
 
   const handleVerHistorial = async (ofiNombre: string, iCodSolicitudOficina: number) => {
     setModalHistorial({ ofiNombre, iCodSolicitudOficina });
@@ -130,6 +153,15 @@ export default function SolicitudInformacionPage() {
 
   const handleGuardarEdicionSolicitud = async () => {
     if (!modalDetalle) return;
+
+    const hayRespuestas = modalDetalle.rawItems.some(
+      (i) => i.cEstadoOficina === "RESPONDIDO" || i.cEstadoOficina === "CONFORME" || i.cEstadoOficina === "OBSERVADO" || (i.nFlgEstado && i.nFlgEstado > 1)
+    );
+    if (hayRespuestas) {
+      setEditError("No se puede editar la solicitud porque una o más oficinas ya han emitido su respuesta.");
+      return;
+    }
+
     setSavingEdit(true);
     setEditError(null);
     setEditSuccess(null);
@@ -304,6 +336,7 @@ export default function SolicitudInformacionPage() {
       fechaRespuesta: current.fFecRespuesta,
       rutaArchivo: current.cRutaArchivo,
       nombreArchivo: current.cNombreArchivo,
+      iCodSolicitudOficina: current.iCodSolicitudOficina,
     };
 
     if (ofiId === "Cobranza" || ofiId === "1") acc[key].cobranza = info;
@@ -317,8 +350,34 @@ export default function SolicitudInformacionPage() {
     if (selectedOficinas.some((o) => o.cCodAreaDestino === idArea)) {
       setSelectedOficinas(selectedOficinas.filter((o) => o.cCodAreaDestino !== idArea));
     } else {
-      setSelectedOficinas([...selectedOficinas, { cCodAreaDestino: idArea, cDetalleSolicitud: "" }]);
+      setSelectedOficinas([
+        ...selectedOficinas,
+        { cCodAreaDestino: idArea, cDetalleSolicitud: comentarioGlobalOficinas || "" },
+      ]);
     }
+  };
+
+  const handleToggleSeleccionarTodas = (checked: boolean) => {
+    if (checked) {
+      setSelectedOficinas(
+        OFICINAS_DISPONIBLES.map((ofi) => ({
+          cCodAreaDestino: ofi.id,
+          cDetalleSolicitud: comentarioGlobalOficinas || "",
+        }))
+      );
+    } else {
+      setSelectedOficinas([]);
+    }
+  };
+
+  const handleComentarioGlobalChange = (nuevoTexto: string) => {
+    setComentarioGlobalOficinas(nuevoTexto);
+    setSelectedOficinas((prev) =>
+      prev.map((o) => ({
+        ...o,
+        cDetalleSolicitud: nuevoTexto,
+      }))
+    );
   };
 
   const handleUpdateDetalleOficina = (idArea: string, detalle: string) => {
@@ -352,6 +411,7 @@ export default function SolicitudInformacionPage() {
       setSubmitSuccess(`Solicitud enviada a ${selectedOficinas.length} oficina(s) correctamente.`);
       setSelectedTramite(null);
       setObservacionLegal("");
+      setComentarioGlobalOficinas("");
       setSelectedOficinas([]);
       setAdjuntoSolicitud(null);
       loadData();
@@ -463,18 +523,29 @@ export default function SolicitudInformacionPage() {
     <div className="space-y-4">
       {/* Header Unificado */}
       <div className="relative overflow-hidden rounded-lg bg-gradient-to-br from-sat-navy via-[#1b2b4a] to-slate-800 px-5 py-4 shadow-sm">
-        <div className="relative flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-white/15 to-white/5 backdrop-blur-sm ring-1 ring-white/10">
-            <Scale size={18} className="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]" />
+        <div className="relative flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-white/15 to-white/5 backdrop-blur-sm ring-1 ring-white/10">
+              <Scale size={18} className="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]" />
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-white font-outfit tracking-tight">
+                Solicitar Información
+              </h1>
+              <p className="text-xs text-white/50 font-inter">
+                Consola única para derivar requerimientos a oficinas y monitorear respuestas en tiempo real
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-lg font-bold text-white font-outfit tracking-tight">
-              Solicitar Información
-            </h1>
-            <p className="text-xs text-white/50 font-inter">
-              Consola única para derivar requerimientos a oficinas y monitorear respuestas en tiempo real
-            </p>
-          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowManualModal(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 border border-white/20 text-xs font-semibold backdrop-blur-xs transition shadow-xs cursor-pointer"
+          >
+            <BookOpen size={14} className="text-sat-cyan" />
+            <span>Manual de Usuario</span>
+          </button>
         </div>
       </div>
 
@@ -601,37 +672,28 @@ export default function SolicitudInformacionPage() {
             <table className="w-full min-w-[1100px] table-fixed border-collapse">
               <thead className="bg-gradient-to-r from-sat-navy to-[#1e3050]">
                 <tr>
-                  <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-1.5 py-2.5 w-[6.2%]">
+                  <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-2 py-2.5 w-[7.5%]">
                     N° Trámite
                   </th>
-                  <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-1.5 py-2.5 w-[4.8%]">
+                  <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-2 py-2.5 w-[6%]">
                     Cód. Contrib.
                   </th>
-                  <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-1.5 py-2.5 w-[7.5%]">
+                  <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-2 py-2.5 w-[7%]">
                     Fecha Doc.
                   </th>
-                  <th className="text-center text-[11px] font-semibold text-white/90 uppercase px-1 py-2.5 w-[4.5%]">
-                    Desde
+                  <th className="text-center text-[11px] font-semibold text-white/90 uppercase px-1.5 py-2.5 w-[11.5%]">
+                    Años / Tributos
                   </th>
-                  <th className="text-center text-[11px] font-semibold text-white/90 uppercase px-1 py-2.5 w-[4.5%]">
-                    Hasta
-                  </th>
-                  <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-2 py-2.5 w-[31%]">
+                  <th className="text-left text-[11px] font-semibold text-white/90 uppercase px-2.5 py-2.5 w-[33%]">
                     Contribuyente / Asunto
                   </th>
-                  <th className="text-center text-[11px] font-semibold text-white/90 uppercase px-1 py-2.5 w-[9.5%]">
+                  <th className="text-center text-[11px] font-semibold text-white/90 uppercase px-1.5 py-2.5 w-[11%]">
                     Estado Legal
                   </th>
-                  <th className="text-center text-[11px] font-semibold text-white/90 uppercase px-1 py-2.5 w-[8%]">
-                    Cobranza
+                  <th className="text-center text-[11px] font-semibold text-white/90 uppercase px-1.5 py-2.5 w-[14%]">
+                    Requerimientos / Áreas
                   </th>
-                  <th className="text-center text-[11px] font-semibold text-white/90 uppercase px-1 py-2.5 w-[8%]">
-                    Registro
-                  </th>
-                  <th className="text-center text-[11px] font-semibold text-white/90 uppercase px-1 py-2.5 w-[8%]">
-                    Coactivo
-                  </th>
-                  <th className="text-center text-[11px] font-semibold text-white/90 uppercase px-1.5 py-2.5 w-[12%]">
+                  <th className="text-center text-[11px] font-semibold text-white/90 uppercase px-2 py-2.5 w-[10%]">
                     Acción
                   </th>
                 </tr>
@@ -639,7 +701,7 @@ export default function SolicitudInformacionPage() {
               <tbody className="divide-y divide-slate-100">
                 {tramites.length === 0 ? (
                   <tr>
-                    <td colSpan={11} className="text-center py-8 text-xs text-slate-400">
+                    <td colSpan={8} className="text-center py-8 text-xs text-slate-400">
                       {loadingTramites ? "Buscando trámites..." : "No se encontraron trámites con los criterios ingresados."}
                     </td>
                   </tr>
@@ -675,11 +737,33 @@ export default function SolicitudInformacionPage() {
                         <td className="px-2 py-2 text-[11px] font-mono text-slate-600 truncate">
                           {fechaRegStr}
                         </td>
-                        <td className="px-1 py-2 text-[11px] font-mono font-bold text-slate-700 text-center truncate">
-                          {anioDesde}
-                        </td>
-                        <td className="px-1 py-2 text-[11px] font-mono font-bold text-slate-700 text-center truncate">
-                          {anioHasta}
+                        <td className="px-1.5 py-2 text-center">
+                          {t.tributos && t.tributos.length > 0 ? (
+                            <div className="flex flex-col gap-1 items-center justify-center">
+                              {t.tributos.map((trib, i) => (
+                                <span
+                                  key={i}
+                                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold tracking-tight shadow-2xs whitespace-nowrap ${
+                                    trib.cTipoTributo?.toUpperCase().includes("PREDIAL")
+                                      ? "bg-amber-50 text-amber-800 border border-amber-300"
+                                      : trib.cTipoTributo?.toUpperCase().includes("ARBITRIO")
+                                      ? "bg-sky-50 text-sky-800 border border-sky-300"
+                                      : "bg-slate-100 text-slate-700 border border-slate-300"
+                                  }`}
+                                  title={`${trib.cTipoTributo}: ${trib.nAnoDesde} - ${trib.nAnoHasta ?? "Actual"}`}
+                                >
+                                  <span className="text-[9px] uppercase font-semibold opacity-80">
+                                    {trib.cTipoTributo?.length > 7 ? trib.cTipoTributo.substring(0, 6) + "." : trib.cTipoTributo}:
+                                  </span>
+                                  <span>{trib.nAnoDesde} - {trib.nAnoHasta ?? ""}</span>
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-mono font-bold">
+                              {anioDesde} - {anioHasta}
+                            </span>
+                          )}
                         </td>
                         <td className="px-2.5 py-2 text-[12px]">
                           <div className="font-medium text-slate-800 truncate">{t.nombre_contribuyente || t.ccodigo}</div>
@@ -688,64 +772,220 @@ export default function SolicitudInformacionPage() {
 
                         {/* Estado Legal General */}
                         <td className="px-2 py-2 text-center">
-                          {renderBadgeEstadoLegal(t.cEstadoSolicitudLegal)}
-                        </td>
-
-                        {/* Cobranza Status */}
-                        <td className="px-2 py-2 text-center">
-                          {renderOficinaCell(infoAgrupada?.cobranza ?? { enviado: false, respondido: false })}
-                        </td>
-
-                        {/* Registro Status */}
-                        <td className="px-2 py-2 text-center">
-                          {renderOficinaCell(infoAgrupada?.registro ?? { enviado: false, respondido: false })}
-                        </td>
-
-                        {/* Coactivo Status */}
-                        <td className="px-2 py-2 text-center">
-                          {renderOficinaCell(infoAgrupada?.coactivo ?? { enviado: false, respondido: false })}
-                        </td>
-
-                        {/* Acciones: Solicitar o Ver Respuestas */}
-                        <td className="px-2 py-2 text-center flex items-center justify-center gap-1">
-                          {infoAgrupada ? (
-                            <div className="flex flex-col items-center gap-0.5">
-                              <button
-                                type="button"
-                                disabled
-                                className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500 cursor-not-allowed border border-slate-200"
-                                title={`Solicitado el ${formatDateLocal(infoAgrupada.fFecSolicitud)}`}
-                              >
-                                <CheckCircle2 size={11} className="text-emerald-600" />
-                                Solicitado
-                              </button>
-                              <span className="text-[9px] font-mono text-slate-400 font-medium">
+                          <div className="flex flex-col items-center gap-1">
+                            {renderBadgeEstadoLegal(t.cEstadoSolicitudLegal)}
+                            {infoAgrupada && (
+                              <span className="text-[10px] font-mono text-slate-400 font-medium whitespace-nowrap">
                                 {formatDateLocal(infoAgrupada.fFecSolicitud)}
                               </span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Requerimientos / Áreas Unificadas */}
+                        <td className="px-2 py-2 text-center">
+                          {infoAgrupada ? (
+                            <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                              {/* Cobranza */}
+                              {infoAgrupada.cobranza.enviado && (
+                                <div className="inline-flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    disabled={!infoAgrupada.cobranza.respondido || infoAgrupada.cobranza.estadoOficina === "CONFORME"}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (infoAgrupada.cobranza.respondido && infoAgrupada.cobranza.iCodSolicitudOficina && infoAgrupada.cobranza.estadoOficina !== "CONFORME") {
+                                        setConfirmarConformidad({
+                                          iCodSolicitudOficina: infoAgrupada.cobranza.iCodSolicitudOficina,
+                                          ofiNombre: "Oficina de Cobranza",
+                                          cCodificacion: t.cCodificacion,
+                                          item: infoAgrupada,
+                                        });
+                                      }
+                                    }}
+                                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold font-mono tracking-tight shadow-2xs transition ${
+                                      infoAgrupada.cobranza.estadoOficina === "CONFORME"
+                                        ? "bg-emerald-100 text-emerald-800 border border-emerald-300 cursor-default"
+                                        : infoAgrupada.cobranza.estadoOficina === "OBSERVADO"
+                                        ? "bg-amber-100 text-amber-900 border border-amber-300 hover:bg-amber-200 cursor-pointer"
+                                        : infoAgrupada.cobranza.respondido
+                                        ? "bg-sky-100 text-sky-800 border border-sky-300 hover:bg-sky-200 hover:border-sky-400 cursor-pointer"
+                                        : "bg-slate-100 text-slate-600 border border-slate-300 cursor-default"
+                                    }`}
+                                    title={
+                                      infoAgrupada.cobranza.estadoOficina === "CONFORME"
+                                        ? "Cobranza: CONFORME (Visto Bueno otorgado)"
+                                        : infoAgrupada.cobranza.respondido
+                                        ? "Cobranza: ATENDIDO (Hacer clic para dar Visto Bueno / Conformidad)"
+                                        : "Cobranza: PENDIENTE"
+                                    }
+                                  >
+                                    COB: {infoAgrupada.cobranza.estadoOficina === "CONFORME" ? "OK" : infoAgrupada.cobranza.estadoOficina === "OBSERVADO" ? "OBS" : infoAgrupada.cobranza.respondido ? "ATN" : "PND"}
+                                  </button>
+                                  {infoAgrupada.cobranza.rutaArchivo && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setViewerFile({
+                                          url: `/api/storage/download/${infoAgrupada.cobranza.rutaArchivo}`,
+                                          name: infoAgrupada.cobranza.nombreArchivo || "Informe Cobranza NAS",
+                                        });
+                                      }}
+                                      className="inline-flex items-center justify-center p-0.5 rounded bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-200 transition cursor-pointer shadow-2xs"
+                                      title={`Ver adjunto NAS de Cobranza: ${infoAgrupada.cobranza.nombreArchivo || "Documento"}`}
+                                    >
+                                      <FileText size={10} className="text-sky-600" />
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Registro */}
+                              {infoAgrupada.registro.enviado && (
+                                <div className="inline-flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    disabled={!infoAgrupada.registro.respondido || infoAgrupada.registro.estadoOficina === "CONFORME"}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (infoAgrupada.registro.respondido && infoAgrupada.registro.iCodSolicitudOficina && infoAgrupada.registro.estadoOficina !== "CONFORME") {
+                                        setConfirmarConformidad({
+                                          iCodSolicitudOficina: infoAgrupada.registro.iCodSolicitudOficina,
+                                          ofiNombre: "Oficina de Registro y Fiscalización",
+                                          cCodificacion: t.cCodificacion,
+                                          item: infoAgrupada,
+                                        });
+                                      }
+                                    }}
+                                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold font-mono tracking-tight shadow-2xs transition ${
+                                      infoAgrupada.registro.estadoOficina === "CONFORME"
+                                        ? "bg-emerald-100 text-emerald-800 border border-emerald-300 cursor-default"
+                                        : infoAgrupada.registro.estadoOficina === "OBSERVADO"
+                                        ? "bg-amber-100 text-amber-900 border border-amber-300 hover:bg-amber-200 cursor-pointer"
+                                        : infoAgrupada.registro.respondido
+                                        ? "bg-sky-100 text-sky-800 border border-sky-300 hover:bg-sky-200 hover:border-sky-400 cursor-pointer"
+                                        : "bg-slate-100 text-slate-600 border border-slate-300 cursor-default"
+                                    }`}
+                                    title={
+                                      infoAgrupada.registro.estadoOficina === "CONFORME"
+                                        ? "Registro: CONFORME (Visto Bueno otorgado)"
+                                        : infoAgrupada.registro.respondido
+                                        ? "Registro: ATENDIDO (Hacer clic para dar Visto Bueno / Conformidad)"
+                                        : "Registro: PENDIENTE"
+                                    }
+                                  >
+                                    REG: {infoAgrupada.registro.estadoOficina === "CONFORME" ? "OK" : infoAgrupada.registro.estadoOficina === "OBSERVADO" ? "OBS" : infoAgrupada.registro.respondido ? "ATN" : "PND"}
+                                  </button>
+                                  {infoAgrupada.registro.rutaArchivo && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setViewerFile({
+                                          url: `/api/storage/download/${infoAgrupada.registro.rutaArchivo}`,
+                                          name: infoAgrupada.registro.nombreArchivo || "Informe Registro NAS",
+                                        });
+                                      }}
+                                      className="inline-flex items-center justify-center p-0.5 rounded bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-200 transition cursor-pointer shadow-2xs"
+                                      title={`Ver adjunto NAS de Registro: ${infoAgrupada.registro.nombreArchivo || "Documento"}`}
+                                    >
+                                      <FileText size={10} className="text-sky-600" />
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Coactivo */}
+                              {infoAgrupada.coactivo.enviado && (
+                                <div className="inline-flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    disabled={!infoAgrupada.coactivo.respondido || infoAgrupada.coactivo.estadoOficina === "CONFORME"}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (infoAgrupada.coactivo.respondido && infoAgrupada.coactivo.iCodSolicitudOficina && infoAgrupada.coactivo.estadoOficina !== "CONFORME") {
+                                        setConfirmarConformidad({
+                                          iCodSolicitudOficina: infoAgrupada.coactivo.iCodSolicitudOficina,
+                                          ofiNombre: "Oficina de Ejecutoría Coactiva",
+                                          cCodificacion: t.cCodificacion,
+                                          item: infoAgrupada,
+                                        });
+                                      }
+                                    }}
+                                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold font-mono tracking-tight shadow-2xs transition ${
+                                      infoAgrupada.coactivo.estadoOficina === "CONFORME"
+                                        ? "bg-emerald-100 text-emerald-800 border border-emerald-300 cursor-default"
+                                        : infoAgrupada.coactivo.estadoOficina === "OBSERVADO"
+                                        ? "bg-amber-100 text-amber-900 border border-amber-300 hover:bg-amber-200 cursor-pointer"
+                                        : infoAgrupada.coactivo.respondido
+                                        ? "bg-sky-100 text-sky-800 border border-sky-300 hover:bg-sky-200 hover:border-sky-400 cursor-pointer"
+                                        : "bg-slate-100 text-slate-600 border border-slate-300 cursor-default"
+                                    }`}
+                                    title={
+                                      infoAgrupada.coactivo.estadoOficina === "CONFORME"
+                                        ? "Coactivo: CONFORME (Visto Bueno otorgado)"
+                                        : infoAgrupada.coactivo.respondido
+                                        ? "Coactivo: ATENDIDO (Hacer clic para dar Visto Bueno / Conformidad)"
+                                        : "Coactivo: PENDIENTE"
+                                    }
+                                  >
+                                    COA: {infoAgrupada.coactivo.estadoOficina === "CONFORME" ? "OK" : infoAgrupada.coactivo.estadoOficina === "OBSERVADO" ? "OBS" : infoAgrupada.coactivo.respondido ? "ATN" : "PND"}
+                                  </button>
+                                  {infoAgrupada.coactivo.rutaArchivo && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setViewerFile({
+                                          url: `/api/storage/download/${infoAgrupada.coactivo.rutaArchivo}`,
+                                          name: infoAgrupada.coactivo.nombreArchivo || "Informe Coactivo NAS",
+                                        });
+                                      }}
+                                      className="inline-flex items-center justify-center p-0.5 rounded bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-200 transition cursor-pointer shadow-2xs"
+                                      title={`Ver adjunto NAS de Coactivo: ${infoAgrupada.coactivo.nombreArchivo || "Documento"}`}
+                                    >
+                                      <FileText size={10} className="text-sky-600" />
+                                    </button>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           ) : (
-                            <button
-                              type="button"
-                              onClick={() => setSelectedTramite(t)}
-                              className="inline-flex items-center gap-1 rounded bg-sat-cyan px-2 py-1 text-[10px] font-medium text-white transition hover:bg-cyan-600 shadow-2xs cursor-pointer"
-                              title="Nueva Solicitud"
-                            >
-                              <PlusCircle size={11} />
-                              Solicitar
-                            </button>
+                            <span className="text-slate-300 text-xs font-mono">—</span>
                           )}
+                        </td>
 
-                          {infoAgrupada && (
-                            <div className="flex items-center gap-1">
+                        {/* Acciones */}
+                        <td className="px-2 py-2 text-center">
+                          {infoAgrupada ? (
+                            <div className="inline-flex items-center justify-center gap-1 bg-slate-50 p-1 rounded-md border border-slate-200 shadow-2xs">
+                              {/* Ver detalle */}
                               <button
                                 type="button"
                                 onClick={() => handleOpenModalDetalle(infoAgrupada)}
-                                className="inline-flex items-center justify-center p-1.5 rounded bg-sky-50 text-sky-700 border border-sky-200 transition hover:bg-sky-100 cursor-pointer shadow-2xs"
+                                className="inline-flex items-center justify-center p-1 rounded bg-white text-sky-700 border border-sky-200 transition hover:bg-sky-50 cursor-pointer shadow-2xs"
                                 title="Ver Respuestas y Detalle de Solicitud"
                               >
-                                <Eye size={13} />
+                                <Eye size={12} />
                               </button>
 
+                              {/* Descargar PDF Consolidado */}
+                              <button
+                                type="button"
+                                onClick={() => handleDescargarPdfConsolidado(infoAgrupada.iCodSolicitud)}
+                                disabled={downloadingPdfId === infoAgrupada.iCodSolicitud}
+                                className="inline-flex items-center justify-center p-1 rounded bg-white text-rose-700 border border-rose-200 transition hover:bg-rose-50 cursor-pointer shadow-2xs disabled:opacity-50"
+                                title="Descargar Informe Técnico Consolidado en PDF"
+                              >
+                                {downloadingPdfId === infoAgrupada.iCodSolicitud ? (
+                                  <Loader2 size={12} className="animate-spin text-rose-600" />
+                                ) : (
+                                  <FileText size={12} className="text-rose-600" />
+                                )}
+                              </button>
+
+                              {/* Editar Solicitud si no han respondido */}
                               {(() => {
                                 const totalRespondidas = infoAgrupada.rawItems.filter((i) => i.cEstadoOficina === "RESPONDIDO").length;
                                 if (totalRespondidas === 0) {
@@ -756,10 +996,10 @@ export default function SolicitudInformacionPage() {
                                         handleOpenModalDetalle(infoAgrupada);
                                         setIsEditingModal(true);
                                       }}
-                                      className="inline-flex items-center justify-center p-1.5 rounded bg-amber-50 text-amber-700 border border-amber-200 transition hover:bg-amber-100 cursor-pointer shadow-2xs"
+                                      className="inline-flex items-center justify-center p-1 rounded bg-white text-amber-700 border border-amber-200 transition hover:bg-amber-50 cursor-pointer shadow-2xs"
                                       title="Editar Solicitud de Información"
                                     >
-                                      <Pencil size={13} />
+                                      <Pencil size={12} />
                                     </button>
                                   );
                                 }
@@ -767,14 +1007,24 @@ export default function SolicitudInformacionPage() {
                                   <button
                                     type="button"
                                     disabled
-                                    className="inline-flex items-center justify-center p-1.5 rounded bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-50"
-                                    title="Edición bloqueada: Una o más oficinas ya han respondido"
+                                    className="inline-flex items-center justify-center p-1 rounded bg-slate-100 text-slate-300 border border-slate-200 cursor-not-allowed opacity-40"
+                                    title="Edición bloqueada: Las oficinas ya comenzaron a responder"
                                   >
-                                    <Pencil size={13} />
+                                    <Pencil size={12} />
                                   </button>
                                 );
                               })()}
                             </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedTramite(t)}
+                              className="inline-flex items-center gap-1 rounded bg-sat-cyan px-2.5 py-1 text-[11px] font-semibold text-white transition hover:bg-cyan-600 shadow-2xs cursor-pointer"
+                              title="Emitir Solicitud a Oficinas"
+                            >
+                              <PlusCircle size={12} />
+                              Solicitar
+                            </button>
                           )}
                         </td>
                       </tr>
@@ -864,6 +1114,36 @@ export default function SolicitudInformacionPage() {
                 </button>
               </div>
 
+              {/* Bloque Conceptos / Tributos Solicitados en Trámite */}
+              <div className="rounded bg-slate-50 p-2.5 border border-slate-200 text-xs space-y-1.5">
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                  Conceptos / Tributos del Trámite
+                </span>
+                {selectedTramite.tributos && selectedTramite.tributos.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedTramite.tributos.map((trib, i) => (
+                      <span
+                        key={i}
+                        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-mono font-bold shadow-2xs ${
+                          trib.cTipoTributo?.toUpperCase().includes("PREDIAL")
+                            ? "bg-amber-100/80 text-amber-900 border border-amber-300"
+                            : trib.cTipoTributo?.toUpperCase().includes("ARBITRIO")
+                            ? "bg-sky-100/80 text-sky-900 border border-sky-300"
+                            : "bg-emerald-100/80 text-emerald-900 border border-emerald-300"
+                        }`}
+                      >
+                        <span className="uppercase text-[9px] font-semibold">{trib.cTipoTributo}:</span>
+                        <span>{trib.nAnoDesde} - {trib.nAnoHasta ?? "Presente"}</span>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-[11px] font-mono font-semibold text-slate-700">
+                    Años: {selectedTramite.fFecDesde ? String(selectedTramite.fFecDesde).substring(0, 4) : "-"} a {selectedTramite.fFecHasta ? String(selectedTramite.fFecHasta).substring(0, 4) : "-"}
+                  </div>
+                )}
+              </div>
+
               <div>
                 <label className={labelClass}>Observaciones / Indicación del Área Legal</label>
                 <textarea
@@ -885,7 +1165,38 @@ export default function SolicitudInformacionPage() {
               />
 
               <div>
-                <label className={labelClass}>Seleccionar Oficinas Destino</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className={labelClass}>Seleccionar Oficinas Destino</label>
+                  <label className="flex items-center gap-1.5 text-[11px] font-semibold text-sat-cyan cursor-pointer bg-cyan-50/80 px-2 py-0.5 rounded border border-cyan-200 hover:bg-cyan-100/70 transition">
+                    <input
+                      type="checkbox"
+                      checked={
+                        OFICINAS_DISPONIBLES.length > 0 &&
+                        selectedOficinas.length === OFICINAS_DISPONIBLES.length
+                      }
+                      onChange={(e) => handleToggleSeleccionarTodas(e.target.checked)}
+                      className="rounded border-cyan-300 text-sat-cyan focus:ring-sat-cyan w-3.5 h-3.5 cursor-pointer"
+                    />
+                    <span>Seleccionar todas</span>
+                  </label>
+                </div>
+
+                {/* Detalle o N° de Informe Global cuando hay oficinas seleccionadas */}
+                {selectedOficinas.length > 0 && (
+                  <div className="mb-2 p-2 bg-slate-50 rounded border border-slate-200 space-y-1">
+                    <label className="text-[10px] font-bold text-sat-navy uppercase tracking-wider block">
+                      N° de Informe / Detalle General para las Oficinas:
+                    </label>
+                    <input
+                      type="text"
+                      value={comentarioGlobalOficinas}
+                      onChange={(e) => handleComentarioGlobalChange(e.target.value)}
+                      placeholder="Ej: INFORME N° 120-2026-AL / Requerimiento de estado situacional..."
+                      className={inputClass}
+                    />
+                  </div>
+                )}
+
                 <div className="space-y-2 mt-1">
                   {OFICINAS_DISPONIBLES.map((ofi) => {
                     const selected = selectedOficinas.find((o) => o.cCodAreaDestino === ofi.id);
@@ -963,9 +1274,27 @@ export default function SolicitudInformacionPage() {
                 </p>
               </div>
               <div className="flex items-center gap-2">
+                {/* Botón Descargar PDF Consolidado */}
+                <button
+                  type="button"
+                  onClick={() => handleDescargarPdfConsolidado(modalDetalle.iCodSolicitud)}
+                  disabled={downloadingPdfId === modalDetalle.iCodSolicitud}
+                  className="inline-flex items-center gap-1.5 rounded bg-rose-600 px-3 py-1 text-xs font-bold text-white hover:bg-rose-700 transition shadow-xs cursor-pointer disabled:opacity-50"
+                  title="Descargar Informe Técnico Consolidado en PDF"
+                >
+                  {downloadingPdfId === modalDetalle.iCodSolicitud ? (
+                    <Loader2 size={12} className="animate-spin text-white" />
+                  ) : (
+                    <Download size={12} />
+                  )}
+                  <span>Descargar PDF</span>
+                </button>
+
                 {(() => {
-                  const totalRespondidas = modalDetalle.rawItems.filter((i) => i.cEstadoOficina === "RESPONDIDO").length;
-                  if (totalRespondidas === 0 && !isEditingModal) {
+                  const yaRespondieron = modalDetalle.rawItems.some(
+                    (i) => i.cEstadoOficina === "RESPONDIDO" || i.cEstadoOficina === "CONFORME" || i.cEstadoOficina === "OBSERVADO" || (i.nFlgEstado && i.nFlgEstado > 1)
+                  );
+                  if (!yaRespondieron && !isEditingModal) {
                     return (
                       <button
                         type="button"
@@ -977,9 +1306,12 @@ export default function SolicitudInformacionPage() {
                         Editar Solicitud
                       </button>
                     );
-                  } else if (totalRespondidas > 0) {
+                  } else if (yaRespondieron) {
                     return (
-                      <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                      <span
+                        className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-1 rounded border border-slate-200"
+                        title="Una o más oficinas ya han emitido su respuesta, por lo que la solicitud queda congelada para preservar la validez del requerimiento."
+                      >
                         🔒 Edición Bloqueada (Oficinas respondieron)
                       </span>
                     );
@@ -1086,77 +1418,139 @@ export default function SolicitudInformacionPage() {
             })()}
 
             {/* MODO EDICIÓN vs MODO LECTURA */}
+            {(() => {
+              const tributosList = modalDetalle.rawItems[0]?.tributos;
+              if (tributosList && tributosList.length > 0) {
+                return (
+                  <div className="rounded-lg bg-slate-50 p-2.5 border border-slate-200 text-xs space-y-1.5">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Conceptos / Tributos Solicitados del Trámite
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {tributosList.map((trib, i) => (
+                        <span
+                          key={i}
+                          className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-mono font-bold shadow-2xs ${
+                            trib.cTipoTributo?.toUpperCase().includes("PREDIAL")
+                              ? "bg-amber-100/80 text-amber-900 border border-amber-300"
+                              : trib.cTipoTributo?.toUpperCase().includes("ARBITRIO")
+                              ? "bg-sky-100/80 text-sky-900 border border-sky-300"
+                              : "bg-emerald-100/80 text-emerald-900 border border-emerald-300"
+                          }`}
+                        >
+                          <span className="uppercase text-[9px] font-semibold">{trib.cTipoTributo}:</span>
+                          <span>{trib.nAnoDesde} - {trib.nAnoHasta ?? "Presente"}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
             {isEditingModal ? (
-              <div className="space-y-3 bg-amber-50/50 p-4 rounded-xl border border-amber-200">
-                <div className="flex items-center gap-1 text-amber-800 font-bold text-xs uppercase">
-                  <Pencil size={13} />
-                  <span>Modo Edición de Solicitud Legal</span>
-                </div>
+              (() => {
+                const yaRespondieron = modalDetalle.rawItems.some(
+                  (i) => i.cEstadoOficina === "RESPONDIDO" || i.cEstadoOficina === "CONFORME" || i.cEstadoOficina === "OBSERVADO" || (i.nFlgEstado && i.nFlgEstado > 1)
+                );
 
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
-                    Indicación / Observación de Legal
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={editObservacionLegal}
-                    onChange={(e) => setEditObservacionLegal(e.target.value)}
-                    className="w-full rounded-md border border-slate-300 bg-white p-2 text-xs font-mono text-slate-800 focus:border-sat-cyan focus:outline-none"
-                    placeholder="Ingrese la observación o indicación general de Asesoría Legal..."
-                  />
-                </div>
+                if (yaRespondieron) {
+                  return (
+                    <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                      <div className="flex items-center gap-2 text-slate-700 font-bold text-xs">
+                        <AlertTriangle size={15} className="text-amber-600" />
+                        <span>Edición no disponible</span>
+                      </div>
+                      <div className="rounded-md bg-amber-50 p-3 border border-amber-200 text-amber-900 text-xs leading-relaxed">
+                        Una o más oficinas ya han emitido su respuesta oficial para este trámite. Por este motivo, la solicitud original no se puede modificar a fin de garantizar la trazabilidad del expediente.
+                      </div>
+                      <div className="flex justify-end pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingModal(false)}
+                          className="rounded bg-slate-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 transition"
+                        >
+                          Volver a Vista Detalle
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
 
-                {/* Adjuntar o Cambiar Documento de Requerimiento (NAS) */}
-                <FileUploaderNAS
-                  label="Adjuntar / Cambiar Documento de Requerimiento (NAS)"
-                  cCodificacion={modalDetalle.cCodificacion}
-                  currentFileName={editAdjuntoSolicitud?.cNombreArchivo}
-                  onUploadSuccess={(data) => setEditAdjuntoSolicitud({ cNombreArchivo: data.cNombreArchivo, cRutaArchivo: data.cRutaArchivo })}
-                  onRemove={() => setEditAdjuntoSolicitud(null)}
-                />
+                return (
+                  <div className="space-y-3 bg-amber-50/50 p-4 rounded-xl border border-amber-200">
+                    <div className="flex items-center gap-1 text-amber-800 font-bold text-xs uppercase">
+                      <Pencil size={13} />
+                      <span>Modo Edición de Solicitud Legal</span>
+                    </div>
 
-                <div className="space-y-2">
-                  <label className="block text-[10px] font-bold text-slate-600 uppercase">
-                    Detalle por Oficina
-                  </label>
-                  {modalDetalle.rawItems.map((ofi) => (
-                    <div key={ofi.iCodSolicitudOficina} className="space-y-1">
-                      <span className="text-[11px] font-bold text-sat-navy">{ofi.cCodAreaDestino}:</span>
-                      <input
-                        type="text"
-                        value={editOficinasDetalle[ofi.cCodAreaDestino] || ""}
-                        onChange={(e) =>
-                          setEditOficinasDetalle({
-                            ...editOficinasDetalle,
-                            [ofi.cCodAreaDestino]: e.target.value,
-                          })
-                        }
-                        className="w-full rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-700 focus:border-sat-cyan focus:outline-none"
-                        placeholder={`Especifique qué solicita a ${ofi.cCodAreaDestino}...`}
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
+                        Indicación / Observación de Legal
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={editObservacionLegal}
+                        onChange={(e) => setEditObservacionLegal(e.target.value)}
+                        className="w-full rounded-md border border-slate-300 bg-white p-2 text-xs font-mono text-slate-800 focus:border-sat-cyan focus:outline-none"
+                        placeholder="Ingrese la observación o indicación general de Asesoría Legal..."
                       />
                     </div>
-                  ))}
-                </div>
 
-                <div className="flex justify-end gap-2 pt-2 border-t border-amber-200">
-                  <button
-                    type="button"
-                    onClick={() => setIsEditingModal(false)}
-                    className="rounded border border-slate-300 px-3 py-1 text-xs text-slate-600 hover:bg-slate-100"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleGuardarEdicionSolicitud}
-                    disabled={savingEdit}
-                    className="inline-flex items-center gap-1.5 rounded bg-emerald-600 px-4 py-1 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50 shadow-xs"
-                  >
-                    {savingEdit ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
-                    Guardar Cambios
-                  </button>
-                </div>
-              </div>
+                    {/* Adjuntar o Cambiar Documento de Requerimiento (NAS) */}
+                    <FileUploaderNAS
+                      label="Adjuntar / Cambiar Documento de Requerimiento (NAS)"
+                      cCodificacion={modalDetalle.cCodificacion}
+                      currentFileName={editAdjuntoSolicitud?.cNombreArchivo}
+                      onUploadSuccess={(data) => setEditAdjuntoSolicitud({ cNombreArchivo: data.cNombreArchivo, cRutaArchivo: data.cRutaArchivo })}
+                      onRemove={() => setEditAdjuntoSolicitud(null)}
+                    />
+
+                    <div className="space-y-2">
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase">
+                        Detalle por Oficina
+                      </label>
+                      {modalDetalle.rawItems.map((ofi) => (
+                        <div key={ofi.iCodSolicitudOficina} className="space-y-1">
+                          <span className="text-[11px] font-bold text-sat-navy">{ofi.cCodAreaDestino}:</span>
+                          <input
+                            type="text"
+                            value={editOficinasDetalle[ofi.cCodAreaDestino] || ""}
+                            onChange={(e) =>
+                              setEditOficinasDetalle({
+                                ...editOficinasDetalle,
+                                [ofi.cCodAreaDestino]: e.target.value,
+                              })
+                            }
+                            className="w-full rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-700 focus:border-sat-cyan focus:outline-none"
+                            placeholder={`Especifique qué solicita a ${ofi.cCodAreaDestino}...`}
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-2 border-t border-amber-200">
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingModal(false)}
+                        className="rounded border border-slate-300 px-3 py-1 text-xs text-slate-600 hover:bg-slate-100"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleGuardarEdicionSolicitud}
+                        disabled={savingEdit}
+                        className="inline-flex items-center gap-1.5 rounded bg-emerald-600 px-4 py-1 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50 shadow-xs"
+                      >
+                        {savingEdit ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                        Guardar Cambios
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()
             ) : (
               <>
                 {modalDetalle.cObservacionLegal && (
@@ -1428,6 +1822,76 @@ export default function SolicitudInformacionPage() {
         </div>
       )}
 
+      {/* Modal Confirmación de Conformidad Rápida */}
+      {confirmarConformidad && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md rounded-xl bg-white p-5 shadow-2xl space-y-4 border border-slate-100">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="text-emerald-600" size={18} />
+                <h3 className="text-sm font-bold text-sat-navy">
+                  Dar Conformidad / Visto Bueno
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setConfirmarConformidad(null)}
+                className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              <p className="text-slate-600">
+                ¿Está seguro de otorgar la <strong className="text-emerald-700">Conformidad (Visto Bueno)</strong> a la respuesta emitida por:
+              </p>
+              <div className="rounded-lg bg-slate-50 p-3 border border-slate-200 space-y-1">
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400">Trámite:</span>{" "}
+                  <span className="font-mono font-bold text-sat-navy">{confirmarConformidad.cCodificacion}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400">Oficina:</span>{" "}
+                  <span className="font-bold text-slate-700">{confirmarConformidad.ofiNombre}</span>
+                </div>
+              </div>
+              <p className="text-[11px] text-amber-700 bg-amber-50 p-2 rounded border border-amber-200 flex items-center gap-1.5 font-medium">
+                <AlertTriangle size={13} className="shrink-0 text-amber-600" />
+                Al dar conformidad, la respuesta quedará aprobada y la oficina ya no podrá modificarla.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setConfirmarConformidad(null)}
+                className="rounded border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50 font-medium"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={evaluandoOficinaId === confirmarConformidad.iCodSolicitudOficina}
+                onClick={async () => {
+                  const id = confirmarConformidad.iCodSolicitudOficina;
+                  await handleEvaluarRespuesta(id, 3);
+                  setConfirmarConformidad(null);
+                }}
+                className="inline-flex items-center gap-1.5 rounded bg-emerald-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 shadow-xs disabled:opacity-50"
+              >
+                {evaluandoOficinaId === confirmarConformidad.iCodSolicitudOficina ? (
+                  <Loader2 size={13} className="animate-spin" />
+                ) : (
+                  <CheckCircle2 size={13} />
+                )}
+                Sí, Confirmar Visto Bueno
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Visor Modal de Archivos NAS */}
       {viewerFile && (
         <FileViewerModal
@@ -1437,6 +1901,12 @@ export default function SolicitudInformacionPage() {
           fileName={viewerFile.name}
         />
       )}
+
+      {/* Manual de Usuario Modal */}
+      <ManualUsuarioModal
+        isOpen={showManualModal}
+        onClose={() => setShowManualModal(false)}
+      />
     </div>
   );
 }

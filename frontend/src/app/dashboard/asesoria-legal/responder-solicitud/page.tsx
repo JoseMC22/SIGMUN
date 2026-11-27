@@ -380,30 +380,39 @@ export default function ResponderSolicitudesPage() {
         {/* Table Column */}
         <div className={`${selectedSolicitud ? "lg:col-span-7" : "lg:col-span-12"} space-y-3`}>
           <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm custom-scrollbar">
-            <table className="w-full min-w-[700px] table-fixed border-collapse">
+            <table className="w-full min-w-[850px] table-fixed border-collapse">
               <thead className="bg-gradient-to-r from-sat-navy to-[#1e3050]">
                 <tr>
-                  <th className="text-left text-xs font-bold text-white uppercase px-2.5 py-2.5 w-[16%]">
+                  <th className="text-left text-xs font-bold text-white uppercase px-2.5 py-2.5 w-[11%]">
                     N° Trámite
                   </th>
-                  <th className="text-left text-xs font-bold text-white uppercase px-2.5 py-2.5 w-[14%]">
+                  <th className="text-left text-xs font-bold text-white uppercase px-2 py-2.5 w-[8%]">
                     Cód. Contrib.
                   </th>
-                  <th className="text-left text-xs font-bold text-white uppercase px-2.5 py-2.5 w-[16%]">
+                  <th className="text-left text-xs font-bold text-white uppercase px-2 py-2.5 w-[10%]">
                     Fecha Envío
                   </th>
-                  <th className="text-left text-xs font-bold text-white uppercase px-2.5 py-2.5 w-[36%]">
-                    Requerimiento Específico
+                  <th className="text-left text-xs font-bold text-white uppercase px-2.5 py-2.5 w-[22%]">
+                    Contribuyente / Asunto
                   </th>
-                  <th className="text-center text-xs font-bold text-white uppercase px-2.5 py-2.5 w-[18%]">
-                    Estado / Acción
+                  <th className="text-center text-xs font-bold text-white uppercase px-2 py-2.5 w-[13%]">
+                    Años / Tributos
+                  </th>
+                  <th className="text-left text-xs font-bold text-white uppercase px-2.5 py-2.5 w-[18%]">
+                    Requerimiento Legal
+                  </th>
+                  <th className="text-center text-xs font-bold text-white uppercase px-2 py-2.5 w-[9%]">
+                    Estado
+                  </th>
+                  <th className="text-center text-xs font-bold text-white uppercase px-2 py-2.5 w-[9%]">
+                    Acción
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {solicitudesFiltradas.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="text-center py-10 text-xs text-slate-400">
+                    <td colSpan={8} className="text-center py-10 text-xs text-slate-400">
                       <Inbox size={24} className="mx-auto mb-2 opacity-40" />
                       {loading ? "Cargando requerimientos..." : `No hay requerimientos para ${currentOficinaNombre}.`}
                     </td>
@@ -424,100 +433,166 @@ export default function ResponderSolicitudesPage() {
                             : "bg-slate-50/40"
                         }`}
                     >
-                      <td className="px-2.5 py-2.5 text-sm font-mono font-bold text-sat-navy tracking-tight truncate">
+                      <td className="px-2.5 py-2.5 text-xs font-mono font-bold text-sat-navy tracking-tight truncate">
                         {s.cCodificacion}
                       </td>
-                      <td className="px-2.5 py-2.5 text-[13px] font-mono font-bold text-sat-cyan tracking-tight truncate">
-                        {s.ccodigo || "-"}
+                      <td className="px-2 py-2.5 text-xs font-mono font-bold text-sat-cyan tracking-tight truncate">
+                        {s.ccodigo && s.ccodigo !== "-" ? s.ccodigo : "-"}
                       </td>
-                      <td className="px-2.5 py-2.5 text-xs text-slate-600 truncate">
-                        {s.fFecEnvio ? new Date(s.fFecEnvio).toLocaleString("es-PE") : "-"}
+                      <td className="px-2 py-2.5 text-xs text-slate-600">
+                        {s.fFecEnvio ? (
+                          <div>
+                            <span className="font-medium text-slate-700 block">
+                              {new Date(s.fFecEnvio).toLocaleDateString("es-PE")}
+                            </span>
+                            <span className="text-[10px] text-slate-400 block font-mono">
+                              {new Date(s.fFecEnvio).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 font-mono">-</span>
+                        )}
                       </td>
-                      <td className="px-2.5 py-2.5 text-[11px] text-slate-600 truncate">
+                      <td className="px-2.5 py-2.5">
+                        <div className="font-bold text-xs text-slate-800 uppercase tracking-tight truncate" title={s.nombre_contribuyente || ""}>
+                          {s.nombre_contribuyente || "-"}
+                        </div>
+                        <div className="text-[10px] text-slate-500 uppercase tracking-tight line-clamp-1 mt-0.5" title={s.cAsunto || ""}>
+                          {s.cAsunto || "-"}
+                        </div>
+                      </td>
+                      <td className="px-1.5 py-2 text-center">
+                        {s.tributos && s.tributos.length > 0 ? (
+                          <div className="flex flex-col gap-1 items-center justify-center">
+                            {s.tributos.map((trib, i) => (
+                              <span
+                                key={i}
+                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold tracking-tight shadow-2xs whitespace-nowrap ${
+                                  trib.cTipoTributo?.toUpperCase().includes("PREDIAL")
+                                    ? "bg-amber-50 text-amber-800 border border-amber-300"
+                                    : trib.cTipoTributo?.toUpperCase().includes("ARBITRIO")
+                                    ? "bg-sky-50 text-sky-800 border border-sky-300"
+                                    : "bg-slate-100 text-slate-700 border border-slate-300"
+                                }`}
+                                title={`${trib.cTipoTributo}: ${trib.nAnoDesde} - ${trib.nAnoHasta ?? "Actual"}`}
+                              >
+                                <span className="text-[9px] uppercase font-semibold opacity-80">
+                                  {trib.cTipoTributo?.length > 7 ? trib.cTipoTributo.substring(0, 6) + "." : trib.cTipoTributo}:
+                                </span>
+                                <span>{trib.nAnoDesde} - {trib.nAnoHasta ?? ""}</span>
+                              </span>
+                            ))}
+                          </div>
+                        ) : (s.AnoDesde || s.fFecDesde) ? (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 text-[10px] font-mono font-bold">
+                            {s.AnoDesde || s.fFecDesde} - {s.AnoHasta || s.fFecHasta || ""}
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-slate-400 font-mono">-</span>
+                        )}
+                      </td>
+                      <td className="px-2.5 py-2.5 text-xs text-slate-600 line-clamp-2" title={s.cDetalleSolicitud || ""}>
                         {s.cDetalleSolicitud || "Sin especificación"}
                       </td>
-                      <td className="px-2 py-2.5 text-center flex items-center justify-center gap-1">
+                      <td className="px-1.5 py-2.5 text-center">
                         {s.nFlgEstado === 3 ? (
-                          <>
-                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-bold shadow-2xs">
-                              <CheckCircle2 size={11} className="text-emerald-700" /> Conforme
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => setModalVerRespuesta(s)}
-                              className="inline-flex items-center gap-1 rounded bg-sky-50 px-2 py-1 text-[10px] font-medium text-sky-700 border border-sky-200 transition hover:bg-sky-100 cursor-pointer shadow-2xs"
-                              title="Ver Respuesta Aprobada por Legal"
-                            >
-                              <Eye size={11} />
-                            </button>
-                          </>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold shadow-2xs">
+                            <CheckCircle2 size={11} className="text-emerald-600" /> CONFORME
+                          </span>
                         ) : s.nFlgEstado === 4 ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedSolicitud(s);
-                                setRespuestaText("");
-                                setAdjunto(null);
-                                setSubmitError(null);
-                                setSubmitSuccess(null);
-                              }}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-amber-500 text-white border border-amber-600 text-[10px] font-bold hover:bg-amber-600 transition cursor-pointer shadow-xs animate-pulse"
-                              title="Respuesta Observada por Legal: Hacer clic para redactar nueva respuesta corregida"
-                            >
-                              <AlertTriangle size={11} className="text-white" /> Observado (Corregir)
-                            </button>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-50 text-red-700 border border-red-200 text-[10px] font-bold shadow-2xs">
+                            <AlertTriangle size={11} className="text-red-600" /> OBSERVADO
+                          </span>
+                        ) : s.cEstadoOficina === "RESPONDIDO" ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200 text-[10px] font-bold shadow-2xs">
+                            <CheckCircle2 size={11} className="text-sky-600" /> ATENDIDO
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold shadow-2xs">
+                            <Clock size={11} className="text-amber-500" /> PENDIENTE
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-1.5 py-2.5 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          {s.nFlgEstado === 3 ? (
                             <button
                               type="button"
                               onClick={() => setModalVerRespuesta(s)}
-                              className="inline-flex items-center gap-1 rounded bg-sky-50 px-2 py-1 text-[10px] font-medium text-sky-700 border border-sky-200 transition hover:bg-sky-100 cursor-pointer shadow-2xs"
-                              title="Ver Respuesta Enviada"
+                              className="inline-flex items-center justify-center p-1.5 rounded bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 transition shadow-2xs cursor-pointer"
+                              title="Ver Respuesta Aprobada"
                             >
-                              <Eye size={11} />
+                              <Eye size={13} />
                             </button>
-                          </>
-                        ) : s.cEstadoOficina === "RESPONDIDO" ? (
-                          <>
+                          ) : s.nFlgEstado === 4 ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedSolicitud(s);
+                                  setRespuestaText("");
+                                  setAdjunto(null);
+                                  setSubmitError(null);
+                                  setSubmitSuccess(null);
+                                }}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded bg-red-600 text-white font-medium text-[10px] hover:bg-red-700 transition shadow-xs cursor-pointer"
+                                title="Corregir observación"
+                              >
+                                Corregir
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setModalVerRespuesta(s)}
+                                className="inline-flex items-center justify-center p-1.5 rounded bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 transition shadow-2xs cursor-pointer"
+                                title="Ver Respuesta Enviada"
+                              >
+                                <Eye size={13} />
+                              </button>
+                            </>
+                          ) : s.cEstadoOficina === "RESPONDIDO" ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedSolicitud(s);
+                                  setRespuestaText(s.cRespuesta || "");
+                                  setSubmitError(null);
+                                  setSubmitSuccess(null);
+                                  if (s.cRutaArchivo) {
+                                    setAdjunto({ cNombreArchivo: s.cNombreArchivo || "Documento Adjunto", cRutaArchivo: s.cRutaArchivo });
+                                  } else {
+                                    setAdjunto(null);
+                                  }
+                                }}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded bg-slate-100 text-slate-700 border border-slate-300 font-medium text-[10px] hover:bg-slate-200 transition shadow-2xs cursor-pointer"
+                                title="Editar respuesta enviada"
+                              >
+                                Editar
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setModalVerRespuesta(s)}
+                                className="inline-flex items-center justify-center p-1.5 rounded bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 transition shadow-2xs cursor-pointer"
+                                title="Ver Respuesta Enviada"
+                              >
+                                <Eye size={13} />
+                              </button>
+                            </>
+                          ) : (
                             <button
                               type="button"
                               onClick={() => {
                                 setSelectedSolicitud(s);
                                 setRespuestaText(s.cRespuesta || "");
-                                setSubmitError(null);
-                                setSubmitSuccess(null);
-                                if (s.cRutaArchivo) {
-                                  setAdjunto({ cNombreArchivo: s.cNombreArchivo || "Documento Adjunto", cRutaArchivo: s.cRutaArchivo });
-                                } else {
-                                  setAdjunto(null);
-                                }
                               }}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-semibold hover:bg-emerald-100 transition cursor-pointer shadow-2xs"
-                              title="Hacer clic para editar respuesta enviada"
+                              className="inline-flex items-center gap-1 rounded bg-amber-500 px-2.5 py-1 text-[10px] font-bold text-white transition hover:bg-amber-600 shadow-xs cursor-pointer"
+                              title="Responder a Asesoría Legal"
                             >
-                              <CheckCircle2 size={11} className="text-emerald-600" /> Respondido (Editar)
+                              <Send size={11} />
+                              Atender
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => setModalVerRespuesta(s)}
-                              className="inline-flex items-center gap-1 rounded bg-sky-50 px-2 py-1 text-[10px] font-medium text-sky-700 border border-sky-200 transition hover:bg-sky-100 cursor-pointer shadow-2xs"
-                              title="Ver Respuesta Enviada"
-                            >
-                              <Eye size={11} />
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedSolicitud(s);
-                              setRespuestaText(s.cRespuesta || "");
-                            }}
-                            className="inline-flex items-center gap-1 rounded bg-amber-500 px-3 py-1 text-[10px] font-bold text-white transition hover:bg-amber-600 shadow-xs"
-                          >
-                            <Send size={11} />
-                            Atender
-                          </button>
-                        )}
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ));
@@ -619,6 +694,33 @@ export default function ResponderSolicitudesPage() {
                   <span className="text-[10px] text-slate-400 uppercase font-semibold block">Trámite:</span>
                   <span className="font-mono font-bold text-sat-navy">{selectedSolicitud.cCodificacion}</span>
                 </div>
+
+                {/* Bloque Conceptos / Tributos Solicitados */}
+                {selectedSolicitud.tributos && selectedSolicitud.tributos.length > 0 && (
+                  <div className="pt-1 border-t border-slate-200/60">
+                    <span className="text-[10px] text-slate-400 uppercase font-semibold block mb-1">
+                      Conceptos / Tributos Solicitados:
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {selectedSolicitud.tributos.map((trib, i) => (
+                        <span
+                          key={i}
+                          className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-mono font-bold shadow-2xs ${
+                            trib.cTipoTributo?.toUpperCase().includes("PREDIAL")
+                              ? "bg-amber-100/80 text-amber-900 border border-amber-300"
+                              : trib.cTipoTributo?.toUpperCase().includes("ARBITRIO")
+                              ? "bg-sky-100/80 text-sky-900 border border-sky-300"
+                              : "bg-emerald-100/80 text-emerald-900 border border-emerald-300"
+                          }`}
+                        >
+                          <span className="uppercase text-[9px] font-semibold">{trib.cTipoTributo}:</span>
+                          <span>{trib.nAnoDesde} - {trib.nAnoHasta ?? "Presente"}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <span className="text-[10px] text-slate-400 uppercase font-semibold block">Detalle Solicitado por Legal:</span>
                   <p className="text-slate-600 font-mono text-[11px]">{selectedSolicitud.cDetalleSolicitud || "Sin especificación"}</p>
@@ -756,6 +858,31 @@ export default function ResponderSolicitudesPage() {
             </div>
 
             <div className="space-y-3 text-xs">
+              {modalVerRespuesta.tributos && modalVerRespuesta.tributos.length > 0 && (
+                <div className="rounded bg-slate-50 p-2.5 border border-slate-200 space-y-1.5">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase block tracking-wider">
+                    Conceptos / Tributos Solicitados:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {modalVerRespuesta.tributos.map((trib, i) => (
+                      <span
+                        key={i}
+                        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-mono font-bold shadow-2xs ${
+                          trib.cTipoTributo?.toUpperCase().includes("PREDIAL")
+                            ? "bg-amber-100/80 text-amber-900 border border-amber-300"
+                            : trib.cTipoTributo?.toUpperCase().includes("ARBITRIO")
+                            ? "bg-sky-100/80 text-sky-900 border border-sky-300"
+                            : "bg-emerald-100/80 text-emerald-900 border border-emerald-300"
+                        }`}
+                      >
+                        <span className="uppercase text-[9px] font-semibold">{trib.cTipoTributo}:</span>
+                        <span>{trib.nAnoDesde} - {trib.nAnoHasta ?? "Presente"}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="rounded bg-slate-50 p-2.5 border border-slate-200 space-y-1">
                 <span className="text-[10px] text-slate-400 font-bold uppercase block">Requerimiento de Asesoría Legal:</span>
                 <p className="text-slate-700">{modalVerRespuesta.cDetalleSolicitud || "Sin especificación"}</p>
